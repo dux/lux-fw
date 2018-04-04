@@ -36,43 +36,14 @@ class BlogApi < ModelApi
 end
 ```
 
-
-### Response decorator
-
-```
-class ApplicationApi < Lux::Api
-
-  # called at the end of response
-  def decorate_response!(data=nil)
-    @response = data if data
-    @response[:ip] = Lux.current.request.ip
-    @response[:user] = Lux.current.var.user ? Lux.current.var.user.email : false
-    @response[:http_status] = Lux.current.response.status(200)
-    @response[:error] ||= 'Bad request' if Lux.current.response.status != 200
-    @response
-  end
-
-  def after
-    decorate_response!
-  end
-
-end
-```
-
 ### Rescues
 
-Default rescue handler, can be owerriden
+Define API rescue handler
 
 ```
-Lux::Api.class_eval do
-  rescue_from(:all) do |msg|
-    data =  { error:msg }
-
-    if Lux.dev? && $!.class != StandardError
-      data[:backtrace] = $!.backtrace.reject{ |el| el.index('/gems/') }.map{ |el| el.sub(Lux.root.to_s, '') }
-    end
-
-    Lux.current.response.body ApplicationApi.decorate_response(data)
- end
+ApplicationApi.on_error do |e|
+  key = Lux::Error.log(e)
+  response.meta :error_key, key
+  response.meta :error_class, e.class
 end
 ```

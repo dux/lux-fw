@@ -24,7 +24,6 @@ created by @dux in 2017
 * [delayed_job](lib/lux/delayed_job) - experimental delayed job interface
 * [error](lib/lux/error)             - in case of error
 * [helper](lib/lux/helper)           - templat helpers
-* [html](lib/lux/html)               - form builder helpers
 * [mailer](lib/lux/mailer)           - mailers
 * [response](lib/lux/response)       - response
 * [template](lib/lux/template)       - server template rendering logic

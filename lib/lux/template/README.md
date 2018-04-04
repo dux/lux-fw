@@ -20,4 +20,4 @@
 = render :_part, name:'Dux'
 ```
 
-in _part.haml access name via @_name
+in `_part.haml` access option `name: ...` via instance variable `@_name`

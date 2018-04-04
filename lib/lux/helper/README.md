@@ -6,12 +6,11 @@ Lux Helpers provide easy way to group common functions.
 * same as Rails helpers
 * called by Lux::Template before rendering any view
 
-
 ### Example
 
 for this to work
 
-```Lux::Helper.for(:rails, instance_vars={}).link_to(...)```
+```Lux::Helper.for(:rails, @instance_variables_hash).link_to(...)```
 
 RailsHelper module has to define link_to method
 

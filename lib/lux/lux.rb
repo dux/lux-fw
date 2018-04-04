@@ -109,13 +109,7 @@ module Lux
     if File.exist?(base)
       load base
     else
-      files = Dir['%s/*' % dir]
-
-      die('Plugin "%s" load error, no plugin' % name) if files.length == 0
-
-      for file in files
-        require file
-      end
+      Lux::Config.require_all('%s/*' % dir)
     end
   end
 end
