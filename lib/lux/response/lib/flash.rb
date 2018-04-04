@@ -1,0 +1,49 @@
+# frozen_string_literal: true
+
+class Lux::Response::Flash
+
+  # flash.info 'messsage ...'
+  # flash.info = 'messsage ...'
+  def self.add_type name
+    define_method(name) { |message| add name, message }
+    eval "alias #{name}= #{name}"
+  end
+
+  add_type :info
+  add_type :error
+  add_type :warning
+
+  ###
+
+  def initialize h=nil
+    @msg = h || {}
+  end
+
+  def clear
+    to_h.tap { @msg = {} }
+  end
+
+  def to_h
+    @msg
+  end
+
+  # clears white space, replaces quotes
+  def clear_for_js
+    {}.tap do |msg|
+      clear.each do |k, v|
+        msg[k] = v.join(', ').gsub(/\s+/, ' ')
+      end
+    end
+  end
+
+  private
+
+  def add name, message
+    @msg[name] ||= []
+
+    return if @msg[name].last == message
+    return if @msg[name].length > 4
+
+    @msg[name].push message.to_s
+  end
+end

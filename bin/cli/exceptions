@@ -1,0 +1,62 @@
+#!/usr/bin/env ruby
+
+require 'colorize'
+
+ERROR_FOLDER = './log/exceptions'
+
+case ARGV[0]
+  when 'help'
+    puts ' lux exceptions        - show all exceptions'
+    puts ' lux exceptions clear  - to clear error folder'
+    puts ' lux exceptions NUMBER - to show error on specific number'
+    exit
+  when 'clear'
+    LuxCli.run 'rm -rf "%s"' % ERROR_FOLDER
+    puts '%s removed' % ERROR_FOLDER
+    exit
+  else
+end
+
+show = ARGV[0] ? ARGV[0].to_i : nil
+
+error_folders = Dir['%s/*' % ERROR_FOLDER].sort_by { |x| File.mtime(x) }.reverse
+
+if error_folders.length == 0
+  puts 'Nothing found in %s'.light_blue % ERROR_FOLDER
+  exit
+end
+
+cnt = 0
+
+puts 'Add error number as last argument to show full erros'.light_blue
+
+error_folders.each do |error_folder|
+  cnt += 1
+  next if show && show != cnt
+
+  print '%s. %s - ' % [cnt.to_s.rjust(2), error_folder.split('/').last.yellow]
+  file = Dir['%s/*.txt' % error_folder].sort_by{ |f| File.mtime(f) }.first
+  next unless file
+
+  last_update = (Time.now - File.mtime(file)).to_i
+
+  if last_update < 60
+    print '%s sec ago - ' % last_update.to_s.light_blue
+  elsif last_update < 60*60
+    print '%s mins ago - ' % (last_update/60).to_i.to_s.light_blue
+  elsif last_update < 60*60*24
+    print '%s hours ago - ' % (last_update/(60*60)).to_i.to_s.light_blue
+  else
+    print '%s days ago - ' % (last_update/(60*60*24)).to_i.to_s.light_blue
+  end
+
+  puts file.split('/').last
+
+  if show
+    puts "\n" + File.read(file)
+    exit
+  end
+
+  first_line = File.read(file).split("\n").first
+  puts '    %s' % first_line
+end

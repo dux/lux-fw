@@ -1,0 +1,97 @@
+#!/usr/bin/env ruby
+
+if File.exists?('lux-fw.gemspec')
+  puts 'Cant run in lux folder'
+  exit
+end
+
+require 'colorize'
+require 'optparse'
+require 'awesome_print'
+require 'dotenv'
+
+module LuxCli
+  extend self
+
+  def run what
+    puts what.green
+    system what
+  end
+
+  def die text
+    puts text.red
+    exit
+  end
+end
+
+Dotenv.load
+
+@port     = 3000
+lux_root = File.expand_path '../..', __FILE__
+
+if Dir.exists?('.git')
+  test_root = `bundle show lux-fw`.chomp
+  lux_root  = test_root if test_root.include?('lux')
+end
+
+puts 'Lux (%s, v%s)' % [lux_root, File.read('%s/.version' % lux_root)] unless ARGV[0]
+
+ARGV.options do |opts|
+  opts.on("-e", "--environment=val", "RACK_ENV enviroment", String) do |v|
+    v = 'production'  if v[0,1] == 'p'
+    v = 'development'  if v[0,1] == 'd'
+    ENV['RACK_ENV'] = v if v
+  end
+  opts.on("-p", "--port=val", "port (3000)", String) do |v|
+    @port = v.to_i
+  end
+  opts.on("-f", "--flags=val", "CRSL", String) do |v|
+    @flags = v
+  end
+end.parse!
+
+commands = {}
+commands['am']         = 'auto migrate'
+commands['assets']     = 'precompile assets and genereate mainifest.json'
+commands['console']    = 'Lux console'
+commands['dev']        = 'dev on port 3000 with hot reload on code change'
+commands['eval']       = 'eval code or file'
+commands['exceptions'] = 'show stored exceptions, last created first'
+commands['generate']   = 'generates models and views based on templates'
+commands['get']        = 'get local URL'
+commands['nginx']      = 'parse and install config/nginx.conf'
+commands['production'] = 'run puma in production mode'
+commands['routes']     = 'list routes'
+commands['render']     = 'render single page'
+commands['server']     = 'run puma development server'
+commands['systemd']    = 'parse and install config/systemd.conf'
+commands['stat']       = 'goaccess stat to public/goaccess.html'
+# commands['job_que']    = 'process job que with loaded enviroment'
+
+command = ARGV.shift
+
+if command
+  for c in commands
+    command = c[0] if c[0] if c[0].start_with?(command)
+  end
+
+  if commands[command]
+    path = '%s/bin/cli/%s' % [lux_root, command]
+    load path
+  else
+    LuxCli.die "Can't find command [%s]" % command
+  end
+else
+  puts "\nCommands:"
+  for c in commands
+    # puts "  #{c[0].sub(/(\w)/,'[\\1]').ljust(15)} # #{c[1]}"
+    puts "  #{c[0].ljust(15)} # #{c[1]}"
+  end
+
+  puts "\nExamples:"
+  puts '  lux c           # lux console'
+  puts '  lux g user      # lux generate user users'
+  puts ''
+  exit
+end
+

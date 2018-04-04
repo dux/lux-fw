@@ -1,0 +1,104 @@
+# frozen_string_literal: true
+
+# $LOADED_FEATURES.select{ |f| f.index('/app/') || f.index('/lux/') }
+
+module Lux::Config
+  extend self
+
+  LIVE_RELOAD ||= {}
+
+  # if we have errors in module loading, try to load them one more time
+  @module_error = []
+
+  # requires all files recrusive in, with spart sort
+  def require_all files
+    files = files.to_s
+    files += '/*' unless files.include?('*')
+
+    file_errors = []
+    glob = `echo #{files} #{files}/* #{files}/*/*  #{files}/*/*/* #{files}/*/*/*/* |tr ' ' '\n' | grep .rb`.split("\n")
+
+    glob.select{ |o| o.index('.rb') }.map{ |o| o.split('.rb')[0]}.each do |ruby_file|
+      require ruby_file
+    end
+  end
+
+  # preview config in development
+  def show_config
+    for k,v in Lux.config
+      next if v.kind_of?(Hash)
+      puts "* config :#{k} = #{v.kind_of?(Hash) ? '{...}' : v}"
+    end
+  end
+
+  # check all files and reload if needed
+  def live_require_check!
+    if LIVE_RELOAD.blank?
+      root = Lux.root.to_s
+      for file in $LOADED_FEATURES.select{ |f| f.index(root) || f.index('/lux/') }
+        LIVE_RELOAD[file] = File.mtime(file).to_i
+      end
+    end
+
+    for file, mtime in LIVE_RELOAD
+      new_file_mtime = File.mtime(file).to_i
+
+      next if mtime == new_file_mtime
+      LIVE_RELOAD[file] = new_file_mtime
+      Lux.log " Reloaded: .#{file.split(Lux.root.to_s).last.red}"
+      load file
+    end
+    true
+  end
+
+  def ram
+    `ps -o rss -p #{$$}`.chomp.split("\n").last.to_i / 1000
+  end
+
+  def show_load_speed load_start=nil
+    return @@load_info || 'No lux load info' unless load_start
+
+    speed = ((Time.now - load_start)*1000).round.to_s.sub(/(\d)(\d{3})$/,'\1s \2')+'ms'
+
+    production_mode = true
+
+    production_opts = [
+      [:compile_assets,     false],
+      [:auto_code_reload,   false],
+      [:show_server_errors, false],
+      [:log_to_stdout,      false],
+    ]
+
+    opts = production_opts.map do |key, production_value|
+      config_test     = Lux.config(key)
+      config_ok       = production_value == config_test
+      production_mode = false unless config_ok
+
+      data = "#{key} (%s)" % [config_test ? :yes : :no]
+      config_ok ? data : data.yellow
+    end
+
+    puts @@load_info = '* Config: %s' % opts.join(', ')
+
+    mode = production_mode ? 'production'.green : 'development'.yellow
+
+    "* #{'Lux'.white} loaded #{mode} mode in #{speed.to_s.white}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec".tap do |it|
+      @@load_info += "\n#{it}"
+    end
+  end
+
+  def set_default_vars
+    # how long will session last if BROWSER or IP change
+    Lux.config.session_forced_validity = 5.minutes.to_i
+
+    # name of the session cookie
+    Lux.config.session_cookie_name = '__luxs'
+  end
+
+end
+
+class Object
+  def reload!
+    Lux::Config.live_require_check!
+  end
+end

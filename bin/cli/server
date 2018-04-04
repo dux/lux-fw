@@ -1,0 +1,4 @@
+@flags ||= 'ALL'
+@flags = @flags.upcase
+
+LuxCli.run "LUX_FLAGS=%s puma -p %s" % [@flags, @port]

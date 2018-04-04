@@ -1,0 +1,36 @@
+#!/usr/bin/env ruby
+
+ROOT   = Dir.pwd
+FOLDER = Dir.pwd.split('/').last.split('.').first
+
+command = ARGV[0]
+
+@local_conf = './config/systemd.service'
+@target_conf = '/etc/systemd/system/%s.service' % FOLDER
+
+def build_conf
+  conf = File.read(@local_conf) rescue LuxCli.die('Local conf %s not found' % @local_conf)
+
+  LuxCli.die('$ROOT not found in config') unless conf.include?('$ROOT')
+
+  conf = conf.gsub(/`([^`]+)`/) { `#{$1}`.chomp }
+  conf = conf.gsub('$ROOT', ROOT)
+  conf = conf.gsub('$FOLDER', FOLDER)
+  conf
+end
+
+case command
+  when 'show'
+    puts build_conf
+  when 'install'
+    File.write './tmp/systemd.conf', build_conf
+    puts '# run this manualy'
+    puts
+    puts 'sudo cp ./tmp/systemd.conf %s && sudo systemd -t' % @target_conf
+  else
+    puts ' show      # show rendered config'
+    puts ' install   # install %s to %s' % [@local_conf, @target_conf]
+    puts ' ---'
+    puts ' sudo service %s start/stop/restart'.yellow % FOLDER
+end
+
