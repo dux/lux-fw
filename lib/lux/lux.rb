@@ -24,6 +24,16 @@ module Lux
   define_method(:thread) { Thread.current[:lux] }
   define_method(:cache)  { Lux::Cache }
 
+  # main rack response
+  def call  env=nil
+    req = Lux::Current.new env
+    req.response.render
+  rescue
+    raise $! if Lux.config(:show_server_errors)
+
+    [500, {}, ['Lux server error']]
+  end
+
   def env key=nil
     return ENV['RACK_ENV'] unless key
     die "ENV['#{key}'] not found" if ENV[key].nil?

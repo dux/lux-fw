@@ -93,6 +93,15 @@ module Lux::Config
 
     # name of the session cookie
     Lux.config.session_cookie_name = '__luxs'
+
+    # Show server errors to a client
+    Lux.config.show_server_errors = false
+
+    # Log debug output to stdout
+    Lux.config.log_to_stdout = false
+
+    # Automatic code reloads in development
+    Lux.config.auto_code_reload   = false
   end
 
 end

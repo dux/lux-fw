@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'thread'
-
 module Lux::Cache
   extend self
 

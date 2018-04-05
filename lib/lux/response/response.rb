@@ -138,10 +138,9 @@ class Lux::Response
   end
 
   def write_response_body
-    # if @body is not set, this is error now
     unless @body
-      @status = 500
-      @body = Lux.error 'No response, BODY not defined'
+      @status = 404
+      @body = Lux.error 'Document not found'
     end
 
     # respond as JSON if we recive hash

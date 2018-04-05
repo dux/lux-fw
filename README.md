@@ -28,3 +28,49 @@ created by @dux in 2017
 * [response](lib/lux/response)       - response
 * [template](lib/lux/template)       - server template rendering logic
 
+## Example
+
+Install gem with `gem install lux-fw`
+
+#### config.ru
+
+```ruby
+require 'lux-fw'
+
+class RootCell < Lux::Cell
+  def index
+    render text: 'Hello world'
+  end
+
+  def foo
+    render text: 'Foo text'
+  end
+
+  def baz
+    render text: 'Baz text'
+  end
+end
+
+Lux.app.routes do
+  root   RootCell
+
+  action foo: RootCell
+
+  map    bar: RootCell
+
+  map RootCell do
+    map :baz
+  end
+end
+
+run Lux
+```
+
+`puma -p 3000`
+
+* `curl http://localhost:3000/` -> `Hello world`
+* `curl http://localhost:3000/foo` -> `Foo text`
+* `curl http://localhost:3000/bar` -> `Hello world` (maps to RootCell that calls :index)
+* `curl http://localhost:3000/baz` -> `Baz text`
+
+

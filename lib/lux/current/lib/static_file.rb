@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 class Lux::Current::StaticFile
-  DIRS = Dir.entries('./public').select{|d| d[0,1]!='.' && File.directory?("./public/#{d}") } rescue []
-
   MIMME_TYPES = {
     txt:  'text/plain',
     html: 'text/html',
@@ -28,7 +26,7 @@ class Lux::Current::StaticFile
 
   class << self
     def deliver file
-      new(file).read
+      new(file).deliver
     end
   end
 
@@ -53,24 +51,24 @@ class Lux::Current::StaticFile
 
     return false if ext.to_s.length == 0
     return false unless MIMME_TYPES[ext.to_sym]
-    return true if path.first.blank? # if /favico.ico is not present return true
-    return DIRS.index(path.first) ? true : false
+
     true
   end
 
-  def read data=nil
+  def deliver data=nil
     file = File.exist?(@file) ? @file : Lux.root.join("public#{@file}")
 
     unless File.exists?(file)
       if @file == '/favicon.ico'
         file = Lux.fw_root.join('misc/lux.png')
       else
-        raise NotFoundError, %[Static file "#{@file.split(Lux.root.to_s+'/public')[1]}" not found]
+        raise NotFoundError, %[Static file not found]
       end
     end
 
     ext = file.to_s.split('.').last
     mimme = MIMME_TYPES[ext.to_sym]
+
     unless mimme
       c.response.body('Mimme type not supported')
       c.response.status(404)

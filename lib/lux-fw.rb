@@ -1,11 +1,3 @@
-# Gem.loaded_specs['lux-fw'].runtime_dependencies.each do |dep|
-#   require case dep.name
-#     when 'sequel_pg';    'sequel'
-#     when 'hamlit-block'; 'hamlit/block'
-#     else dep.name
-#   end
-# end
-
 require 'awesome_print'
 require 'as-duration'
 require 'colorize'

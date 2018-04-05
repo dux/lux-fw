@@ -8,18 +8,6 @@ class Lux::Application
 
   ###
 
-  # main rack response
-  def self.call  env=nil
-    current = Lux::Current.new env
-    current.response.render
-  rescue
-    raise $! if Lux.config(:show_server_errors)
-
-    [500, {}, ['Lux server error']]
-  end
-
-  ###
-
   def initialize
     @route_test = Lux::Application::RouteTest.new self
   end
@@ -166,8 +154,6 @@ class Lux::Application
 
     object, action = object if object.is_a? Array
 
-    Lux.log ' %s %s # %s' % [object.to_s.light_blue, nav.path, @route_object]
-
     if action
       object.action action
     else
@@ -182,14 +168,14 @@ class Lux::Application
   end
 
   def main
-    begin
-      catch(:done) do
+    catch(:done) do
+      begin
         ClassCallbacks.execute self, :before
         ClassCallbacks.execute self, :routes
         ClassCallbacks.execute self, :after
+      rescue => e
+        ClassCallbacks.execute self, :on_error, e
       end
-    rescue => e
-      ClassCallbacks.execute self, :on_error, e
     end
   end
 
