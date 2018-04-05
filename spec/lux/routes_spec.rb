@@ -12,21 +12,21 @@ class RoutesTestCell < Lux::Cell
   end
 end
 
-class Lux::Application
-  def main
-    get :plain => lambda { current.response.body 'plain' }
-    get '/@'   => [RoutesTestCell, :user]
-    get %r{~}  => RoutesTestCell
+Lux.app do
+  routes do
+    map :plain => lambda { current.response.body 'plain' }
+    map '/@'   => [RoutesTestCell, :user]
+    map %r{~}  => RoutesTestCell
   end
 end
 
 describe Lux::Application do
   it 'should get right routess' do
-    expect(Lux('/plain').body).to eq 'plain'
-    expect(Lux('/@dux').body).to  eq 'user'
-    expect(Lux('/~dux').body).to  eq 'tilda'
+    expect(Lux.app.render('/plain').body).to eq 'plain'
+    expect(Lux.app.render('/@dux').body).to  eq 'user'
+    expect(Lux.app.render('/~dux').body).to  eq 'tilda'
 
-    expect(Lux('/not-found').status).to eq 500
-    expect(Lux('/x@dux').status).to eq 500
+    expect(Lux.app.render('/not-found').status).to eq 404
+    expect(Lux.app.render('/x@dux').status).to eq 404
   end
 end

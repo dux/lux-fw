@@ -47,7 +47,7 @@ end
 
 describe Lux::Cell do
   before do
-    Lux::Current.prepare('http://testing')
+    Lux::Current.new('http://testing')
   end
 
   it 'renders text' do
@@ -76,15 +76,15 @@ describe Lux::Cell do
 
   it 'tests filters on call' do
     expect{
-      Lux('/call_test_before') { CellTestCell.call }
+      Lux.app.render('/call_test_before') { CellTestCell.call }
     }.to raise_error(StandardError, 'before')
 
     expect{
-      Lux('/call_test_before_action') { CellTestCell.call }
+      Lux.app.render('/call_test_before_action') { CellTestCell.call }
     }.to raise_error(StandardError, nil)
 
     expect{
-      Lux('/call_test_before_render') { CellTestCell.call }
+      Lux.app.render('/call_test_before_render') { CellTestCell.call }
     }.to raise_error(StandardError, nil)
   end
 

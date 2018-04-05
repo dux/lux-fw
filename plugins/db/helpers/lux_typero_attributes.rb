@@ -18,9 +18,9 @@ module Sequel::Plugins::TyperoAttributes
     def typero! field_name=nil
       typero = self.class.typero_schema || return
 
-      typero.validate(self) { |name, err|
-        ap name
-        errors.add(name, err) unless (errors.on(name) || []).include?(err) }
+      typero.validate(self) do |name, err|
+        errors.add(name, err) unless (errors.on(name) || []).include?(err)
+      end
 
       # this are rules unique to database, so we check them here
       typero.rules.each do |field, rule|

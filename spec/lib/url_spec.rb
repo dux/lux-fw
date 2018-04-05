@@ -9,7 +9,7 @@ describe Url do
   end
 
   it 'should read request' do
-    Lux::Current.prepare 'http://www.lvh.com/abc?def=123'
+    Lux::Current.new 'http://www.lvh.com/abc?def=123'
     expect(Url.current.qs('abc','456').to_s).to eq('http://www.lvh.com/abc?abc=456&def=123')
   end
 end

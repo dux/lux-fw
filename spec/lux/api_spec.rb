@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'typero'
 
 class TestApi < ApplicationApi
   def foo
@@ -12,6 +13,7 @@ class TestApi < ApplicationApi
 
   def baz
     message 'baz'
+
     'ok'
   end
 end
@@ -22,18 +24,18 @@ describe Lux::Api do
   end
 
   it 'renders foo' do
-    expect( TestApi.new.call(:foo)['data'] ).to eq('foo')
+    expect( TestApi.new.call(:foo)[:data] ).to eq('foo')
   end
 
   it 'renders bar and checks for email' do
-    expect{ TestApi.new.call(:bar) }.to raise_error(ArgumentError)
-    expect( TestApi.new.call(:bar, email: 'foo@bar.baz')['data'] ).to eq('bar')
+    expect( TestApi.new.call(:bar)[:error][:messages][0] ).to eq('Email is required')
+    expect( TestApi.new.call(:bar, email: 'foo@bar.baz')[:data] ).to eq('bar')
   end
 
   it 'checks full message' do
     full = TestApi.new.call :baz
 
-    expect( full.data ).to eq('ok')
-    expect( full.message ).to eq('baz')
+    expect( full[:data] ).to eq('ok')
+    expect( full[:message] ).to eq('baz')
   end
 end
