@@ -21,34 +21,36 @@ module ClassCallbacks
   @@pointers = {}
 
   def add klass, unique_id, action, method
-    key = Crypt.md5(unique_id)
+    klass = klass.to_s
+    key   = Crypt.sha1(unique_id)
+
     @@pointers[key] = method
-    @@methods[klass.to_s] ||= {}
-    @@methods[klass.to_s][action] ||= []
-    @@methods[klass.to_s][action].push(key) unless @@methods[klass.to_s][action].index(key)
+
+    @@methods[klass] ||= {}
+    @@methods[klass][action] ||= []
+    @@methods[klass][action].tap { |it| it.push(key) unless it.include?(key) }
   end
 
   def execute instance_object, action, object=nil
     object ? instance_object.send(action, object) : instance_object.send(action)
 
-    # execute for self and parent
-    for name in instance_object.class.ancestors.reverse.map(&:to_s)
-      next if name == 'Object'
+    # execute for self and parents
+    instance_object.class.ancestors.reverse.map(&:to_s).each do |name|
+      next if     name == 'Object'
+      next unless actions = @@methods.dig(name, action)
 
-      if @@methods[name] && @@methods[name][action]
-        for el in @@methods[name][action].map { |o| @@pointers[o] }
-          if el.kind_of?(Symbol)
-            object ? instance_object.send(el, object) : instance_object.send(el)
-          else
-            object ? instance_object.instance_exec(object, &el) : instance_object.instance_exec(&el)
-          end
+      for el in actions.map { |o| @@pointers[o] }
+        if el.kind_of?(Symbol)
+          object ? instance_object.send(el, object) : instance_object.send(el)
+        else
+          object ? instance_object.instance_exec(object, &el) : instance_object.instance_exec(&el)
         end
       end
     end
   end
 
   def define(klass, *args)
-    for action in args
+    args.each do |action|
       klass.class_eval %[
         def #{action}(duck=nil)
         end

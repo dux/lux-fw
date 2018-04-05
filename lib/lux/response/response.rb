@@ -165,34 +165,23 @@ class Lux::Response
 
   def write_response_header
     domain =
-      if cookie_domain
-        cookie_domain
-      elsif cookie_multidomain && current.domain.index('.')
+      if cookie_multidomain && current.domain.index('.')
         ".#{current.domain}"
       else
-        current.request.host
+        cookie_domain || current.request.host
       end
 
     # cache-control
     @headers['cache-control'] ||= Proc.new do
-      cc      = ['max-age=%d' % max_age]
-
-      if max_age > 0
-        cc.push 'public, no-cache'
-      else
-        cc.push 'private, must-revalidate'
-      end
-
+      cc = ['max-age=%d' % max_age]
+      cc.push max_age > 0 ? 'public, no-cache' : 'private, must-revalidate'
       cc.join(', ')
     end.call
 
     current.session[:lux_flash] = flash.to_h
 
     # dont annd cookies to public pages (images, etc..)
-    add_cookies = true
-    add_cookies = false if @headers['cache-control'].index('public')
-
-    if add_cookies
+    unless @headers['cache-control'].index('public')
       encrypted = Crypt.encrypt(current.session.to_json)
 
       if current.cookies[Lux.config.session_cookie_name] != encrypted
@@ -208,7 +197,7 @@ class Lux::Response
     # if "no-store" is present then HTTP_IF_NONE_MATCH is not sent from browser
   end
 
-  def write_response
+  def render
     write_response_body
     write_response_header
 
@@ -222,16 +211,6 @@ class Lux::Response
     end
 
     [@status, @headers.to_h, [@body]]
-  end
-
-  def render
-    Lux.log "\n#{current.request.request_method.white} #{Lux.current.request.path.white}"
-
-    Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
-
-    Lux::Application.new.main
-
-    write_response
   end
 
 end

@@ -25,11 +25,12 @@ module Lux
   define_method(:cache)  { Lux::Cache }
 
   # main rack response
-  def call  env=nil
-    req = Lux::Current.new env
-    req.response.render
-  rescue
-    raise $! if Lux.config(:show_server_errors)
+  def call env=nil
+    state  = Lux::Current.new env
+    app    = Lux::Application.new state
+    app.render
+  rescue => e
+    raise e if Lux.config(:show_server_errors)
 
     [500, {}, ['Lux server error']]
   end

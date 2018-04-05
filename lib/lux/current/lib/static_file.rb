@@ -55,6 +55,18 @@ class Lux::Current::StaticFile
     true
   end
 
+  def resolve_content_type
+    mimme = MIMME_TYPES[@ext.to_sym]
+
+    unless mimme
+      c.response.body('Mimme type not supported')
+      c.response.status(406)
+      return
+    end
+
+    c.response.content_type = mimme
+  end
+
   def deliver data=nil
     file = File.exist?(@file) ? @file : Lux.root.join("public#{@file}")
 
@@ -66,16 +78,9 @@ class Lux::Current::StaticFile
       end
     end
 
-    ext = file.to_s.split('.').last
-    mimme = MIMME_TYPES[ext.to_sym]
+    @ext = file.to_s.split('.').last
 
-    unless mimme
-      c.response.body('Mimme type not supported')
-      c.response.status(404)
-      return
-    end
-
-    c.response.content_type = mimme
+    resolve_content_type
 
     file_mtime = File.mtime(file).utc.to_s
     key        = Crypt.sha1(file+file_mtime.to_s)
@@ -91,10 +96,7 @@ class Lux::Current::StaticFile
       return
     end
 
-    # c.response.headers['X-Sendfile'] = file
-
-    data ||= File.read(file)
-    c.response.body(data)
+    c.response.body data || File.read(file)
 
     true
   end

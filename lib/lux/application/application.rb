@@ -8,7 +8,8 @@ class Lux::Application
 
   ###
 
-  def initialize
+  def initialize current
+    @current = current
     @route_test = Lux::Application::RouteTest.new self
   end
 
@@ -17,31 +18,32 @@ class Lux::Application
   end
 
   def body?
-    Lux.current.response.body ? true : false
+    @current.response.body ? true : false
   end
 
   def body data
-    Lux.current.response.body data
+    @current.response.body data
   end
 
   def current
-    Lux.current
+    # Lux.current
+    @current
   end
 
   def nav
-    Lux.current.nav
+    @current.nav
   end
 
   def params
-    Lux.current.params
+    @current.params
   end
 
   def redirect where, msgs={}
-    Lux.current.redirect where, msgs
+    @current.redirect where, msgs
   end
 
   def request
-    Lux.current.request
+    @current.request
   end
 
   # gets only root
@@ -55,15 +57,15 @@ class Lux::Application
   end
 
   def done?
-    throw :done if Lux.current.response.body
+    throw :done if @current.response.body
   end
 
   def get?
-    Lux.current.request.request_method == 'GET'
+    @current.request.request_method == 'GET'
   end
 
   def post?
-    Lux.current.request.request_method == 'POST'
+    @current.request.request_method == 'POST'
   end
 
   def plug name, &block
@@ -177,6 +179,16 @@ class Lux::Application
         ClassCallbacks.execute self, :on_error, e
       end
     end
+  end
+
+  def render
+    Lux.log "\n#{current.request.request_method.white} #{current.request.path.white}"
+
+    Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
+
+    main
+
+    current.response.render
   end
 
 end

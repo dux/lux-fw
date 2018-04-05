@@ -4,6 +4,16 @@
 # Hash :qs, Hash :post, String :method, Hash :cookies, Hash :session
 # https://github.com/rack/rack/blob/master/test/spec_request.rb
 
+# Lux.app.render('/admin') -> { status: 403, ... }
+# Lux.app.render('/admin', session: { user_id: User.is_admin.first.id })
+# {
+#   time: '1ms'
+#   status: 200,
+#   headers: {...},
+#   session: {...},
+#   body: '<html> ...'
+# }.h
+
 Lux::Application.class_eval do
   def self.render path='/mock', in_opts={}, &block
     allowed_opts = [:qs, :post, :method, :session, :cookies]
@@ -35,14 +45,14 @@ Lux::Application.class_eval do
       env[k.to_s.upcase] = v
     end
 
-    page = Lux::Current.new(env)
-    Lux.current.session.merge!(in_opts[:session]) if in_opts[:session]
+    current = Lux::Current.new(env)
+    current.session.merge!(in_opts[:session]) if in_opts[:session]
 
-    if block_given?
-      return Lux.app.new.instance_exec &block
-    end
+    app = new current
 
-    response = Lux.current.response.render
+    return app.instance_exec &block if block_given?
+
+    response = app.render
 
     body = response[2].join('')
     body = JSON.parse body if response[1]['content-type'].index('/json')
@@ -51,7 +61,7 @@ Lux::Application.class_eval do
       time: response[1]['x-lux-speed'],
       status: response[0],
       headers: response[1],
-      session: Lux.current.session,
+      session: current.session,
       body: body
     }.h
   end
