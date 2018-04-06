@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 # in some class
-# ClassCallbacks.define self, :before, :after
+# class_callbacks :before, :after
 #
-# then to execute
-# instance_object = SomeClass.new
-# ClassCallbacks.execute(instance_object, :before)
+# then to execute in instance_object
+# class_callback :before
+# class_callback :after
 #
 # before do
 #   ...
@@ -36,8 +36,9 @@ module ClassCallbacks
 
     # execute for self and parents
     instance_object.class.ancestors.reverse.map(&:to_s).each do |name|
-      next if     name == 'Object'
-      next unless actions = @@methods.dig(name, action)
+      actions = @@methods.dig(name, action)
+
+      next if !actions || name == 'Object'
 
       for el in actions.map { |o| @@pointers[o] }
         if el.kind_of?(Symbol)
@@ -49,7 +50,7 @@ module ClassCallbacks
     end
   end
 
-  def define(klass, *args)
+  def define klass, *args
     args.each do |action|
       klass.class_eval %[
         def #{action}(duck=nil)
@@ -62,3 +63,15 @@ module ClassCallbacks
     end
   end
 end
+
+Object.class_eval do
+  def self.class_callbacks *args
+    ClassCallbacks.define self, *args
+  end
+
+  def class_callback name, arg=nil
+    ClassCallbacks.execute self, name, arg
+  end
+end
+
+

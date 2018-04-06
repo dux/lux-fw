@@ -8,13 +8,13 @@
 class Lux::Cell
   # define maser layout
   # string is template, symbol is metod pointer and lambda is lambda
-  ClassAttributes.define self, :layout
+  class_attribute :layout
 
   # define helper contest, by defult derived from class name
-  ClassAttributes.define self, :helper
+  class_attribute :helper
 
   # before and after any action filter, ignored in cells, after is called just before render
-  ClassCallbacks.define self, :before, :before_action, :before_render, :after
+  class_callbacks :before, :before_action, :before_render, :after
 
   class << self
     # class call method, should not be overridden
@@ -66,11 +66,10 @@ class Lux::Cell
 
   # execute before and after filters, only once
   def filter fiter_name
-    # move this to ClassCallbacks class?
     return if @executed_filters[fiter_name]
     @executed_filters[fiter_name] = true
 
-    ClassCallbacks.execute(self, fiter_name)
+    class_callback fiter_name
   end
 
   def cache *args, &block
@@ -133,7 +132,7 @@ class Lux::Cell
 
     opts[:template] = name if name
 
-    render_resolve_body opts
+    render_resolve opts
 
     Lux.cache.set(opts[:cache], response.body) if opts[:cache]
   end
@@ -144,7 +143,7 @@ class Lux::Cell
   end
 
   def render_to_string name=nil, opts={}
-    opts[:set_page_body] = false
+    opts[:render_to_string] = true
     render name, opts
   end
 
@@ -153,38 +152,56 @@ class Lux::Cell
   end
 
   private
+    # delegated to current
+    define_method(:current)  { Lux.current }
+    define_method(:request)  { current.request }
+    define_method(:response) { current.response }
+    define_method(:params)   { current.params }
+    define_method(:nav)      { current.nav }
+    define_method(:session)  { current.session }
+    define_method(:redirect) { |where, flash={}| current.redirect where, flash }
+    define_method(:etag)     { |*args| current.response.etag *args }
+
     # called be render
-    def render_resolve_body opts
+    def render_resolve opts
       # resolve basic types
-      if opts[:text]
-        response.content_type = 'text/plain'
-        return response.body(opts[:text])
-      elsif opts[:html]
-        response.content_type = 'text/html'
-        return response.body(opts[:html])
-      elsif opts[:json]
-        response.content_type = 'application/json'
-        return response.body(opts[:json])
+      types = [ [:text, 'text/plain'], [:html, 'text/html'], [:json, 'application/json'] ]
+      types.select{ |it| opts[it.first]}.each do |name, content_type|
+        response.content_type = content_type
+        return response.body(opts[name])
       end
 
       # resolve page data, without template
-      page_data = opts[:data] || Proc.new do
-        if template = opts.delete(:template)
-          template = template.to_s
-          template = "#{@base_template}/#{template}" unless template.starts_with?('/')
-        else
-          template = "#{@base_template}/#{@cell_action}"
-        end
-
-        Lux::Template.render_part(template, helper)
-      end.call
+      page_data = opts[:data] || render_body(opts)
 
       # resolve data with layout
+      page_data = render_layout opts, page_data
+
+      # set body unless render to string
+      response.body(page_data) unless opts[:render_to_string]
+
+      page_data
+    end
+
+    def render_body opts
+      if template = opts.delete(:template)
+        template = template.to_s
+        template = "#{@base_template}/#{template}" unless template.starts_with?('/')
+      else
+        template = "#{@base_template}/#{@cell_action}"
+      end
+
+      Lux::Template.render_part(template, helper)
+    end
+
+    def render_layout opts, page_data
       layout = opts.delete(:layout)
       layout = nil if layout.class == TrueClass
       layout = false if @layout.class == FalseClass
 
-      if layout.class != FalseClass
+      if layout.class == FalseClass
+        page_data
+      else
         layout_define = layout || self.class.layout
 
         layout = case layout_define
@@ -198,18 +215,9 @@ class Lux::Cell
             "#{@base_template.split('/')[0]}/layout"
         end
 
-        page_data = Lux::Template.new(layout, helper).render_part do
-          page_data
-        end
+        Lux::Template.new(layout, helper).render_part { page_data }
       end
 
-      response.body(page_data) unless opts[:set_page_body].is_false?
-
-      page_data
-    end
-
-    def etag *args
-      response.etag *args
     end
 
     def halt status, desc=nil
@@ -217,35 +225,6 @@ class Lux::Cell
       response.body   = desc || "Hatlt code #{status}"
 
       throw :done
-    end
-
-    # helper functions
-    def current
-      Lux.current
-    end
-
-    def request
-      Lux.current.request
-    end
-
-    def response
-      Lux.current.response
-    end
-
-    def params
-      Lux.current.params
-    end
-
-    def nav
-      Lux.current.nav
-    end
-
-    def redirect where, flash={}
-      Lux.current.redirect where, flash
-    end
-
-    def session
-      Lux.current.session
     end
 
     def namespace

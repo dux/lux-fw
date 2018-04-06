@@ -20,21 +20,55 @@
 
 sugessted usage
 
-```
-Mailer.deliver(:confirm_email, 'rejotl@gmailcom')
-Mailer.render(:confirm_email, 'rejotl@gmailcom')
+```ruby
+Mailer.deliver(:confirm_email, 'foo@bar.baz')
+Mailer.render(:confirm_email, 'foo@bar.baz')
 ```
 
 natively works like
 
 ```
-Mailer.prepare(:confirm_email, 'rejotl@gmailcom').deliver
-Mailer.prepare(:confirm_email, 'rejotl@gmailcom').body
+Mailer.prepare(:confirm_email, 'foo@bar.baz').deliver
+Mailer.prepare(:confirm_email, 'foo@bar.baz').body
 ```
 
 Rails mode via method missing is suported
 
 ```
-Mailer.confirm_email('rejotl@gmailcom').deliver
-Mailer.confirm_email('rejotl@gmailcom').body
+Mailer.confirm_email('foo@bar.baz').deliver
+Mailer.confirm_email('foo@bar.baz').body
+```
+
+### Example code
+
+```ruby
+class Mailer < Lux::Mailer
+  helper :mailer
+
+  # before mail is sent
+  after do
+    mail.from = "#{App.name} <no-reply@#{App.host}>"
+  end
+
+  # raw define mail
+  def raw to:, subject:, body:
+    mail.subject = subject
+    mail.to      = to
+
+    @body = body.as_html
+  end
+
+  # send mail as
+  #   Mailer.lost_password('foo@bar.baz').deliver
+  #
+  # renders tamplate and layout
+  #   ./app/views/mailer/lost_password.haml
+  #   ./app/views/mailer/layout.haml
+  def lost_password email
+    mail.subject = "#{App.name} – potvrda registracije"
+    mail.to      = email
+
+    @link    = "#{App.http_host}/profile/password?user_hash=#{Crypt.encrypt(email)}"
+  end
+end
 ```

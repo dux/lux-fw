@@ -1,5 +1,5 @@
 class Lux::Application
-  ClassCallbacks.define self, :before, :after, :routes, :on_error
+  class_callbacks :before, :after, :routes, :on_error
 
   attr_reader :route_target
 
@@ -172,11 +172,11 @@ class Lux::Application
   def main
     catch(:done) do
       begin
-        ClassCallbacks.execute self, :before
-        ClassCallbacks.execute self, :routes
-        ClassCallbacks.execute self, :after
+        class_callback :before
+        class_callback :routes
+        class_callback :after
       rescue => e
-        ClassCallbacks.execute self, :on_error, e
+        class_callback :on_error, e
       end
     end
   end

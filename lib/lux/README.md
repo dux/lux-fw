@@ -1,4 +1,4 @@
 ### Page render flow
 
-* config.ru calls Lux::Application.call(rack_enviroment)
-* returns rack response [http status, heders hash, body]
+* in `config.ru` you have to define `run Lux`, that will call `Lux.call(rack_enviroment)`
+* returns rack response [Integer http_status, Hash headers, [String body]]

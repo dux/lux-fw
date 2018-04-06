@@ -1,10 +1,10 @@
 require 'spec_helper'
 
 class Parent
-  ClassAttributes.define self, :layout, :default
-  ClassAttributes.define self, :layout_over, :default
-  ClassAttributes.define self, :layout_nil
-  ClassAttributes.define self, :layout_defined
+  class_attribute :layout, :default
+  class_attribute :layout_over, :default
+  class_attribute :layout_nil
+  class_attribute :layout_defined
 end
 
 class Child < Parent
@@ -19,9 +19,19 @@ end
 describe ClassAttributes do
   it 'speed should get good values' do
     expect(Pet.layout_defined).to eq(:test_pet)
+    expect(Child.layout_defined).to eq(:test)
     expect(Child.layout).to eq(:default)
     expect(Child.layout_nil).to eq(nil)
-    expect(Child.layout_defined).to eq(:test)
     expect(Child.layout_over).to eq(:test)
+  end
+
+  it 'should not get defeined twice' do
+    Child.layout = :foo
+
+    expect(Child.layout).to eq(:foo)
+
+    Parent.class_eval { ClassAttributes.define self, :layout }
+
+    expect(Child.layout).to eq(:foo)
   end
 end

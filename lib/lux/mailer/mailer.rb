@@ -11,7 +11,7 @@
 # Mailer.confirm_email('rejotl@gmailcom').body
 
 class Lux::Mailer
-  ClassCallbacks.define self, :before, :after
+  class_callbacks :before, :after
   class_attribute :helper
 
   attr_reader :mail
@@ -21,11 +21,9 @@ class Lux::Mailer
     def prepare template, *args
       obj = new
       obj.instance_variable_set :@_template, template
-
-      ClassCallbacks.execute obj, :before
+      obj.class_callback :before
       obj.send template, *args
-      ClassCallbacks.execute obj, :after
-
+      obj.class_callback :after
       obj
     end
 

@@ -5,7 +5,7 @@
 # klass.layout = value -> set value
 
 # class A
-#   ClassAttributes.define self, :layout, 'default'
+#   class_attribute :layout, 'default'
 # end
 # class B < A
 #   layout 'l B'
@@ -16,35 +16,35 @@
 # puts B.layout # l B
 # puts C.layout # l B
 
-# class User
-#   ClassAttributes.define_in_current_thread self, :current
-# end
-
-# User.current = User.first
-
 module ClassAttributes
   extend self
 
-  CA_DEFAULTS = {}
+  @@CA_DEFAULTS = {}
 
   # defines class variable
   def define klass, name, default=nil, &block
     raise ArgumentError, 'name must be symbol' unless name.class == Symbol
 
-    default ||= block if block
+    # auto reload will define class methods again and overload runtime values
+    return if klass.respond_to?(name)
 
-    ::ClassAttributes::CA_DEFAULTS[name] = { 'Object'=>default }
+    # store values uder
+    @@CA_DEFAULTS[klass.to_s] ||= {}
+    @@CA_DEFAULTS[klass.to_s][name] = { 'Object' => block || default }
 
-    klass.define_singleton_method('%s=' % name) { |*args| send name, *args}
-    klass.define_singleton_method(name) do |*args|
-      root = ::ClassAttributes::CA_DEFAULTS[name]
+    klass.define_singleton_method('%s=' % name) { |arg=:_nil| send name, arg }
 
-      # set and return if argument defined
-      return root[to_s] = args[0] if args.length > 0
+    klass.define_singleton_method(name) do |arg=:_nil|
+      # set and return if value defined
+      if arg != :_nil
+        @@CA_DEFAULTS[klass.to_s][name][self.to_s] = arg
+        return arg
+      end
 
       # find value and return
       ancestors.map(&:to_s).each do |el|
-        value = root[el]
+        value = @@CA_DEFAULTS[klass.to_s][name][el]
+
         if value || el == 'Object'
           value = instance_exec(&value) if value.is_a?(Proc)
           return value
@@ -52,24 +52,8 @@ module ClassAttributes
       end
     end
   end
-
-  # defines class variable in current lux thread
-  # User.current = @user
-  # def current klass, name
-  #   klass.class.send(:define_method, name) do |*args|
-  #     Thread.current[:lux] ||= {}
-  #     Thread.current[:lux]['%s-%s' % [klass, name]]
-  #   end
-
-  #   klass.class.send(:define_method, '%s=' % name) do |value|
-  #     Thread.current[:lux] ||= {}
-  #     Thread.current[:lux]['%s-%s' % [klass, name]] = value
-  #   end
-  # end
 end
 
-class Object
-  def class_attribute name, default=nil, &block
-    ClassAttributes.define self, name, default, &block
-  end
+def Object.class_attribute name, default=nil, &block
+  ClassAttributes.define self, name, default, &block
 end
