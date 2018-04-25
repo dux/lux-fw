@@ -56,10 +56,8 @@ class MiniAssets
 
   def add files
     files  = files.sub(/^\.\//,'')
-    files += '/*' unless files.include?('*')
-    path   = @source.dirname.join files
-
-    @files += Dir[path].sort.map{ |f| f.split(MiniAssets::Opts.app_root.to_s+'/', 2).last }
+    path   = files[0,1] == '/' ? "#{Lux.root}/app/assets#{files}" : @source.dirname.join(files)
+    @files += Dir[path].sort.map{ |f| f.split('/app/assets/', 2).last }
   end
 
   # render production file

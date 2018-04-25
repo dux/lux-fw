@@ -70,6 +70,8 @@ class Lux::Cell
     @executed_filters[fiter_name] = true
 
     class_callback fiter_name
+
+    !!response.body
   end
 
   def cache *args, &block
@@ -101,36 +103,32 @@ class Lux::Cell
       return Lux.error(err.join("\n\n"))
     end
 
-    filter :before
-    return if response.body
-
-    filter :before_action
-    return if response.body
+    return if filter :before
+    return if filter :before_action
 
     send method_name, *args
-    filter :after
 
-    return if response.body
+    return if filter :after
+
     render
   end
 
-  # render :show, id
   # render :index
   # render 'main/root/index'
-  # render :profile,  name:'Dux'
   # render text: 'ok'
   def render name=nil, opts={}
+    if name.class == Hash
+      opts.merge! name
+    else
+      opts[:template] = name
+    end
+
+    opts = opts.to_opts! :text, :html, :cache, :template, :json, :layout, :render_to_string, :data, :staus
+
     return if response.body
     return if @no_render
 
     filter :before_render
-
-    if name.is_hash?
-      opts = name
-      name = nil
-    end
-
-    opts[:template] = name if name
 
     render_resolve opts
 
@@ -147,8 +145,14 @@ class Lux::Cell
     render name, opts
   end
 
-  def send_file
+  def send_file file, opts={}
+    opts = opts.to_opts!(:type, :dialog, :name)
+    opts.name ||= file.to_s.split('/').last
 
+    response.header('content-disposition', 'attachment; filename=%s' % opts.name) if opts.dialog;
+    response.response_type = opts.type if opts.type
+
+    Lux::Current::StaticFile.deliver(file)
   end
 
   private
@@ -159,6 +163,8 @@ class Lux::Cell
     define_method(:params)   { current.params }
     define_method(:nav)      { current.nav }
     define_method(:session)  { current.session }
+    define_method(:get?)     { request.request_method == 'GET' }
+    define_method(:post?)    { request.request_method == 'POST' }
     define_method(:redirect) { |where, flash={}| current.redirect where, flash }
     define_method(:etag)     { |*args| current.response.etag *args }
 
@@ -172,19 +178,19 @@ class Lux::Cell
       end
 
       # resolve page data, without template
-      page_data = opts[:data] || render_body(opts)
+      page_data = opts.data || render_body(opts)
 
       # resolve data with layout
       page_data = render_layout opts, page_data
 
       # set body unless render to string
-      response.body(page_data) unless opts[:render_to_string]
+      response.body(page_data) unless opts.render_to_string
 
       page_data
     end
 
     def render_body opts
-      if template = opts.delete(:template)
+      if template = opts.template
         template = template.to_s
         template = "#{@base_template}/#{template}" unless template.starts_with?('/')
       else
@@ -195,7 +201,7 @@ class Lux::Cell
     end
 
     def render_layout opts, page_data
-      layout = opts.delete(:layout)
+      layout = opts.layout
       layout = nil if layout.class == TrueClass
       layout = false if @layout.class == FalseClass
 
@@ -217,7 +223,6 @@ class Lux::Cell
 
         Lux::Template.new(layout, helper).render_part { page_data }
       end
-
     end
 
     def halt status, desc=nil

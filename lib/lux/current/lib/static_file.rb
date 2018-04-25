@@ -68,15 +68,9 @@ class Lux::Current::StaticFile
   end
 
   def deliver data=nil
-    file = File.exist?(@file) ? @file : Lux.root.join("public#{@file}")
+    file = File.exist?(@file) ? @file : Lux.root.join("public#{@file}").to_s
 
-    unless File.exists?(file)
-      if @file == '/favicon.ico'
-        file = Lux.fw_root.join('misc/lux.png')
-      else
-        raise NotFoundError, %[Static file not found]
-      end
-    end
+    raise NotFoundError, 'Static file not found' unless File.exists?(file)
 
     @ext = file.to_s.split('.').last
 

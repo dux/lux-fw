@@ -12,12 +12,13 @@ class RoutesTestCell < Lux::Cell
   end
 end
 
-Lux.app do
-  routes do
-    map :plain => lambda { current.response.body 'plain' }
-    map '/@'   => [RoutesTestCell, :user]
-    map %r{~}  => RoutesTestCell
-  end
+Lux.app.routes do
+  map :plain => lambda { current.response.body 'plain' }
+  map '/@'   => [RoutesTestCell, :user]
+  map %r{~}  => RoutesTestCell
+
+  response.body = 'not found'
+  response.status 404
 end
 
 describe Lux::Application do

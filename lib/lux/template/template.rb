@@ -48,7 +48,6 @@ class Lux::Template
     unless @template
       err = caller.reject{ |l| l =~ %r{(/lux/|/gems/)} }.map{ |l| el=l.to_s.split(Lux.root.to_s); el[1] || l }.join("\n")
       Lux.error %[Lux::Template "#{template}.{erb,haml}" not found\n\n#{err}]
-      raise
     end
 
     begin

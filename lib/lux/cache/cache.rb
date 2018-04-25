@@ -3,6 +3,8 @@
 module Lux::Cache
   extend self
 
+  @@server = nil
+
   # Lux::Cache.sever = :ram
   def server= obj
     obj = "Lux::Cache::#{obj.to_s.classify}Cache".constantize if obj.class == Symbol

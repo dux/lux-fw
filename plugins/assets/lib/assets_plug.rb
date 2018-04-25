@@ -3,7 +3,6 @@
 # /raw_asset/www/js/pjax.coffee
 Lux.app do
   def lux_assets_plug
-
     # only allow clear in dev
     # clear assets every 4 seconds max
     if Lux.current.no_cache? && Lux.config(:compile_assets)

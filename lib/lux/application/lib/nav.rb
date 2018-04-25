@@ -1,11 +1,13 @@
 # experiment for different nav in rooter
 
 class Lux::Application::Nav
-  attr_reader :path, :subdomain, :domain, :id
+  attr_reader :path, :original, :subdomain, :domain, :id
 
   # acepts path as a string
   def initialize request
     @path = request.path.split('/').slice(1, 100) || []
+    @original = @path.dup
+
     shift_to_root if @path.first
 
     @subdomain = request.host.split('.')

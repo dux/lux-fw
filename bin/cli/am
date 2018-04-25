@@ -7,7 +7,10 @@ Dotenv.load
 Bundler.require(:default)
 
 # load app config
-require './config/db'
+envs = ['./config/environment.rb', './config/db.rb']
+file = envs.find{ |f| File.exist?(f) } || LuxCli.die('DB ENV not found in %s' % envs.join(' or '))
+
+load file
 
 # Sequel extension and plugin test
 DB.run %[DROP TABLE IF EXISTS lux_tests;]

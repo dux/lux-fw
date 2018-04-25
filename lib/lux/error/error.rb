@@ -45,6 +45,7 @@ module Lux::Error
     Lux.current.response.status 500
     data = "Lux #{Lux.current.response.status} error\n\n#{desc}"
     Lux.current.response.body! render(data)
+    throw :done
   end
 
   def inline name=nil, o=nil

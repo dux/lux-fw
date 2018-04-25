@@ -1,10 +1,20 @@
 class Lux::Application
   class_callbacks :before, :after, :routes, :on_error
 
-  attr_reader :route_target
+  attr_reader :route_target, :current
 
   # define common http methods as constants
   [:get, :head, :post, :delete, :put, :patch].map(&:to_s).map(&:upcase).each { |m| eval "#{m} ||= '#{m}'" }
+
+  # simple one liners and delegates
+  define_method(:request)  { @current.request }
+  define_method(:response) { @current.response }
+  define_method(:params)   { @current.params }
+  define_method(:nav)      { @current.nav }
+  define_method(:redirect) { |where, flash={}| @current.redirect where, flash }
+  define_method(:get?)     { request.request_method == GET }
+  define_method(:post?)    { request.request_method == POST }
+  define_method(:done?)    { throw :done if response.body }
 
   ###
 
@@ -18,32 +28,11 @@ class Lux::Application
   end
 
   def body?
-    @current.response.body ? true : false
+    response.body ? true : false
   end
 
   def body data
-    @current.response.body data
-  end
-
-  def current
-    # Lux.current
-    @current
-  end
-
-  def nav
-    @current.nav
-  end
-
-  def params
-    @current.params
-  end
-
-  def redirect where, msgs={}
-    @current.redirect where, msgs
-  end
-
-  def request
-    @current.request
+    response.body data
   end
 
   # gets only root
@@ -56,18 +45,6 @@ class Lux::Application
     call cell unless nav.root
   end
 
-  def done?
-    throw :done if @current.response.body
-  end
-
-  def get?
-    @current.request.request_method == 'GET'
-  end
-
-  def post?
-    @current.request.request_method == 'POST'
-  end
-
   def plug name, &block
     done?
 
@@ -76,6 +53,22 @@ class Lux::Application
     send m, &block
 
     done?
+  end
+
+  # standard route match
+  # match '/:city/people' => Main::PeopleCell
+  def match opts
+    base, target = opts.keys.first.split('/').slice(1, 100), opts.values.first
+
+    base.each_with_index do |el, i|
+      if el[0,1] == ':'
+        params[el.sub(':','')] = nav.original[i]
+      else
+        return unless el == nav.original[i]
+      end
+    end
+
+    call target
   end
 
   # map Main::RootCell do
@@ -123,6 +116,8 @@ class Lux::Application
     call @route_target if test? @route_name
   end
 
+  # action about: RootCell
+  # action about: 'root#about_us'
   def action route_object
     map route_object.values.first do
       action route_object.keys.first
@@ -134,6 +129,7 @@ class Lux::Application
   end
 
   # call :api_router
+  # call proc { ... }
   # call Main::UsersCell
   # call Main::UsersCell, :index
   # call 'main/orgs#show'
@@ -188,7 +184,7 @@ class Lux::Application
 
     main
 
-    current.response.render
+    response.render
   end
 
 end
