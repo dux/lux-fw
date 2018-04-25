@@ -172,7 +172,7 @@ class Lux::Cell
     def render_resolve opts
       # resolve basic types
       types = [ [:text, 'text/plain'], [:html, 'text/html'], [:json, 'application/json'] ]
-      types.select{ |it| opts[it.first]}.each do |name, content_type|
+      types.select{ |it| opts[it.first] }.each do |name, content_type|
         response.content_type = content_type
         return response.body(opts[name])
       end

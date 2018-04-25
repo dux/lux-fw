@@ -93,7 +93,7 @@ class Lux::Application
         # end
         if route_object.class == Symbol
           if test?(route_object)
-            current.nav.shift_to_root
+            current.nav.shift
             instance_exec &block
             raise NotFoundError.new %[Route "#{route_object}" matched but nothing is called]
           end
@@ -112,6 +112,11 @@ class Lux::Application
     end
 
     @route_test.print_route '%s/*' % @route_name
+
+    # map '/test1/:foo' => 'routes_test#foo'
+    if @route_name.class == String && @route_name.count('/') > 1
+      match @route_name => @route_target
+    end
 
     call @route_target if test? @route_name
   end

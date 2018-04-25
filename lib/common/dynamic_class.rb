@@ -35,6 +35,10 @@ class DynamicClass
     @data[key] = value
   end
 
+  def key? key
+    @data.key?(key)
+  end
+
   private
 
   def check_key_existance? key

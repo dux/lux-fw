@@ -8,64 +8,55 @@ class Lux::Application::Nav
     @path = request.path.split('/').slice(1, 100) || []
     @original = @path.dup
 
-    shift_to_root if @path.first
-
     @subdomain = request.host.split('.')
     @domain    = @subdomain.pop(2).join('.')
     @domain    += ".#{@subdomain.pop}" if @domain.length < 6
   end
 
   def full
-    @full = '/%s/%s' % [@root, @path.join('/')]
-    @full = @full.sub(/\/$/, '')
+    @path.join('/').sub(/\/$/, '')
   end
 
-  def shift_to_root
-    @root.tap do
-      @root = @path.shift.to_s.gsub('-', '_')
-    end
-
-    @root = nil if @root.blank?
-
-    @root
+  def shift skip_root=false
+    @path[0] = @path.shift
+    @path.first
   end
 
   def root sub_nav=nil
-    sub_nav ? ('%s/%s' % [@root, sub_nav]) : @root
+    sub_nav ? ('%s/%s' % [@path.first, sub_nav]) : @path.first
   end
 
   # used to make admin.lvm.me/users to lvh.me/admin/users
   def unshift name
-    @path.unshift @root
-    @root = name
-  end
-
-  def shift
-    @path.shift
+    @path.unshift name
   end
 
   def first
-    @path.first
+    @path[1]
   end
 
   def first= data
-    @path[0] = data
+    @path[1] = data
   end
 
   def second
-    @path[1]
+    @path[2]
   end
 
   def last
     @path.last
   end
 
+  def path
+    @path.slice(1, @path.length-1) || []
+  end
+
   def rest
-    @path.slice(1, @path.length-1)
+    @path.slice(2, @path.length-1) || []
   end
 
   def to_s
-    @full
+    full
   end
 
   def id

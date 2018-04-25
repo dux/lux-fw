@@ -8,7 +8,7 @@ module Lux
   ENV_PROD    = ENV['RACK_ENV']    == 'production'
   ENV_DEV     = ENV['RACK_ENV']    == 'development'
   ENV_TEST    = ENV['RACK_ENV']    == 'test'
-  LUX_CLI     = $0 == 'pry' || $0.index('/run.rb') || ENV['RACK_ENV'] == 'test'
+  LUX_CLI     = $0 == 'pry' || $0.end_with?('/run.rb') || $0.end_with?('/rspec') || ENV['RACK_ENV'] == 'test'
 
   VERSION = File.read File.expand_path('../../../.version', __FILE__).chomp
   CONFIG ||= Hashie::Mash.new
@@ -20,7 +20,7 @@ module Lux
   define_method(:prod?)  { ENV_PROD }
   define_method(:dev?)   { ENV_DEV }
   define_method(:test?)  { ENV_TEST }
-  define_method(:cli?)   { !!($0 =~ %r[/bin/lux$]) }
+  define_method(:cli?)   { LUX_CLI }
   define_method(:thread) { Thread.current[:lux] }
   define_method(:cache)  { Lux::Cache }
 
