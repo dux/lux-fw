@@ -5,6 +5,9 @@
 # Cell.action action_name, path
 # Cell.new.action_name *args
 
+# filters stack for call
+# before, call, before_action, action, after
+
 class Lux::Cell
   # define maser layout
   # string is template, symbol is metod pointer and lambda is lambda

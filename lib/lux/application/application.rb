@@ -1,4 +1,6 @@
 class Lux::Application
+  LUX_PRINT_ROUTES = !!ENV['LUX_PRINT_ROUTES'] unless defined?(LUX_PRINT_ROUTES)
+
   class_callbacks :before, :after, :routes, :on_error
 
   attr_reader :route_target, :current
@@ -20,7 +22,6 @@ class Lux::Application
 
   def initialize current
     @current = current
-    @route_test = Lux::Application::RouteTest.new self
   end
 
   def debug
@@ -35,16 +36,6 @@ class Lux::Application
     response.body data
   end
 
-  # gets only root
-  def root cell
-    if RouteTest::LUX_PRINT_ROUTES
-      @route_target = cell
-      @route_test.print_route ''
-    end
-
-    call cell unless nav.root
-  end
-
   def plug name, &block
     done?
 
@@ -53,6 +44,33 @@ class Lux::Application
     send m, &block
 
     done?
+  end
+
+  def cell_target? route
+    ! [Symbol, String].include?(route.class)
+  end
+
+  def test? route
+    root = nav.root.to_s
+
+    case route
+      when String
+        root == route.sub(/^\//,'')
+      when Symbol
+        route.to_s == root
+      when Regexp
+        !!(route =~ root)
+      when Array
+        !!route.map(&:to_s).include?(root)
+      else
+        raise 'Route type %s is not supported' % route.class
+    end
+  end
+
+  # gets only root
+  def root cell=nil
+    call @cell_object unless cell
+    call cell         unless nav.root
   end
 
   # standard route match
@@ -71,66 +89,66 @@ class Lux::Application
     call target
   end
 
+  # action about: RootCell
+  # action about: 'root#about_us'
+  def action object
+    call object.values.first if test? object.keys.first
+  end
+
+  # map api: ApiCell
   # map Main::RootCell do
   #   action :about
   #   action '/verified-user'
   # end
-  # map api: ApiCell
-  def map route_object, &block
+  # map :foo do
+  #   map Foo::BarCell do
+  #     map :bar
+  #   end
+  # end
+  def map route_object, opts={}, &block
     done?
 
+    # if given hash
     if route_object.class == Hash
-      @route_name   = route_object.keys.first
-      @route_target = route_object.values.first
-    else
-      @route_name   = nav.root
-      @route_target = route_object
+      route  = route_object.keys.first
+      target = route_object.values.first
 
-      if block_given?
-        # map :dashboard do
-        #   map o: DashboardOrgsCell
-        #   root DashboardCell
-        # end
-        if route_object.class == Symbol
-          if test?(route_object)
-            current.nav.shift
-            instance_exec &block
-            raise NotFoundError.new %[Route "#{route_object}" matched but nothing is called]
-          end
+      # return if no match
+      return unless test?(route)
 
-          return
-        end
+      # must resolve
+      if cell_target?(target)
+        call target
       else
-        @route_test.print_route '*'
-        return route_object.call
+       call [@cell_object, opts[:to] || target]
       end
     end
 
-    if block_given?
-      @route_test.instance_exec &block
-      return
+    # nested map :foo
+    unless block_given?
+      if @cell_object
+        call [@cell_object, route_object] if test? route_object
+        return
+      else
+        raise ArgumentError.new('Block expected but not given for %s' % route_object)
+      end
     end
 
-    @route_test.print_route '%s/*' % @route_name
+    # map FooCell do
+    if cell_target?(route_object)
+      @cell_object = route_object
+      instance_exec &block
 
-    # map '/test1/:foo' => 'routes_test#foo'
-    if @route_name.class == String && @route_name.count('/') > 1
-      match @route_name => @route_target
+    # map :foo do
+    else
+      if test?(route_object)
+        nav.shift
+        instance_exec &block
+        raise NotFoundError.new %[Route "#{route_object}" matched but nothing is called]
+      else
+        return
+      end
     end
-
-    call @route_target if test? @route_name
-  end
-
-  # action about: RootCell
-  # action about: 'root#about_us'
-  def action route_object
-    map route_object.values.first do
-      action route_object.keys.first
-    end
-  end
-
-  def test? route
-    @route_test.test? route
   end
 
   # call :api_router

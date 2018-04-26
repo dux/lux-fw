@@ -18,7 +18,7 @@ class Lux::Application::Nav
   end
 
   def shift skip_root=false
-    @path[0] = @path.shift
+    @path.shift
     @path.first
   end
 
