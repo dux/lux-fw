@@ -42,7 +42,7 @@ Define API rescue handler
 
 ```
 ApplicationApi.on_error do |e|
-  key = Lux::Error.log(e)
+  key = SimpleException.log(e)
   response.meta :error_key, key
   response.meta :error_class, e.class
 end

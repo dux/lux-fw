@@ -17,7 +17,7 @@ class Lux::Cell
   class_attribute :helper
 
   # before and after any action filter, ignored in cells, after is called just before render
-  class_callbacks :before, :before_action, :before_render, :after
+  class_callbacks :before, :before_action, :before_render, :after, :on_error
 
   class << self
     # class call method, should not be overridden
@@ -96,6 +96,7 @@ class Lux::Cell
 
     @cell_action = method_name
 
+    # format error unless method found
     unless respond_to? method_name
       raise NotFoundError.new('Method %s not found' % method_name) unless Lux.config(:show_server_errors)
 
@@ -106,10 +107,17 @@ class Lux::Cell
       return Lux.error(err.join("\n\n"))
     end
 
+    # run filters
     return if filter :before
     return if filter :before_action
 
-    send method_name, *args
+    # catch error but forward unless handled
+    begin
+      send method_name, *args
+    rescue => e
+      class_callback :on_error, e
+      raise e
+    end
 
     return if filter :after
 

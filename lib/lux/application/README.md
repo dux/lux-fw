@@ -135,7 +135,7 @@ Lux.app do
       else
         raise e if Lux.dev?
 
-        key = Lux::Error.log(e)
+        key = SimpleException.log(e)
         message = "#{e.class}: #{e.message} \n\nkey: #{key}"
         Lux.error message
     end

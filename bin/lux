@@ -1,15 +1,15 @@
 #!/usr/bin/env ruby
 
+if File.exists?('lux-fw.gemspec')
+  puts 'Cant run in lux folder'
+  exit
+end
+
 require 'thor'
 require 'colorize'
 require 'optparse'
 require 'awesome_print'
 require 'dotenv'
-
-if File.exists?('lux-fw.gemspec')
-  puts 'Cant run in lux folder'
-  exit
-end
 
 Dotenv.load
 
@@ -35,9 +35,11 @@ end
 
 ###
 
-class LuxCli < Thor
-end
-
+LuxCli = Class.new Thor
 Dir['%s/bin/cli/*.rb' % LUX_ROOT].each { |it| load it }
+LuxCli.start
 
-LuxCli.start(ARGV)
+unless ARGV[0]
+  puts 'Or use one of rake tasks'
+  puts '  ' + `rake -T`.gsub($/, "\n  ")
+end
