@@ -14,6 +14,7 @@ class Lux::Response
     @render_start = Time.monotonic
     @headers      = Lux::Response::Header.new
     @max_age      = 0
+
   end
 
   def current
@@ -27,6 +28,13 @@ class Lux::Response
 
   def max_age= age
     @max_age = age.to_i
+  end
+
+  # http 103
+  def early_hints link=nil, type=nil
+    @early_hints ||= []
+    @early_hints.push [link, type] if type && !@early_hints.include?(link)
+    @early_hints
   end
 
   def etag *args
@@ -78,6 +86,11 @@ class Lux::Response
 
   def body! what
     @body = what
+  end
+
+  # is this first reponse
+  def is_first?
+    current.is_first_response
   end
 
   def content_type type=nil

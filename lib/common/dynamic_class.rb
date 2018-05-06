@@ -8,9 +8,8 @@
 # o.name -> nil
 # o.title -> raises error
 class DynamicClass
-  def initialize data, &block
+  def initialize data
     @data  = data
-    @block = block if block
   end
 
   def method_missing m, arg=:_UNDEF

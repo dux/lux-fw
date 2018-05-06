@@ -11,7 +11,7 @@ end
 path, http_method = ARGV.reverse
 http_method ||= :get
 
-data = Lux(path)
+data = Lux.render(path)
 
 data[:body] = 'BODY lenght: %s kB' % (data[:body].length.to_f/1024).round(1)
 

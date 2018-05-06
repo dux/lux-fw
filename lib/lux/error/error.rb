@@ -66,28 +66,4 @@ module Lux::Error
 
     %[<pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;"><b style="font-size:110%;">#{name}</b>\n\n<b>#{msg}</b>\n\n#{dmp[0].join("\n")}\n\n#{dmp[1].join("\n")}</pre>]
   end
-
-  def log exception
-    return if Lux.env         == 'test'
-    return if exception.class == LocalRaiseError
-    return unless Lux.current
-
-    # .backtrace.reject{ |el| el.index('/gems/') }
-    history = exception.backtrace
-      .map{ |el| el.sub(Lux.root.to_s, '') }
-      .join("\n")
-
-    data = '%s in %s (user: %s)' % [exception.class, Lux.current.request.url, (Lux.current.var.user.email rescue 'guest')]
-    data = [data, exception.message, history].join("\n\n")
-    key  = Digest::SHA1.hexdigest exception.backtrace.first.split(' ').first
-
-    folder = Lux.root.join('log/exceptions').to_s
-    Dir.mkdir(folder) unless Dir.exists?(folder)
-    folder += "/#{exception.class.to_s.tableize.gsub('/','-')}"
-    Dir.mkdir(folder) unless Dir.exists?(folder)
-
-    File.write("#{folder}/#{key}.txt", data)
-
-    key
-  end
 end

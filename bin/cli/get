@@ -2,4 +2,4 @@
 
 require './config/application'
 
-ap Lux ARGV[0] || '/'
+ap Lux.render(ARGV[0] || '/')

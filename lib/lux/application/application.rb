@@ -10,7 +10,6 @@ class Lux::Application
 
   # simple one liners and delegates
   define_method(:request)  { @current.request }
-  define_method(:response) { @current.response }
   define_method(:params)   { @current.params }
   define_method(:nav)      { @current.nav }
   define_method(:redirect) { |where, flash={}| @current.redirect where, flash }
@@ -49,6 +48,21 @@ class Lux::Application
   def cell_target? route
     ! [Symbol, String].include?(route.class)
   end
+
+  def response body=nil, status=nil
+    return @current.response unless body
+
+    response.body body
+    response.status status || 200
+
+    throw :done
+  end
+
+  # def print_route route
+  #   return unless LUX_PRINT_ROUTES
+
+  #   puts '%s => %s' % []
+  # end
 
   def test? route
     root = nav.root.to_s
@@ -92,7 +106,8 @@ class Lux::Application
   # action about: RootCell
   # action about: 'root#about_us'
   def action object
-    call object.values.first if test? object.keys.first
+    route, target = object.keys.first, object.values.first
+    map(target) { map route }
   end
 
   # map api: ApiCell

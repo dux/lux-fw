@@ -2,7 +2,7 @@
 # = asset 'www/index.scss'
 # = asset 'www/index.coffee'
 module HtmlHelper
-  def asset_include path
+  def asset_include path, opts={}
     raise ArgumentError.new("Path can't be empty") if path.empty?
 
     url = if path.starts_with?('/') || path.include?('//')
@@ -11,31 +11,42 @@ module HtmlHelper
       '/compiled_asset/%s' % path
     end
 
-    ext = url.split('?').first.split('.').last
+    ext  = url.split('?').first.split('.').last
+    type = ['css', 'sass', 'scss'].include?(ext) ? :style : :script
+    type = :style if url.include?('fonts.googleapis.com')
 
-    if ['coffee', 'js'].include?(ext)
-      %[<script src="#{url}"></script>]
+    current.response.early_hints url, type
+
+    if type == :style
+      if opts[:minimalcss] && Lux.current.response.is_first?
+        minimalcss = File.read('./public/assets/minimal-%s.css' % opts[:minimalcss]) rescue Lux.error('Assets: minimalcss "%s" not found' % opts[:minimalcss])
+        %[<style>#{minimalcss}</style>\n<link rel="preload" as="style" href="#{url}" onload="this.rel='stylesheet'" />]
+      else
+        %[<link rel="stylesheet" href="#{url}" />]
+      end
     else
-      %[<link rel="stylesheet" href="#{url}" />]
+      %[<script src="#{url}"></script>]
     end
   end
 
   # builds full asset path based on resource extension
   # asset('main/index.coffee')
   # will render 'app/assets/main/index.coffee' as http://aset.path/assets/main-index-md5hash.js
-  def asset file, dev_file=nil
+  def asset file, opts={}
+    opts = { dev_file: opts } unless opts.class == Hash
+
     # return second link if it is defined and we are in dev mode
-    return asset_include dev_file if dev_file && Lux.dev?
+    return asset_include opts[:dev_file] if opts[:dev_file] && Lux.dev?
 
     # return internet links
     return asset_include file if file.starts_with?('/') || file.starts_with?('http')
 
-    # return asset link in production or faile unless able
+    # return asset link in production or fail unless able
     unless Lux.config(:compile_assets)
       @@__asset_menifest ||= MiniAssets::Manifest.new
       mfile = @@__asset_menifest.get(file)
       raise 'Compiled asset link for "%s" not found in manifest.json' % file if mfile.empty?
-      return asset_include Lux.config.assets_root.to_s + mfile
+      return asset_include(Lux.config.assets_root.to_s + mfile, opts)
     end
 
     # try to create list of incuded files and show every one of them

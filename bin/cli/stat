@@ -1,1 +1,0 @@
-LuxCli.run 'goaccess -ca -f /var/log/nginx/access.log -a > public/goaccess.html'

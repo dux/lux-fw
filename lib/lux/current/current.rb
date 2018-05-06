@@ -8,7 +8,7 @@ class Lux::Current
   attr_accessor :can_clear_cache
 
   attr_accessor :session, :locale
-  attr_reader   :request, :response, :params, :nav, :cookies
+  attr_reader   :request, :response, :params, :nav, :cookies, :is_first_response
 
   def initialize env=nil
     env   ||= '/mock'
@@ -62,6 +62,8 @@ class Lux::Current
 
     # allow 5 mins delay for IP change
     @session = {} if @session[key] && (@session[key][0] != check && @session[key][1].to_i < Time.now.to_i - Lux.config.session_forced_validity)
+
+    @is_first_response = !@session[key]
 
     # add new time stamp to every request
     @session[key] = [check, Time.now.to_i]

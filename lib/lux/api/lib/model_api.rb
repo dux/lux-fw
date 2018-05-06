@@ -71,7 +71,8 @@ class ModelApi < ApplicationApi
     error "Object not found" unless @object
 
     for k,v in @params
-      @object.send("#{k}=", v) if @object.respond_to?(k.to_sym)
+      m = "#{k}=".to_sym
+      @object.send(m, v) if @object.respond_to?(m)
     end
 
     can? :update, @object

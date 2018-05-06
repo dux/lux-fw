@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+require 'thor'
+
 if File.exists?('lux-fw.gemspec')
   puts 'Cant run in lux folder'
   exit
