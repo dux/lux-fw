@@ -7,7 +7,7 @@ namespace :assets do
     run 'rm -rf ./public/assets'
   end
 
-  desc 'Compile assets to public/assets'
+  desc 'Compile assets to public/assets and generate mainifest.json'
   task :compile do
     ENV['RACK_ENV'] = 'production'
 

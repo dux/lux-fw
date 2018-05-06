@@ -1,5 +1,0 @@
-#!/usr/bin/env ruby
-
-require './config/application'
-
-ap Lux.render(ARGV[0] || '/')

@@ -1,4 +1,0 @@
-@flags ||= ENV['RACK_ENV'] == 'production' ? '' : 'ALL'
-@flags = @flags.upcase
-
-LuxCli.run "LUX_FLAGS=%s puma -p %s" % [@flags, @port]
