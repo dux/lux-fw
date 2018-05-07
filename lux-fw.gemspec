@@ -21,9 +21,11 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_runtime_dependency 'hashie', '~> 3'
   gem.add_runtime_dependency 'rack', '~> 2'
   gem.add_runtime_dependency 'sequel_pg', '~> 1'
-  gem.add_runtime_dependency 'typero', '~> 0.3'
-  gem.add_runtime_dependency 'mail', '~> 2'
+  gem.add_runtime_dependency 'typero', '~> 0'
 
+  gem.add_dependency 'mail', '~> 2'
+  gem.add_dependency 'rake', '~> 12'
+  gem.add_dependency 'thor', '~> 0'
   gem.add_dependency 'clipboard', '~> 1'
   gem.add_dependency 'nokogiri', '~> 1'
 end

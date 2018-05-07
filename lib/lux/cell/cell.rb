@@ -60,11 +60,12 @@ class Lux::Cell
     @base_template = self.class.to_s.include?('::') ? self.class.to_s.sub(/Cell$/,'').underscore : self.class.to_s.sub(/Cell$/,'').downcase
   end
 
-  # default call method, should be overitten
-  # expects arguments as flat array
-  # usually called by router
+  # default action call method
   def call
-    action(:index)
+    it = :show if nav.id && !nav.first
+    it ||= nav.first.or(:index)
+
+    action it
   end
 
   # execute before and after filters, only once

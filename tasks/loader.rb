@@ -46,6 +46,7 @@ end
 
 ###
 
-for file in Dir['%s/**/*.rake' % Lux.fw_root] + Dir['./**/*.rake']
-  eval File.read file
-end
+tasks  = []
+tasks += Dir['%s/**/*.rake' % Lux.fw_root]
+tasks += Dir['./lib/**/*.rake']
+tasks.each { |file| eval File.read file }

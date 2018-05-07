@@ -1,3 +1,5 @@
+# https://github.com/jeremyevans/sequel/blob/master/doc/schema_modification.rdoc
+
 class AutoMigrate
   attr_accessor :fields
 
@@ -261,23 +263,4 @@ class AutoMigrate
       puts "Unknown #{type.to_s.red}"
     end
   end
-end
-
-desc 'Automigrate schema'
-task :am do
-  # load app config
-  envs = ['./config/environment.rb', './config/db.rb']
-  file = envs.find{ |f| File.exist?(f) } || LuxCli.die('DB ENV not found in %s' % envs.join(' or '))
-
-  load file
-
-  # Sequel extension and plugin test
-  DB.run %[DROP TABLE IF EXISTS lux_tests;]
-  DB.run %[CREATE TABLE lux_tests (int_array integer[] default '{}', text_array text[] default '{}');]
-  class LuxTest < Sequel::Model; end;
-  LuxTest.new.save
-  die('"DB.extension :pg_array" not loaded') unless LuxTest.first.int_array.class == Sequel::Postgres::PGArray
-  DB.run %[DROP TABLE IF EXISTS lux_tests;]
-
-  require './config/schema.rb'
 end

@@ -123,6 +123,10 @@ module Lux
       Lux::Config.require_all('%s/*' % dir)
     end
   end
+
+  def load_tasks
+    require_relative '../../tasks/loader.rb'
+  end
 end
 
 require_relative 'config/config'
