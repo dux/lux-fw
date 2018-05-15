@@ -7,15 +7,15 @@
 #   .custom= f.input :email
 #   = f.submit 'Save'
 
-class Lux::Html::Form
+class HtmlForm
   def initialize action, form_opts={}
     form_opts[:method]   = 'get' if form_opts.delete(:get)
     form_opts[:method] ||= 'get' unless action
     form_opts[:method] ||= 'post'
     form_opts[:method]   = form_opts[:method].upcase
 
-    @action = action
-    @object = action if action.respond_to?(:update)
+    @action    = action
+    @object    = action if action.respond_to?(:update)
     @form_opts = form_opts
   end
 
@@ -48,7 +48,7 @@ class Lux::Html::Form
     @name          = name
     opts[:id]    ||= Lux.current.uid
     opts[:value] ||= Lux.current.params[name] if @form_opts[:method] == 'GET'
-    input_object   = Lux::Html::Input.new(@object)
+    input_object   = HtmlInput.new(@object)
     data           = input_object.render(name, opts)
     @type          = input_object.type
     data

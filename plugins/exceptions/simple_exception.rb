@@ -57,3 +57,10 @@ module SimpleException
     system 'rm -rf "%s"' % ERROR_FOLDER
   end
 end
+
+# overload local error report
+Lux::Error.class_eval do
+  def log exp
+    SimpleException.log exp
+  end
+end

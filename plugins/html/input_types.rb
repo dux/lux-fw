@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class Lux::Html::Input
+class HtmlInput
 
   # if you call .memo which is not existant, it translates to .as_memo with opts_prepare first
   # def method_missing(meth, *args, &block)
@@ -53,10 +53,26 @@ class Lux::Html::Input
     @opts.tag(:input)+hidden.tag(:input)
   end
 
-  def as_radio
-    @opts[:type] = :radio
-    @opts[:checked] = @opts[:value] == @object.send(@name) ? true : nil
-    @opts.tag(:input)
+  def as_checkboxes
+    body = []
+    collection = @opts.delete(:collection)
+
+    @opts[:type] = :checkbox
+
+    null  = @opts.delete(:null)
+    value = @opts.delete(:value).to_s
+
+    body.push %[<label>#{opts.tag(:input)} #{null}</label>] if null
+
+    prepare_collection(collection).each do |el|
+      opts = @opts.dup
+      opts[:value]   = el[0]
+      opts[:checked] = true if value == el[0].to_s
+
+      body.push %[<label>#{opts.tag(:input)} #{el[1]}</label>]
+    end
+
+    '<div class="form-checkboxes">%s</div>' % body.join("\n")
   end
 
   def as_select
@@ -75,12 +91,41 @@ class Lux::Html::Input
     @opts.tag(:select, body)
   end
 
+  def as_radio
+    @opts[:type] = :radio
+    @opts[:checked] = @opts[:value] == @object.send(@name) ? true : nil
+    @opts.tag(:input)
+  end
+
+  def as_radios
+    body = []
+    collection = @opts.delete(:collection)
+
+    @opts[:type] = :radio
+
+    null  = @opts.delete(:null)
+    value = @opts.delete(:value).to_s
+
+    body.push %[<label>#{opts.tag(:input)} #{null}</label>] if null
+
+    prepare_collection(collection).each do |el|
+      opts = @opts.dup
+      opts[:value]   = el[0]
+      opts[:checked] = true if value == el[0].to_s
+
+      body.push %[<label>#{opts.tag(:input)} #{el[1]}</label>]
+    end
+
+    '<div class="form-radios">%s</div>' % body.join("\n")
+  end
+
   def as_tag
     @opts[:value] = @opts[:value].or([]).join(', ') if ['Array', 'Sequel::Postgres::PGArray'].index(@opts[:value].class.name)
     @opts[:id] ||= Lux.current.uid
     @opts[:type] = :text
     @opts[:onkeyup] = %[draw_tag('#{@opts[:id]}')]
     @opts[:autocomplete] ||= 'off'
+
     ret = %[
     <script>
        window.draw_tag = window.draw_tag || function (id) {

@@ -1,3 +1,0 @@
-module Lux::Html
-
-end

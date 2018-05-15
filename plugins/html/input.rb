@@ -1,22 +1,35 @@
 # frozen_string_literal: true
 
-# input = Lux::Html::Input.new(User.first)
-# input.string :email
+# input = HtmlInput.new(User.first)
+# input.render :email
 
-class Lux::Html::Input
+class HtmlInput
   attr_accessor :type
+
+  def self.register name, &block
+    define_method "as_#{name}", &block
+  end
+
+  ###
 
   def initialize(obj=nil, opts={})
     @object  = obj
     @globals = opts.dup
   end
 
+  def figure_out_type
+    data_type = @object[name].class.name rescue 'String'
+
+    if ['TrueClass','FalseClass'].index(data_type)
+      :checkbox
+    else
+      :string
+    end
+  end
+
   # exports @name and @opts globals
   def opts_prepare(name, opts={})
-    unless opts[:as]
-      data_type = @object[name].class.name rescue 'String'
-      opts[:as] = :checkbox if ['TrueClass','FalseClass'].index(data_type)
-    end
+    opts[:as] ||= figure_out_type
 
     # experimental, figure out collection unless defined
     if name =~ /_id$/ && opts[:as] == :select && !opts[:collection]
@@ -27,7 +40,6 @@ class Lux::Html::Input
     opts[:as]    ||= :select if opts[:collection]
     opts[:id]    ||= Lux.current.uid
     opts[:value] ||= @object.send(name) if @object
-
     opts[:value] = opts[:default] if opts[:value].blank?
     opts[:name]  = name.kind_of?(Symbol) && @object ? "#{@object.class.name.underscore}[#{name}]" : name
 
@@ -35,9 +47,9 @@ class Lux::Html::Input
     opts[:value] = opts[:value].to_f if opts[:value].class == BigDecimal
 
     @label = opts.delete :label
-    @wrap = opts.delete(:wrap) || @globals[:wrap]
-    @name = name
-    @opts = opts
+    @wrap  = opts.delete(:wrap) || @globals[:wrap]
+    @name  = name
+    @opts  = opts
   end
 
   # if type is written in parameter :as=> use this helper function

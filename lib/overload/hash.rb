@@ -29,6 +29,10 @@ class Hash
     }.join('&')
   end
 
+  def data_attributes
+    self.keys.sort.map{ |k| 'data-%s="%s"' % [k, self[k].to_s.gsub('"', '&quot;')]}.join(' ')
+  end
+
   def pluck *args
     string_args = args.map(&:to_s)
     self.select{ |k,v| string_args.index(k.to_s) }
