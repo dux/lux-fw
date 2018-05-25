@@ -1,6 +1,6 @@
 LuxCli.class_eval do
-  desc :eval, 'Eval ruby string in context of Lux::Application'
-  def eval
+  desc :evaluate, 'Eval ruby string in context of Lux::Application'
+  def evaluate *args
     require './config/application'
 
     if File.exist?('./config/console.rb')
@@ -8,11 +8,12 @@ LuxCli.class_eval do
       load './config/console.rb'
     end
 
-    command = ARGV.join('; ')
+    command = ARGV.drop(1).join('; ')
 
     puts 'Command : %s' % command.light_blue
 
     data = eval command
+
     puts '-'
     puts 'Class   : %s' % data.class
     puts '-'
@@ -23,5 +24,7 @@ LuxCli.class_eval do
     else
       ap data
     end
+
+    exit
   end
 end
