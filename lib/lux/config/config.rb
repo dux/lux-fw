@@ -2,6 +2,8 @@
 
 # $LOADED_FEATURES.select{ |f| f.index('/app/') || f.index('/lux/') }
 
+require 'yaml'
+
 module Lux::Config
   extend self
 

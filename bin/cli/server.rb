@@ -1,3 +1,5 @@
+ARGV[0] = 'server' if ARGV[0] == 's'
+
 LuxCli.class_eval do
   desc :server, 'Start web server'
   method_option :port, type: :numeric, aliases: "-p", default: 3000, desc: 'Port to run app on'
