@@ -1,7 +1,7 @@
 module SimpleException
   extend self
 
-  ERROR_FOLDER = './log/exceptions'
+  ERROR_FOLDER ||= './log/exceptions'
 
   def log exception
     return if Lux.env         == 'test'

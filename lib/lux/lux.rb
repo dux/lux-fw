@@ -17,12 +17,13 @@ module Lux
   BACKGROUND_THREADS ||= []
   Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
 
-  define_method(:prod?)  { ENV_PROD }
-  define_method(:dev?)   { ENV_DEV }
-  define_method(:test?)  { ENV_TEST }
-  define_method(:cli?)   { LUX_CLI }
-  define_method(:thread) { Thread.current[:lux] }
-  define_method(:cache)  { Lux::Cache }
+  define_method(:prod?)   { ENV_PROD }
+  define_method(:dev?)    { ENV_DEV }
+  define_method(:test?)   { ENV_TEST }
+  define_method(:cli?)    { LUX_CLI }
+  define_method(:thread)  { Thread.current[:lux] }
+  define_method(:cache)   { Lux::Cache }
+  define_method(:secrets) { @app_secrets ||= Lux::Config::Secrets.new.load }
 
   # main rack response
   def call env=nil

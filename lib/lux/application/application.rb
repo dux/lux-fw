@@ -128,6 +128,8 @@ class Lux::Application
       route  = route_object.keys.first
       target = route_object.values.first
 
+      # return match(route_object) if route.class == String && route.split('/').length > 2
+
       # return if no match
       return unless test?(route)
 

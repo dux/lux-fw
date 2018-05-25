@@ -31,6 +31,10 @@ module Cli
     puts text.red
     exit
   end
+
+  def info text
+    puts '* %s' % text.magenta
+  end
 end
 
 ###

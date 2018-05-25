@@ -9,9 +9,9 @@ namespace :assets do
 
   desc 'Compile assets to public/assets and generate mainifest.json'
   task :compile do
-    ENV['RACK_ENV'] = 'production'
-
     require './config/application'
+
+    ENV['RACK_ENV'] = 'production'
 
     assets = Dir['./app/assets/**/index.*'].map { |el| el.sub('./app/assets/','') }
 

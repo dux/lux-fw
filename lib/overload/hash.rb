@@ -14,8 +14,9 @@ class Hash
 	end
 
   def to_struct name=nil
-    name ||= ToStructGeneric
-    Struct.new(name, *keys).new(*values)
+    name ||= keys.sort.join('_').downcase.capitalize
+    struct = Struct::const_defined?(name) ? Struct.const_get(name) : Struct.new(name, *keys)
+    struct.new(*values)
   end
 
   def blank?

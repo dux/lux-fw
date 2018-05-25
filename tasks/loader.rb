@@ -8,6 +8,10 @@ def die what
   exit
 end
 
+def info text
+  puts '* %s' % text.yellow
+end
+
 def tpool list, parallel=6, &block
   t = Thread.pool(parallel)
   for el in list
@@ -18,8 +22,12 @@ end
 
 ###
 
-task :env do
+task :app do
   require './config/application'
+end
+
+task :env do
+  require './config/environment'
 end
 
 task :default do
@@ -45,6 +53,12 @@ task :default do
 end
 
 ###
+
+require 'bundler/setup'
+require 'dotenv'
+
+Dotenv.load
+Bundler.require :default
 
 tasks  = []
 tasks += Dir['%s/**/*.rake' % Lux.fw_root]

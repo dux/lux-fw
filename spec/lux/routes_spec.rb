@@ -2,10 +2,10 @@ require 'spec_helper'
 
 Lux.app.routes do
   map :plain => lambda { current.response.body 'plain' }
-  map '/@'   => [RoutesTestCell, :user]
-  map %r{~}  => RoutesTestCell
+  map %r{^@} => [RoutesTestCell, :user]
+  map %r{^~} => RoutesTestCell
 
-  map '/test1/test2/:foo' => 'routes_test#foo'
+  match '/test1/test2/:foo' => 'routes_test#foo'
 
   response.body = 'not found'
   response.status 404

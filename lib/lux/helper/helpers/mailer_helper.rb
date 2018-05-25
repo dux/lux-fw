@@ -6,6 +6,6 @@ module MailerHelper
   end
 
   def host
-    ENV.fetch('HOST')
+    App.host
   end
 end
