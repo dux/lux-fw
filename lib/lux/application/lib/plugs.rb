@@ -7,7 +7,7 @@ Lux.app do
   end
 
   def lux_redirect_to_host_plug
-    host = ENV['HTTP_HOST'] || ENV['HOST'] || raise("ENV['HOST'] not defined")
+    host = ENV['HTTP_HOST'] || ENV['HOST'] || Lux.config.host || raise("ENV['HOST'] not defined")
 
     unless request.url.include?(host)
       redirect host + request.path

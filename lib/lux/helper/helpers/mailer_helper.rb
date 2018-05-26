@@ -6,6 +6,6 @@ module MailerHelper
   end
 
   def host
-    App.host
+    Lux.config.host
   end
 end
