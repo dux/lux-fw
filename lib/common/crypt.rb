@@ -15,7 +15,7 @@ module Crypt
   ALGORITHM = 'HS512'
 
   def secret
-    Lux.config.secret || die('ENV SECRET not set')
+    ENV.fetch('SECRET') { puts '* Warn: ENV SECRET not set'; 'foo' }
   end
 
   def base64 str

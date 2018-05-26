@@ -8,7 +8,7 @@ class Lux::Config::Secrets
   def initialize
     @read_file   = Pathname.new './tmp/secrets.yaml'
     @secret_file = Pathname.new './config/secrets.enc'
-    @secret      = Lux.config.secret_key_base || Lux.config.secret
+    @secret      = ENV['SECRET_KEY_BASE'] || ENV.fetch('SECRET')
     @strength    = 'HS512'
   end
 

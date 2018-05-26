@@ -28,7 +28,6 @@ LuxCli.class_eval do
       Cli.info 'all good, no need to compile secrets'
     end
 
-    Cli.info 'secret: "%s"' % secrets.secret
     Cli.info 'dump for ENV %s' % Lux.env
 
     puts secrets.to_h.pretty_generate

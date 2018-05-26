@@ -44,9 +44,11 @@ class Lux::Api::Response
     @meta['location'] = url
   end
 
-  def event name, opts={}
+  def event name, id=nil
+    id ||= SecureRandom.alphanumeric
+
     @meta['event'] ||= []
-    @meta['event'].push([name, opts])
+    @meta['event'].push({ name: name, id: id })
   end
 
   def errors?

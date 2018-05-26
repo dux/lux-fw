@@ -47,7 +47,7 @@ class Mailer < Lux::Mailer
 
   # before mail is sent
   after do
-    mail.from = "#{App.name} <no-reply@#{Lux.config.host}>"
+    mail.from = "#{App.name} <no-reply@#{App.host}>"
   end
 
   # raw define mail
