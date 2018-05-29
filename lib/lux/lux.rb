@@ -23,7 +23,6 @@ module Lux
   define_method(:dev?)    { ENV_DEV }
   define_method(:test?)   { ENV_TEST }
   define_method(:cli?)    { LUX_CLI }
-  define_method(:live?)   { ENV['LUX_LIVE'] == 'true' }
   define_method(:cache)   { CACHE_SERVER }
   define_method(:thread)  { Thread.current[:lux] }
   define_method(:secrets) { @app_secrets ||= Lux::Config::Secrets.new.load }
