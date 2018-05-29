@@ -58,7 +58,7 @@ require 'bundler/setup'
 require 'dotenv'
 
 Dotenv.load
-Bundler.require :default
+Bundler.require :default, ENV.fetch('RACK_ENV')
 
 tasks  = []
 tasks += Dir['%s/**/*.rake' % Lux.fw_root]

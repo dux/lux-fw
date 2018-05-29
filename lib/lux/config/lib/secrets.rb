@@ -8,7 +8,7 @@ class Lux::Config::Secrets
   def initialize
     @read_file   = Pathname.new './tmp/secrets.yaml'
     @secret_file = Pathname.new './config/secrets.enc'
-    @secret      = Lux.config.secret_key_base || Lux.config.secret
+    @secret      = Lux.config.secret_key_base || Lux.config.secret || ENV['SECRET'] || die('ENV SECRET not found')
     @strength    = 'HS512'
   end
 
@@ -21,14 +21,7 @@ class Lux::Config::Secrets
   end
 
   def load
-    data = to_h
-
-    for k in data.keys
-      data[k] = data[k].to_struct if data[k].class == Hash
-    end
-
-    # DynamicClass.new data
-    data.to_struct('LuxSecrets')
+    to_h.to_struct
   end
 
 end

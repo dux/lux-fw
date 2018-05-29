@@ -1,6 +1,3 @@
-# https://developer.linkedin.com/docs/oauth2
-# https://developer.linkedin.com/docs/fields/basic-profile
-
 class LuxOauth::Twitter < LuxOauth
   # def scope
   #   [

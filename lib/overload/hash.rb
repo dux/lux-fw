@@ -14,9 +14,21 @@ class Hash
 	end
 
   def to_struct name=nil
-    name ||= keys.sort.join('_').downcase.capitalize
-    struct = Struct::const_defined?(name) ? Struct.const_get(name) : Struct.new(name, *keys)
-    struct.new(*values)
+    Class.new.tap do |c|
+      c.define_singleton_method(:to_h) do
+        m_list = methods(false) - [:to_h]
+        m_list.inject({}) do |h,m|
+          h[m] = send(m)
+          h[m] = h[m].to_h if h[m].class == Class
+          h
+        end
+      end
+
+      each do |k, v|
+        v = v.to_struct if v.class == Hash
+        c.define_singleton_method(k) { v }
+      end
+    end
   end
 
   def blank?

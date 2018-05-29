@@ -1,3 +1,5 @@
+require 'pry'
+
 class Object
   def cp data
     data = JSON.pretty_generate(data.to_hash) if data.respond_to?(:to_hash)
@@ -29,26 +31,18 @@ LuxCli.class_eval do
 
     puts Lux::Config.show_load_speed load_start
 
-    begin
-      require 'pry'
+    # AwesomePrint.pry!
+    # nice object dump in console
+    Pry.print = proc { |output, data|
+      out = if data.is_a?(Hash)
+        data.class.to_s+"\n"+JSON.pretty_generate(data).gsub(/"(\w+)":/) { '"%s":' % $1.yellow }
+      else
+        data.ai
+      end
 
-      # AwesomePrint.pry!
-      # nice object dump in console
-      Pry.print = proc { |output, data|
-        out = if data.is_a?(Hash)
-          data.class.to_s+"\n"+JSON.pretty_generate(data).gsub(/"(\w+)":/) { '"%s":' % $1.yellow }
-        else
-          data.ai
-        end
+      output.puts out
+    }
 
-        output.puts out
-      }
-
-      Pry
-    rescue LoadError
-      puts 'pry not found, starting irb'.red
-      require 'irb'
-      IRB
-    end.start
+    Pry.start
   end
 end

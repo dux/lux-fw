@@ -2,7 +2,7 @@
 
 class LuxOauth::Stackexchange < LuxOauth
   def login
-    'https://stackexchange.com/oauth?client_id=%d&redirect_uri=%s' % [ENV.fetch('STACKEXCHANGE_OAUTH_ID'), CGI::escape(redirect_url)]
+    'https://stackexchange.com/oauth?client_id=%d&redirect_uri=%s' % [@id, CGI::escape(redirect_url)]
   end
 
   def format_response
@@ -15,7 +15,7 @@ class LuxOauth::Stackexchange < LuxOauth
   def callback session_code
     result = RestClient.post('https://stackexchange.com/oauth/access_token', {
       redirect_uri:  redirect_url,
-      client_id:     ENV.fetch('STACKEXCHANGE_OAUTH_ID'),
+      client_id:     @id,
       client_secret: @secret,
       code:          session_code
     }, { :accept => :json })

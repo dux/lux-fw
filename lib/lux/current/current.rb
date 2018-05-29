@@ -94,7 +94,7 @@ class Lux::Current
   # set current.can_clear_cache = true in production for admins
   def no_cache?
     @can_clear_cache ||= true if Lux.dev?
-    (@can_clear_cache && @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache') ? true : false
+    @can_clear_cache && @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache' ? true : false
   end
 
   def redirect *args

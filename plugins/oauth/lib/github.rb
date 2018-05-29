@@ -1,5 +1,6 @@
+# https://github.com/settings/developers
 # https://github.com/github/platform-samples/tree/master/api/ruby/basics-of-authentication
-# https://github.com/settings/applications/404731
+# https://github.com/settings/applications
 
 class LuxOauth::Github < LuxOauth
   def login

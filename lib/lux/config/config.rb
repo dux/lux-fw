@@ -84,7 +84,7 @@ module Lux::Config
 
     mode = production_mode ? 'production'.green : 'development'.yellow
 
-    "* #{'Lux'.white} loaded #{mode} mode in #{speed.to_s.white}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec".tap do |it|
+    "* Lux loaded #{mode} mode in #{speed.to_s.white}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec".tap do |it|
       @@load_info += "\n#{it}"
     end
   end
