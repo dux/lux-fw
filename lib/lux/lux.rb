@@ -1,14 +1,16 @@
 # frozen_string_literal: true
 
-require_relative '../common/class_callbacks.rb'
+require_relative '../common/class_callbacks'
+require_relative 'cache/cache'
 
 module Lux
   extend self
 
-  ENV_PROD    = ENV['RACK_ENV']    == 'production'
-  ENV_DEV     = ENV['RACK_ENV']    == 'development'
-  ENV_TEST    = ENV['RACK_ENV']    == 'test'
-  LUX_CLI     = $0 == 'pry' || $0.end_with?('/run.rb') || $0.end_with?('/rspec') || ENV['RACK_ENV'] == 'test'
+  ENV_PROD     = ENV['RACK_ENV']    == 'production'
+  ENV_DEV      = ENV['RACK_ENV']    == 'development'
+  ENV_TEST     = ENV['RACK_ENV']    == 'test'
+  LUX_CLI      = $0 == 'pry' || $0.end_with?('/run.rb') || $0.end_with?('/rspec') || ENV['RACK_ENV'] == 'test'
+  CACHE_SERVER = Lux::Cache.new
 
   VERSION = File.read File.expand_path('../../../.version', __FILE__).chomp
   CONFIG ||= Hashie::Mash.new
@@ -22,8 +24,8 @@ module Lux
   define_method(:test?)   { ENV_TEST }
   define_method(:cli?)    { LUX_CLI }
   define_method(:live?)   { ENV['LUX_LIVE'] == 'true' }
+  define_method(:cache)   { CACHE_SERVER }
   define_method(:thread)  { Thread.current[:lux] }
-  define_method(:cache)   { Lux::Cache }
   define_method(:secrets) { @app_secrets ||= Lux::Config::Secrets.new.load }
 
   # main rack response

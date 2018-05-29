@@ -1,23 +1,21 @@
-module Lux::Cache::NullCache
-  extend self
-
-  def set(key, data, ttl=nil)
+class Lux::Cache::NullCache
+  def set key, data, ttl=nil
     data
   end
 
-  def get(key)
+  def get key
     nil
   end
 
-  def fetch(key, ttl=nil)
+  def fetch key, ttl=nil
     yield
   end
 
-  def delete(key)
+  def delete key
     nil
   end
 
-  def get_multi(*args)
+  def get_multi *args
     {}
   end
 end
