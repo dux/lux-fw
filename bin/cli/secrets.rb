@@ -1,7 +1,9 @@
 LuxCli.class_eval do
-  def load_secret_file
-    data = JWT.decode @secrets.secret_file.read, @secrets.secret, true, { algorithm: @secrets.strength }
-    data.first
+  no_commands do
+    def load_secret_file
+      data = JWT.decode @secrets.secret_file.read, @secrets.secret, true, { algorithm: @secrets.strength }
+      data.first
+    end
   end
 
   desc :secrets, 'Show and compile secrets'

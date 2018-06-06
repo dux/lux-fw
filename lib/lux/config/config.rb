@@ -7,10 +7,9 @@ require 'yaml'
 module Lux::Config
   extend self
 
-  LIVE_RELOAD ||= {}
-
   # if we have errors in module loading, try to load them one more time
-  @module_error = []
+  @@mtime_cache  ||= {}
+  @@load_info    ||= nil
 
   # requires all files recrusive in, with spart sort
   def require_all files
@@ -18,7 +17,7 @@ module Lux::Config
     files += '/*' unless files.include?('*')
 
     file_errors = []
-    glob = `echo #{files} #{files}/* #{files}/*/*  #{files}/*/*/* #{files}/*/*/*/* |tr ' ' '\n' | grep .rb`.split("\n")
+    glob = `echo #{files} #{files}/* #{files}/*/*  #{files}/*/*/* #{files}/*/*/*/* #{files}/*/*/*/*/* |tr ' ' '\n' | grep .rb`.split("\n")
 
     glob.select{ |o| o.index('.rb') }.map{ |o| o.split('.rb')[0]}.each do |ruby_file|
       require ruby_file
@@ -33,23 +32,25 @@ module Lux::Config
     end
   end
 
-  # check all files and reload if needed
+  # gets last 3 changed files
+  def get_last_changed_files dir
+    `find #{dir} -type f -name "*.rb" -print0 | xargs -0 stat -f"%m %Sm %N" | sort -rn | head -n3`.split("\n").map{ |it| it.split(/\s+/).last }
+  end
+
   def live_require_check!
-    if LIVE_RELOAD.blank?
-      root = Lux.root.to_s
-      for file in $LOADED_FEATURES.select{ |f| f.index(root) || f.index('/lux/') }
-        LIVE_RELOAD[file] = File.mtime(file).to_i
-      end
-    end
+    files  = get_last_changed_files './app'
+    files += get_last_changed_files Lux.fw_root
 
-    for file, mtime in LIVE_RELOAD
-      new_file_mtime = File.mtime(file).to_i
+    for file in files
+      @@mtime_cache[file] ||= 0
+      file_mtime = File.mtime(file).to_i
+      next if @@mtime_cache[file] == file_mtime
 
-      next if mtime == new_file_mtime
-      LIVE_RELOAD[file] = new_file_mtime
-      Lux.log " Reloaded: .#{file.split(Lux.root.to_s).last.red}"
+      Lux.log ' Reloaded: .%s' % file.split(Lux.root.to_s).last.red if @@mtime_cache[file] > 0
+      @@mtime_cache[file] = file_mtime
       load file
     end
+
     true
   end
 

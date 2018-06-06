@@ -106,13 +106,10 @@ class Lux::Current
     id ||= Digest::SHA1.hexdigest caller[0] if block
 
     @once_hash ||= {}
-    return @once_hash[id] if @once_hash.key?(id)
+    return if @once_hash[id]
+    @once_hash[id] = true
 
-    @once_hash[id] = if block_given?
-      yield
-    else
-      data || true
-    end
+    block_given? ? yield : data
   end
 
   def uid

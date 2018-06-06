@@ -21,24 +21,14 @@ class Lux::Helper
     # helper.instance_exec &block if block
   end
 
+  define_method(:current) { Lux.current }
+  define_method(:request) { Lux.current.request }
+  define_method(:params)  { Lux.current.params }
+  define_method(:nav)     { Lux.current.nav }
+  # define_method(:get)     { |name| instance_variable_get('@%s' % name) }
+
   def no_white_space
     yield.gsub(/>\s+</,'><')
-  end
-
-  def current
-    Lux.current
-  end
-
-  def request
-    Lux.current.request
-  end
-
-  def params
-    Lux.current.params
-  end
-
-  def nav
-    Lux.current.nav
   end
 
   # renders just template but it is called
@@ -99,6 +89,12 @@ class Lux::Helper
   # helper(:main).method
   def helper *names
     Lux::Helper.new(self, *names)
+  end
+
+  def once id=nil
+    Lux.current.once("template-#{id || caller[0]}") do
+      block_given? ? yield : true
+    end
   end
 
 end

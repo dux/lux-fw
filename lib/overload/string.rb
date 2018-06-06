@@ -63,9 +63,13 @@ class String
     self.split(/\s*,\s*/)
   end
 
-  def starts_with?(prefix)
+  def starts_with? prefix
     prefix.respond_to?(:to_str) && self[0, prefix.length] == prefix
   end
+
+  def ends_with? suffix
+    suffix.class == String && self[-suffix.length, suffix.length] == suffix && self != suffix
+   end
 
   def last(num=1)
     len = self.length

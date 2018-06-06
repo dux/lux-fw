@@ -3,6 +3,7 @@
 #     n.li do |n|
 #       n.i '.arrow'
 #       n.span num
+#       n.id
 #     end
 #   end
 # end
@@ -17,8 +18,15 @@ class HtmlTagBuilder
     # tag :div, { 'class'=>'iform' } do
     def tag name=nil, opts={}, data=nil
       # covert tag.a '.foo.bar' to class names
-      if opts.class == String && opts[0,1] == '.'
-        opts = { class: opts.sub('.', '').gsub('.', ' ') }
+      # covert tag.a '#id' to id names
+      if opts.class == String
+        case opts[0,1]
+          when '.'
+            opts = { class: opts.sub('.', '').gsub('.', ' ') }
+          when '#'
+            opts = { id: opts.sub('#', '') }
+          end
+        else
       end
 
       # fix data and opts unless opts is Hash
@@ -58,6 +66,11 @@ class HtmlTagBuilder
 
   def initialize
     @data = []
+  end
+
+  # push data to stack
+  def push data
+    @data.push data
   end
 
   # forward to class

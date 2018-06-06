@@ -121,6 +121,8 @@ class Lux::Response
   def redirect where=nil, opts={}
     return @headers['location'] unless where
 
+    where = "#{current.request.path}#{where}" if where[0,1] == '?'
+
     @status = opts.delete(:status) || 302
     opts.map { |k,v| flash.send(k, v) }
 

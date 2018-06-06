@@ -26,6 +26,10 @@ class Lux::Application::Nav
     sub_nav ? ('%s/%s' % [@path.first, sub_nav]) : @path.first
   end
 
+  def root= value
+    @path[0] = value
+  end
+
   # used to make admin.lvm.me/users to lvh.me/admin/users
   def unshift name
     @path.unshift name

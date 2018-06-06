@@ -298,7 +298,7 @@ class HtmlInput
 
   def as_html_trix
     %[
-      <div class="hide-for-popup">
+      <div class="hide-for-popup" style="width: 100%;">
         <textarea id="trix_#{@name}" name="#{@opts[:name]}" style="display:none;">#{@opts[:value]}</textarea>
         <trix-editor input="trix_#{@name}"></trix-editor>
       </div>

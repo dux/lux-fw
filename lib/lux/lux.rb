@@ -15,6 +15,7 @@ module Lux
   VERSION = File.read File.expand_path('../../../.version', __FILE__).chomp
   CONFIG ||= Hashie::Mash.new
   EVENTS ||= {}
+  MCACHE ||= {}
 
   BACKGROUND_THREADS ||= []
   Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
@@ -129,6 +130,11 @@ module Lux
 
   def load_tasks
     require_relative '../../tasks/loader.rb'
+  end
+
+  def mcache key=nil
+    key ||= caller[0]
+    MCACHE[key] ||= yield
   end
 end
 
