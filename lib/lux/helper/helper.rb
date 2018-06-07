@@ -25,7 +25,7 @@ class Lux::Helper
   define_method(:request) { Lux.current.request }
   define_method(:params)  { Lux.current.params }
   define_method(:nav)     { Lux.current.nav }
-  # define_method(:get)     { |name| instance_variable_get('@%s' % name) }
+  define_method(:get)     { |name| instance_variable_get('@%s' % name) }
 
   def no_white_space
     yield.gsub(/>\s+</,'><')

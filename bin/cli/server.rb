@@ -1,4 +1,9 @@
-ARGV[0] = 'server' if ARGV[0] == 's'
+if ARGV[0] == 's'
+  ARGV[0] = 'server'
+elsif ARGV[0] == 'ss'
+  # production mode with logging
+  ARGV = %w{server -e p -f l}
+end
 
 LuxCli.class_eval do
   desc :server, 'Start web server'

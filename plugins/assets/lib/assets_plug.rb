@@ -6,6 +6,7 @@ Lux.app do
     # only allow clear in dev
     # clear assets every 4 seconds max
     if Lux.current.no_cache? && Lux.config(:compile_assets)
+
       Lux.cache.fetch('lux-clear-assets', ttl: 4, log: false, force: false) do
         puts '* Clearing assets from ./tmp/assets'.yellow
         `rm -rf ./tmp/assets && mkdir ./tmp/assets`

@@ -10,26 +10,25 @@ class Widget
 
       widget = new *args
       widget.parent = context
-      data = widget.respond_to?(:render) ? widget.render : widget.render_template
+      data = ''
 
       Lux.current.once('widget-once-%s' % self) do
         src = instance_method(:initialize).source_location[0].split(':').first
         Lux.current.files_in_use.push src.sub(Lux.root.to_s+'/', '')
 
         if widget.respond_to?(:once)
-          data = widget.once + data
+          data = widget.once
         end
       end
 
-      @@cache.delete(self.to_s) if (ENV['RACK_ENV'] || ENV['RAILS_ENV']) != 'production'
-
-      data
-
+      data + widget.render
     rescue
       Lux::Error.inline "%s render error" % self
     end
 
     def init!
+      @@cache.delete(self.to_s) if Lux.config(:compile_assets)
+
       return if @@cache[self.to_s]
 
       cache = @@cache[self.to_s] = {}
@@ -79,6 +78,10 @@ class Widget
   define_method(:parent)  { @_parent }
   define_method(:parent=) { |it| @_parent = it }
   define_method(:render)  { render_template }
+
+  def render
+    render_template
+  end
 
   def render_template
     @@cache[self.class.to_s][:template].render(self)

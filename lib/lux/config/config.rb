@@ -39,7 +39,7 @@ module Lux::Config
 
   def live_require_check!
     files  = get_last_changed_files './app'
-    files += get_last_changed_files Lux.fw_root
+    files += get_last_changed_files '%s/lib' % Lux.fw_root
 
     for file in files
       @@mtime_cache[file] ||= 0
