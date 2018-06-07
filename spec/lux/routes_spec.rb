@@ -2,8 +2,8 @@ require 'spec_helper'
 
 Lux.app.routes do
   map :plain => lambda { current.response.body 'plain' }
-  map %r{^@} => [RoutesTestCell, :user]
-  map %r{^~} => RoutesTestCell
+  map %r{^@} => [RoutesTestController, :user]
+  map %r{^~} => RoutesTestController
 
   match '/test1/test2/:foo' => 'routes_test#foo'
 
@@ -30,7 +30,7 @@ end
 
 ###
 
-class RoutesTestCell < Lux::Cell
+class RoutesTestController < Lux::Controller
   def index
     render text: 'tilda'
   end

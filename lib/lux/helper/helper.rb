@@ -72,9 +72,9 @@ class Lux::Helper
   end
 
   # = render 'main/tag_list', klass:Link
-  # = cell Main::PartsCell, :tag_filter, klass
+  # = cell Main::PartsController, :tag_filter, klass
   def cell name, action, *args
-    klass = name.is_string? ? "#{name}_cell".classify.constantize : name
+    klass = name.is_string? ? "#{name}_controller".classify.constantize : name
     klass.cell(action, *args) rescue error("#{klass}.#{action}()\n\n#{$!.message}")
   end
 

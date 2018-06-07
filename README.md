@@ -10,7 +10,7 @@ created by @dux in 2017
 ## How to start
 
 * define Lux.app do ...
-* use Cells to render templates
+* use Controllers to render templates
 * example to come ...
 
 ## Lux components
@@ -37,7 +37,7 @@ Install gem with `gem install lux-fw`
 ```ruby
 require 'lux-fw'
 
-class RootCell < Lux::Cell
+class RootController < Lux::Controller
   def index
     render text: 'Hello world'
   end
@@ -52,13 +52,13 @@ class RootCell < Lux::Cell
 end
 
 Lux.app.routes do
-  root   RootCell
+  root   RootController
 
-  action foo: RootCell
+  action foo: RootController
 
-  map    bar: RootCell
+  map    bar: RootController
 
-  map RootCell do
+  map RootController do
     map :baz
   end
 end
@@ -70,7 +70,7 @@ run Lux
 
 * `curl http://localhost:3000/` -> `Hello world`
 * `curl http://localhost:3000/foo` -> `Foo text`
-* `curl http://localhost:3000/bar` -> `Hello world` (maps to RootCell that calls :index)
+* `curl http://localhost:3000/bar` -> `Hello world` (maps to RootController that calls :index)
 * `curl http://localhost:3000/baz` -> `Baz text`
 
 

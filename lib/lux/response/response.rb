@@ -147,7 +147,7 @@ class Lux::Response
 
     status 401
     header('WWW-Authenticate', 'Basic realm="%s"' % relam.or('default'))
-    body = ErrorCell.unauthorized('HTTP 401 Authorization needed')
+    body = ErrorController.unauthorized('HTTP 401 Authorization needed')
 
     false
   end

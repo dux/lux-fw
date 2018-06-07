@@ -1,27 +1,27 @@
-class Widget
+class HtmlCell
   @@cache = {}
 
   class << self
-    # create and render widget
+    # create and render cell
     def render context, *args
 
       # init template and css
       init!
 
-      widget = new *args
-      widget.parent = context
+      cell = new *args
+      cell.parent = context
       data = ''
 
-      Lux.current.once('widget-once-%s' % self) do
+      Lux.current.once('cell-once-%s' % self) do
         src = instance_method(:initialize).source_location[0].split(':').first
         Lux.current.files_in_use.push src.sub(Lux.root.to_s+'/', '')
 
-        if widget.respond_to?(:once)
-          data = widget.once
+        if cell.respond_to?(:once)
+          data = cell.once
         end
       end
 
-      data + widget.render
+      data + cell.render
     rescue
       Lux::Error.inline "%s render error" % self
     end
@@ -58,16 +58,16 @@ class Widget
       end
     end
 
-    # get widget css
+    # get cell css
     def css
       init!
       @@cache[self.to_s][:css]
     end
 
-    # get css for all widgets
-    def all_css *widgets
-      widgets = Object.constants.map(&:to_s).select{ |it| it.ends_with?('Widget') }.map(&:constantize) unless widgets.first
-      widgets.inject('') { |t,w| t += w.css.to_s }
+    # get css for all cells
+    def all_css *cells
+      cells = Object.constants.map(&:to_s).select{ |it| it != 'HtmlCell' && it.ends_with?('Cell') }.map(&:constantize) unless cells.first
+      cells.inject('') { |t,w| t += w.css.to_s }
     end
   end
 

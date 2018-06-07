@@ -1,45 +1,45 @@
 require 'spec_helper'
 
-describe Lux::Cell do
+describe Lux::Controller do
   before do
     Lux::Current.new('http://testing')
   end
 
   it 'renders text' do
-    CellTestCell.action(:render_text)
+    ControllerTestController.action(:render_text)
     expect(Lux.current.response.body).to eq('foo')
   end
 
   it 'renders json' do
-    CellTestCell.action(:render_json)
+    ControllerTestController.action(:render_json)
     expect(Lux.current.response.body).to eq({ foo: 'bar' })
   end
 
   it 'renders fails' do
-    expect{ CellTestCell.action(:render_fail) }.to raise_error RuntimeError
+    expect{ ControllerTestController.action(:render_fail) }.to raise_error RuntimeError
   end
 
   it 'executes before filter' do
-    CellTestCell.action(:test_before)
+    ControllerTestController.action(:test_before)
     expect(Lux.current.response.body).to eq('beforebefore_action')
   end
 
   it 'executes before_render filter' do
-    CellTestCell.action(:test_before)
+    ControllerTestController.action(:test_before)
     expect(Lux.current.response.body).to eq('beforebefore_action')
   end
 
   it 'tests filters on call' do
     expect{
-      Lux.app.render('/call_test_before') { CellTestCell.call }
+      Lux.app.render('/call_test_before') { ControllerTestController.call }
     }.to raise_error(StandardError, 'before')
 
     expect{
-      Lux.app.render('/call_test_before_action') { CellTestCell.call }
+      Lux.app.render('/call_test_before_action') { ControllerTestController.call }
     }.to raise_error(StandardError, nil)
 
     expect{
-      Lux.app.render('/call_test_before_render') { CellTestCell.call }
+      Lux.app.render('/call_test_before_render') { ControllerTestController.call }
     }.to raise_error(StandardError, nil)
   end
 
@@ -47,7 +47,7 @@ end
 
 ###
 
-class CellTestCell < Lux::Cell
+class ControllerTestController < Lux::Controller
   def before
     @before = 'before'
     super

@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-# Cells can be called in few ways
-# Cell.call path
-# Cell.action action_name, path
-# Cell.new.action_name *args
+# Controllers can be called in few ways
+# Controller.call path
+# Controller.action action_name, path
+# Controller.new.action_name *args
 
 # filters stack for call
 # before, call, before_action, action, after
 
-class Lux::Cell
+class Lux::Controller
   # define maser layout
   # string is template, symbol is metod pointer and lambda is lambda
   class_attribute :layout
@@ -16,22 +16,22 @@ class Lux::Cell
   # define helper contest, by defult derived from class name
   class_attribute :helper
 
-  # before and after any action filter, ignored in cells, after is called just before render
+  # before and after any action filter, ignored in controllers, after is called just before render
   class_callbacks :before, :before_action, :before_render, :after, :on_error
 
   class << self
     # class call method, should not be overridden
     def call
-      Lux.current.files_in_use.push "app/cells/#{self.to_s.underscore}.rb"
+      Lux.current.files_in_use.push "app/controllers/#{self.to_s.underscore}.rb"
 
-      cell = new
-      cell.filter :before
-      cell.call
+      controller = new
+      controller.filter :before
+      controller.call
 
       return if Lux.current.response.body
 
       # we want to exec filter after the call
-      cell.filter :before_action
+      controller.filter :before_action
     end
 
     # create mock function, to enable template rendering
@@ -52,12 +52,12 @@ class Lux::Cell
 
   ### INSTANCE METHODS
 
-  attr_reader :cell_action
+  attr_reader :controller_action
 
   def initialize
     # before and after should be exected only once
     @executed_filters = {}
-    @base_template = self.class.to_s.include?('::') ? self.class.to_s.sub(/Cell$/,'').underscore : self.class.to_s.sub(/Cell$/,'').downcase
+    @base_template = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
   end
 
   # default action call method
@@ -85,7 +85,7 @@ class Lux::Cell
   # action(:show, 2)
   # action(:select', ['users'])
   def action method_name, *args
-    raise ArgumentError.new('Cell action called with blank action name argument') if method_name.blank?
+    raise ArgumentError.new('Controller action called with blank action name argument') if method_name.blank?
 
     # maybe before filter rendered page
     return if response.body
@@ -93,15 +93,15 @@ class Lux::Cell
     method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
     Lux.log " #{self.class.to_s}(:#{method_name})".light_blue
-    Lux.current.files_in_use.push "app/cells/#{self.class.to_s.underscore}.rb"
+    Lux.current.files_in_use.push "app/controllers/#{self.class.to_s.underscore}.rb"
 
-    @cell_action = method_name
+    @controller_action = method_name
 
     # format error unless method found
     unless respond_to? method_name
       raise NotFoundError.new('Method %s not found' % method_name) unless Lux.config(:show_server_errors)
 
-      list = methods - Lux::Cell.instance_methods
+      list = methods - Lux::Controller.instance_methods
       err = [%[No instance method "#{method_name}" found in class "#{self.class.to_s}"]]
       err.push ["Expected so see def show(id) ..."] if method_name == 'show!'
       err.push %[You have defined \n- #{(list).join("\n- ")}]
@@ -149,7 +149,7 @@ class Lux::Cell
 
   # renders template to string
   def render_part
-    Lux::Template.render_part("#{@base_template}/#{@cell_action}", instance_variables_hash, namespace)
+    Lux::Template.render_part("#{@base_template}/#{@controller_action}", instance_variables_hash, namespace)
   end
 
   def render_to_string name=nil, opts={}
@@ -206,7 +206,7 @@ class Lux::Cell
         template = template.to_s
         template = "#{@base_template}/#{template}" unless template.starts_with?('/')
       else
-        template = "#{@base_template}/#{@cell_action}"
+        template = "#{@base_template}/#{@controller_action}"
       end
 
       Lux::Template.render_part(template, helper)
@@ -253,5 +253,5 @@ class Lux::Cell
     end
 end
 
-ApplicationCell = Class.new Lux::Cell
+ApplicationController = Class.new Lux::Controller
 

@@ -88,7 +88,7 @@ class Lux::Application
   end
 
   # standard route match
-  # match '/:city/people' => Main::PeopleCell
+  # match '/:city/people' => Main::PeopleController
   def match opts
     base, target = opts.keys.first.split('/').slice(1, 100), opts.values.first
 
@@ -103,20 +103,20 @@ class Lux::Application
     call target
   end
 
-  # action about: RootCell
+  # action about: RootController
   # action about: 'root#about_us'
   def action object
     route, target = object.keys.first, object.values.first
     map(target) { map route }
   end
 
-  # map api: ApiCell
-  # map Main::RootCell do
+  # map api: ApiController
+  # map Main::RootController do
   #   action :about
   #   action '/verified-user'
   # end
   # map :foo do
-  #   map Foo::BarCell do
+  #   map Foo::BarController do
   #     map :bar
   #   end
   # end
@@ -151,7 +151,7 @@ class Lux::Application
       end
     end
 
-    # map FooCell do
+    # map FooController do
     if cell_target?(route_object)
       @cell_object = route_object
       instance_exec &block
@@ -170,8 +170,8 @@ class Lux::Application
 
   # call :api_router
   # call proc { ... }
-  # call Main::UsersCell
-  # call Main::UsersCell, :index
+  # call Main::UsersController
+  # call Main::UsersController, :index
   # call 'main/orgs#show'
   def call object=nil, action=nil
     done?
@@ -184,9 +184,9 @@ class Lux::Application
       when String
         if object.include?('#')
           object = object.split('#')
-          object[0] = ('%s_cell' % object[0]).classify.constantize
+          object[0] = ('%s_controller' % object[0]).classify.constantize
         else
-          object = ('%s_cell' % object).classify.constantize
+          object = ('%s_controller' % object).classify.constantize
         end
     end
 
