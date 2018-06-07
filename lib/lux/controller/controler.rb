@@ -224,13 +224,13 @@ class Lux::Controller
 
         layout = case layout_define
           when String
-            layout = layout_define
+            'layouts/%s' % layout_define
           when Symbol
             send(layout_define)
           when Proc
             layout_define.call
           else
-            "#{@base_template.split('/')[0]}/layout"
+            'layouts/%s' % @base_template.split('/')[0]
         end
 
         Lux::Template.new(layout, helper).render_part { page_data }
@@ -252,6 +252,3 @@ class Lux::Controller
       Lux::Helper.new self, :html, self.class.helper, ns
     end
 end
-
-ApplicationController = Class.new Lux::Controller
-

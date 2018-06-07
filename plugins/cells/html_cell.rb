@@ -2,30 +2,7 @@ class HtmlCell
   @@cache = {}
 
   class << self
-    # create and render cell
-    def render context, *args
-
-      # init template and css
-      init!
-
-      cell = new *args
-      cell.parent = context
-      data = ''
-
-      Lux.current.once('cell-once-%s' % self) do
-        src = instance_method(:initialize).source_location[0].split(':').first
-        Lux.current.files_in_use.push src.sub(Lux.root.to_s+'/', '')
-
-        if cell.respond_to?(:once)
-          data = cell.once
-        end
-      end
-
-      data + cell.render
-    rescue
-      Lux::Error.inline "%s render error" % self
-    end
-
+    # preche cell
     def init!
       @@cache.delete(self.to_s) if Lux.config(:compile_assets)
 
@@ -33,7 +10,8 @@ class HtmlCell
 
       cache = @@cache[self.to_s] = {}
 
-      data  = File.read(instance_method(:initialize).source_location[0].split(':').first).split('__END__', 2).last.to_s
+      inst_method = instance_methods(false).first
+      data  = File.read(instance_method(inst_method).source_location[0].split(':').first).split('__END__', 2).last.to_s
 
       for part in  data.split("\n@@ ")
         key, value = part.split("\n", 2).map(&:chomp)
@@ -76,8 +54,12 @@ class HtmlCell
   define_method(:current) { Lux.current }
   define_method(:request) { Lux.current.request }
   define_method(:parent)  { @_parent }
-  define_method(:parent=) { |it| @_parent = it }
   define_method(:render)  { render_template }
+
+  def initialize parent
+    @_parent = parent
+    self.class.init!
+  end
 
   def render
     render_template
@@ -93,5 +75,10 @@ class HtmlCell
 
     data = yield(opts) if block_given?
     HtmlTagBuilder.tag name, opts, data
+  end
+
+  # execute block only once per page
+  def once
+    Lux.current.once('cell-once-%s' % self.class) { yield }
   end
 end

@@ -46,7 +46,7 @@ module Lux::Config
       file_mtime = File.mtime(file).to_i
       next if @@mtime_cache[file] == file_mtime
 
-      Lux.log ' Reloaded: .%s' % file.split(Lux.root.to_s).last.red if @@mtime_cache[file] > 0
+      Lux.log ' Reloaded: %s' % file.split(Lux.root.to_s).last.red if @@mtime_cache[file] > 0
       @@mtime_cache[file] = file_mtime
       load file
     end

@@ -71,13 +71,6 @@ class Lux::Helper
     %[<pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:14pt; font-size:10pt;">#{msg}</pre>]
   end
 
-  # = render 'main/tag_list', klass:Link
-  # = cell Main::PartsController, :tag_filter, klass
-  def cell name, action, *args
-    klass = name.is_string? ? "#{name}_controller".classify.constantize : name
-    klass.cell(action, *args) rescue error("#{klass}.#{action}()\n\n#{$!.message}")
-  end
-
   # tag :div, { 'class'=>'iform' } do
   def tag name=nil, opts={}, data=nil
     return HtmlTagBuilder unless name
