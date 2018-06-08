@@ -92,8 +92,15 @@ class Lux::Controller
 
     method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
+    # dev console log
     Lux.log " #{self.class.to_s}(:#{method_name})".light_blue
-    Lux.current.files_in_use.push "app/controllers/#{self.class.to_s.underscore}.rb"
+    if im = self.class.instance_methods(false).first
+      loc = self.class.instance_method(im).source_location[0].split(':').first
+      loc = loc.sub(Lux.root.to_s+'/', '')
+
+      Lux.log ' %s' % loc
+      Lux.current.files_in_use.push loc
+    end
 
     @controller_action = method_name
 

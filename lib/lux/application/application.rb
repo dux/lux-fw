@@ -134,7 +134,7 @@ class Lux::Application
       return unless test?(route)
 
       # must resolve
-      if cell_target?(target)
+      if cell_target?(target) || (target.class == String && target.include?('#'))
         call target
       else
        call [@cell_object, opts[:to] || target]
@@ -176,6 +176,10 @@ class Lux::Application
   def call object=nil, action=nil
     done?
 
+    # log original app caller
+    source = caller.detect { |it| !it.include?('/lib/lux/') }
+    Lux.log ' Routed from: app/%s' % source.split(' ').first.split('/app/', 2).last.sub(':in','') if source
+
     case object
       when Symbol
         return send(object)
@@ -185,6 +189,7 @@ class Lux::Application
         if object.include?('#')
           object = object.split('#')
           object[0] = ('%s_controller' % object[0]).classify.constantize
+          object[0].action(object[1])
         else
           object = ('%s_controller' % object).classify.constantize
         end

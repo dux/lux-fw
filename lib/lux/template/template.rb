@@ -77,7 +77,7 @@ class Lux::Template
       end rescue Lux::Error.inline
     end
 
-    Lux.log " #{@template.split('app/views/').last}, #{speed}"
+    Lux.log " app/views/#{@template.split('app/views/').last}, #{speed}"
 
     data
   end
