@@ -1,4 +1,4 @@
-class HtmlCell
+class ViewCell
   @@cache = {}
 
   class << self
@@ -44,7 +44,7 @@ class HtmlCell
 
     # get css for all cells
     def all_css *cells
-      cells = Object.constants.map(&:to_s).select{ |it| it != 'HtmlCell' && it.ends_with?('Cell') }.map(&:constantize) unless cells.first
+      cells = Object.constants.map(&:to_s).select{ |it| it != 'ViewCell' && it.ends_with?('Cell') }.map(&:constantize) unless cells.first
       cells.inject('') { |t,w| t += w.css.to_s }
     end
   end

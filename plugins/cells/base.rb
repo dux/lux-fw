@@ -5,7 +5,7 @@ HtmlHelper.class_eval do
   def cell_assets *cells
     return if request.xhr?
 
-    '<style>%s</style>' % HtmlCell.all_css
+    '<style>%s</style>' % ViewCell.all_css
   end
 
   def cell name

@@ -42,10 +42,13 @@ module Lux::Error
   end
 
   def show desc=nil
+    ap [' Error: %s' % desc, caller]
+
     Lux.current.response.status 500
     data = "Lux #{Lux.current.response.status} error\n\n#{desc}"
     data = render(data) unless Lux.cli?
     Lux.current.response.body! data
+
     throw :done
   end
 

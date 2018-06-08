@@ -12,7 +12,9 @@
 
 class Lux::Mailer
   class_callbacks :before, :after
+
   class_attribute :helper
+  class_attribute :layout, 'mailer'
 
   attr_reader :mail
 
@@ -74,7 +76,7 @@ class Lux::Mailer
 
     helper = Lux::Helper.new self, self.class.helper
 
-    Lux::Template.render_with_layout "mailer/#{@_template}", helper
+    Lux::Template.render_with_layout "layouts/#{self.class.layout}", "mailer/#{@_template}", helper
   end
 
   def subject
