@@ -53,6 +53,7 @@ class ViewCell
 
   define_method(:current) { Lux.current }
   define_method(:request) { Lux.current.request }
+  define_method(:params)  { Lux.current.params }
   define_method(:parent)  { @_parent }
   define_method(:render)  { render_template }
 
@@ -80,5 +81,11 @@ class ViewCell
   # execute block only once per page
   def once
     Lux.current.once('cell-once-%s' % self.class) { yield }
+  end
+
+  def cell name
+    w = ('%sCell' % name.to_s.classify).constantize
+    w = w.new @_parent
+    w
   end
 end

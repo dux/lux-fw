@@ -1,4 +1,4 @@
-require_relative 'html_cell'
+require_relative 'view_cell'
 
 HtmlHelper.class_eval do
 

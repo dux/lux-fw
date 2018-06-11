@@ -32,14 +32,15 @@ module Lux::Config
     end
   end
 
-  # gets last 3 changed files
+  # gets last 2 changed files
   def get_last_changed_files dir
-    `find #{dir} -type f -name "*.rb" -print0 | xargs -0 stat -f"%m %Sm %N" | sort -rn | head -n3`.split("\n").map{ |it| it.split(/\s+/).last }
+    `find #{dir} -type f -name "*.rb" -print0 | xargs -0 stat -f"%m %Sm %N" | sort -rn | head -n2`.split("\n").map{ |it| it.split(/\s+/).last }
   end
 
   def live_require_check!
     files  = get_last_changed_files './app'
     files += get_last_changed_files '%s/lib' % Lux.fw_root
+    files += get_last_changed_files '%s/plugins' % Lux.fw_root
 
     for file in files
       @@mtime_cache[file] ||= 0

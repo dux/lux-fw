@@ -17,7 +17,9 @@ class HtmlInput
     @globals = opts.dup
   end
 
-  def figure_out_type
+  def figure_out_type opts
+    return :select if opts[:collection]
+
     data_type = @object[name].class.name rescue 'String'
 
     if ['TrueClass','FalseClass'].index(data_type)
@@ -29,7 +31,7 @@ class HtmlInput
 
   # exports @name and @opts globals
   def opts_prepare(name, opts={})
-    opts[:as] ||= figure_out_type
+    opts[:as] ||= figure_out_type opts
 
     # experimental, figure out collection unless defined
     if name =~ /_id$/ && opts[:as] == :select && !opts[:collection]
@@ -40,8 +42,8 @@ class HtmlInput
     opts[:as]    ||= :select if opts[:collection]
     opts[:id]    ||= Lux.current.uid
     opts[:value] ||= @object.send(name) if @object
-    opts[:value] = opts[:default] if opts[:value].blank?
-    opts[:name]  = name.kind_of?(Symbol) && @object ? "#{@object.class.name.underscore}[#{name}]" : name
+    opts[:value]   = opts[:default] if opts[:value].blank?
+    opts[:name]    = name.kind_of?(Symbol) && @object ? "#{@object.class.name.underscore}[#{name}]" : name
 
     # convert decimal numbers to float
     opts[:value] = opts[:value].to_f if opts[:value].class == BigDecimal
