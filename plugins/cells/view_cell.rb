@@ -2,44 +2,22 @@ class ViewCell
   @@cache = {}
 
   class << self
-    # preche cell
-    def init!
-      @@cache.delete(self.to_s) if Lux.config(:compile_assets)
-
-      return if @@cache[self.to_s]
-
-      cache = @@cache[self.to_s] = {}
-
-      inst_method = instance_methods(false).first
-      data  = File.read(instance_method(inst_method).source_location[0].split(':').first).split('__END__', 2).last.to_s
-
-      for part in  data.split("\n@@ ")
-        key, value = part.split("\n", 2).map(&:chomp)
-
-        next unless key.present?
-
-        key = key.downcase
-        key = 'css' if key == 'scss'
-
-        if key == 'css'
-          begin
-            se = Sass::Engine.new(value, :syntax => :scss)
-            cache[:css] = se.render.gsub($/,'').gsub(/\s+/,' ').gsub(/([:;{}])\s+/,'\1')
-          rescue
-            puts 'Error: %s SASS compile error'.red % self
-            puts $!.message
-            exit
-          end
-        elsif ['haml', 'erb'].include?(key)
-          cache[:template] = Tilt[key.to_sym].new { value }
-        end
-      end
+    def base_folder
+      Lux.root.join('app/cells/%s' % to_s.tableize.sub('_cells','')).to_s
     end
 
     # get cell css
     def css
-      init!
-      @@cache[self.to_s][:css]
+      @@cache[self.to_s] ||= {}
+      @@cache[self.to_s][:css] = nil  if Lux.config(:compile_assets)
+      return if @@cache[self.to_s][:css]
+
+      scss_file = '%s/cell.scss' % base_folder
+
+      return unless File.exist?(scss_file)
+
+      se = Sass::Engine.new(File.read(scss_file), :syntax => :scss)
+      @@cache[self.to_s][:css] = se.render.gsub($/,'').gsub(/\s+/,' ').gsub(/([:;{}])\s+/,'\1')
     end
 
     # get css for all cells
@@ -59,15 +37,23 @@ class ViewCell
 
   def initialize parent
     @_parent = parent
-    self.class.init!
   end
 
   def render
     render_template
   end
 
-  def render_template
-    @@cache[self.class.to_s][:template].render(self)
+  def render_template name=:cell
+    @@cache[self.class.to_s] ||= {}
+    @@cache[self.class.to_s][:tpl] ||= {}
+
+    @@cache[self.class.to_s][:tpl][name] ||= Proc.new do
+      file = '%s/%s.haml' % [self.class.base_folder, name]
+      data = File.read(file)
+      Tilt[:haml].new { data }
+    end.call
+
+    @@cache[self.class.to_s][:tpl][name].render(self)
   end
 
   # tag :div, { 'class'=>'iform' } do
