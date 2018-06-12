@@ -7,6 +7,8 @@
 # [["Home", "/", true], ["People", "/people", false], ["Jobs", "/jbos", false]]
 
 class HtmlMenu
+  attr_accessor :path
+  attr_accessor :data
 
   def initialize path
     @path = path.to_s
@@ -16,15 +18,20 @@ class HtmlMenu
   # item 'Links', '/link'
   # item('Links', '/link') { ... }
   def add name, path, test=nil, &block
-    active = false
+    if @data.first
+      active = nil
+      active = false if test.class == FalseClass && !@data.first
 
-    if !@is_activated && @data.first && path != @data.first[1]
-      test          ||= block || path
-      active          = item_active(test)
-      @is_activated ||= active
+      if !@is_activated && @data.first && path != @data.first[1]
+        test          ||= block || path
+        active          = item_active(test)
+        @is_activated ||= active
+      end
+
+      @data.push [name, path, active]
+    else
+      @data.push [name, path, test.class == FalseClass ? false : nil]
     end
-
-    @data.push [name, path, active]
   end
 
   # is menu item active?
@@ -51,7 +58,7 @@ class HtmlMenu
 
   # return result as a list
   def to_a
-    @data[0][2] = true unless @is_activated
+    @data[0][2] = true if ! @is_activated && @data[0][2].class != FalseClass
     @data
   end
 

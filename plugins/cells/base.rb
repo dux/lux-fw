@@ -2,25 +2,31 @@ require_relative 'view_cell'
 
 HtmlHelper.class_eval do
 
-  def cell_assets *cells
-    return if request.xhr?
+  def cell_assets
+    Lux.ram_cache(:view_cell_public_assets) do
+      assets = '/assets/cell-assets.css'
+      local  = Lux.root.join('public' + assets)
 
-    '<style>%s</style>' % ViewCell.all_css
+      local.write ViewCell.all_css if Lux.dev? && Lux.current.no_cache?
+
+      sha1 = Crypt.sha1 local.read
+
+      '<link rel="stylesheet" href="%s?%s" />' % [assets, sha1]
+    end
   end
 
   def cell name
     # cell @job -> cell(:job).render @job
     unless name.class == Symbol
-      return cell(name.class.to_s.underscore.to_sym).render name
+      return ViewCell.get(name.class.to_s.underscore.to_sym, self).render name
     end
 
-    w = ('%sCell' % name.to_s.classify).constantize
-    w = w.new self
+    view_cell = ViewCell.get(name, self)
 
-    src = w.method(:render).source_location[0].split(':').first
+    src = view_cell.method(:render).source_location[0].split(':').first
     Lux.current.files_in_use.push src.sub(Lux.root.to_s+'/', '')
 
-    w
+    view_cell
   end
 
 end

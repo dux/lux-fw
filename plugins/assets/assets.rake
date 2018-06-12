@@ -23,6 +23,14 @@ namespace :assets do
 
         puts "Generated #{file.green} -> #{assets.render}"
       end
+
+      # generate cell assets
+      if defined?(ViewCell)
+        local  = '/assets/cell-assets.css'
+        handle = Lux.root.join('public' + local)
+        handle.write ViewCell.all_css
+        puts 'Generated %s -> %s' % ['cell assets'.green, local]
+      end
     end
 
     puts "Asset precomlile done in #{speed}"
@@ -35,4 +43,5 @@ namespace :assets do
     puts 'Copy to %s'.green % ARGV.last
     run 'aws s3 sync ./public %s --cache-control "max-age=31536000, public"' % ARGV.last
   end
+
 end

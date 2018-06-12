@@ -2,27 +2,28 @@ class ViewCell
   @@cache = {}
 
   class << self
+    def get name, parent
+      w = ('%sCell' % name.to_s.classify).constantize
+      w = w.new parent
+      w
+    end
+
     def base_folder
       Lux.root.join('app/cells/%s' % to_s.tableize.sub('_cells','')).to_s
     end
 
     # get cell css
     def css
-      @@cache[self.to_s] ||= {}
-      @@cache[self.to_s][:css] = nil  if Lux.config(:compile_assets)
-      return if @@cache[self.to_s][:css]
+      scss_files = Dir["#{base_folder}/*.scss"] + Dir["#{base_folder}/*.css"]
+      data       = scss_files.sort.map { |file| File.read(file) }.join("\n\n")
 
-      scss_file = '%s/cell.scss' % base_folder
-
-      return unless File.exist?(scss_file)
-
-      se = Sass::Engine.new(File.read(scss_file), :syntax => :scss)
-      @@cache[self.to_s][:css] = se.render.gsub($/,'').gsub(/\s+/,' ').gsub(/([:;{}])\s+/,'\1')
+      se = Sass::Engine.new(data, :syntax => :scss)
+      se.render.gsub($/,'').gsub(/\s+/,' ').gsub(/([:;{}])\s+/,'\1')
     end
 
     # get css for all cells
-    def all_css *cells
-      cells = Object.constants.map(&:to_s).select{ |it| it != 'ViewCell' && it.ends_with?('Cell') }.map(&:constantize) unless cells.first
+    def all_css
+      cells = Object.constants.map(&:to_s).select{ |it| it != 'ViewCell' && it.ends_with?('Cell') }.map(&:constantize)
       cells.inject('') { |t,w| t += w.css.to_s }
     end
   end
@@ -44,16 +45,15 @@ class ViewCell
   end
 
   def render_template name=:cell
-    @@cache[self.class.to_s] ||= {}
-    @@cache[self.class.to_s][:tpl] ||= {}
+    template = 'cell-template-%s-%s' % [self.class, name]
 
-    @@cache[self.class.to_s][:tpl][name] ||= Proc.new do
+    template = Lux.ram_cache(template) do
       file = '%s/%s.haml' % [self.class.base_folder, name]
       data = File.read(file)
       Tilt[:haml].new { data }
-    end.call
+    end
 
-    @@cache[self.class.to_s][:tpl][name].render(self)
+    template.render(self)
   end
 
   # tag :div, { 'class'=>'iform' } do

@@ -132,8 +132,8 @@ module Lux
     require_relative '../../tasks/loader.rb'
   end
 
-  def mcache key=nil
-    key ||= caller[0]
+  def ram_cache key
+    MCACHE[key] = nil if Lux.config(:compile_assets)
     MCACHE[key] ||= yield
   end
 end

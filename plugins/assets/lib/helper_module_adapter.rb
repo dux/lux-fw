@@ -43,9 +43,11 @@ module HtmlHelper
 
     # return asset link in production or fail unless able
     unless Lux.config(:compile_assets)
-      @@__asset_menifest ||= MiniAssets::Manifest.new
-      mfile = @@__asset_menifest.get(file)
+      manifest = Lux.ram_cache(:asset_manifest) { MiniAssets::Manifest.new }
+      mfile    = manifest.get(file)
+
       raise 'Compiled asset link for "%s" not found in manifest.json' % file if mfile.empty?
+
       return asset_include(Lux.config.assets_root.to_s + mfile, opts)
     end
 

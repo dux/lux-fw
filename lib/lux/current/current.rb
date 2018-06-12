@@ -40,10 +40,9 @@ class Lux::Current
 
     @session = HashWithIndifferentAccess.new(@session)
 
-    ap request.params if request.post? && Lux.config(:log_to_stdout)
-
     @params = request.params.h_wia
     Lux::Current::EncryptParams.decrypt @params
+    ap @params if request.post? && Lux.config(:log_to_stdout)
 
     @nav = Lux::Application::Nav.new request
   end
