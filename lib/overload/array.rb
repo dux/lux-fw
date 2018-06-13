@@ -58,4 +58,9 @@ class Array
     i = string.split('').map{ |_| _.ord }.sum
     self[i % length]
   end
+
+  def push? data
+    self.push data if data.present?
+    self
+  end
 end

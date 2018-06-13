@@ -17,7 +17,9 @@ class HtmlMenu
 
   # item 'Links', '/link'
   # item('Links', '/link') { ... }
-  def add name, path, test=nil, &block
+  def add name, path, opt1=nil, opt2=nil, &block
+    test, opts = opt1.is_a?(Hash) ? [opt2, opt1] : [opt1, opt2 || {}]
+
     if @data.first
       active = nil
       active = false if test.class == FalseClass && !@data.first
@@ -28,9 +30,9 @@ class HtmlMenu
         @is_activated ||= active
       end
 
-      @data.push [name, path, active]
+      @data.push [name, path, opts, active]
     else
-      @data.push [name, path, test.class == FalseClass ? false : nil]
+      @data.push [name, path, opts, test.class == FalseClass ? false : nil]
     end
   end
 
@@ -58,7 +60,7 @@ class HtmlMenu
 
   # return result as a list
   def to_a
-    @data[0][2] = true if ! @is_activated && @data[0][2].class != FalseClass
+    @data[0][3] = true if ! @is_activated && @data[0][3].class != FalseClass
     @data
   end
 
@@ -68,7 +70,8 @@ class HtmlMenu
       {
         name:   it[0],
         path:   it[1],
-        active: it[2],
+        opts:   it[2],
+        active: it[3],
       }
     end
   end

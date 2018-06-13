@@ -14,6 +14,8 @@ class HtmlForm
     form_opts[:method] ||= 'post'
     form_opts[:method]   = form_opts[:method].upcase
 
+    form_opts[:id] ||= 'form-%s' % Lux.current.uid
+
     @action    = action
     @object    = action if action.respond_to?(:update)
     @form_opts = form_opts
@@ -70,7 +72,7 @@ class HtmlForm
 
   def submit name=nil
     name ||= 'Submit'
-    %[<button>#{name}</button>]
+    %[<button type="submit">#{name}</button>]
   end
 
   def row name, opts={}
