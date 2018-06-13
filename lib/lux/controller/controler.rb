@@ -179,7 +179,7 @@ class Lux::Controller
     define_method(:current)  { Lux.current }
     define_method(:request)  { current.request }
     define_method(:response) { current.response }
-    define_method(:params)   { current.params }
+    define_method(:params)   { current.request.params }
     define_method(:nav)      { current.nav }
     define_method(:session)  { current.session }
     define_method(:get?)     { request.request_method == 'GET' }

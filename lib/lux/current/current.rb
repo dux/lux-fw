@@ -8,7 +8,7 @@ class Lux::Current
   attr_accessor :can_clear_cache
 
   attr_accessor :session, :locale
-  attr_reader   :request, :response, :params, :nav, :cookies, :is_first_response
+  attr_reader   :request, :response, :nav, :is_first_response
 
   def initialize env=nil
     env   ||= '/mock'
@@ -21,14 +21,9 @@ class Lux::Current
     @files_in_use = []
     @response     = Lux::Response.new
     @request      = request
-    @cookies      = {}
     @session      = {}
 
-    for cookie in request.env['HTTP_COOKIE'].to_s.split(/;\s*/).map{ |el| el.split('=',2) }
-      @cookies[cookie[0]] = cookie[1]
-    end
-
-    @session = JSON.parse(Crypt.decrypt(@cookies['__luxs'] || '{}')) rescue {}
+    @session = JSON.parse(Crypt.decrypt(request.cookies['__luxs'] || '{}')) rescue {}
 
     # check for session
     if Lux.dev? && request.env['HTTP_REFERER'] && request.env['HTTP_REFERER'].index(request.host) && @session.keys.length == 0
@@ -40,9 +35,13 @@ class Lux::Current
 
     @session = HashWithIndifferentAccess.new(@session)
 
-    @params = request.params.h_wia
-    Lux::Current::EncryptParams.decrypt @params
-    ap @params if request.post? && Lux.config(:log_to_stdout)
+    # indiferent access
+    request.instance_variable_set(:@params, request.params.h_wia) if request.params.keys.length > 0
+
+    # request.params.map { |k,_| request.params.delete(k) }
+
+    Lux::Current::EncryptParams.decrypt request.params
+    ap request.params if request.post? && Lux.config(:log_to_stdout)
 
     @nav = Lux::Application::Nav.new request
   end

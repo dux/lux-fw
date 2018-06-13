@@ -32,7 +32,7 @@ class ViewCell
 
   define_method(:current) { Lux.current }
   define_method(:request) { Lux.current.request }
-  define_method(:params)  { Lux.current.params }
+  define_method(:params)  { Lux.current.request.params }
   define_method(:parent)  { @_parent }
   define_method(:render)  { render_template }
 

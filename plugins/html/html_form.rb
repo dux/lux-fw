@@ -49,7 +49,7 @@ class HtmlForm
   def input name, opts={}
     @name          = name
     opts[:id]    ||= Lux.current.uid
-    opts[:value] ||= Lux.current.params[name] if @form_opts[:method] == 'GET'
+    opts[:value] ||= Lux.current.request.params[name] if @form_opts[:method] == 'GET'
     input_object   = HtmlInput.new(@object)
     data           = input_object.render(name, opts)
     @type          = input_object.type

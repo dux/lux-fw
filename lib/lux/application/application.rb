@@ -10,7 +10,7 @@ class Lux::Application
 
   # simple one liners and delegates
   define_method(:request)  { @current.request }
-  define_method(:params)   { @current.params }
+  define_method(:params)   { @current.request.params }
   define_method(:nav)      { @current.nav }
   define_method(:redirect) { |where, flash={}| @current.redirect where, flash }
   define_method(:get?)     { request.request_method == GET }

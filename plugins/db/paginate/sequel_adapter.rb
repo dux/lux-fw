@@ -1,7 +1,7 @@
 module Sequel::Plugins::LuxSimplePaginate
   module DatasetMethods
     def page size: 20, param: :page, page: nil
-      page = (page || Lux.current.params[param]).to_i
+      page = (page || Lux.current.request.params[param]).to_i
       page = 1 if page < 1
 
       ret = paginate(page, size).all

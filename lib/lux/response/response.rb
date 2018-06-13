@@ -199,7 +199,7 @@ class Lux::Response
     unless @headers['cache-control'].index('public')
       encrypted = Crypt.encrypt(current.session.to_json)
 
-      if current.cookies[Lux.config.session_cookie_name] != encrypted
+      if current.request.cookies[Lux.config.session_cookie_name] != encrypted
         @headers['set-cookie']  = "#{Lux.config.session_cookie_name}=#{encrypted}; Expires=#{(Time.now+1.month).utc}; Path=/; Domain=#{domain};"
       end
     end

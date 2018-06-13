@@ -19,7 +19,7 @@ class Lux::Api
     def call path
       return 'Unsupported API call' if !path[1] || path[3]
 
-      opts = Lux.current.params # Lux.current.request.post? ? Rack::Utils.parse_nested_query(Lux.current.request.body.read).h : Lux.current.params
+      opts = Lux.current.request.params
 
       if path[2]
         opts[:_id] = path[1]

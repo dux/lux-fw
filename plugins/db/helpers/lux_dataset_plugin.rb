@@ -63,7 +63,7 @@ Sequel::Model.dataset_module do
   # search in array of qs arguments
   def qs_search *args
     for el in args
-      dataset = where("#{el}=?", Lux.current.params[el]) if !Lux.current.params[el].blank? && model.db_schema[el]
+      dataset = where("#{el}=?", Lux.current.request.params[el]) if !Lux.current.request.params[el].blank? && model.db_schema[el]
     end
     dataset || self
   end
