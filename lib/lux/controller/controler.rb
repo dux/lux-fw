@@ -62,10 +62,10 @@ class Lux::Controller
 
   # default action call method
   def call
-    it = :show if nav.id && !nav.first
-    it ||= nav.first.or(:index)
+    action_name   = nav.first
+    action_name ||= @id ? :show : :index
 
-    action it
+    action action_name
   end
 
   # execute before and after filters, only once

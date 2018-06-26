@@ -10,6 +10,7 @@ class Object
     paths = [
       'models',
       'lib',
+      'lib/vendor',
       'vendor',
       file.split('_').last.pluralize
     ].map  { |it| './app/%s/%s.rb' % [it, file] }

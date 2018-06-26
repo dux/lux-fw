@@ -17,17 +17,15 @@ class Lux::Application::Nav
     @path.join('/').sub(/\/$/, '')
   end
 
-  def shift skip_root=false
-    @path.shift
-    @path.first
-  end
-
-  def root sub_nav=nil
-    sub_nav ? ('%s/%s' % [@path.first, sub_nav]) : @path.first
-  end
-
-  def root= value
-    @path[0] = value
+  def shift
+    if block_given?
+      result = yield(@path[0]) || return
+      @path.shift
+      result
+    else
+      @path.shift
+      @path.first
+    end
   end
 
   # used to make admin.lvm.me/users to lvh.me/admin/users
@@ -35,8 +33,31 @@ class Lux::Application::Nav
     @path.unshift name
   end
 
+  def root sub_nav=nil
+    if block_given?
+      # replace root in place if yields not nil
+      result = yield(@path[0]) || return
+      @path.slice!(0,1)
+      @path[0] = result
+    else
+      sub_nav ? ('%s/%s' % [@path.first, sub_nav]) : @path.first
+    end
+  end
+
+  def root= value
+    @path[0] = value
+  end
+
   def first
-    @path[1]
+    if block_given?
+      # replace root in place if yields not nil
+      return unless @path[1].present?
+      result = yield(@path[1]) || return
+      @path.slice!(1,1)
+      result
+    else
+      @path[1]
+    end
   end
 
   def first= data
@@ -61,15 +82,5 @@ class Lux::Application::Nav
 
   def to_s
     full
-  end
-
-  def id
-    if first && block_given?
-      if @id = yield(first)
-        shift
-      end
-    end
-
-    @id
   end
 end
