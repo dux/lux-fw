@@ -118,7 +118,10 @@ module Lux
 
   # load specific plugin
   def plugin name
-    dir  = '%s/plugins/%s' % [Lux.fw_root, name]
+    dir = Lux.fw_root.join('plugins/%s' % name)
+
+    die 'Plugin "%s" not found' % name unless Dir.exist? dir
+
     base = '%s/base.rb' % dir
 
     if File.exist?(base)
