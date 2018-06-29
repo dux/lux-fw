@@ -46,7 +46,7 @@ class Lux::Application
   end
 
   def cell_target? route
-    ! [Symbol, String].include?(route.class)
+    ! [Symbol].include?(route.class)
   end
 
   def response body=nil, status=nil
@@ -110,6 +110,17 @@ class Lux::Application
     map(target) { map route }
   end
 
+  # namespace :dashboard do
+  #   map orgs: 'dashboard/orgs'
+  # end
+  def namespace name
+    return unless nav.root == name.to_s
+    nav.shift
+    yield
+
+    raise NotFoundError.new %[Route "#{route_object}" matched but nothing is called]
+  end
+
   # map api: ApiController
   # map Main::RootController do
   #   action :about
@@ -128,13 +139,11 @@ class Lux::Application
       route  = route_object.keys.first
       target = route_object.values.first
 
-      # return match(route_object) if route.class == String && route.split('/').length > 2
-
       # return if no match
       return unless test?(route)
 
       # must resolve
-      if cell_target?(target) || (target.class == String && target.include?('#'))
+      if cell_target?(target) || target.class == String
         call target
       else
        call [@cell_object, opts[:to] || target]
@@ -155,17 +164,9 @@ class Lux::Application
     if cell_target?(route_object)
       @cell_object = route_object
       instance_exec &block
-
-    # map :foo do
-    else
-      if test?(route_object)
-        nav.shift
-        instance_exec &block
-        raise NotFoundError.new %[Route "#{route_object}" matched but nothing is called]
-      else
-        return
-      end
     end
+
+    Lux.error ['Symbol as map attribute is not supported, use namespace method', caller[0]].join("\n\n") if route_object.class == Symbol
   end
 
   # call :api_router
@@ -180,22 +181,20 @@ class Lux::Application
     source = caller.detect { |it| !it.include?('/lib/lux/') }
     Lux.log ' Routed from: app/%s' % source.split(' ').first.split('/app/', 2).last.sub(':in','') if source
 
+    action = nil
+
     case object
       when Symbol
         return send(object)
       when Hash
         object = [object.keys.first, object.values.first]
       when String
-        if object.include?('#')
-          object = object.split('#')
-          object[0] = ('%s_controller' % object[0]).classify.constantize
-          object[0].action(object[1])
-        else
-          object = ('%s_controller' % object).classify.constantize
-        end
+        object, action = object.split('#') if object.include?('#')
+      when Array
+        object, action = object
     end
 
-    object, action = object if object.is_a? Array
+    object = ('%s_controller' % object).classify.constantize if object.class == String
 
     if action
       object.action action
