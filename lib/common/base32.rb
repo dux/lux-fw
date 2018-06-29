@@ -44,4 +44,5 @@ module Base32
       chunks(str, 8).collect(&:decode).flatten.join
     end
   end
+
 end

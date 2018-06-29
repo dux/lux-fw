@@ -3,6 +3,6 @@ LuxCli.class_eval do
   def dbconsole
     require './config/environment'
 
-    system "psql '%s'" % Lux.secrets.db_url
+    system "psql '%s'" % ENV.fetch('DB_URL') { Lux.secrets.db_url }
   end
 end

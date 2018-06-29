@@ -49,6 +49,18 @@ class Object
     self.class == TrueClass || self.class == FalseClass
   end
 
+  def andand func=nil
+    if present?
+      if block_given?
+        yield(self)
+      else
+        func ? send(func) : self
+      end
+    else
+      block_given? || func ? nil : {}.h
+    end
+  end
+
 end
 
 # if we dont have awesome print in prodction, define mock

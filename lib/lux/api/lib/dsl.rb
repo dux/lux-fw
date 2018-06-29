@@ -28,10 +28,7 @@ class Lux::Api
 
   ###
 
-  def check_params_and_mock_instance_variables action
-    @method_attr = self.class.method_attr[action] || {}
-
-    # params check if framework default
+  before do
     if @method_attr[:param]
       local  = @method_attr[:param].inject({}) { |h, el| o=el.dup; h[o.delete(:name)] = o; h }
       rules  = Typero.new local
@@ -41,7 +38,7 @@ class Lux::Api
         raise ArgumentError.new(errors.values.to_sentence) unless Lux.current
 
         Lux.current.response.status 400
-        return response.error errors.values.to_sentence
+        error errors.values.to_sentence
       end
 
       # define local prefixed @_ variables

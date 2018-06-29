@@ -67,6 +67,8 @@ module Lux::Error
     name ||= 'Undefined name'
     msg    = $!.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
 
+    ap [name, msg] if Lux.config(:show_server_errors)
+
     %[<pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;"><b style="font-size:110%;">#{name}</b>\n\n<b>#{msg}</b>\n\n#{dmp[0].join("\n")}\n\n#{dmp[1].join("\n")}</pre>]
   end
 

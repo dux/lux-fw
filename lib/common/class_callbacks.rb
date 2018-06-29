@@ -22,7 +22,7 @@ module ClassCallbacks
 
   def add klass, unique_id, action, method
     klass = klass.to_s
-    key   = Crypt.sha1(unique_id)
+    key   = Digest::SHA1.hexdigest(unique_id)
 
     @@pointers[key] = method
 

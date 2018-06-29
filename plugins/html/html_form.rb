@@ -7,6 +7,13 @@
 #   .custom= f.input :email
 #   = f.submit 'Save'
 
+ApplicationApi.before do
+  name = '[protected]:'
+  params.each do |k,v|
+    params[k] = Crypt.decrypt(v.split(name, 2)[1]) if v.class == String && v.starts_with?(name)
+  end
+end
+
 class HtmlForm
   def initialize action, form_opts={}
     form_opts[:method]   = 'get' if form_opts.delete(:get)

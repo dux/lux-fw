@@ -87,6 +87,7 @@ class Lux::Api
 
     @response   = Lux::Api::Response.new
     @params     = params
+    @action     = action
     @class_name = self.class.to_s.sub(/Api$/,'')
 
     # load default object
@@ -95,7 +96,8 @@ class Lux::Api
       @params.delete(:_id)
     end
 
-    check_params_and_mock_instance_variables action
+
+    @method_attr = self.class.method_attr[action] || {}
 
     return if response.errors?
 
