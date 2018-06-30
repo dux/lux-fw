@@ -123,6 +123,10 @@ class Lux::Api
     response.message = what
   end
 
+  def current
+    Lux.current
+  end
+
   # default after block, can be overloaded
   def after
     return unless Lux.current
@@ -134,5 +138,5 @@ class Lux::Api
 
 end
 
-ApplicationApi = Class.new Lux::Api
+ApplicationApi ||= Class.new Lux::Api
 

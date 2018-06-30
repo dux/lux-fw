@@ -84,7 +84,9 @@ class HtmlForm
 
   def row name, opts={}
     node  = input(name, opts)
+
     label = %[<label for="#{opts[:id]}">#{opts[:label] || name.to_s.humanize}</label>]
+
     %[<p class="as-#{opts[:as]}">#{label}#{node}<span class="error"></span></p>]
   end
 end
