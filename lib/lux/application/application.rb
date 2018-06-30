@@ -178,8 +178,9 @@ class Lux::Application
     done?
 
     # log original app caller
-    source = caller.detect { |it| !it.include?('/lib/lux/') }
-    Lux.log ' Routed from: app/%s' % source.split(' ').first.split('/app/', 2).last.sub(':in','') if source
+    root    = Lux.root.join('app/').to_s
+    sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
+    Lux.log ' Routed from: %s' % sources.join(' ') if sources.first
 
     action = nil
 
