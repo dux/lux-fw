@@ -18,6 +18,10 @@ class String
     data
   end
 
+  def first
+    self[0,1]
+  end
+
   def sanitize
     Sanitize.clean(self, :elements=>%w[span ul ol li b bold i italic u underline hr br p], :attributes=>{'span'=>['style']} )
   end

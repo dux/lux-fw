@@ -76,9 +76,9 @@ module Lux
     Lux::Error.show(data)
   end
 
-  def log what
+  def log what=nil
     return unless Lux.config(:log_to_stdout)
-    puts what
+    puts what || yield
   end
 
   def on name, ref=nil, &proc

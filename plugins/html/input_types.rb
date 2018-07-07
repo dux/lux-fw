@@ -92,6 +92,8 @@ class HtmlInput
   end
 
   def as_radio
+    return as_radios if @opts[:collection]
+
     @opts[:type] = :radio
     @opts[:checked] = @opts[:value] == @object.send(@name) ? true : nil
     @opts.tag(:input)
@@ -125,6 +127,7 @@ class HtmlInput
     @opts[:type] = :text
     @opts[:onkeyup] = %[draw_tag('#{@opts[:id]}')]
     @opts[:autocomplete] ||= 'off'
+    @opts[:style] = ['display: block; width: 100%;', @opts[:style]].join(';')
 
     ret = %[
     <script>

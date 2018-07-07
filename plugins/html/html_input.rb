@@ -17,21 +17,34 @@ class HtmlInput
     @globals = opts.dup
   end
 
-  def figure_out_type opts
-    return :select if opts[:collection]
-
-    data_type = @object[name].class.name rescue 'String'
-
-    if ['TrueClass','FalseClass'].index(data_type)
-      :checkbox
-    else
-      :string
+  # if type is written in parameter :as=> use this helper function
+  def render(name, opts={})
+    if name.is_hash?
+      opts = name
+      name  = :null
     end
+
+    opts  = opts_prepare name, opts.dup
+    @type = opts.delete(:as) || :text
+    send("as_#{@type}") rescue Lux::Error.inline("as_#{@type}")
   end
 
+  private
+
   # exports @name and @opts globals
-  def opts_prepare(name, opts={})
-    opts[:as] ||= figure_out_type opts
+  def opts_prepare name, opts={}
+
+    opts[:as] ||= lambda do
+      return :select if opts[:collection]
+
+      data_type = @object[name].class.name rescue 'String'
+
+      if ['TrueClass','FalseClass'].index(data_type)
+        :checkbox
+      else
+        :string
+      end
+    end.call
 
     # experimental, figure out collection unless defined
     if name =~ /_id$/ && opts[:as] == :select && !opts[:collection]
@@ -52,18 +65,6 @@ class HtmlInput
     @wrap  = opts.delete(:wrap) || @globals[:wrap]
     @name  = name
     @opts  = opts
-  end
-
-  # if type is written in parameter :as=> use this helper function
-  def render(name, opts={})
-    if name.is_hash?
-      opts = name
-      name  = :null
-    end
-
-    opts  = opts_prepare name, opts.dup
-    @type = opts.delete(:as) || :text
-    send("as_#{@type}") rescue Lux::Error.inline("as_#{@type}")
   end
 
   def prepare_collection(data)

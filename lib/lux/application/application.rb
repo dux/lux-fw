@@ -110,15 +110,29 @@ class Lux::Application
     map(target) { map route }
   end
 
-  # namespace :dashboard do
+  @@namespaces ||= {}
+  def self.namespace name, &block
+    @@namespaces[name] = block
+  end
+
+  # namespace 'dashboard' do
   #   map orgs: 'dashboard/orgs'
   # end
   def namespace name
-    return unless nav.root == name.to_s
-    nav.shift
+    if String === name
+      return unless nav.root == name.to_s
+      nav.shift
+    else
+      if @@namespaces[name]
+        return unless instance_exec &@@namespaces[name]
+      else
+        raise ArgumentError.new('Namespace block :%s is not defined' % name)
+      end
+    end
+
     yield
 
-    raise NotFoundError.new %[Route "#{route_object}" matched but nothing is called]
+    raise NotFoundError.new %[Namespace <b>:#{name}</b> matched but nothing is called]
   end
 
   # map api: ApiController
@@ -223,7 +237,13 @@ class Lux::Application
   end
 
   def render
-    Lux.log "\n#{current.request.request_method.white} #{current.request.path.white}"
+    Lux.log do
+      path =  current.request.path
+      path =+ [path, current.request.env['QUERY_STRING']].join('?') if current.request.env['QUERY_STRING'].present?
+      path =  path.white
+
+      "\n#{current.request.request_method.white} #{path}"
+    end
 
     Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
 

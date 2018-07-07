@@ -35,6 +35,13 @@ class Lux::Current
 
     @session = HashWithIndifferentAccess.new(@session)
 
+    # remove empty paramsters in GET request
+    if request.request_method == 'GET'
+      for el in request.params.keys
+        request.params.delete(el) if request.params[el].blank?
+      end
+    end
+
     # indiferent access
     request.instance_variable_set(:@params, request.params.h_wia) if request.params.keys.length > 0
 

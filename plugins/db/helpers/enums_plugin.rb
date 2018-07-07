@@ -34,9 +34,9 @@ class Sequel::Model
       end
 
       define_method(opts[:method]) do
-        key = self[opts[:field]] || opts[:default]
-        return unless key.present?
-        values[key] || raise('Key "%s" not found' % key)
+        value = send(opts[:field]).or opts[:default]
+        return unless value.present?
+        values[value] || raise('Key "%s" not found' % value)
       end
     end
   end

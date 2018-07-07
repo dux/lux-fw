@@ -14,7 +14,7 @@ Lux.app do
       end
     end
 
-    path = nav.path.join('/')
+    path = nav.rest.join('/')
 
     if nav.root == 'compiled_asset'
       asset = MiniAssets::Asset.call(path)

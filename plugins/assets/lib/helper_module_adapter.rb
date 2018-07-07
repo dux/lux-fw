@@ -59,6 +59,6 @@ module HtmlHelper
       data.push asset_include file
     end
 
-    data.join($/)
+    data.map{ |it| it.sub(/^\s\s/,'') }.join("\n")
   end
 end

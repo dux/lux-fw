@@ -18,7 +18,8 @@ class Object
 
   # better console log dump
   def rr what
-    ap ['--- START (%s) ---' % what.class, what, '--- END ---']
+    src = caller[0].sub(Lux.root.to_s+'/', '').sub(Lux.fw_root.to_s, 'lux-fw').split(':in `').first
+    ap ['--- START (%s) %s ---' % [what.class, src], what, '--- END ---']
   end
 
   # unique methods for object
@@ -50,9 +51,5 @@ class Object
   def rr! what
     print "\e[H\e[2J\e[3J" # clear osx screen :)
     rr what
-  end
-
-  def instance_variables_hash
-    Hash[instance_variables.map { |name| [name, instance_variable_get(name)] } ]
   end
 end

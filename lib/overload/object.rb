@@ -61,6 +61,9 @@ class Object
     end
   end
 
+  def instance_variables_hash
+    Hash[instance_variables.map { |name| [name, instance_variable_get(name)] } ]
+  end
 end
 
 # if we dont have awesome print in prodction, define mock

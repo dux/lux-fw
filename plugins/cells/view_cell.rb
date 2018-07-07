@@ -45,10 +45,13 @@ class ViewCell
   end
 
   def render_template name=:cell
+    # template = 'app/cells/%s/%s' % [klass, name]
     template = 'cell-template-%s-%s' % [self.class, name]
 
     template = Lux.ram_cache(template) do
       file = '%s/%s.haml' % [self.class.base_folder, name]
+      Lux.current.files_in_use.push file
+
       data = File.read(file)
       Tilt[:haml].new { data }
     end
