@@ -58,7 +58,15 @@ class Lux::Application::Nav
   end
 
   def last
-    @path.last
+    if block_given?
+      # replace root in place if yields not nil
+      return unless @path.last.present?
+      result = yield(@path.last) || return
+      @path.pop
+      result
+    else
+      @path.last
+    end
   end
 
   def rest
