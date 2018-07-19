@@ -46,7 +46,7 @@ LuxCli.class_eval do
       end
 
     # write secrets file if needed
-    elsif @secrets.secret_file.ctime < @secrets.read_file.ctime
+    elsif !@secrets.secret_file.exist? || (@secrets.secret_file.ctime < @secrets.read_file.ctime)
       begin
         encoded = JWT.encode @secrets.read_file.read, @secrets.secret, @secrets.strength
         @secrets.secret_file.write encoded
