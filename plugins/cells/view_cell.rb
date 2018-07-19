@@ -1,4 +1,6 @@
 class ViewCell
+  class_callbacks :before
+
   @@cache = {}
 
   class << self
@@ -17,7 +19,7 @@ class ViewCell
       scss_files = Dir["#{base_folder}/*.scss"] + Dir["#{base_folder}/*.css"]
       data       = scss_files.sort.map { |file| File.read(file) }.join("\n\n")
 
-      se = Sass::Engine.new(data, :syntax => :scss)
+      se = SassC::Engine.new(data, :syntax => :scss)
       se.render.gsub($/,'').gsub(/\s+/,' ').gsub(/([:;{}])\s+/,'\1')
     end
 
@@ -33,15 +35,24 @@ class ViewCell
   define_method(:current) { Lux.current }
   define_method(:request) { Lux.current.request }
   define_method(:params)  { Lux.current.request.params }
-  define_method(:parent)  { @_parent }
   define_method(:render)  { render_template }
 
   def initialize parent
     @_parent = parent
+
+    class_callback :before
   end
 
   def render
     render_template
+  end
+
+  def parent &block
+    if block_given?
+      @_parent.instance_exec &block
+    else
+      @_parent
+    end
   end
 
   def render_template name=:cell
@@ -68,8 +79,9 @@ class ViewCell
   end
 
   # execute block only once per page
-  def once
-    Lux.current.once('cell-once-%s' % self.class) { yield }
+  def once id=nil
+    id ||= self.class
+    Lux.current.once('cell-once-%s' % id) { yield }
   end
 
   def cell name
