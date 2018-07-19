@@ -5,18 +5,18 @@ require 'typero'
 module Sequel::Plugins::TyperoAttributes
   module ClassMethods
     def attributes(&block)
-      self.instance_variable_set :@typero_rule, Typero.new(&block)
+      self.instance_variable_set :@typero, Typero.new(&block)
     end
 
-    def typero_schema
-      self.instance_variable_get :@typero_rule
+    def typero
+      self.instance_variable_get :@typero
     end
   end
 
   module InstanceMethods
     # calling typero! on any object will validate all fields
     def typero! field_name=nil
-      typero = self.class.typero_schema || return
+      typero = self.class.typero || return
 
       typero.validate(self) do |name, err|
         errors.add(name, err) unless (errors.on(name) || []).include?(err)
