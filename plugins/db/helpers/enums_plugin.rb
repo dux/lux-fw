@@ -21,22 +21,24 @@ class Sequel::Model
       opts[:method]  ||= name.to_s.singularize
       opts[:default] ||= values.keys.first unless opts.key?(:default)
 
-      unless opts[:field]
-        opts[:field] = opts[:method] + '_id'
-        opts[:field] = opts[:method] + '_sid' unless db_schema[opts[:field].to_sym]
-      end
+      unless opts[:field].class == FalseClass
+        unless opts[:field]
+          opts[:field] = opts[:method] + '_id'
+          opts[:field] = opts[:method] + '_sid' unless db_schema[opts[:field].to_sym]
+        end
 
-      raise NameError.new('Field %s not found for enums %s' % [opts[:field], opts[:name]]) unless db_schema[opts[:field].to_sym]
+        raise NameError.new('Field %s not found for enums %s' % [opts[:field], opts[:name]]) unless db_schema[opts[:field].to_sym]
+
+        define_method(opts[:method]) do
+          value = send(opts[:field]).or opts[:default]
+          return unless value.present?
+          values[value] || raise('Key "%s" not found' % value)
+        end
+      end
 
       # this is class method that will list all options
-      define_singleton_method(opts[:name]) do
-        values
-      end
-
-      define_method(opts[:method]) do
-        value = send(opts[:field]).or opts[:default]
-        return unless value.present?
-        values[value] || raise('Key "%s" not found' % value)
+      define_singleton_method(opts[:name]) do |id=nil|
+        id ? values[id] : values
       end
     end
   end
