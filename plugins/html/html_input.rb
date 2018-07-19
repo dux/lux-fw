@@ -67,21 +67,31 @@ class HtmlInput
     @opts  = opts
   end
 
-  def prepare_collection(data)
+  def prepare_collection data
     ret = []
-    for el in data
-      if data[0].respond_to?(:select_name)
-        ret.push [el.id.to_s, el.select_name]
-      elsif data[0].respond_to?(:name)
-        ret.push [el.id.to_s, el.name]
-      elsif data[0].kind_of?(Array)
-        ret.push [el[0].to_s, el[1]]
-      elsif data.is_hash?
-        ret.push el
-      else
-        ret.push [el.to_s, el]
+
+    if data.is_hash?
+      # { id: {name:'Foo'} } : { id: 'Foo' }
+      for id, name in data
+        name = name[:name] if name.is_hash?
+        ret.push [id.to_s, name]
+      end
+    else
+      for el in data
+        if data[0].respond_to?(:select_name)
+          ret.push [el.id.to_s, el.select_name]
+        elsif data[0].respond_to?(:name)
+          ret.push [el.id.to_s, el.name]
+        elsif data[0].kind_of?(Array)
+          ret.push [el[0].to_s, el[1]]
+        elsif data.is_hash?
+          ret.push el
+        else
+          ret.push [el.to_s, el]
+        end
       end
     end
+
     ret
   end
 
