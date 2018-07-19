@@ -31,4 +31,5 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_dependency 'clipboard', '~> 1'
   gem.add_dependency 'nokogiri', '~> 1'
   gem.add_dependency 'pry', '~> 0'
+  gem.add_dependency 'puma', '~> 3'
 end
