@@ -26,11 +26,7 @@ class String
     Sanitize.clean(self, :elements=>%w[span ul ol li b bold i italic u underline hr br p], :attributes=>{'span'=>['style']} )
   end
 
-  def tag(node_name, opts={})
-    opts.tag(node_name, self)
-  end
-
-  def wrap(node_name, opts={})
+  def wrap node_name, opts={}
     return self unless node_name
     opts.tag(node_name, self)
   end
@@ -91,5 +87,9 @@ class String
   # remomove colorize gem string colors
   def decolorize
     self.gsub(/\[0;\d\d;\d\dm([^\[]*)\[0m/) { $1 }
+  end
+
+  def escape
+    CGI::escape(self)
   end
 end
