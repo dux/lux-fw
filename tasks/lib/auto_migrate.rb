@@ -244,9 +244,9 @@ class AutoMigrate
     name = args[0]
     opts = args[1] || {}
 
-    if [:string, :integer, :text, :boolean, :datetime, :date, :jsonb].index(type)
+    if [:string, :integer, :text, :boolean, :datetime, :date, :jsonb, :geography].index(type)
       @fields[name.to_sym] = [type, opts]
-    elsif [:decimal].index(type)
+    elsif type == :decimal
       opts[:precision] ||= 8
       opts[:scale] ||= 2
       @fields[name.to_sym] = [:decimal, opts]
@@ -257,6 +257,7 @@ class AutoMigrate
       @fields[:updated_at] = [:datetime, opts]
       @fields[:updated_by] = [:integer, opts]
     elsif type == :polymorphic
+      name ||= :model
       @fields["#{name}_id".to_sym]   = [:integer, opts.merge(index: true) ]
       @fields["#{name}_type".to_sym] = [:string, opts.merge(limit: 100, index: "#{name}_id")]
     else
