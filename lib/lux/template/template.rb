@@ -82,7 +82,7 @@ class Lux::Template
 
     data = nil
     speed = Lux.speed do
-      data = Lux::Error.try %[Lux::Template "#{@template}" render error] do
+      data = Lux::Error.try %[Lux::Template #{@template} render error] do
         @tilt.render(@helper) do
           yield if block_given?
         end

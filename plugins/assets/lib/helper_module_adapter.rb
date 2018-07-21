@@ -5,11 +5,13 @@ module HtmlHelper
   def asset_include path, opts={}
     raise ArgumentError.new("Path can't be empty") if path.empty?
 
-    url = if path.starts_with?('/') || path.include?('//')
-      path
-    else
-      '/compiled_asset/%s' % path
-    end
+    url = if path.include?('/plugins/')
+        '/compiled_asset/plugin:' + path.split('/plugins/', 2).last
+      elsif path.starts_with?('/') || path.include?('//')
+        path
+      else
+        '/compiled_asset/%s' % path
+      end
 
     ext  = url.split('?').first.split('.').last
     type = ['css', 'sass', 'scss'].include?(ext) ? :style : :script

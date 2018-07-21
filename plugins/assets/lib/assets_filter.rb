@@ -17,6 +17,13 @@ Lux.app.before do
   path = nav.rest.join('/')
 
   if nav.root == 'compiled_asset'
+    # allow plugin: paths
+    path = path.sub(%r{^plugin:([^/]+)}) do
+      plugin = Lux::PLUGINS[$1]
+      die "Plugin %s not loaded, I have %s" % [$1, Lux::PLUGINS.keys.join(', ')] unless plugin
+      plugin
+    end
+
     asset = MiniAssets::Asset.call(path)
     current.response.content_type asset.content_type
     current.response.body asset.render

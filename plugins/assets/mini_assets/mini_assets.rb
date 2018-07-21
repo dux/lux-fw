@@ -55,9 +55,21 @@ class MiniAssets
   end
 
   def add files
-    files  = files.sub(/^\.\//,'')
-    path   = files[0,1] == '/' ? "#{Lux.root}/app/assets#{files}" : @source.dirname.join(files)
-    @files += Dir[path].sort.map{ |f| f.split('/app/assets/', 2).last }
+    if files.starts_with?('plugin:')
+      real_path = files.sub(%r{^plugin:([^/]+)}) do
+        plugin = Lux::PLUGINS[$1]
+        die "Plugin %s not loaded, I have %s" % [$1, Lux::PLUGINS.keys.join(', ')] unless plugin
+        plugin + '/assets'
+      end
+
+      @files += Dir[real_path]
+    else
+      files  = files.sub(/^\.\//,'')
+      path   = files[0,1] == '/' ? "#{Lux.root}/app/assets#{files}" : @source.dirname.join(files)
+      @files += Dir[path].sort.map{ |f| f.split('/app/assets/', 2).last }
+    end
+
+    @files
   end
 
   # render production file

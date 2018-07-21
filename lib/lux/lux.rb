@@ -16,6 +16,7 @@ module Lux
   CONFIG ||= Hashie::Mash.new
   EVENTS ||= {}
   MCACHE ||= {}
+  PLUGINS||= {}
 
   BACKGROUND_THREADS ||= []
   Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
@@ -118,16 +119,21 @@ module Lux
 
   # load specific plugin
   def plugin name
-    dir = Lux.fw_root.join('plugins/%s' % name)
+    folders = [Lux.fw_root.to_s, './lib', '.']
+      .map { |f| f+'/plugins'}
+      .map { |el| [el, name].join('/') }
 
-    die 'Plugin "%s" not found' % name unless Dir.exist? dir
+    folder = folders.find { |dir| Dir.exist?(dir) } ||
+      die('Plugin %s not found, looked in %s' % [name, folders.map{ |el| "\n #{el}" }.join(', ')])
 
-    base = '%s/base.rb' % dir
+    PLUGINS[name.to_s] ||= folder
+
+    base = '%s/%s.rb' % [name, folder]
 
     if File.exist?(base)
       load base
     else
-      Lux::Config.require_all('%s/*' % dir)
+      Lux::Config.require_all('%s/*' % folder)
     end
   end
 

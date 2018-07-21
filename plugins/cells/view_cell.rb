@@ -16,6 +16,8 @@ class ViewCell
 
     # get cell css
     def css
+      require 'sassc'
+
       scss_files = Dir["#{base_folder}/*.scss"] + Dir["#{base_folder}/*.css"]
       data       = scss_files.sort.map { |file| File.read(file) }.join("\n\n")
 
