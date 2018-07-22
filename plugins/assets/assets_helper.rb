@@ -5,29 +5,21 @@ module HtmlHelper
   def asset_include path, opts={}
     raise ArgumentError.new("Path can't be empty") if path.empty?
 
-    url = if path.include?('/plugins/')
-        '/compiled_asset/plugin:' + path.split('/plugins/', 2).last
-      elsif path.starts_with?('/') || path.include?('//')
-        path
-      else
-        '/compiled_asset/%s' % path
-      end
-
-    ext  = url.split('?').first.split('.').last
+    ext  = path.split('?').first.split('.').last
     type = ['css', 'sass', 'scss'].include?(ext) ? :style : :script
-    type = :style if url.include?('fonts.googleapis.com')
+    type = :style if path.include?('fonts.googleapis.com')
 
-    current.response.early_hints url, type
+    current.response.early_hints path, type
 
     if type == :style
       if opts[:minimalcss] && Lux.current.response.is_first?
         minimalcss = File.read('./public/assets/minimal-%s.css' % opts[:minimalcss]) rescue Lux.error('Assets: minimalcss "%s" not found' % opts[:minimalcss])
-        %[<style>#{minimalcss}</style>\n<link rel="preload" as="style" href="#{url}" onload="this.rel='stylesheet'" />]
+        %[<style>#{minimalcss}</style>\n<link rel="preload" as="style" href="#{path}" onload="this.rel='stylesheet'" />]
       else
-        %[<link rel="stylesheet" href="#{url}" />]
+        %[<link rel="stylesheet" href="#{path}" />]
       end
     else
-      %[<script src="#{url}"></script>]
+      %[<script src="#{path}"></script>]
     end
   end
 
@@ -45,8 +37,8 @@ module HtmlHelper
 
     # return asset link in production or fail unless able
     unless Lux.config(:compile_assets)
-      manifest = Lux.ram_cache(:asset_manifest) { MiniAssets::Manifest.new }
-      mfile    = manifest.get(file)
+      manifest = Lux.ram_cache('asset-manigest') { JSON.load Lux.root.join('public/manifest.json').read }
+      mfile    = manifest['files'][file]
 
       raise 'Compiled asset link for "%s" not found in manifest.json' % file if mfile.empty?
 
@@ -55,10 +47,10 @@ module HtmlHelper
 
     # try to create list of incuded files and show every one of them
     data = []
-    asset = MiniAssets.new file
+    asset = SimpleAssets.new file
 
-    for file in asset.files
-      data.push asset_include file
+    for file in asset.dev_sources
+      data.push asset_include '/compiled_asset/' + file
     end
 
     data.map{ |it| it.sub(/^\s\s/,'') }.join("\n")

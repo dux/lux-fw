@@ -18,15 +18,10 @@ Lux.app.before do
 
   if nav.root == 'compiled_asset'
     # allow plugin: paths
-    path = path.sub(%r{^plugin:([^/]+)}) do
-      plugin = Lux::PLUGINS[$1]
-      die "Plugin %s not loaded, I have %s" % [$1, Lux::PLUGINS.keys.join(', ')] unless plugin
-      plugin
-    end
 
-    asset = MiniAssets::Asset.call(path)
+    asset = SimpleAssets::Asset.new(path)
     current.response.content_type asset.content_type
-    current.response.body asset.render
+    current.response.body asset.compile
 
   elsif nav.root == 'raw_asset'
     Lux.error "You can watch raw files only in development" unless Lux.dev?

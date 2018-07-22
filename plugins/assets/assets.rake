@@ -11,15 +11,16 @@ namespace :assets do
   task :compile do
     require './config/application'
 
-    ENV['RACK_ENV'] = 'production'
+    assets  = Dir['./app/assets/**/index.*'].map { |el| el.sub('./app/assets/', '').sub(%r{/index\.\w+$}, '') }
+    assets += Dir['./app/assets/**/assets'].map { |el| el.sub('./app/assets/', '').sub(%r{/assets$}, '') }
 
-    assets = Dir['./app/assets/**/index.*'].map { |el| el.sub('./app/assets/','') }
-
-    Lux.config.assets_precompile = true
+    assets.uniq!
 
     speed = Lux.speed do
       for file in assets
-        assets = MiniAssets.new file
+        dir = file.sub(/\/index\.\w+$/, '')
+
+        assets = SimpleAssets.new dir
 
         puts "Generated #{file.green} -> #{assets.render}"
       end
@@ -29,7 +30,7 @@ namespace :assets do
         local  = '/assets/cell-assets.css'
         handle = Lux.root.join('public' + local)
         handle.write ViewCell.all_css
-        puts 'Generated %s -> %s' % ['cell assets'.green, local]
+        puts 'Generated %s -> %s' % ['cell css assets'.green, local]
       end
     end
 
