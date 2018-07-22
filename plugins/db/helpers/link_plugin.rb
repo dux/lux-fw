@@ -45,8 +45,15 @@ class Sequel::Model
         class_eval %[
           def #{name_p}
             return [] if #{name_s}_ids.blank?
-            ids = #{name_s}_ids.join(',')
-            #{klass}.where(Sequel.lit('id in ('+ids+')')).all
+            ids = #{name_s}_ids.uniq
+
+            if !ids.first
+              []
+            elsif !ids[1]
+              [#{klass}.find(ids.first)]
+            else
+              #{klass}.where(Sequel.lit('id in ('+ids.join(',')+')')).all
+            end
           end
         ]
 

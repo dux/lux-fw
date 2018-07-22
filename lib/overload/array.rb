@@ -63,4 +63,19 @@ class Array
     self.push data if data.present?
     self
   end
+
+  # Sequel specific
+  def precache field, klass=nil
+    all if respond_to?(:all)
+
+    list = self.map(&field).uniq.sort
+    klass ||= field.to_s.sub(/_ids?$/, '').classify.constantize
+
+    for el in klass.where(id: list).all
+      key = "#{el.class}/#{el.id}"
+      Lux.current.cache(key) { el.dup }
+    end
+
+    self
+  end
 end

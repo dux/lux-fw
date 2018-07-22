@@ -27,32 +27,23 @@ class SimpleAssets
   ###
 
   def initialize target
-    type = File.exist?('app/assets/%s/index.scss' % target) ? :css : :js
-
-    @type   = type   # js or css
+    @base   = Dir['app/assets/%s/index.*' % target].first ||  die("Base index file not found for #{target} assets")
+    @type   = [:css, :scss].include?(@base.split('.').last.to_sym) ? :css : :js
     @target = target
     @source = [Lux.root, target].join('/app/assets/') # assets root dir as js/main
-    @files = []
+    @files  = []
 
     load_files
   end
 
   def load_files
-    assets_file = Pathname.new @source + '/assets'
-
-    if assets_file.exist?
-      for line in assets_file.read.split($/)
-        add line.chomp
-      end
-    else
-      if @type == :js
-        glob = `echo #{@source}/*/* #{@source}/*/*/* #{@source}/* |tr ' ' '\n'`.split("\n")
-        glob = glob.select { |f| File.exists?(f) && f.split('/').last.include?('.') }
-        @files += glob
-      else
-        add 'index.scss'
-      end
+    for line in File.read(@base).split($/)
+      line.sub!(%{^//=}, '#=')
+      break unless line.sub!(%r{^#=\s}, '')
+      add line.chomp
     end
+
+    @files += [Lux.root.join(@base).to_s]
   end
 
   # adds file or list of files
@@ -61,13 +52,13 @@ class SimpleAssets
   # add 'index.coffee'
   def add files
     if files.starts_with?('plugin:')
-      real_path = files.sub(%r{^plugin:([^/]+)}) do
-        plugin = Lux::PLUGINS[$1]
-        die "Plugin %s not loaded, I have %s" % [$1, Lux::PLUGINS.keys.join(', ')] unless plugin
-        plugin + '/assets'
-      end
+      plugin  = files.split('plugin:').last.chomp
+      plugin  = Lux::PLUGINS[plugin] || die("Plugin %s not loaded, I have %s" % [plugin, Lux::PLUGINS.keys.join(', ')])
+      files = Dir['%s/assets/%s/*' % [plugin, @type]]
 
-      @files += Dir[real_path]
+      dir 'No files found in %s' % plugin unless files.first
+
+      @files += files
     else
       files  = files.sub(/^\.\//,'')
       path   = files[0,1] == '/' ? "#{Lux.root}/app/assets#{files}" : [@source, files].join('/')
@@ -112,8 +103,6 @@ class SimpleAssets
 
   def minify
     asset = 'public/assets/%s' % @asset
-
-    return
 
     if @type == :js
       SimpleAssets.run './node_modules/minifier/index.js --no-comments -o "%{file}" "%{file}"' % { file: asset }
