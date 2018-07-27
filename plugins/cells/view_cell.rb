@@ -4,9 +4,9 @@ class ViewCell
   @@cache = {}
 
   class << self
-    def get name, parent
+    def get name, parent, vars={}
       w = ('%sCell' % name.to_s.classify).constantize
-      w = w.new parent
+      w = w.new parent, vars
       w
     end
 
@@ -39,8 +39,10 @@ class ViewCell
   define_method(:params)  { Lux.current.request.params }
   define_method(:render)  { render_template }
 
-  def initialize parent
+  def initialize parent, vars={}
     @_parent = parent
+
+    vars.each { |k,v| instance_variable_set '@'+k, v}
 
     class_callback :before
   end

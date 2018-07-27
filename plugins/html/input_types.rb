@@ -36,8 +36,9 @@ class HtmlInput
 
   def as_textarea
     val = @opts.delete(:value) || ''
+    val = val.join($/) if val.is_array?
     comp_style = val.split(/\n/).length + val.length/100
-    comp_style = 4 if comp_style < 4
+    comp_style = 6 if comp_style < 6
     comp_style = 15 if comp_style > 15
     @opts[:style] = "height:#{comp_style*20}px; #{@opts[:style]};"
     @opts.tag(:textarea, val)

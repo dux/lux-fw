@@ -15,13 +15,13 @@ HtmlHelper.class_eval do
     end
   end
 
-  def cell name
+  def cell name, vars={}
     # cell @job -> cell(:job).render @job
     unless name.class == Symbol
-      return ViewCell.get(name.class.to_s.underscore.to_sym, self).render name
+      return ViewCell.get(name.class.to_s.underscore.to_sym, self, vars).render name
     end
 
-    view_cell = ViewCell.get(name, self)
+    view_cell = ViewCell.get(name, self, vars)
 
     src = view_cell.method(:render).source_location[0].split(':').first
     Lux.current.files_in_use.push src.sub(Lux.root.to_s+'/', '')
@@ -39,6 +39,6 @@ Lux::Controller.class_eval do
       self.class.to_s.split('::').last.sub('Controller')
     end
 
-    name.constantize.new(self)
+    name.constantize.new(self, vars)
   end
 end
