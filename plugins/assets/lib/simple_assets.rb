@@ -1,6 +1,7 @@
 require 'pathname'
 require 'open3'
 
+# SimpleAssets.new('js/main').dev_sources - show all files
 class SimpleAssets
   attr :files
 
@@ -27,7 +28,7 @@ class SimpleAssets
   ###
 
   def initialize target
-    @base   = Dir['app/assets/%s/index.*' % target].first ||  die("Base index file not found for #{target} assets")
+    @base   = Dir['app/assets/%s/index.*' % target].first || die("Base index file not found for #{target} assets")
     @type   = [:css, :scss].include?(@base.split('.').last.to_sym) ? :css : :js
     @target = target
     @source = [Lux.root, target].join('/app/assets/') # assets root dir as js/main
@@ -38,8 +39,8 @@ class SimpleAssets
 
   def load_files
     for line in File.read(@base).split($/)
-      line.sub!(%{^//=}, '#=')
-      break unless line.sub!(%r{^#=\s}, '')
+      line.sub!(%r{^//=}, '#=')
+      break unless line.sub!(%r{^#=\s+}, '')
       add line.chomp
     end
 
@@ -56,12 +57,16 @@ class SimpleAssets
       plugin  = Lux::PLUGINS[plugin] || die("Plugin %s not loaded, I have %s" % [plugin, Lux::PLUGINS.keys.join(', ')])
       files = Dir['%s/assets/%s/*' % [plugin, @type]]
 
-      dir 'No files found in %s' % plugin unless files.first
+      die 'No files found in %s' % plugin unless files.first
 
       @files += files
     else
       files  = files.sub(/^\.\//,'')
       path   = files[0,1] == '/' ? "#{Lux.root}/app/assets#{files}" : [@source, files].join('/')
+      files  = Dir[path].sort
+
+      die 'No files found in %s' % path unless files.first
+
       @files += Dir[path].sort
     end
 

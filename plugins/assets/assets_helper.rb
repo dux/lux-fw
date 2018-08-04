@@ -24,8 +24,8 @@ module HtmlHelper
   end
 
   # builds full asset path based on resource extension
-  # asset('main/index.coffee')
-  # will render 'app/assets/main/index.coffee' as http://aset.path/assets/main-index-md5hash.js
+  # asset('js/main')
+  # will render 'app/assets/js/main/index.coffee' as http://aset.path/assets/main-index-md5hash.js
   def asset file, opts={}
     opts = { dev_file: opts } unless opts.class == Hash
 
