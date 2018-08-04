@@ -73,8 +73,7 @@ module Lux
   end
 
   def error data
-    current.response.status 500
-    Lux::Error.show(data)
+    Lux::Error.render(data)
   end
 
   def log what=nil

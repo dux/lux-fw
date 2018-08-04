@@ -46,6 +46,7 @@ class Lux::Application
   end
 
   def cell_target? route
+    # symbol is method reference
     ! [Symbol].include?(route.class)
   end
 
@@ -79,6 +80,12 @@ class Lux::Application
       else
         raise 'Route type %s is not supported' % route.class
     end
+  end
+
+  def target_has_action? target
+    return !!
+      target.class == Array ||
+      (target.class == String && target.include?('#'))
   end
 
   # gets only root
@@ -132,7 +139,7 @@ class Lux::Application
 
     yield
 
-    raise NotFoundError.new %[Namespace <b>:#{name}</b> matched but nothing is called]
+    raise Lux::Error.not_found("Namespace <b>:#{name}</b> matched but nothing is called")
   end
 
   # map api: ApiController
@@ -158,6 +165,8 @@ class Lux::Application
 
       # must resolve
       if cell_target?(target) || target.class == String
+        # in maped hash call, drop nav element
+        nav.shift unless target_has_action?(target)
         call target
       else
        call [@cell_object, opts[:to] || target]
@@ -237,13 +246,7 @@ class Lux::Application
   end
 
   def render
-    Lux.log do
-      path =  current.request.path
-      path =+ [path, current.request.env['QUERY_STRING']].join('?') if current.request.env['QUERY_STRING'].present?
-      path =  path.white
-
-      "\n#{current.request.request_method.white} #{path}"
-    end
+    Lux.log "\n#{current.request.request_method.white} #{current.request.url}"
 
     Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
 

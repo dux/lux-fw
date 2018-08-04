@@ -70,7 +70,7 @@ class Lux::Current::StaticFile
   def deliver data=nil
     file = File.exist?(@file) ? @file : Lux.root.join("public#{@file}").to_s
 
-    raise NotFoundError, 'Static file not found' unless File.exists?(file)
+    raise Lux::Error.not_found('Static file not found') unless File.exists?(file)
 
     @ext = file.to_s.split('.').last
 

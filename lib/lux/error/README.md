@@ -24,17 +24,18 @@
 
 ```
 # 400: for bad parameter request or similar
-BadRequestError   ||= Class.new(StandardError)
+Lux::Error.forbidden foo
 
 # 401: for unauthorized access
-UnauthorizedError ||= Class.new(StandardError)
+Lux::Error.forbidden foo
 
 # 403: for unalloed access
-ForbidenError     ||= Class.new(StandardError)
+Lux::Error.forbidden foo
 
 # 404: for not found pages
-NotFoundError     ||= Class.new(StandardError)
+Lux::Error.not_found foo
 
 # 503: for too many requests at the same time
-RateLimitError    ||= Class.new(StandardError)
+Lux::Error.forbidden foo
+
 ```

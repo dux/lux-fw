@@ -32,11 +32,11 @@ class Policy
   def call &block
     return true if before(@action)
     return true if send(@action)
-    raise UnauthorizedError, 'Access disabled in policy'
-   rescue UnauthorizedError
+    raise Lux::Error.unauthorized('Access disabled in policy')
+   rescue Lux::Error
     error = $!.message
     error += " - #{self.class}.#{@action}" if Lux.config(:show_server_errors)
-    raise UnauthorizedError, error unless block
+    raise Lux::Error.unauthorized(error) unless block
     block.call(error)
     false
   end
@@ -48,7 +48,7 @@ class Policy
   end
 
   def error message
-    raise UnauthorizedError, message
+    raise Lux::Error.unauthorized(message)
   end
 
 end

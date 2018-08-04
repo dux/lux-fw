@@ -38,9 +38,7 @@ class Lux::Controller
     # mock :index, :login
     def mock *args
       args.each do |el|
-        define_method el do
-          true
-        end
+        define_method(el) { true }
       end
     end
 
@@ -62,7 +60,7 @@ class Lux::Controller
 
   # default action call method
   def call
-    action_name   = nav.first
+    action_name   = nav.root
     action_name ||= @id ? :show : :index
 
     action action_name
@@ -94,19 +92,12 @@ class Lux::Controller
 
     # dev console log
     Lux.log " #{self.class.to_s}(:#{method_name})".light_blue
-    if im = self.class.instance_methods(false).first
-      loc = self.class.instance_method(im).source_location[0].split(':').first
-      loc = loc.sub(Lux.root.to_s+'/', '')
-
-      Lux.log ' %s' % loc
-      Lux.current.files_in_use.push loc
-    end
 
     @controller_action = method_name
 
     # format error unless method found
     unless respond_to? method_name
-      raise NotFoundError.new('Method %s not found' % method_name) unless Lux.config(:show_server_errors)
+      raise Lux::Error.not_found('Method %s not found' % method_name) unless Lux.config(:show_server_errors)
 
       list = methods - Lux::Controller.instance_methods
       err = [%[No instance method "#{method_name}" found in class "#{self.class.to_s}"]]
@@ -197,15 +188,15 @@ class Lux::Controller
       end
 
       # resolve page data, without template
-      page_data = opts.data || render_body(opts)
+      page_part = opts.data || render_body(opts)
 
       # resolve data with layout
-      page_data = render_layout opts, page_data
+      full_page = render_layout opts, page_part
 
       # set body unless render to string
-      response.body(page_data) unless opts.render_to_string
+      response.body(full_page) unless opts.render_to_string
 
-      page_data
+      full_page
     end
 
     def render_body opts

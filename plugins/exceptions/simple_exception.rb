@@ -60,7 +60,7 @@ end
 
 # overload local error report
 Lux::Error.class_eval do
-  def log exp
-    SimpleException.log exp
+  def self.log error
+    SimpleException.log error
   end
 end

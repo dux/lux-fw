@@ -82,7 +82,7 @@ class Lux::Api
   # internal method for running actions
   # UserApi.new.call(:login, { email:'', pass:'' })
   def rescued_call action, params={}
-    raise ForbidenError, "Protected action call" if [:call, :rescued_call, :params, :error].index action
+    raise Lux::Error.forbidden("Protected action call") if [:call, :rescued_call, :params, :error].index action
     error("Action #{action} not found in #{self.class.to_s}") unless respond_to? action
 
     @response   = Lux::Api::Response.new

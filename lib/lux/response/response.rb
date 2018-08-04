@@ -147,9 +147,8 @@ class Lux::Response
 
     status 401
     header('WWW-Authenticate', 'Basic realm="%s"' % relam.or('default'))
-    body = ErrorController.unauthorized('HTTP 401 Authorization needed')
-
-    false
+    body 'HTTP 401 Authorization needed'
+    throw :done
   end
 
   def write_response_body

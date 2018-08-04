@@ -4,16 +4,6 @@ require 'thread'
 class Lux::Template
   @@template_cache = {}
 
-  # def render_with_layout
-  #   @part_data = render_part
-
-  #   layout_path = "#{@original_template.split('/')[0]}/layout"
-
-  #   Lux::Template.new(layout_path, @helper).render_part do
-  #     @part_data
-  #   end
-  # end
-
   class << self
     def render_with_layout layout, template, helper={}
       part_data = new(template, helper).render_part
@@ -82,11 +72,11 @@ class Lux::Template
 
     data = nil
     speed = Lux.speed do
-      data = Lux::Error.try %[Lux::Template #{@template} render error] do
+      data = Lux::Error.inline %[Lux::Template #{@template} render error] do
         @tilt.render(@helper) do
           yield if block_given?
         end
-      end rescue Lux::Error.inline
+      end
     end
 
     Lux.log " app/views/#{@template.split('app/views/').last}, #{speed}"

@@ -32,10 +32,10 @@ class Lux::Application::Nav
 
   def root sub_nav=nil
     if block_given?
-      # replace root in place if yields not nil
+      # shift root in place if yields not nil
       result = yield(@path[0]) || return
-      @path.slice!(0,1)
-      @path[0] = result
+      @path.shift
+      result
     else
       sub_nav ? ('%s/%s' % [@path.first, sub_nav]) : @path.first
     end
@@ -47,7 +47,7 @@ class Lux::Application::Nav
 
   def first
     if block_given?
-      # replace root in place if yields not nil
+      # shift first in place if yields not nil
       return unless @path[1].present?
       result = yield(@path[1]) || return
       @path.slice!(1,1)
@@ -67,6 +67,10 @@ class Lux::Application::Nav
     else
       @path.last
     end
+  end
+
+  def second
+    @path[2]
   end
 
   def rest

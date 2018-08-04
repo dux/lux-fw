@@ -95,7 +95,7 @@ Lux.app do
 
     action add:  Main::LinksController
 
-    raise NotFoundError unless body?
+    raise Lux::Error.not_found unless body?
   end
 end
 ```
@@ -110,24 +110,17 @@ Lux.app do
 
   on_error do |e|
     case e
-      when BadRequestError
-        current.response.status BadRequestError
-        Lux.error "Bad request: #{e.message}"
+      when Lux::Error
+        if error.code == 401
+          current.response.status error.code
 
-      when ForbidenError
-        ErrorController.forbiden(e.message)
-
-      when UnauthorizedError
-        current.response.status UnauthorizedError
-
-        if User.current
-          ErrorController.unauthorized(e.message)
-        else
-          current.redirect '/login', error:'No session, please login'
+          if User.current
+            # if user has session, then he is forbiden to see the resource
+            error 403
+          else
+            current.redirect '/login', error:'No session, please login'
+          end
         end
-
-      when NotFoundError
-        ErrorController.not_found(e.message)
 
       when PG::ConnectionBad
         Lux.error "PG: #{e.message}" || 'DB connection error, please refresh current.'
