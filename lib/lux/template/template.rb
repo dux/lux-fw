@@ -66,16 +66,19 @@ class Lux::Template
   def render_part
     # global thread safe reference pointer to last temaplte rendered
     # we nned this for inline template render
-    Lux.thread[:last_template_path] = @template.sub('/app/views','').sub(/\/[^\/]+$/,'').sub(/^\./,'')
 
+    Lux.thread[:last_template_path] = @template.sub('/app/views','').sub(/\/[^\/]+$/,'').sub(/^\./,'')
     Lux.current.files_in_use @template
 
     data = nil
+
     speed = Lux.speed do
-      data = Lux::Error.inline %[Lux::Template #{@template} render error] do
-        @tilt.render(@helper) do
+      begin
+        data = @tilt.render(@helper) do
           yield if block_given?
         end
+      rescue
+        data = Lux::Error.inline %[Lux::Template #{@template} render error]
       end
     end
 

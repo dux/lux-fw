@@ -123,6 +123,10 @@ class Lux::Controller
     render
   end
 
+  def error *args
+    Lux::Error.report *args
+  end
+
   # render :index
   # render 'main/root/index'
   # render text: 'ok'
@@ -212,7 +216,7 @@ class Lux::Controller
 
     def render_layout opts, page_data
       layout = opts.layout
-      layout = nil if layout.class == TrueClass
+      layout = nil   if layout.class == TrueClass
       layout = false if @layout.class == FalseClass
 
       if layout.class == FalseClass

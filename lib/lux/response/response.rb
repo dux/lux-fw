@@ -72,21 +72,15 @@ class Lux::Response
     throw :done
   end
 
-  def body what=nil
-    @body ||= what
-
-    if @body && block_given?
-      @body = yield @body
-      Lux.error 'Lux.current.response.body is not a string (bad current.response.body filter)' unless @body.is_a?(String)
+  def body body_data=nil
+    if body_data
+      @body = body_data
+      throw :done
+    else
+      @body
     end
-
-    @body
   end
   alias :body= :body
-
-  def body! what
-    @body = what
-  end
 
   # is this first reponse
   def is_first?
@@ -154,7 +148,7 @@ class Lux::Response
   def write_response_body
     unless @body
       @status = 404
-      @body = Lux.error 'Document not found'
+      @body = 'Lux HTTP ERROR 404: Document not found'
     end
 
     # respond as JSON if we recive hash
@@ -217,12 +211,6 @@ class Lux::Response
 
     @status ||= 200
     Lux.log " #{@status}, #{@headers['x-lux-speed']}"
-
-    if ENV['LUX_PRINT_ROUTES']
-      print '* Finished route print '
-      puts @status == 404 ? 'without a match'.red : 'with a match'.green
-      exit
-    end
 
     [@status, @headers.to_h, [@body]]
   end

@@ -13,7 +13,7 @@
 
 class Lux::Error < StandardError
   # https://httpstatuses.com/
-  CODE_LIST = {
+  CODE_LIST ||= {
     # 1×× Informational
     100 => { name: 'Continue' },
     101 => { name: 'Switching Protocols' },
@@ -101,34 +101,32 @@ class Lux::Error < StandardError
 
   # template to show full error page
   def self.render text, status=500
-    status = Lux.current.response.status status
+    Lux.current.response.status status
 
-    Lux.current.response.body! %[<html>
+    Lux.current.response.body render_template(text)
+  end
+
+  def self.render_template text
+    %[<html>
         <head>
-          <title>Server error (#{status})</title>
+          <title>Server error (#{Lux.current.response.status})</title>
         </head>
         <body style="background:#fff; font-size:12pt; font-family: Arial; padding: 20px;">
-          <h3>Lux HTTP error #{status} in #{Lux.config.app.name rescue 'app'}</h3>
+          <h3>Lux HTTP error #{Lux.current.response.status} in #{Lux.config.app.name rescue 'app'}</h3>
           <div style="color:red; padding:10px; background-color: #eee; border: 1px solid #ccc; max-width: 700px;">
-            <p>#{text.gsub('<','&lt;')}</p>
+            <p>#{text.gsub($/,'<br />')}</p>
           </div>
           <br>
-          <a href="https://httpstatuses.com/#{status}" target="http_error">more info on http error</a>
+          <a href="https://httpstatuses.com/#{Lux.current.response.status}" target="http_error">more info on http error</a>
         </body>
       </html>]
   end
 
   # render error inline or break in production
   def self.inline name
-    if block_given?
-      begin
-        return yield
-      rescue; end
-    end
-
     unless Lux.config(:show_server_errors)
       key = log $!
-      render "Lux inline erorr: %s\n\nkey: %s" % [$!.message, key]
+      render "Lux inline error: %s\n\nkey: %s" % [$!.message, key]
     end
 
     # split app log rest of the log
@@ -146,20 +144,28 @@ class Lux::Error < StandardError
 
     ap [name, msg] if Lux.config(:show_server_errors)
 
-    %[<pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;">
-        <b style="font-size:110%;">#{name}</b>
+    <<~TEXT
+      <pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;">
+      <b style="font-size:110%;">#{name}</b>
 
-        <b>#{msg}</b>
+      <b>#{msg}</b>
 
-        #{dmp[0].join("\n")}
+      #{dmp[0].join("\n")}
 
-        #{dmp[1].join("\n")}
-      </pre>]
+      #{dmp[1].join("\n")}
+      </pre>
+    TEXT
   end
 
   def self.log exp
     # Overload for custom log
     'not defined'
+  end
+
+  def self.report code, msg=nil
+    e = Integer === code ? Lux::Error.new(code) : Lux::Error.send(code)
+    e.message = msg if msg
+    raise e
   end
 
   ###
@@ -184,7 +190,7 @@ class Lux::Error < StandardError
   end
 
   def message
-    @message || 'HTTP %s' % CODE_LIST[code][:name]
+    @message || CODE_LIST[code][:name]
   end
 
   def message= data

@@ -15,7 +15,6 @@ class Lux::Application
   define_method(:redirect) { |where, flash={}| @current.redirect where, flash }
   define_method(:get?)     { request.request_method == GET }
   define_method(:post?)    { request.request_method == POST }
-  define_method(:done?)    { throw :done if response.body }
 
   ###
 
@@ -36,13 +35,13 @@ class Lux::Application
   end
 
   def plug name, &block
-    done?
-
     m = "#{name}_plug".to_sym
     return Lux.error(%[Method "#{m}" not defined in #{self.class}]) unless respond_to?(m)
     send m, &block
+  end
 
-    done?
+  def error *args
+    Lux::Error.report *args
   end
 
   def cell_target? route
@@ -53,17 +52,9 @@ class Lux::Application
   def response body=nil, status=nil
     return @current.response unless body
 
-    response.body body
-    response.status status || 200
-
-    throw :done
+    response.status(status || 200)
+    response.body(body)
   end
-
-  # def print_route route
-  #   return unless LUX_PRINT_ROUTES
-
-  #   puts '%s => %s' % []
-  # end
 
   def test? route
     root = nav.root.to_s
@@ -153,8 +144,6 @@ class Lux::Application
   #   end
   # end
   def map route_object, opts={}, &block
-    done?
-
     # if given hash
     if route_object.class == Hash
       route  = route_object.keys.first
@@ -198,8 +187,6 @@ class Lux::Application
   # call Main::UsersController, :index
   # call 'main/orgs#show'
   def call object=nil, action=nil
-    done?
-
     # log original app caller
     root    = Lux.root.join('app/').to_s
     sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
@@ -226,22 +213,18 @@ class Lux::Application
       object.call
     end
 
-    if body?
-      done?
-    else
+    unless body?
       Lux.error 'Lux cell "%s" called via route "%s" but page body is not set' % [object, nav.root]
     end
   end
 
   def main
-    catch(:done) do
-      begin
-        class_callback :before
-        class_callback :routes
-        class_callback :after
-      rescue => e
-        class_callback :on_error, e
-      end
+    begin
+      class_callback :before
+      class_callback :routes
+      class_callback :after
+    rescue => e
+      class_callback :on_error, e
     end
   end
 
@@ -250,7 +233,7 @@ class Lux::Application
 
     Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
 
-    main
+    catch(:done) { main }
 
     response.render
   end

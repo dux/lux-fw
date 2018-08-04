@@ -34,8 +34,10 @@ module Lux
     state  = Lux::Current.new env
     app    = Lux::Application.new state
     app.render
-  rescue => e
-    raise e if Lux.config(:show_server_errors)
+  rescue => exp
+    raise exp if Lux.config(:show_server_errors)
+
+    Lux::Error.log exp
 
     [500, {}, ['Lux server error']]
   end

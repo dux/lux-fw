@@ -53,6 +53,12 @@ module SimpleException
     end
   end
 
+  def get code
+    for el in list
+      return el if el[:code] == code
+    end
+  end
+
   def clear
     system 'rm -rf "%s"' % ERROR_FOLDER
   end
