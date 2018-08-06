@@ -17,7 +17,7 @@ class Lux::Controller
   class_attribute :helper
 
   # before and after any action filter, ignored in controllers, after is called just before render
-  class_callbacks :before, :before_action, :before_render, :after, :on_error
+  class_callbacks :before, :before_action, :before_render, :on_error
 
   class << self
     # class call method, should not be overridden
@@ -27,8 +27,6 @@ class Lux::Controller
       controller = new
       controller.filter :before
       controller.call
-
-      return if Lux.current.response.body
 
       # we want to exec filter after the call
       controller.filter :before_action
@@ -72,8 +70,6 @@ class Lux::Controller
     @executed_filters[fiter_name] = true
 
     class_callback fiter_name
-
-    !!response.body
   end
 
   def cache *args, &block
@@ -84,9 +80,6 @@ class Lux::Controller
   # action(:select', ['users'])
   def action method_name, *args
     raise ArgumentError.new('Controller action called with blank action name argument') if method_name.blank?
-
-    # maybe before filter rendered page
-    return if response.body
 
     method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
@@ -107,8 +100,8 @@ class Lux::Controller
     end
 
     # run filters
-    return if filter :before
-    return if filter :before_action
+    filter :before
+    filter :before_action
 
     # catch error but forward unless handled
     begin
@@ -117,8 +110,6 @@ class Lux::Controller
       class_callback :on_error, e
       raise e
     end
-
-    return if filter :after
 
     render
   end
@@ -139,14 +130,18 @@ class Lux::Controller
 
     opts = opts.to_opts! :text, :html, :cache, :template, :json, :layout, :render_to_string, :data, :staus
 
-    return if response.body
     return if @no_render
 
     filter :before_render
 
-    render_resolve opts
+    page = render_resolve opts
 
-    Lux.cache.set(opts[:cache], response.body) if opts[:cache]
+    Lux.cache.set(opts[:cache], page) if opts[:cache]
+
+    # set body unless render to string
+    response.body page unless opts.render_to_string
+
+    response.body page
   end
 
   # renders template to string
@@ -188,7 +183,7 @@ class Lux::Controller
       types = [ [:text, 'text/plain'], [:html, 'text/html'], [:json, 'application/json'] ]
       types.select{ |it| opts[it.first] }.each do |name, content_type|
         response.content_type = content_type
-        return response.body(opts[name])
+        return opts[name]
       end
 
       # resolve page data, without template
@@ -196,9 +191,6 @@ class Lux::Controller
 
       # resolve data with layout
       full_page = render_layout opts, page_part
-
-      # set body unless render to string
-      response.body(full_page) unless opts.render_to_string
 
       full_page
     end

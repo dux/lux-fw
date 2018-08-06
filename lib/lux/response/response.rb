@@ -7,14 +7,12 @@ class Lux::Response
   # if defined, cache becomes public and can be cache by proxies
   # use with care.only for static resources and
   attr_reader :max_age
-
-  attr_accessor :body, :headers, :cookies, :content_type, :status, :cookie_multidomain, :cookie_domain
+  attr_accessor :headers, :cookies, :content_type, :status, :cookie_multidomain, :cookie_domain
 
   def initialize
     @render_start = Time.monotonic
     @headers      = Lux::Response::Header.new
     @max_age      = 0
-
   end
 
   def current
@@ -47,12 +45,9 @@ class Lux::Response
       @headers['etag'] = key
     end
 
-    if current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
-      @status = 304
-      @body   = 'not-modified'
-      true
-    else
-      false
+    if !@body && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
+      status 304
+      body   'not-modified'
     end
   end
 
@@ -80,7 +75,6 @@ class Lux::Response
       @body
     end
   end
-  alias :body= :body
 
   # is this first reponse
   def is_first?

@@ -15,6 +15,7 @@ class Lux::Application
   define_method(:redirect) { |where, flash={}| @current.redirect where, flash }
   define_method(:get?)     { request.request_method == GET }
   define_method(:post?)    { request.request_method == POST }
+  define_method(:body?)    { response.body.present? }
 
   ###
 
@@ -24,14 +25,6 @@ class Lux::Application
 
   def debug
     { :@locale=>@locale, :@nav=>nav, :@subdomain=>@subdomain, :@domain=>@domain }
-  end
-
-  def body?
-    response.body ? true : false
-  end
-
-  def body data
-    response.body data
   end
 
   def plug name, &block
@@ -213,18 +206,22 @@ class Lux::Application
       object.call
     end
 
-    unless body?
+    unless response.body
       Lux.error 'Lux cell "%s" called via route "%s" but page body is not set' % [object, nav.root]
     end
   end
 
   def main
     begin
-      class_callback :before
-      class_callback :routes
-      class_callback :after
+      catch(:done) do
+        class_callback :before
+        class_callback :routes
+      end
+
+      catch(:done) { class_callback :after }
+
     rescue => e
-      class_callback :on_error, e
+      catch(:done) { class_callback :on_error, e }
     end
   end
 
@@ -233,7 +230,7 @@ class Lux::Application
 
     Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
 
-    catch(:done) { main }
+    main
 
     response.render
   end
