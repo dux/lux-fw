@@ -17,7 +17,7 @@ class Lux::Controller
   class_attribute :helper
 
   # before and after any action filter, ignored in controllers, after is called just before render
-  class_callbacks :before, :before_action, :before_render, :on_error
+  class_callbacks :before, :before_action, :before_render, :after; :on_error
 
   class << self
     # class call method, should not be overridden
@@ -109,7 +109,10 @@ class Lux::Controller
       raise e
     end
 
-    render
+    # catch throw gymnastics to allow after filter in controllers, after the body is set
+    catch(:done) { render }
+    filter :after
+    throw :done
   end
 
   def error *args
