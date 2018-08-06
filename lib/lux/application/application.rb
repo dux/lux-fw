@@ -15,7 +15,7 @@ class Lux::Application
   define_method(:redirect) { |where, flash={}| @current.redirect where, flash }
   define_method(:get?)     { request.request_method == GET }
   define_method(:post?)    { request.request_method == POST }
-  define_method(:body?)    { response.body.present? }
+  define_method(:body?)    { response.body? }
 
   ###
 
@@ -199,6 +199,8 @@ class Lux::Application
     end
 
     object = ('%s_controller' % object).classify.constantize if object.class == String
+
+    Lux.current.files_in_use.push "app/controllers/#{object.to_s.underscore}.rb"
 
     if action
       object.action action

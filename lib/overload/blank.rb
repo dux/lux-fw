@@ -61,7 +61,6 @@ class String
   def blank?
     return true if self.length == 0
 
-    # test = !!(self =~ /^\s*$/)
     !(self =~ /[^\s]/)
   end
 end

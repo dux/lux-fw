@@ -76,6 +76,10 @@ class Lux::Response
     end
   end
 
+  def body?
+    !!@body
+  end
+
   # is this first reponse
   def is_first?
     current.is_first_response

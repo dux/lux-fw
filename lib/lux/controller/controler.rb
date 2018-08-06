@@ -22,8 +22,6 @@ class Lux::Controller
   class << self
     # class call method, should not be overridden
     def call
-      Lux.current.files_in_use.push "app/controllers/#{self.to_s.underscore}.rb"
-
       controller = new
       controller.filter :before
       controller.call
