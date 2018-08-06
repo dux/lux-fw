@@ -71,6 +71,8 @@ class Lux::Response
     if body_data
       @body = body_data
       throw :done
+    elsif block_given?
+      @body = yield @body
     else
       @body
     end
@@ -110,8 +112,12 @@ class Lux::Response
     message ? @flash.error(message) : @flash
   end
 
+  # redirect '/foo'
+  # redirect :back, info: 'bar ...'
   def redirect where=nil, opts={}
     return @headers['location'] unless where
+
+    where = current.request.env['HTTP_REFERER'] || '/' if where == :back
 
     where = "#{current.request.path}#{where}" if where[0,1] == '?'
 
