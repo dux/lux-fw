@@ -128,14 +128,16 @@ class SimpleAssets
     @asset = @target.sub('/', '-') + '-' + Crypt.sha1(data) + '.' + @type.to_s
     local  = './public/assets/%s' % @asset
 
-    Dir.mkdir('public/assets') unless Dir.exists?('public/assets')
-    File.write(local, data)
+    unless File.exists?('%s.gz' % local)
+      Dir.mkdir('public/assets') unless Dir.exists?('public/assets')
+      File.write(local, data)
 
-    update_manifest
-    minify
+      update_manifest
+      minify
 
-    SimpleAssets.run 'touch -t 201001010101 %s' % local
-    SimpleAssets.run 'gzip -k %s' % local
+      SimpleAssets.run 'touch -t 201001010101 %s' % local
+      SimpleAssets.run 'gzip -k %s' % local
+    end
 
     @asset
   end

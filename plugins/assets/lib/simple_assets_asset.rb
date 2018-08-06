@@ -22,11 +22,11 @@ class SimpleAssets::Asset
   def compile
     case @source.to_s.split('.').last.downcase.to_sym
       when :coffee
-        compile_coffee unless cached?
-        @cache.read
+        cached? || compile_coffee
       when :scss
-        compile_sass unless cached?
-        @cache.read
+        cached? || compile_sass
+      when :js
+        ";\n%s\n;" % @source.read
       else
         @source.read
     end
@@ -43,7 +43,7 @@ class SimpleAssets::Asset
   private
 
   def cached?
-    @cache.exist? && @cache.ctime > @source.ctime
+    @cache.exist? && (@cache.ctime > @source.ctime) ? @cache.read : false
   end
 
   def compile_coffee
@@ -56,11 +56,14 @@ class SimpleAssets::Asset
     data = data.gsub(%r{//#\ssourceURL=[\w\-\.\/]+/app/assets/}, '//# sourceURL=/raw_asset/')
 
     @cache.write data
+
+    data
   end
 
   def compile_sass
     node_sass = './node_modules/node-sass/bin/node-sass'
     node_opts = @opts[:production] ? '--output-style compressed' : '--source-comments'
     SimpleAssets.run "#{node_sass} #{node_opts} '#{@source}' '#{@cache}'", @cache
+    @cache.read
   end
 end
