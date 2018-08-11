@@ -103,19 +103,17 @@ class Lux::Error < StandardError
   def self.render text, status=500
     Lux.current.response.status status
 
-    Lux.current.response.body render_template(text)
+    Lux.current.response.body template(text)
   end
 
-  def self.render_template text
+  def self.template text
     %[<html>
         <head>
           <title>Server error (#{Lux.current.response.status})</title>
         </head>
         <body style="background:#fff; font-size:12pt; font-family: Arial; padding: 20px;">
           <h3>Lux HTTP error #{Lux.current.response.status} in #{Lux.config.app.name rescue 'app'}</h3>
-          <div style="color:red; padding:10px; background-color: #eee; border: 1px solid #ccc; max-width: 700px;">
-            <p>#{text.gsub($/,'<br />')}</p>
-          </div>
+          <pre style="color:red; padding:10px; background-color: #eee; border: 1px solid #ccc; max-width: 700px; font-family:'Lucida console'; line-height: 15pt;">#{text.gsub($/,'<br />')}</pre>
           <br>
           <a href="https://httpstatuses.com/#{Lux.current.response.status}" target="http_error">more info on http error</a>
         </body>
