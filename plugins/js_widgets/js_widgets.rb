@@ -6,7 +6,9 @@ ApplicationHelper.class_eval do
     tag = :div
     id  = Lux.current.uid
 
-    { class: 'w %s' % name, id: id, 'data-json': opts.to_json }.tag(tag) +
+    data = block_given? ? yield : nil
+
+    { class: 'w %s' % name, id: id, 'data-json': opts.to_json }.tag(tag, data) +
     %[<script>Widget.bind('#{id}');</script>]
   end
 

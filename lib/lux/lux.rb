@@ -146,6 +146,7 @@ module Lux
     MCACHE[key] = nil if Lux.config(:compile_assets)
     MCACHE[key] ||= yield
   end
+
 end
 
 require_relative 'config/config'
