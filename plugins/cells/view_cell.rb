@@ -1,4 +1,14 @@
 class ViewCell
+  class Loader
+    def initialize parent
+      @parent = parent
+    end
+
+    def method_missing m, vars={}
+      ViewCell.get(m, @parent, vars)
+    end
+  end
+
   class_callbacks :before
 
   @@cache = {}
@@ -37,18 +47,21 @@ class ViewCell
   define_method(:current) { Lux.current }
   define_method(:request) { Lux.current.request }
   define_method(:params)  { Lux.current.request.params }
-  define_method(:render)  { render_template }
 
   def initialize parent, vars={}
     @_parent = parent
 
-    vars.each { |k,v| instance_variable_set '@'+k, v}
-
     class_callback :before
-  end
 
-  def render
-    render_template
+    vars.each { |k,v| instance_variable_set "@#{k}", v}
+
+    # add runtime file reference
+    if m = self.class.instance_methods(false).first
+      src = method(m).source_location[0].split(':').first
+      src = src.sub(Lux.root.to_s+'/', '')
+      Lux.log " #{src}" unless Lux.current.files_in_use.include?(src)
+      Lux.current.files_in_use src
+    end
   end
 
   def parent &block
@@ -59,19 +72,21 @@ class ViewCell
     end
   end
 
-  def render_template name=:cell
-    # template = 'app/cells/%s/%s' % [klass, name]
-    template = 'cell-template-%s-%s' % [self.class, name]
+  def template name=:cell
+    tpl = 'cell-tpl-%s-%s' % [self.class, name]
 
-    template = Lux.ram_cache(template) do
+    tpl = Lux.ram_cache(tpl) do
       file = '%s/%s.haml' % [self.class.base_folder, name]
-      Lux.current.files_in_use.push file
+      file = file.sub(Lux.root.to_s+'/', '')
+
+      Lux.log ' ' + file unless Lux.current.files_in_use(file)
 
       data = File.read(file)
+
       Tilt[:haml].new { data }
     end
 
-    template.render(self)
+    tpl.render(self)
   end
 
   # tag :div, { 'class'=>'iform' } do
@@ -88,7 +103,9 @@ class ViewCell
     Lux.current.once('cell-once-%s' % id) { yield }
   end
 
-  def cell name
+  def cell name=nil
+    return parent.cell unless name
+
     w = ('%sCell' % name.to_s.classify).constantize
     w = w.new @_parent
     w

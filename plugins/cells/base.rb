@@ -15,18 +15,12 @@ HtmlHelper.class_eval do
     end
   end
 
-  def cell name, vars={}
-    # cell @job -> cell(:job).render @job
-    unless name.class == Symbol
-      return ViewCell.get(name.class.to_s.underscore.to_sym, self, vars).render name
+  def cell name=nil, vars={}
+    if name
+      ViewCell.get(name, self, vars)
+    else
+      return @cell_base ||= ViewCell::Loader.new(self)
     end
-
-    view_cell = ViewCell.get(name, self, vars)
-
-    src = view_cell.method(:render).source_location[0].split(':').first
-    Lux.current.files_in_use.push src.sub(Lux.root.to_s+'/', '')
-
-    view_cell
   end
 end
 
