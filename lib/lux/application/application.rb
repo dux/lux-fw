@@ -79,15 +79,15 @@ class Lux::Application
   end
 
   # standard route match
-  # match '/:city/people' => Main::PeopleController
-  def match opts
-    base, target = opts.keys.first.split('/').slice(1, 100), opts.values.first
+  # match '/:city/people', Main::PeopleController
+  def match base, target
+    base = base.split('/').slice(1, 100)
 
     base.each_with_index do |el, i|
       if el[0,1] == ':'
-        params[el.sub(':','')] = nav.original[i]
+        params[el.sub(':','').to_sym] = nav.path[i]
       else
-        return unless el == nav.original[i]
+        return unless el == nav.path[i]
       end
     end
 
@@ -142,6 +142,11 @@ class Lux::Application
       route  = route_object.keys.first
       target = route_object.values.first
 
+      # map '/skils/:skill' => 'main/skills#show'
+      if String === route && route[0,1] == '/'
+        return match route, target
+      end
+
       # return if no match
       return unless test?(route)
 
@@ -161,7 +166,7 @@ class Lux::Application
         call [@cell_object, route_object] if test? route_object
         return
       else
-        raise ArgumentError.new('Block expected but not given for %s' % route_object)
+        call route_object
       end
     end
 
@@ -200,7 +205,7 @@ class Lux::Application
 
     object = ('%s_controller' % object).classify.constantize if object.class == String
 
-    Lux.current.files_in_use.push "app/controllers/#{object.to_s.underscore}.rb"
+    Lux.current.files_in_use "app/controllers/#{object.to_s.underscore}.rb"
 
     if action
       object.action action
