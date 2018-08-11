@@ -3,12 +3,6 @@
 
 class Sequel::Model
   module ClassMethods
-    def find id
-      return nil if id.blank?
-      key = "#{self}/#{id}"
-      Lux.current.cache(key) { where(id:id).first }
-    end
-
     def find_by what
       where(what).first
     end
@@ -34,7 +28,6 @@ class Sequel::Model
     def where_or_create filter
       where(filter).first || create(filter)
     end
-
   end
 
   module InstanceMethods

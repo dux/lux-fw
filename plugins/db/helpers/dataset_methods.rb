@@ -60,14 +60,6 @@ Sequel::Model.dataset_module do
     order(Sequel.desc(field)).first
   end
 
-  # search in array of qs arguments
-  def qs_search *args
-    for el in args
-      dataset = where("#{el}=?", Lux.current.request.params[el]) if !Lux.current.request.params[el].blank? && model.db_schema[el]
-    end
-    dataset || self
-  end
-
   def for obj
     # column_names
     field_name = "#{obj.class.name.underscore}_id".to_sym

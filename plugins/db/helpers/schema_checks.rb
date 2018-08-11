@@ -30,6 +30,7 @@ module Sequel::Plugins::LuxInitAndSaveSchemaCheck
       # DB.extension :connection_validator, :pg_array, :pg_json
       db_schema.each do |field, schema|
         type = schema[:db_type]
+
         if type.include?('[]') && ![Array, Sequel::Postgres::PGArray].include?(self[field].class)
           data = self[field].to_s.gsub(/^\{|\}$/, '').split(',')
           data = data.map(&:to_i) if schema[:type] == :integer
