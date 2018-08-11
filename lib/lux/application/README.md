@@ -17,7 +17,7 @@ will just call
 
 #### root
 
-executes if @root is nil
+executes if nav.root is empty
 
 #### map
 
@@ -45,57 +45,65 @@ Action calls specific action inside call.
   action add:  Main::LinksController
 ```
 
-### Router example from leanbookmarks.com
+### Router example
+
+For Lux routing you need to know only few things
+
+* taget can be 5 object variants, look at root example
+* "root" method calls object if nav.root is blank?
+* "map" method calls object if nav.first == match
+* "namespace" method accepts block that wraps
 
 ```
 Lux.app do
 
   def api_router
-    error :forbiden, 'Only POST requests are allowed' if Lux.prod? && @request_method != 'POST'
+    error :forbiden, 'Only POST requests are allowed' if Lux.prod? && !post?
     Lux::Api.call nav.path
+  end
+
+  before do
+    plug :lux_static_files
+    plug :lux_assets
+    plug :custom
   end
 
   ###
 
   routes do
-    plug :lux_static_files
-    plug :lux_assets
-    plug :variables
-    plug :application  # define app rules
-    plug :untaint      # force id an _id to id
+    # we show on root method, that target can be multiple object types, 5 variants
+    root [RootController, :index] # calls RootController#index
+    root RootController           # calls RootController#call
+    root :root                    # calls "root" method in current scope
+    root 'root'                   # calls RootController#call
+    root 'root#index'             # calls RootController#index
 
+    # we can route based on the user status
     root User.current ? Main::RootController : GuestController
 
-    map Main::RootController do
-      map :search
-      map :archive
-      map :alexa
+    # map "/api" to "api_router" method
+    map api: :api_router
+
+    # with MainController
+    map MainController do
+      map :search      # map "/search" to MainController#search
+      map '/login'     # map "/login" to MainController#login
     end
 
-    map GuestController do
-      map :p
-      map :a
+    # map "/foo/dux/baz" route to MainController#foo with params[:bar] == 'dux'
+    map '/foo/:bar/baz'  => 'main#foo'
+
+    # if method "foo" in current scope returns true
+    namespace :foo do
+      # call MainController#foo if request.method == 'GET'
+      map 'main#foo' if get?
     end
 
-    map SessionController do
-      map :signup
-      map :login
-      map :profile
-      map :bye
-      map :demo_login
+    # if we match '/foo' route
+    namespace 'foo' do
+      # call MainController#foo with params[:bar] == '...'
+      map '/baz/:bar' => 'main#foo'
     end
-
-    map api:      :api_router
-    map n:        Main::NotesController
-    map l:        Main::LinksController
-    map d:        Main::DomainsController
-    map labels:   Main::LabelsController
-    map admin:    AdminController
-    map callback: OauthController
-
-    action add:  Main::LinksController
-
-    raise Lux::Error.not_found unless body?
   end
 end
 ```
