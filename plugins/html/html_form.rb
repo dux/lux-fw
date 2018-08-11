@@ -49,7 +49,12 @@ class HtmlForm
     else
       opts[:value] ||= @object[name] if @object && name.is_a?(Symbol)
       name = '%s[%s]' % [fname, name] if fname && name.is_a?(Symbol)
-      Lux::Current::EncryptParams.hidden_input(name, opts[:value])
+
+      if opts[:value].present?
+        Lux::Current::EncryptParams.hidden_input(name, opts[:value])
+      else
+        ''
+      end
     end
   end
 
