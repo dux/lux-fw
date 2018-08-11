@@ -53,11 +53,6 @@ class Lux::Current
     @nav = Lux::Application::Nav.new request
   end
 
-  def files_in_use file=nil
-    @files_in_use.push file if file && !@files_in_use.include?(file)
-    @files_in_use
-  end
-
   def set_and_check_client_unique_hash
     key   = '_c'
     check = Crypt.sha1(@request.ip.to_s+@request.env['HTTP_USER_AGENT'].to_s)[0,10]
@@ -122,5 +117,22 @@ class Lux::Current
     "uid-#{Thread.current[:uid_cnt]+=1}"
   end
 
+  def files_in_use file=nil
+    if block_given?
+      return yield(file) unless @files_in_use.include?(file)
+    end
+
+    return @files_in_use unless file
+    return unless Lux.config(:log_to_stdout)
+
+    file = file.sub './', ''
+
+    if @files_in_use.include?(file)
+      true
+    else
+      @files_in_use.push file
+      false
+    end
+  end
 end
 
