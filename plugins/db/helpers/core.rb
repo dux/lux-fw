@@ -21,11 +21,11 @@ class Sequel::Model
       define_method(name, &block)
     end
 
-    def where_or_new filter
+    def first_or_new filter
       where(filter).first || new(filter)
     end
 
-    def where_or_create filter
+    def first_or_create filter
       where(filter).first || create(filter)
     end
   end
