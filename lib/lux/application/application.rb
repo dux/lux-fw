@@ -34,7 +34,7 @@ class Lux::Application
   end
 
   def error *args
-    Lux::Error.report *args
+    args.first.nil? ? Lux::Error : Lux::Error.report(*args)
   end
 
   def cell_target? route
@@ -180,9 +180,11 @@ class Lux::Application
   end
 
   # call :api_router
-  # call proc { ... }
+  # call proc { 'string' }
+  # call proc { [400, {}, 'error: ...'] }
   # call Main::UsersController
   # call Main::UsersController, :index
+  # call [Main::UsersController, :index]
   # call 'main/orgs#show'
   def call object=nil, action=nil
     # log original app caller
@@ -201,6 +203,14 @@ class Lux::Application
         object, action = object.split('#') if object.include?('#')
       when Array
         object, action = object
+      when Proc
+        case data = object.call
+          when Array
+            response.status = data.first
+            response.body data[2]
+          else
+            response.body data
+        end
     end
 
     object = ('%s_controller' % object).classify.constantize if object.class == String
