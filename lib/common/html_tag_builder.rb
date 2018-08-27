@@ -58,6 +58,12 @@ class HtmlTagBuilder
       text ||= '' unless ['input', 'img', 'meta', 'link', 'hr', 'br'].include?(node.to_s)
       text ? %{<#{node}#{opts}>#{text}</#{node}>} : %{<#{node}#{opts} />}
     end
+
+    # tag.div(class: 'klasa') do -> tag.('klasa') do
+    def call class_name, &block
+      tag(:div, { class: class_name }, &block)
+    end
+
   end
 
   ###
@@ -71,6 +77,11 @@ class HtmlTagBuilder
   # push data to stack
   def push data
     @data.push data
+  end
+
+  # n.div(class: 'klasa') do -> n.('klasa') do
+  def call class_name, &block
+    @data.push self.class.tag(:div, { class: class_name }, &block)
   end
 
   # forward to class
