@@ -10,7 +10,7 @@ class LuxOauth::Linkedin < LuxOauth
   end
 
   def login
-    "https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=#{@key}&redirect_uri=#{redirect_url}&state=987654321&scope=#{scope.join('%20')}"
+    "https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=#{@opts.key}&redirect_uri=#{redirect_url}&state=987654321&scope=#{scope.join('%20')}"
   end
 
   def format_response opts
@@ -27,8 +27,8 @@ class LuxOauth::Linkedin < LuxOauth
   def callback(session_code)
     result = RestClient.post('https://www.linkedin.com/oauth/v2/accessToken', {
       grant_type:    'authorization_code',
-      client_id:     @key,
-      client_secret: @secret,
+      client_id:     @opts.key,
+      client_secret: @opts.secret,
       code:          session_code,
       redirect_uri:  redirect_url
     })

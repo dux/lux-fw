@@ -3,7 +3,7 @@
 
 class LuxOauth::Facebook < LuxOauth
   def login
-    'https://www.facebook.com/v2.8/dialog/oauth?scope=email&client_id=%s&redirect_uri=%s' % [@key, CGI::escape(redirect_url)]
+    'https://www.facebook.com/v2.8/dialog/oauth?scope=email&client_id=%s&redirect_uri=%s' % [@opts.key, CGI::escape(redirect_url)]
   end
 
   def format_response opts
@@ -17,8 +17,8 @@ class LuxOauth::Facebook < LuxOauth
   def callback(session_code)
     result = RestClient.post('https://graph.facebook.com/v2.8/oauth/access_token', {
       redirect_uri:  redirect_url,
-      client_id:     @key,
-      client_secret: @secret,
+      client_id:     @opts.key,
+      client_secret: @opts.secret,
       code:          session_code
     }, { :accept => :json })
 

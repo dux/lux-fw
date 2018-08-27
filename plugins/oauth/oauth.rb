@@ -1,43 +1,38 @@
 class LuxOauth
-  @@keys       = {}
   class_attribute :local_path, 'callback'
 
   class << self
-    def register schema, opts={}
-      opts = opts.to_h.h_wia
-
-      for el in %i[key secret]
-        raise ArgumentError.new('OAUTH %s needed for %s' % [el, schema]) unless opts[el]
-      end
-
-      raise ArgumentError.new('OAUTH_ID needed') if schema == :stackexchange && !opts[:id]
-
-      @@keys[schema] = opts
-    end
-
-    def get scheme, full_host
-      "LuxOauth::#{scheme.to_s.classify}".constantize.new full_host
+    def get target
+      "LuxOauth::#{target.to_s.classify}".constantize.new
     end
   end
 
   ###
 
-  def initialize full_host
-    schema = self.class.to_s.split('::').last.downcase
+  def initialize
+    @target = self.class.to_s.split('::').last.downcase.to_sym
+    @opts   = opts_loader
 
-    raise ArgumentError, 'Host is invalid: %s' % full_host.to_s unless full_host.to_s =~ /^https?:/
-    @schema = schema.to_sym
+    raise ArgumentError, 'Host is invalid' unless host =~ /^https?:/
 
-    raise "Oauth config :#{schema} is not registred"  unless @@keys[@schema]
-
-    @full_host = full_host
-    @key       = @@keys[@schema][:key]
-    @secret    = @@keys[@schema][:secret]
-    @id        = @@keys[@schema][:id]
+    for el in %i[key secret]
+      raise ArgumentError.new('OAUTH %s needed for %s' % [el, @target]) unless @opts.send(el)
+    end
   end
 
   def redirect_url
-    [@full_host, self.class.local_path, @schema].join('/')
+    [host, LuxOauth.local_path, @target].join('/')
   end
 
+  private
+
+  def opts_loader
+    Lux.secrets.send(@target).oauth
+  rescue
+    raise "Can't load Oauth secrets for #{@target}: #{$!.message}"
+  end
+
+  def host
+    Lux.config(:host)
+  end
 end

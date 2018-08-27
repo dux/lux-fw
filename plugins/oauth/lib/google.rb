@@ -20,14 +20,14 @@ class LuxOauth::Google < LuxOauth
   end
 
   def login
-    "https://accounts.google.com/o/oauth2/auth?client_id=#{@key}&redirect_uri=#{redirect_url}&scope=#{scope.join('%20')}&response_type=code"
+    "https://accounts.google.com/o/oauth2/auth?client_id=#{@opts.key}&redirect_uri=#{redirect_url}&scope=#{scope.join('%20')}&response_type=code"
   end
 
-  def callback(session_code)
+  def callback session_code
     result = RestClient.post('https://www.googleapis.com/oauth2/v3/token', {
       grant_type:    'authorization_code',
-      client_id:     @key,
-      client_secret: @secret,
+      client_id:     @opts.key,
+      client_secret: @opts.secret,
       code:          session_code,
       redirect_uri:  redirect_url
     })

@@ -4,7 +4,7 @@
 
 class LuxOauth::Github < LuxOauth
   def login
-    "https://github.com/login/oauth/authorize?scope=user:email&client_id=#{@key}"
+    "https://github.com/login/oauth/authorize?scope=user:email&client_id=#{@opts.key}"
   end
 
   def format_response opts
@@ -21,8 +21,8 @@ class LuxOauth::Github < LuxOauth
 
   def callback session_code
     result = RestClient.post('https://github.com/login/oauth/access_token', {
-      client_id:     @key,
-      client_secret: @secret,
+      client_id:     @opts.key,
+      client_secret: @opts.secret,
       code:          session_code
     }, { :accept => :json })
 
