@@ -147,6 +147,24 @@ module Lux
     MCACHE[key] ||= yield
   end
 
+  def logger name=nil
+    name ||= ENV.fetch('RACK_ENV').downcase
+
+    MCACHE['lux-logger-%s' % name] ||=
+      if Lux.config(:log_to_stdout)
+        Logger.new(STDOUT).tap do |it|
+          it.formatter = proc do |severity, datetime, progname, msg|
+            " #{name.to_s.upcase} #{severity} LOG : #{msg}\n"
+          end
+        end
+      else
+        Logger.new('./log/%s.log' % name).tap do |it|
+          it.formatter = proc do |severity, datetime, progname, msg|
+            "[#{datetime.strftime("%Y-%m-%d %H:%M")}] #{severity} : #{msg}\n"
+          end
+        end
+      end
+    end
 end
 
 require_relative 'config/config'
