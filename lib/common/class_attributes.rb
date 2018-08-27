@@ -19,7 +19,7 @@
 module ClassAttributes
   extend self
 
-  @@CA_DEFAULTS = {}
+  @@CA_DEFAULTS ||= {}
 
   # defines class variable
   def define klass, name, default=nil, &block
