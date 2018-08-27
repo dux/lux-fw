@@ -55,7 +55,7 @@ class Lux::Mailer
 
     require 'mail'
 
-    Mail.defaults { delivery_method Lux.config(:mail).delivery, Lux.config(:mail).opts }
+    Mail.defaults { delivery_method Lux.config(:mail).delivery, Lux.config(:mail).opts || {} }
 
     m = Mail.new
     m[:from]         = @mail.from
@@ -64,7 +64,10 @@ class Lux::Mailer
     m[:body]         = @mail.body || body
     m[:content_type] = 'text/html; charset=UTF-8'
 
-    Thread.new { m.deliver! }
+    Thread.new do
+      m.deliver!
+      Lux.logger(:email).info "[#{@_template} : #{@mail.to}] #{@mail.subject}"
+    end
   end
 
   def deliver_later
