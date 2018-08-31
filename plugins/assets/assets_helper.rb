@@ -12,12 +12,13 @@ module HtmlHelper
     current.response.early_hints path, type
 
     if type == :style
-      if opts[:minimalcss] && Lux.current.response.is_first?
-        minimalcss = File.read('./public/assets/minimal-%s.css' % opts[:minimalcss]) rescue Lux.error('Assets: minimalcss "%s" not found' % opts[:minimalcss])
-        %[<style>#{minimalcss}</style>\n<link rel="preload" as="style" href="#{path}" onload="this.rel='stylesheet'" />]
-      else
-        %[<link rel="stylesheet" href="#{path}" />]
-      end
+      # if opts[:minimalcss] && Lux.current.response.is_first?
+      #   minimalcss = File.read('./public/assets/minimal-%s.css' % opts[:minimalcss]) rescue Lux.error('Assets: minimalcss "%s" not found' % opts[:minimalcss])
+      #   %[<style>#{minimalcss}</style>\n<link rel="preload" as="style" href="#{path}" onload="this.rel='stylesheet'" />]
+      # else
+      #   %[<link rel="stylesheet" href="#{path}" />]
+      # end
+      %[<link rel="stylesheet" href="#{path}" />]
     else
       %[<script src="#{path}"></script>]
     end

@@ -8,7 +8,7 @@ class Lux::Current
   attr_accessor :can_clear_cache
 
   attr_accessor :session, :locale
-  attr_reader   :request, :response, :nav, :is_first_response
+  attr_reader   :request, :response, :nav
 
   def initialize env=nil
     env   ||= '/mock'
@@ -23,12 +23,12 @@ class Lux::Current
     @request      = request
     @session      = {}
 
-    @session = JSON.parse(Crypt.decrypt(request.cookies['__luxs'] || '{}')) rescue {}
+    @session = JSON.parse(Crypt.decrypt(request.cookies[Lux.config.session_cookie_name] || '{}')) rescue {}
 
     # check for session
-    if Lux.dev? && request.env['HTTP_REFERER'] && request.env['HTTP_REFERER'].index(request.host) && @session.keys.length == 0
-      puts "ERROR: There is no session set!".red
-    end
+    # if Lux.dev? && request.env['HTTP_REFERER'] && request.env['HTTP_REFERER'].index(request.host) && @session.keys.length == 0
+    #   puts "ERROR: There is no session set!".red
+    # end
 
     # hard sec, bind session to user agent and IP
     set_and_check_client_unique_hash
@@ -62,8 +62,6 @@ class Lux::Current
 
     # allow 5 mins delay for IP change
     @session = {} if @session[key] && (@session[key][0] != check && @session[key][1].to_i < Time.now.to_i - Lux.config.session_forced_validity)
-
-    @is_first_response = !@session[key]
 
     # add new time stamp to every request
     @session[key] = [check, Time.now.to_i]

@@ -59,10 +59,12 @@ module Lux::Config
     `ps -o rss -p #{$$}`.chomp.split("\n").last.to_i / 1000
   end
 
-  def show_load_speed load_start=nil
-    return @@load_info || 'No lux load info' unless load_start
+  def start! start=nil
+    set_default_vars
 
-    speed = ((Time.now - load_start)*1000).round.to_s.sub(/(\d)(\d{3})$/,'\1s \2')+'ms'
+    return @@load_info || 'No lux load info' unless start
+
+    speed = ((Time.now - start)*1000).round.to_s.sub(/(\d)(\d{3})$/,'\1s \2')+'ms'
 
     production_mode = true
 
@@ -93,19 +95,19 @@ module Lux::Config
 
   def set_default_vars
     # how long will session last if BROWSER or IP change
-    Lux.config.session_forced_validity = 5.minutes.to_i
+    Lux.config.session_forced_validity ||= 5.minutes.to_i
 
     # name of the session cookie
-    Lux.config.session_cookie_name = '__luxs'
+    Lux.config.session_cookie_name ||= 'lux_' + Crypt.sha1(Lux.config.secret)[0,4].downcase
 
     # Show server errors to a client
-    Lux.config.show_server_errors = false
+    Lux.config.show_server_errors ||= false
 
     # Log debug output to stdout
-    Lux.config.log_to_stdout = false
+    Lux.config.log_to_stdout ||= false
 
     # Automatic code reloads in development
-    Lux.config.auto_code_reload   = false
+    Lux.config.auto_code_reload ||= false
   end
 
 end

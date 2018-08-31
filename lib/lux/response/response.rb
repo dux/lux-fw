@@ -7,7 +7,7 @@ class Lux::Response
   # if defined, cache becomes public and can be cache by proxies
   # use with care.only for static resources and
   attr_reader :max_age
-  attr_accessor :headers, :cookies, :content_type, :status, :cookie_multidomain, :cookie_domain
+  attr_accessor :headers, :cookies, :content_type, :status
 
   def initialize
     @render_start = Time.monotonic
@@ -80,11 +80,6 @@ class Lux::Response
 
   def body?
     !!@body
-  end
-
-  # is this first reponse
-  def is_first?
-    current.is_first_response
   end
 
   def content_type type=nil
@@ -176,13 +171,6 @@ class Lux::Response
   end
 
   def write_response_header
-    domain =
-      if cookie_multidomain && current.domain.index('.')
-        ".#{current.domain}"
-      else
-        cookie_domain || current.request.host
-      end
-
     # cache-control
     @headers['cache-control'] ||= Proc.new do
       cc = ['max-age=%d' % max_age]
@@ -196,8 +184,15 @@ class Lux::Response
     unless @headers['cache-control'].index('public')
       encrypted = Crypt.encrypt(current.session.to_json)
 
-      if current.request.cookies[Lux.config.session_cookie_name] != encrypted
-        @headers['set-cookie']  = "#{Lux.config.session_cookie_name}=#{encrypted}; Expires=#{(Time.now+1.month).utc}; Path=/; Domain=#{domain};"
+      if current.request.env['SERVER_PROTOCOL'] && current.request.cookies[Lux.config.session_cookie_name] != encrypted
+        cookie = [[Lux.config.session_cookie_name, encrypted].join('=')]
+        cookie.push "Max-Age=#{1.week.to_i}"
+        cookie.push "Path=/"
+        cookie.push "Domain=#{Lux.config.cookie_domain}" if Lux.config.cookie_domain
+        cookie.push "secure" if current.request.env['SERVER_PROTOCOL'].include?('HTTPS')
+        cookie.push "HttpOnly"
+
+        @headers['set-cookie'] = cookie.join('; ')
       end
     end
 
