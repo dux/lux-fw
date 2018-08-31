@@ -182,18 +182,8 @@ class Lux::Response
 
     # dont annd cookies to public pages (images, etc..)
     unless @headers['cache-control'].index('public')
-      encrypted = Crypt.encrypt(current.session.to_json)
-
-      if current.request.env['SERVER_PROTOCOL'] && current.request.cookies[Lux.config.session_cookie_name] != encrypted
-        cookie = [[Lux.config.session_cookie_name, encrypted].join('=')]
-        cookie.push "Max-Age=#{1.week.to_i}"
-        cookie.push "Path=/"
-        cookie.push "Domain=#{Lux.config.cookie_domain}" if Lux.config.cookie_domain
-        cookie.push "secure" if current.request.env['SERVER_PROTOCOL'].include?('HTTPS')
-        cookie.push "HttpOnly"
-
-        @headers['set-cookie'] = cookie.join('; ')
-      end
+      cookie = current.session.generate_cookie
+      @headers['set-cookie'] = cookie if cookie
     end
 
     etag(@body) if current.request.request_method == 'GET'

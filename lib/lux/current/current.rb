@@ -21,19 +21,7 @@ class Lux::Current
     @files_in_use = []
     @response     = Lux::Response.new
     @request      = request
-    @session      = {}
-
-    @session = JSON.parse(Crypt.decrypt(request.cookies[Lux.config.session_cookie_name] || '{}')) rescue {}
-
-    # check for session
-    # if Lux.dev? && request.env['HTTP_REFERER'] && request.env['HTTP_REFERER'].index(request.host) && @session.keys.length == 0
-    #   puts "ERROR: There is no session set!".red
-    # end
-
-    # hard sec, bind session to user agent and IP
-    set_and_check_client_unique_hash
-
-    @session = HashWithIndifferentAccess.new(@session)
+    @session      = Lux::Current::Session.new request
 
     # remove empty paramsters in GET request
     if request.request_method == 'GET'
@@ -45,26 +33,10 @@ class Lux::Current
     # indiferent access
     request.instance_variable_set(:@params, request.params.h_wia) if request.params.keys.length > 0
 
-    # request.params.map { |k,_| request.params.delete(k) }
-
     Lux::Current::EncryptParams.decrypt request.params
     ap request.params if request.post? && Lux.config(:log_to_stdout)
 
     @nav = Lux::Application::Nav.new request
-  end
-
-  def set_and_check_client_unique_hash
-    key   = '_c'
-    check = Crypt.sha1(@request.ip.to_s+@request.env['HTTP_USER_AGENT'].to_s)[0,10]
-
-    # force type array
-    @session.delete(key) unless @session[key].class == Array
-
-    # allow 5 mins delay for IP change
-    @session = {} if @session[key] && (@session[key][0] != check && @session[key][1].to_i < Time.now.to_i - Lux.config.session_forced_validity)
-
-    # add new time stamp to every request
-    @session[key] = [check, Time.now.to_i]
   end
 
   def domain

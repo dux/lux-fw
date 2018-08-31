@@ -94,12 +94,6 @@ module Lux::Config
   end
 
   def set_default_vars
-    # how long will session last if BROWSER or IP change
-    Lux.config.session_forced_validity ||= 5.minutes.to_i
-
-    # name of the session cookie
-    Lux.config.session_cookie_name ||= 'lux_' + Crypt.sha1(Lux.config.secret)[0,4].downcase
-
     # Show server errors to a client
     Lux.config.show_server_errors ||= false
 
@@ -108,6 +102,8 @@ module Lux::Config
 
     # Automatic code reloads in development
     Lux.config.auto_code_reload ||= false
+
+    raise 'Invalid "Lux.config.host"' unless Lux.config.host.to_s.include?('http')
   end
 
 end
