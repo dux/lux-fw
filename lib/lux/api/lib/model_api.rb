@@ -1,3 +1,25 @@
+class Sequel::Model
+  module InstanceMethods
+    def same_as_last?
+      @last = self.class.xorder('id desc').first
+      return unless @last
+
+      new_o = self.to_h
+      new_o.delete :created_at
+      new_o.delete :updated_at
+      new_o.delete :id
+
+      old_o = new_o.keys.inject({}) { |t, key| t[key] = @last.send(key); t }
+
+      if new_o.to_s.length == old_o.to_s.length
+        raise "#{self.class} is the copy of the last one created."
+      end
+    end
+  end
+end
+
+###
+
 class ModelApi < ApplicationApi
 
   class << self
@@ -43,14 +65,11 @@ class ModelApi < ApplicationApi
   def create
     @object = @class_name.constantize.new
 
-    @last = @class_name.constantize.my.last rescue @class_name.constantize.last
-    if @last && @last[:name].present? && @last[:name] == @params[:name]
-      error "#{@class_name} is same as last one created."
-    end
-
     for k,v in @params
       @object.send("#{k}=", v) if @object.respond_to?(k.to_sym)
     end
+
+    @object.same_as_last?
 
     can? :create, @object
     @object.save if @object.valid?
