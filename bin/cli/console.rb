@@ -29,7 +29,7 @@ LuxCli.class_eval do
 
     Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
 
-    puts Lux::Config.show_load_speed load_start
+    puts Lux::Config.start! load_start
 
     # AwesomePrint.pry!
     # nice object dump in console
