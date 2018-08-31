@@ -1,14 +1,14 @@
 # sugessted usage
-# Mailer.deliver(:confirm_email, 'rejotl@gmailcom')
-# Mailer.render(:confirm_email, 'rejotl@gmailcom')
+# Mailer.deliver(:email_login, 'foo@bar.baz')
+# Mailer.render(:email_login, 'foo@bar.baz')
 
 # natively works like
-# Mailer.prepare(:confirm_email, 'rejotl@gmailcom').deliver
-# Mailer.prepare(:confirm_email, 'rejotl@gmailcom').body
+# Mailer.prepare(:email_login, 'foo@bar.baz').deliver
+# Mailer.prepare(:email_login, 'foo@bar.baz').body
 
 # Rails mode via method missing is suported
-# Mailer.confirm_email('rejotl@gmailcom').deliver
-# Mailer.confirm_email('rejotl@gmailcom').body
+# Mailer.email_login('foo@bar.baz').deliver
+# Mailer.email_login('foo@bar.baz').body
 
 class Lux::Mailer
   class_callbacks :before, :after
@@ -19,7 +19,7 @@ class Lux::Mailer
   attr_reader :mail
 
   class << self
-    # Mailer.prepare(:confirm_email, 'rejotl@gmailcom')
+    # Mailer.prepare(:email_login, 'foo@bar.baz')
     def prepare template, *args
       obj = new
       obj.instance_variable_set :@_template, template
@@ -52,10 +52,6 @@ class Lux::Mailer
     raise "From in mailer not defined"    unless @mail.from
     raise "To in mailer not defined"      unless @mail.to
     raise "Subject in mailer not defined" unless @mail.subject
-
-    require 'mail'
-
-    Mail.defaults { delivery_method Lux.config(:mail).delivery, Lux.config(:mail).opts || {} }
 
     m = Mail.new
     m[:from]         = @mail.from

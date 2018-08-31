@@ -14,7 +14,7 @@ class LuxOauth::Facebook < LuxOauth
     }
   end
 
-  def callback(session_code)
+  def callback session_code
     result = RestClient.post('https://graph.facebook.com/v2.8/oauth/access_token', {
       redirect_uri:  redirect_url,
       client_id:     @opts.key,

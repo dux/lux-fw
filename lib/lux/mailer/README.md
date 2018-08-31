@@ -21,22 +21,22 @@
 sugessted usage
 
 ```ruby
-Mailer.deliver(:confirm_email, 'foo@bar.baz')
-Mailer.render(:confirm_email, 'foo@bar.baz')
+Mailer.deliver(:email_login, 'foo@bar.baz')
+Mailer.render(:email_login, 'foo@bar.baz')
 ```
 
 natively works like
 
 ```
-Mailer.prepare(:confirm_email, 'foo@bar.baz').deliver
-Mailer.prepare(:confirm_email, 'foo@bar.baz').body
+Mailer.prepare(:email_login, 'foo@bar.baz').deliver
+Mailer.prepare(:email_login, 'foo@bar.baz').body
 ```
 
 Rails mode via method missing is suported
 
 ```
-Mailer.confirm_email('foo@bar.baz').deliver
-Mailer.confirm_email('foo@bar.baz').body
+Mailer.email_login('foo@bar.baz').deliver
+Mailer.email_login('foo@bar.baz').body
 ```
 
 ### Example code

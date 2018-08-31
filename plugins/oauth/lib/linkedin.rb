@@ -24,7 +24,7 @@ class LuxOauth::Linkedin < LuxOauth
     }
   end
 
-  def callback(session_code)
+  def callback session_code
     result = RestClient.post('https://www.linkedin.com/oauth/v2/accessToken', {
       grant_type:    'authorization_code',
       client_id:     @opts.key,

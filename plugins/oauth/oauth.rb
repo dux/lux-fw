@@ -5,6 +5,10 @@ class LuxOauth
     def get target
       "LuxOauth::#{target.to_s.classify}".constantize.new
     end
+
+    def login target
+      get(target).login
+    end
   end
 
   ###

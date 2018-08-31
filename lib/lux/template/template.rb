@@ -7,8 +7,7 @@ class Lux::Template
   class << self
     def render_with_layout layout, template, helper={}
       part_data = new(template, helper).render_part
-
-      Lux::Template.new(layout, helper).render_part { part_data }
+      new(layout, helper).render_part { part_data }
     end
 
     def render_part template, helper={}
@@ -29,8 +28,9 @@ class Lux::Template
 
     mutex = Mutex.new
 
-    if Lux.config(:auto_code_reload) && !Lux.thread[:template_cache]
-      Lux.thread[:template_cache] = true
+    # if auto_code_reload is on then clear only once per request
+    if Lux.config(:auto_code_reload) && !Thread.current[:lux][:template_cache]
+      Thread.current[:lux][:template_cache] = true
       mutex.synchronize { @@template_cache = {} }
     end
 
@@ -49,7 +49,7 @@ class Lux::Template
 
     unless @template
       err = caller.reject{ |l| l =~ %r{(/lux/|/gems/)} }.map{ |l| el=l.to_s.split(Lux.root.to_s); el[1] || l }.join("\n")
-      Lux.error %[Lux::Template "#{template}.{erb,haml}" not found\n\n#{err}]
+      raise %[Lux::Template "#{template}.{erb,haml}" not found\n\n#{err}]
     end
 
     begin
@@ -67,7 +67,7 @@ class Lux::Template
     # global thread safe reference pointer to last temaplte rendered
     # we nned this for inline template render
 
-    Lux.thread[:last_template_path] = @template.sub('/app/views','').sub(/\/[^\/]+$/,'').sub(/^\./,'')
+    Thread.current[:lux][:last_template_path] = @template.sub('/app/views','').sub(/\/[^\/]+$/,'').sub(/^\./,'')
     Lux.current.files_in_use @template
 
     data = nil

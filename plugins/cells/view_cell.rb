@@ -81,9 +81,7 @@ class ViewCell
 
       Lux.log ' ' + file unless Lux.current.files_in_use(file)
 
-      data = File.read(file)
-
-      Tilt[:haml].new { data }
+      Tilt[:haml].new { File.read(file) }
     end
 
     tpl.render(self)

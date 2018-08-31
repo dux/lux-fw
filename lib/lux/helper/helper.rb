@@ -38,7 +38,7 @@ class Lux::Helper
     if name.is_array?
       return name.map { |b| render(b) }.join("\n")
     elsif name.respond_to?(:db_schema)
-      path = Lux.thread[:last_template_path].split('/')[1]
+      path = Thread.current[:lux][:last_template_path].split('/')[1]
       table_name = name.class.name.tableize
       locals[table_name.singularize.to_sym] = name
       eval "@_#{table_name.singularize} = name"

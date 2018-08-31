@@ -26,7 +26,6 @@ module Lux
   define_method(:test?)   { ENV_TEST }
   define_method(:cli?)    { LUX_CLI }
   define_method(:cache)   { CACHE_SERVER }
-  define_method(:thread)  { Thread.current[:lux] }
   define_method(:secrets) { @app_secrets ||= Lux::Config::Secrets.new.load }
 
   # main rack response
@@ -39,7 +38,7 @@ module Lux
 
     Lux::Error.log exp
 
-    [500, {}, ['Lux server error']]
+    [500, {}, ['Lux server error: %s' % exp.message]]
   end
 
   def env key=nil
