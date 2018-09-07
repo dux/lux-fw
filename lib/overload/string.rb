@@ -90,6 +90,10 @@ class String
   end
 
   def escape
-    CGI::escape(self)
+    CGI::escape self
+  end
+
+  def unescape
+    CGI::unescape self
   end
 end

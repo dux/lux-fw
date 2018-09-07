@@ -15,7 +15,8 @@ class Lux::Response::Header
   end
 
   def to_h
-    @data.to_h.sort.to_h
+    # data['Set-Cookie'] = data.delete('set-cookie') if data['set-cookie']
+    @data#.to_h.sort.to_h
   end
 
 end

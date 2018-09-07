@@ -1,3 +1,8 @@
+# vars
+# Lux.config.session_cookie_name
+# Lux.config.session_cookie_max_age
+# Lux.config.session_cookie_domain
+
 class Lux::Current::Session
   def initialize request
     # how long will session last if BROWSER or IP change
@@ -44,6 +49,14 @@ class Lux::Current::Session
     else
       nil
     end
+  end
+
+  def merge! hash={}
+    hash.keys.each { |k| self[k] = hash[k] }
+  end
+
+  def hash
+    @session.dup
   end
 
   private

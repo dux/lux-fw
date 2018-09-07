@@ -18,6 +18,7 @@ Lux::Application.class_eval do
   def self.render path='/mock', in_opts={}, &block
     allowed_opts = [:qs, :post, :method, :session, :cookies]
     in_opts.keys.each { |k| die "#{k} is not allowed as opts param. allowed are #{allowed_opts}" unless allowed_opts.index(k) }
+    # in_opts[:session] = nil unless Hash == in_opts[:session].class
 
     opts = {}
 
@@ -61,7 +62,7 @@ Lux::Application.class_eval do
       time: response[1]['x-lux-speed'],
       status: response[0],
       headers: response[1],
-      session: current.session,
+      session: current.session.hash,
       body: body
     }.h
   end

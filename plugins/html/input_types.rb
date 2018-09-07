@@ -282,8 +282,8 @@ class HtmlInput
     @opts[:autocomplete] ||= 'off'
 
     input     = @opts.tag(:input)
-    path_name = defined?(Storage) ? :storages : :images
-    input    += %[<span class="btn btn-default" style="float:left; margin-left:5px;" onclick="Popup.template('#{path_name}/select', function(url){ $('##{@opts[:id]}').val(url); Popup.close(); })">upload</span>]
+    path_name = 'image_upload_dialog'
+    input    += %[<span class="btn btn-default" style="float:left; margin-left:5px;" onclick="Popup.template('#{path_name}', function(url){ $('##{@opts[:id]}').val(url); Popup.close(); })">upload</span>]
 
     if @opts[:value].present?
       input = %[<img onload="i = new Image(); i.src='#{@opts[:value]}'; $('#img_size_#{@opts[:id]}').html(i.width+' x '+i.height)" src="#{@opts[:value]}" onclick="window.open('#{@opts[:value]}')" style="width:100px; border:1px solid #ccc; float:left; margin-right:10px;" /> #{input}]

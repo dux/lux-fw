@@ -34,7 +34,7 @@ class ModelApi < ApplicationApi
   end
 
   # toggles value in postgre array field
-  def toggle!(object, field, value)
+  def toggle! object, field, value
     object[field] ||= []
 
     if object[field].include?(value)
