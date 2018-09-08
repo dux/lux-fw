@@ -96,9 +96,15 @@ module Lux
   # if block given, simple new thread bg job
   # if string given, eval it in bg
   # if object given, instance it and run it
-  def delay *args
+  def delay *args, &bock
     if block_given?
-      BACKGROUND_THREADS.push Thread.new { yield }
+      BACKGROUND_THREADS.push Thread.new do
+        begin
+          block.call
+        rescue => e
+          Lux.logger(:delay_errors).error [e.message, e.backtrace]
+        end
+      end
     elsif args[0]
       # Lux.delay(mail_object, :deliver)
       Lux::DelayedJob.push(*args)
@@ -161,7 +167,7 @@ module Lux
           end
         end
       end
-    end
+  end
 end
 
 require_relative 'config/config'
