@@ -60,10 +60,8 @@ class Lux::Mailer
     m[:body]         = @mail.body || body
     m[:content_type] = 'text/html; charset=UTF-8'
 
-    Thread.new do
-      m.deliver!
-      Lux.logger(:email).info "[#{@_template} : #{@mail.to}] #{@mail.subject}"
-    end
+    m.deliver!
+    instance_exec m, &Lux.config.on_mail
   end
 
   def deliver_later
