@@ -106,10 +106,18 @@ module Lux::Config
     # Default error logging
     Lux.config.on_error = proc do |error|
       Lux::Error.dev_log error
-      'no-key-in-dev'
+      raise error
     end
 
-    raise 'Invalid "Lux.config.host"' unless Lux.config.host.to_s.include?('http')
+    # Default mail logging
+    Lux.config.on_mail = proc do |mail|
+      Lux.logger(:email).info "[#{self.class}.#{@_template} to #{mail.to}] #{mail.subject}"
+    end
+
+    # deafult host is required
+    unless Lux.config.host.to_s.include?('http')
+      raise 'Invalid "Lux.config.host"'
+    end
   end
 
 end
