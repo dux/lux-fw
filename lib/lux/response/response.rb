@@ -146,8 +146,8 @@ class Lux::Response
 
   def write_response_body
     unless @body
-      @status = 404
-      @body = 'Lux HTTP ERROR 404: Document not found'
+      @status = 204
+      @body = 'Lux HTTP ERROR 204: NO CONTENT'
     end
 
     # respond as JSON if we recive hash
