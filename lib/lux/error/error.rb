@@ -46,7 +46,7 @@ class Lux::Error < StandardError
     401 => { name: 'Unauthorized', code: :unauthorized },
     402 => { name: 'Payment Required', code: :payment_required },
     403 => { name: 'Forbidden', code: :forbidden },
-    404 => { name: 'Not Found', code: :not_found },
+    404 => { name: 'Document Not Found', code: :not_found },
     405 => { name: 'Method Not Allowed', code: :method_not_allowed },
     406 => { name: 'Not Acceptable', code: :not_acceptable },
     407 => { name: 'Proxy Authentication Required' },
@@ -99,71 +99,74 @@ class Lux::Error < StandardError
     end
   end
 
-  # template to show full error page
-  def self.render text, status=500
-    Lux.current.response.status status
+  class << self
+    # template to show full error page
+    def render text, status=500
+      Lux.current.response.status status
 
-    Lux.current.response.body template(text)
-  end
-
-  def self.template text
-    %[<html>
-        <head>
-          <title>Server error (#{Lux.current.response.status})</title>
-        </head>
-        <body style="background:#fff; font-size:12pt; font-family: Arial; padding: 20px;">
-          <h3>Lux HTTP error #{Lux.current.response.status} in #{Lux.config.app.name rescue 'app'}</h3>
-          <pre style="color:red; padding:10px; background-color: #eee; border: 1px solid #ccc; max-width: 700px; font-family:'Lucida console'; line-height: 15pt;">#{text.to_s.gsub($/,'<br />')}</pre>
-          <br>
-          <a href="https://httpstatuses.com/#{Lux.current.response.status}" target="http_error">more info on http error</a>
-        </body>
-      </html>]
-  end
-
-  # render error inline or break in production
-  def self.inline name
-    unless Lux.config(:show_server_errors)
-      key = log $!
-      render "Lux inline error: %s\n\nkey: %s" % [$!.message, key]
+      Lux.current.response.body template(text)
     end
 
-    # split app log rest of the log
-    dmp = [[], []]
-
-    $!.backtrace.each do |line|
-      line = line.sub(Lux.root.to_s, '.')
-      dmp[line.include?('/app/') ? 0 : 1].push line
+    def template text
+      %[<html>
+          <head>
+            <title>Server error (#{Lux.current.response.status})</title>
+          </head>
+          <body style="background:#fff; font-size:12pt; font-family: Arial; padding: 20px;">
+            <h3>Lux HTTP error #{Lux.current.response.status} in #{Lux.config.app.name rescue 'app'}</h3>
+            <pre style="color:red; padding:10px; background-color: #eee; border: 1px solid #ccc; max-width: 700px; font-family:'Lucida console'; line-height: 15pt;">#{text.to_s.gsub($/,'<br />')}</pre>
+            <br>
+            <a href="https://httpstatuses.com/#{Lux.current.response.status}" target="http_error">more info on http error</a>
+          </body>
+        </html>]
     end
 
-    dmp[0] = dmp[0].map { |_| _ = _.split(':', 3); '<b>%s</b> - %s - %s' % _ }
+    # render error inline or break in production
+    def inline name
+      unless Lux.config(:show_server_errors)
+        key = log $!
+        render "Lux inline error: %s\n\nkey: %s" % [$!.message, key]
+      end
 
-    name ||= 'Undefined name'
-    msg    = $!.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
+      # split app log rest of the log
+      dmp = [[], []]
 
-    ap [name, msg] if Lux.config(:show_server_errors)
+      $!.backtrace.each do |line|
+        line = line.sub(Lux.root.to_s, '.')
+        dmp[line.include?('/app/') ? 0 : 1].push line
+      end
 
-    <<~TEXT
-      <pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;">
-      <b style="font-size:110%;">#{name}</b>
+      dmp[0] = dmp[0].map { |_| _ = _.split(':', 3); '<b>%s</b> - %s - %s' % _ }
 
-      <b>#{msg}</b>
+      name ||= 'Undefined name'
+      msg    = $!.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
 
-      #{dmp[0].join("\n")}
+      ap [name, msg] if Lux.config(:show_server_errors)
 
-      #{dmp[1].join("\n")}
-      </pre>
-    TEXT
-  end
+      <<~TEXT
+        <pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;">
+        <b style="font-size:110%;">#{name}</b>
 
-  def self.log exp
-    # Overload for custom log
-    'not defined'
-  end
+        <b>#{msg}</b>
 
-  def self.report code, msg=nil
-    e = Integer === code ? Lux::Error.new(code) : Lux::Error.send(code)
-    e.message = msg if msg
-    raise e
+        #{dmp[0].join("\n")}
+
+        #{dmp[1].join("\n")}
+        </pre>
+      TEXT
+    end
+
+    def report code, msg=nil
+      e = Integer === code ? Lux::Error.new(code) : Lux::Error.send(code)
+      e.message = msg if msg
+      raise e
+    end
+
+    def dev_log error
+      return unless Lux.config(:log_to_stdout)
+
+      ap [error.class, error.message, error.backtrace]
+    end
   end
 
   ###

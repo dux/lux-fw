@@ -16,17 +16,15 @@ class Lux::Api
 
   class << self
     # public mount method for router
-    def call path
+    def call path, opts
       return 'Unsupported API call' if !path[1] || path[3]
-
-      opts = Lux.current.request.params
 
       if path[2]
         opts[:_id] = path[1]
         path[1] = path[2]
       end
 
-      Lux.current.response.body run(path[0], path[1], opts)
+      run(path[0], path[1], opts)
     end
 
     # public method for running actions on global class
@@ -69,9 +67,9 @@ class Lux::Api
     rescue Lux::Api::Error => e
       response.error e.message if e.message.to_s != 'false'
     rescue => e
-      rr [e.message, e.backtrace] if Lux.config(:log_to_stdout)
+      Lux.error.dev_log(e)
 
-      class_callback :on_error, e
+      class_callback(:on_error, e) rescue Lux.error.dev_log($!)
 
       response.error e.message
     end
@@ -95,7 +93,6 @@ class Lux::Api
       eval "@object = @#{@class_name.underscore} = #{@class_name}[@params[:_id].to_i]"
       @params.delete(:_id)
     end
-
 
     @method_attr = self.class.method_attr[action] || {}
 

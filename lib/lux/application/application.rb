@@ -238,7 +238,7 @@ class Lux::Application
       catch(:done) { class_callback :after }
 
     rescue => e
-      catch(:done) { class_callback :on_error, e }
+      catch(:done) { class_callback(:on_error, e) }
     end
   end
 

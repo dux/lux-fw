@@ -5,21 +5,19 @@ module SimpleException
 
   def log exception
     return if Lux.env         == 'test'
-    return if exception.class == LocalRaiseError
+    # return if exception.class == LocalRaiseError
     return unless Lux.current
 
-    history = exception.backtrace
+    history = exception.backtrace || []
+    history = history
       .map{ |el| el.sub(Lux.root.to_s, '') }
       .join("\n")
 
     data = '%s in %s (user: %s)' % [exception.class, Lux.current.request.url, (Lux.current.var.user.email rescue 'guest')]
     data = [data, exception.message, history].join("\n\n")
-    key  = Digest::SHA1.hexdigest exception.backtrace.first.split(' ').first
+    key  = Digest::SHA1.hexdigest history
 
     folder = Lux.root.join('log/exceptions').to_s
-    Dir.mkdir(folder) unless Dir.exists?(folder)
-
-    folder += "/#{exception.class.to_s.tableize.gsub('/','-')}"
     Dir.mkdir(folder) unless Dir.exists?(folder)
 
     File.write("#{folder}/#{key}.txt", data)
@@ -28,7 +26,7 @@ module SimpleException
   end
 
   def list
-    error_files = Dir['%s/**/*.txt' % ERROR_FOLDER].sort_by { |x| File.mtime(x) }.reverse
+    error_files = Dir['%s/*.txt' % ERROR_FOLDER].sort_by { |x| File.mtime(x) }.reverse
 
     error_files.map do |file|
       last_update = (Time.now - File.mtime(file)).to_i
@@ -64,9 +62,3 @@ module SimpleException
   end
 end
 
-# overload local error report
-Lux::Error.class_eval do
-  def self.log error
-    SimpleException.log error
-  end
-end

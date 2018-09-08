@@ -103,6 +103,12 @@ module Lux::Config
     # Automatic code reloads in development
     Lux.config.auto_code_reload ||= false
 
+    # Default error logging
+    Lux.config.on_error = proc do |error|
+      Lux::Error.dev_log error
+      'no-key-in-dev'
+    end
+
     raise 'Invalid "Lux.config.host"' unless Lux.config.host.to_s.include?('http')
   end
 

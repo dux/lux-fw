@@ -36,8 +36,6 @@ module Lux
   rescue => exp
     raise exp if Lux.config(:show_server_errors)
 
-    Lux::Error.log exp
-
     [500, {}, ['Lux server error: %s' % exp.message]]
   end
 
@@ -73,8 +71,8 @@ module Lux
     @@lux_fw_root ||= Pathname.new(File.expand_path('../../', File.dirname(__FILE__))).freeze
   end
 
-  def error data
-    Lux::Error.render(data)
+  def error data=nil
+    data ? Lux::Error.render(data) : Lux::Error
   end
 
   def log what=nil

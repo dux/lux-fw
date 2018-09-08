@@ -97,19 +97,22 @@ class Lux::Controller
       return Lux.error(err.join("\n\n"))
     end
 
-    # run filters
-    filter :before
-    filter :before_action
+    # catch throw gymnastics to allow after filter in controllers, after the body is set
+    catch(:done) do
+      filter :before
+      filter :before_action
 
-    # catch error but forward unless handled
-    begin
-      send method_name, *args
-    rescue => e
-      class_callback :on_error, e
+      # catch error but forward unless handled
+      begin
+        send method_name, *args
+      rescue => e
+        class_callback(:on_error, e) rescue Lux.error.dev_log($!)
+        # raise e
+      end
+
+      render
     end
 
-    # catch throw gymnastics to allow after filter in controllers, after the body is set
-    catch(:done) { render }
     filter :after
     throw :done
   end
@@ -176,6 +179,7 @@ class Lux::Controller
     define_method(:post?)    { request.request_method == 'POST' }
     define_method(:redirect) { |where, flash={}| current.redirect where, flash }
     define_method(:etag)     { |*args| current.response.etag *args }
+    define_method(:layout)   { |arg| @layout = arg }
 
     # called be render
     def render_resolve opts
