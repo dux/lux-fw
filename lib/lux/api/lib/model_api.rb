@@ -1,5 +1,11 @@
 class Sequel::Model
   module InstanceMethods
+    def same_as_last_field_value data
+      data = data.join('-') if data.is_array?
+      data = '' if data.is_hash?
+      data
+    end
+
     def same_as_last?
       @last = self.class.xorder('id desc').first
       return unless @last
@@ -9,7 +15,14 @@ class Sequel::Model
       new_o.delete :updated_at
       new_o.delete :id
 
-      old_o = new_o.keys.inject({}) { |t, key| t[key] = @last.send(key); t }
+      old_o = new_o.keys.inject({}) do |t, key|
+        t[key] = @last.send(key)
+
+        new_o[key] = same_as_last_field_value new_o[key]
+        t[key]     = same_as_last_field_value t[key]
+
+        t
+      end
 
       if new_o.to_s.length == old_o.to_s.length
         raise "#{self.class} is the copy of the last one created."
@@ -21,6 +34,9 @@ end
 ###
 
 class ModelApi < ApplicationApi
+  before do
+
+  end
 
   class << self
     def toggle_ids name
@@ -69,7 +85,7 @@ class ModelApi < ApplicationApi
       @object.send("#{k}=", v) if @object.respond_to?(k.to_sym)
     end
 
-    @object.same_as_last?
+    @object.same_as_last? rescue error($!.message)
 
     can? :create, @object
     @object.save if @object.valid?
@@ -171,7 +187,10 @@ class ModelApi < ApplicationApi
 
   def add_response_object_path
     begin
-      response.meta :path, @object.path if @object.respond_to?(:path)
+      if @object.respond_to?(:path)
+        response.meta :path, @object.path
+        response.meta :string_id, @object.id.string_id
+      end
     rescue
       nil
     end
