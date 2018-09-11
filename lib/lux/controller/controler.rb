@@ -131,7 +131,9 @@ class Lux::Controller
       opts[:template] = name
     end
 
-    opts = opts.to_opts! :text, :html, :cache, :template, :json, :layout, :render_to_string, :data, :staus
+    opts = opts.to_opts! :text, :html, :cache, :template, :json, :layout, :render_to_string, :data, :status
+
+    response.status opts.status if opts.status
 
     return if @no_render
 
