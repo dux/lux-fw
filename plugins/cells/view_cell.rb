@@ -28,17 +28,34 @@ class ViewCell
     def css
       require 'sassc'
 
-      scss_files = Dir["#{base_folder}/*.scss"] + Dir["#{base_folder}/*.css"]
+      scss_files = Dir["#{base_folder}/**/*.scss"] + Dir["#{base_folder}/*.css"]
       data       = scss_files.sort.map { |file| File.read(file) }.join("\n\n")
 
       se = SassC::Engine.new(data, :syntax => :scss)
       se.render.gsub($/,'').gsub(/\s+/,' ').gsub(/([:;{}])\s+/,'\1')
     end
 
+    # get cell js
+    def js
+      Dir["#{base_folder}/**/*"]
+        .select { |it| ['js', 'coffee'].include?(it.split('.').last) }
+    end
+
     # get css for all cells
     def all_css
       cells = Object.constants.map(&:to_s).select{ |it| it != 'ViewCell' && it.ends_with?('Cell') }.map(&:constantize)
       cells.inject('') { |t,w| t += w.css.to_s }
+    end
+
+    # get css for all cells
+    def all_js
+      cells = Object.constants.map(&:to_s).select{ |it| it != 'ViewCell' && it.ends_with?('Cell') }.map(&:constantize)
+      total = cells.inject([]) { |t,w| t += w.js }
+
+      total.map do |file|
+        asset = SimpleAssets::Asset.new file
+        asset.compile.split("\n//#").first
+      end.join("\n\n")
     end
   end
 

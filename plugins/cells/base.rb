@@ -4,14 +4,28 @@ require_relative 'view_cell'
 HtmlHelper.class_eval do
   def cell_assets
     Lux.ram_cache(:view_cell_public_assets) do
+      out = []
+
+      # css
       assets = '/assets/cell-assets.css'
       local  = Lux.root.join('public' + assets)
 
-      local.write ViewCell.all_css if Lux.dev? && Lux.current.no_cache?
+      if Lux.dev? && Lux.current.no_cache?
+        local.write ViewCell.all_css
+      end
 
-      sha1 = Crypt.sha1 local.read
+      out.push '<link rel="stylesheet" href="%s?%s" />' % [assets, Crypt.sha1(local.read)]
 
-      '<link rel="stylesheet" href="%s?%s" />' % [assets, sha1]
+      # js
+      assets = '/assets/cell-assets.js'
+      local  = Lux.root.join('public' + assets)
+
+      if Lux.dev? && Lux.current.no_cache?
+        local.write ViewCell.all_js
+      end
+
+      out.push '<script src="%s?%s"></script>' % [assets, Crypt.sha1(local.read)]
+      out.join("\n")
     end
   end
 
