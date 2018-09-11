@@ -15,24 +15,43 @@ ApplicationApi.before do
 end
 
 class HtmlForm
-  def initialize action, form_opts={}
-    form_opts[:method]   = 'get' if form_opts.delete(:get)
-    form_opts[:method] ||= 'get' unless action
-    form_opts[:method] ||= 'post'
-    form_opts[:method]   = form_opts[:method].upcase
+  def initialize target, opts={}
+    opts[:method]   = 'get' if opts.delete(:get)
+    opts[:method] ||= 'get' unless @target
+    opts[:method] ||= 'post'
+    opts[:method]   = opts[:method].upcase
 
-    form_opts[:id] ||= 'form-%s' % Lux.current.uid
+    opts[:id] ||= 'form-%s' % Lux.current.uid
 
-    @action    = action
-    @object    = action if action.respond_to?(:update)
-    @form_opts = form_opts
+    @target = target
+    @opts   = opts
+    @before = []     # add stuff to the begining of the form block
+
+    if @target.respond_to?(:update)
+      @object = @target
+      @opts['data-model'] = @object.class.to_s.underscore.singularize
+    end
+
+    before
+
+    @opts[:action] = @target if @target
   end
 
-  def encrypt data
-    return unless data
-    '[protected]:%s' % Crypt.encrypt(data)
+  # render full form, accepts block
+  def render
+    data  = @before.join('')
+    data += yield self
+    data = form data
+
+    @opts.tag(:form, data)
   end
 
+  # run stuff after block initialize
+  def before
+    true
+  end
+
+  # hidden filed
   def hidden name, opts={}
     fname  = @object.class.name.tableize.singularize rescue nil
 
@@ -58,41 +77,40 @@ class HtmlForm
     end
   end
 
+  # standard input linked to HtmlInput class
   def input name, opts={}
     @name          = name
     opts[:id]    ||= Lux.current.uid
-    opts[:value] ||= Lux.current.request.params[name] if @form_opts[:method] == 'GET'
+    opts[:value] ||= Lux.current.request.params[name] if @opts[:method] == 'GET'
     input_object   = HtmlInput.new(@object)
     data           = input_object.render(name, opts)
     @type          = input_object.type
     data
   end
 
-  def data= body
-    @data = body
-  end
-
-  def render
-    render_form
-    @form_opts.tag(:form, @data)
-  end
-
-  def render_form
-    @data = %[<ul>#{@data}</ul>]
-    @form_opts[:class] = 'custom-class'
-  end
-
+  # submit button
   def submit name=nil
     name ||= 'Submit'
     %[<button type="submit">#{name}</button>]
   end
 
+  # render simple row
   def row name, opts={}
     node  = input(name, opts)
-
     label = %[<label for="#{opts[:id]}">#{opts[:label] || name.to_s.humanize}</label>]
+    %[<li class="as-#{opts[:as]}">#{label}#{node}<span class="error"></span></li>]
+  end
 
-    %[<p class="as-#{opts[:as]}">#{label}#{node}<span class="error"></span></p>]
+  private
+
+  def form data
+    @opts[:class]  = 'ul-form'
+    %[<ul>#{data}</ul>]
+  end
+
+  def encrypt data
+    return unless data
+    '[protected]:%s' % Crypt.encrypt(data)
   end
 end
 

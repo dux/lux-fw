@@ -1,10 +1,10 @@
 # menu = HtmlMenu.new request.path
 # menu.add 'Home', '/'
 # menu.add 'People', '/people', lambda { |path| path.index('peor') }
-# menu.add 'Jobs', '/jbos'
+# menu.add 'Jobs', '/jobs', { icon: true }
 # menu.to_a
 # ---
-# [["Home", "/", true], ["People", "/people", false], ["Jobs", "/jbos", false]]
+# [["Home", "/", {}, true], ["People", "/people", {}, false], ["Jobs", "/jobs", { icon: true }, false]]
 
 class HtmlMenu
   attr_accessor :path
