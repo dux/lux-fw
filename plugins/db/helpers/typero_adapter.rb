@@ -30,7 +30,7 @@ module Sequel::Plugins::TyperoAttributes
           value = self[field]
 
           # we only check if field is changed
-          if column_changed?(field) && self.class.xwhere('LOWER(%s)=LOWER(?) and id<>?' % field, value, id).first
+          if value.present? && column_changed?(field) && self.class.xwhere('LOWER(%s)=LOWER(?) and id<>?' % field, value, id).first
             error = rule[:uniq].class == TrueClass ? %[Value '"#{value}"' for #{field} allready exists] : rule[:uniq]
             errors.add(field, error) unless (errors.on(field) || []).include?(error)
           end
