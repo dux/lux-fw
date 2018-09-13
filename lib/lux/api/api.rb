@@ -74,19 +74,21 @@ class Lux::Api
       response.error e.message
     end
 
+    puts response.render.pretty_generate if Lux.config(:log_to_stdout)
+
     response.render
   end
 
   # internal method for running actions
   # UserApi.new.call(:login, { email:'', pass:'' })
   def rescued_call action, params={}
-    raise Lux::Error.forbidden("Protected action call") if [:call, :rescued_call, :params, :error].index action
-    error("Action #{action} not found in #{self.class.to_s}") unless respond_to? action
-
     @response   = Lux::Api::Response.new
     @params     = params
     @action     = action
     @class_name = self.class.to_s.sub(/Api$/,'')
+
+    error("Protected action call") if [:call, :rescued_call, :params, :error].index action
+    error("Action #{action} not found in #{self.class.to_s}") unless respond_to? action
 
     # load default object
     if @params[:_id]
@@ -104,8 +106,6 @@ class Lux::Api
     response.data = send(action)
 
     class_callback :after
-
-    puts response.render.pretty_generate if Lux.config.log_to_stdout
   end
 
   def params

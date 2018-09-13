@@ -103,7 +103,6 @@ class Lux::Error < StandardError
     # template to show full error page
     def render text, status=500
       Lux.current.response.status status
-
       Lux.current.response.body template(text)
     end
 
@@ -166,6 +165,10 @@ class Lux::Error < StandardError
       return unless Lux.config(:log_to_stdout)
 
       ap [error.class, error.message, error.backtrace]
+    end
+
+    def log error
+      Lux.config.on_error.call error
     end
   end
 

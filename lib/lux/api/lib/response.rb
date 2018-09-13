@@ -11,7 +11,7 @@ class Lux::Api::Response
   attr_accessor :message
 
   def initialize
-    @meta = {}
+    @meta = {}.h_wia
   end
 
   def status num=nil
@@ -64,8 +64,6 @@ class Lux::Api::Response
       output[:error][:hash] = @error_hash if @error_hash
     end
 
-    Lux.current.response.status status
-
     output[:data]    = @data    if @data.present?
     output[:meta]    = @meta    if @meta.present?
     output[:message] = @message if @message.present?
@@ -73,4 +71,9 @@ class Lux::Api::Response
     output
   end
   alias :to_hash :render
+
+  def write
+    Lux.current.response.status status
+    Lux.current.response.body render
+  end
 end

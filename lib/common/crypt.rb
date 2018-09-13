@@ -45,10 +45,10 @@ module Crypt
   # Crypt.encrypt('secret')
   # Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
   def encrypt(data, opts={})
-    opts = opts.to_opts!(:ttl, :password)
+    opts          = opts.to_opts!(:ttl, :password)
+    payload       = { data:data }
+    payload[:ttl] = Time.now.to_i + opts.ttl.to_i if opts.ttl
 
-    payload = { data:data }
-    payload[:ttl] = Time.now.to_i + opts.ttl if opts.ttl
     JWT.encode payload, secret+opts.password.to_s, ALGORITHM
   end
 

@@ -10,6 +10,8 @@ class Sequel::Model
       @last = self.class.xorder('id desc').first
       return unless @last
 
+      return if respond_to?(:name) && name != @last[:name]
+
       new_o = self.to_h
       new_o.delete :created_at
       new_o.delete :updated_at

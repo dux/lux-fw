@@ -99,15 +99,18 @@ class Lux::Controller
 
     # catch throw gymnastics to allow after filter in controllers, after the body is set
     catch(:done) do
-      filter :before
-      filter :before_action
-
       # catch error but forward unless handled
       begin
+        filter :before
+        filter :before_action
+
         send method_name, *args
       rescue => e
+        # call on_error defined on Lux::Controller
         class_callback(:on_error, e) rescue Lux.error.dev_log($!)
-        # raise e
+
+        # call on_error defined on Lux::Application
+        raise e
       end
 
       render
