@@ -112,14 +112,20 @@ class Lux::Response
   def redirect where=nil, opts={}
     return @headers['location'] unless where
 
-    where = current.request.env['HTTP_REFERER'] || '/' if where == :back
+    cnt = current.request.params[:rdr].to_i + 1
 
-    where = "#{current.request.path}#{where}" if where[0,1] == '?'
+    where  = current.request.env['HTTP_REFERER'] || '/' if where == :back
+    where  = "#{current.request.path}#{where}" if where[0,1] == '?'
+    where += where.include?('?') ? '&' : '?'
+    where += "rdr=#{cnt}"
+    where  = '/' if cnt > 2 # max 2 redirects
 
     @status = opts.delete(:status) || 302
     opts.map { |k,v| flash.send(k, v) }
 
-    @headers['location']   = where.index('//') ? where : "#{current.host}#{where}"
+    where = where.include?('//') ? where : "#{current.host}#{where}"
+
+    @headers['location'] = where
     @headers['access-control-expose-headers'] ||= 'Location'
 
     @body = %[redirecting to #{@headers['location']}\n\n#{opts.values.join("\n")}]
