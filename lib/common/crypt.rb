@@ -44,7 +44,7 @@ module Crypt
 
   # Crypt.encrypt('secret')
   # Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
-  def encrypt(data, opts={})
+  def encrypt data, opts={}
     opts          = opts.to_opts!(:ttl, :password)
     payload       = { data:data }
     payload[:ttl] = Time.now.to_i + opts.ttl.to_i if opts.ttl
@@ -54,12 +54,14 @@ module Crypt
 
   # Crypt.decrypt('secret')
   # Crypt.decrypt('secret', password:'pa$$w0rd')
-  def decrypt(token, opts={})
-    opts = opts.to_opts!(:password)
+  def decrypt token, opts={}
+    opts = opts.to_opts!(:password, :ttl)
 
     token_data = JWT.decode token, secret+opts.password.to_s, true, { :algorithm => ALGORITHM }
     data = token_data[0]
-    raise "Crypted data expired before #{Time.now.to_i - data.ttl} seconds" if data['ttl'] && data['ttl'] < Time.now.to_i
+
+    raise "Crypted data expired before #{Time.now.to_i - data['ttl']} seconds" if data['ttl'] && data['ttl'] < Time.now.to_i
+
     data['data']
   end
 
