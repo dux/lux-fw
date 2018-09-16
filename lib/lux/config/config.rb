@@ -62,7 +62,7 @@ module Lux::Config
   def start! start=nil
     set_default_vars
 
-    return @@load_info || 'No lux load info' unless start
+    return @@load_info unless start
 
     speed = ((Time.now - start)*1000).round.to_s.sub(/(\d)(\d{3})$/,'\1s \2')+'ms'
 
@@ -104,13 +104,13 @@ module Lux::Config
     Lux.config.auto_code_reload ||= false
 
     # Default error logging
-    Lux.config.on_error = proc do |error|
+    Lux.config.on_error ||= proc do |error|
       Lux::Error.dev_log error
       raise error
     end
 
     # Default mail logging
-    Lux.config.on_mail = proc do |mail|
+    Lux.config.on_mail ||= proc do |mail|
       Lux.logger(:email).info "[#{self.class}.#{@_template} to #{mail.to}] #{mail.subject}"
     end
 
