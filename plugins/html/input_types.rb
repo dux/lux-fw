@@ -211,7 +211,7 @@ class HtmlInput
     end
 
     @opts[:style] = "width:auto;#{@opts[:style]};"
-    @opts[:onclick] = %[Popup.render(this,'Select user', '/part/users/single_user?product_id=#{@object.bucket_id}');return false;]
+    @opts[:onclick] = %[Dialog.render(this,'Select user', '/part/users/single_user?product_id=#{@object.bucket_id}');return false;]
     @opts.tag :button, button_text
   end
 
@@ -283,7 +283,7 @@ class HtmlInput
 
     input     = @opts.tag(:input)
     path_name = 'image_upload_dialog'
-    input    += %[<span class="btn btn-default" style="float:left; margin-left:5px;" onclick="Popup.template('#{path_name}', function(url){ $('##{@opts[:id]}').val(url); Popup.close(); })">upload</span>]
+    input    += %[<span class="btn btn-default" style="float:left; margin-left:5px;" onclick="Dialog.template('#{path_name}', function(url){ $('##{@opts[:id]}').val(url); Dialog.close(); })">upload</span>]
 
     if @opts[:value].present?
       input = %[<img onload="i = new Image(); i.src='#{@opts[:value]}'; $('#img_size_#{@opts[:id]}').html(i.width+' x '+i.height)" src="#{@opts[:value]}" onclick="window.open('#{@opts[:value]}')" style="width:100px; border:1px solid #ccc; float:left; margin-right:10px;" /> #{input}]
@@ -341,7 +341,7 @@ class HtmlInput
     ret = as_memo
     ret += '<div style="margin-top: 7px;"></div>'
     ret += val.split("\n").map{ |url| %[<a href="#{url}" target="_new"><img src="#{url}" style="height:50px; margin-right:5px; border:1px solid #ccc;" /></a>] }.join(' ')
-    ret += %[<span class="btn btn-default" style="float:left; margin-left:5px;" onclick='Popup.template("#{path_name}/select", function(url){ $("##{@opts[:id]}")[0].value += "\\n"+url; Popup.close(); })'>add image</span>]
+    ret += %[<span class="btn btn-default" style="float:left; margin-left:5px;" onclick='Dialog.template("#{path_name}/select", function(url){ $("##{@opts[:id]}")[0].value += "\\n"+url; Dialog.close(); })'>add image</span>]
    ret
   end
 
