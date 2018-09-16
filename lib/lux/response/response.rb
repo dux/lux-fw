@@ -115,10 +115,12 @@ class Lux::Response
     where  = current.request.env['HTTP_REFERER'] || '/' if where == :back
     where  = "#{current.request.path}#{where}" if where[0,1] == '?'
 
-    url = Url.new where
-    url[:rdr] = current.request.params[:rdr].to_i + 1
+    redirect_var = Lux.config.redirect_var || :_r
 
-    where = url[:rdr] > 2 ? '/' : url.to_s
+    url = Url.new where
+    url[redirect_var] = current.request.params[redirect_var].to_i + 1
+
+    where = url[redirect_var] > 2 ? '/' : url.to_s
 
     @headers['location'] = where
     @headers['access-control-expose-headers'] ||= 'Location'
