@@ -30,14 +30,14 @@ class Url
       b.url
     end
 
-    def qs name, value=nil
+    def qs name, value
       current.qs(name, value).relative
     end
 
     # for search
     # Url.prepare_qs(:q) -> /foo?bar=1&q=
     def prepare_qs name
-      url = current.qs(name).relative
+      url = current.delete(name).relative
       url += url.index('?') ? '&' : '?'
       "#{url}#{name}="
     end
@@ -54,26 +54,25 @@ class Url
   ###
 
   def initialize url
-    if url =~ /:/
-      @elms = url.split '/', 4
-    else
-      @elms = [url]
-      @elms.unshift '',''
+    url, qs_part = url.split('?', 2)
+
+    @qs = qs_part.to_s.split('&').inject({}) do |qs, el|
+      parts = el.split('=', 2)
+      qs[parts[0]] = Url.unescape parts[1]
+      qs
     end
 
-    domain_and_port = @elms[2].split(':')
-    @domain_parts = domain_and_port[0].to_s.split('.').reverse.map(&:downcase)
+    if url =~ /:/
+      @proto, _, @domain, @path = url.split '/', 4
+      @proto, @port = @proto.split(':', 2)
+      @port = nil if @port == '80'
+      @domain_parts = @domain.split('.').reverse.map(&:downcase)
+    else
+      @path = url.to_s
+      @path = @path.sub('/', '') if @path[0,1] == '/'
+    end
 
-    @qs = {}
-    path_with_qs = @elms[3].to_s.split(/\?|#/)
-    path_with_qs[1].split('&').map do |el|
-      parts = el.split('=')
-      @qs[parts[0]] = Url.unescape parts[1]
-    end if path_with_qs[1]
-
-    @path = path_with_qs[0] || '/'
-    @proto = @elms[0].split(':').first.downcase
-    @port = domain_and_port[1] ? domain_and_port[1].to_i : 80
+    @path = '/' if @path.blank?
   end
 
   def domain what=nil
@@ -85,11 +84,12 @@ class Url
     @domain_parts.slice(0,2).reverse.join '.'
   end
 
-  def subdomain name
+  def subdomain name=nil
     if name
       @domain_parts[2] = name
       return self
     end
+
     @domain_parts.drop(2).reverse.join('.').or nil
   end
 
@@ -99,10 +99,6 @@ class Url
 
   def host
     @domain_parts.reverse.join '.'
-  end
-
-  def host_with_port
-    %[#{proto}://#{host}#{port == 80 ? '' : ":#{port}"}]
   end
 
   def query
@@ -125,13 +121,13 @@ class Url
     @hash = "##{val}"
   end
 
-  def qs name, value=nil
-    if value
+  def qs name, value=:_nil
+    if value != :_nil
       @qs[name.to_s] = value
+      self
     elsif name
-      @qs.delete(name.to_s)
+      @qs[name.to_s]
     end
-    self
   end
 
   def namespace data
@@ -141,21 +137,16 @@ class Url
 
   def locale what
     elms = @path.split('/')
+
     if elms[0] && Locale.all.index(elms[0].to_s)
       elms[0] = what
     else
       elms.unshift what
     end
-    @path = elms.join('/')
-    self
-  end
 
-  def qs_val
-    ret = []
-    if @qs.keys.length > 0
-      ret.push '?' + @qs.keys.sort.map{ |key| "#{key}=#{Url.escape(@qs[key].to_s)}" }.join('&')
-    end
-    ret.join('')
+    @path = elms.join('/')
+
+    self
   end
 
   def url
@@ -167,7 +158,29 @@ class Url
   end
 
   def to_s
-    domain.length > 0 ? url : local_url
+    @domain ? url : relative
+  end
+
+  def [] key
+    @qs[key.to_s]
+  end
+
+  def []= key, value
+    @qs[key.to_s] = value
+  end
+
+  private
+
+  def qs_val
+    ret = []
+    if @qs.keys.length > 0
+      ret.push '?' + @qs.keys.sort.map{ |key| "#{key}=#{Url.escape(@qs[key].to_s)}" }.join('&')
+    end
+    ret.join('')
+  end
+
+  def host_with_port
+    %[#{proto}://#{host}#{@port.present? ? '' : ":#{@port}"}]
   end
 
 end
