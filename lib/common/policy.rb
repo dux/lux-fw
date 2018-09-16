@@ -2,7 +2,6 @@
 
 # base caller
 # UserPolicy.new(model: @model, user: User.current).can?(:update) -> can current user update @user
-# ApplicationPolicy.new(user: Lux.current.var.user).can?(:admin_login?) -> can current user login to admin
 
 # block will capture error message and be triggered only if error is present
 # User.can?(:login) { |msg| http_error 401, "Err: #{msg}".red; return 'no access' }
