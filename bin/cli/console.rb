@@ -27,9 +27,7 @@ LuxCli.class_eval do
       puts '* ./config/console.rb not found'
     end
 
-    Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
-
-    puts Lux::Config.start! load_start
+    puts Lux.start load_start
 
     # AwesomePrint.pry!
     # nice object dump in console

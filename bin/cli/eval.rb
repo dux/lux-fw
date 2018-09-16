@@ -3,6 +3,8 @@ LuxCli.class_eval do
   def evaluate *args
     require './config/application'
 
+    Lux.start
+
     if File.exist?('./config/console.rb')
       puts '* loading ./config/console.rb'
       load './config/console.rb'

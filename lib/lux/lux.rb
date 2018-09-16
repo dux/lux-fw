@@ -150,6 +150,10 @@ module Lux
     MCACHE[key] ||= yield
   end
 
+  def start time=nil
+    puts Config.start! time
+  end
+
   def logger name=nil
     name ||= ENV.fetch('RACK_ENV').downcase
 
