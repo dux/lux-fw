@@ -25,9 +25,6 @@ class Lux::Controller
       controller = new
       controller.filter :before
       controller.call
-
-      # we want to exec filter after the call
-      controller.filter :before_action
     end
 
     # create mock function, to enable template rendering
@@ -63,11 +60,11 @@ class Lux::Controller
   end
 
   # execute before and after filters, only once
-  def filter fiter_name
+  def filter fiter_name, arg=nil
     return if @executed_filters[fiter_name]
     @executed_filters[fiter_name] = true
 
-    class_callback fiter_name
+    class_callback fiter_name, arg
   end
 
   def cache *args, &block
@@ -102,7 +99,7 @@ class Lux::Controller
       # catch error but forward unless handled
       begin
         filter :before
-        filter :before_action
+        filter :before_action, @controller_action.to_sym
 
         send method_name, *args
       rescue => e
