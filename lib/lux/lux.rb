@@ -34,7 +34,8 @@ module Lux
     app    = Lux::Application.new state
     app.render
   rescue => exp
-    raise exp if Lux.config(:show_server_errors)
+    r 2221111
+    raise exp# if Lux.config(:show_server_errors)
 
     [500, {}, ['Lux server error: %s' % exp.message]]
   end
@@ -137,7 +138,7 @@ module Lux
     if File.exist?(base)
       load base
     else
-      Lux::Config.require_all('%s/*' % folder)
+      Lux::Config.require_all(folder)
     end
   end
 
