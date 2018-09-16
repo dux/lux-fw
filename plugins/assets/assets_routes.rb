@@ -4,6 +4,9 @@
 Lux.app.before do
   next unless Lux.config(:compile_assets)
 
+  # skip /favicon.ico that forces refresh
+  next unless nav.path[1]
+
   # only allow clear in dev
   # clear assets every 4 seconds max
   if Lux.current.no_cache?

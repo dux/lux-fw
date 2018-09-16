@@ -77,8 +77,8 @@ class Lux::Template
         data = @tilt.render(@helper) do
           yield if block_given?
         end
-      rescue
-        data = Lux::Error.inline %[Lux::Template #{@template} render error]
+      rescue => e
+        data = Lux::Error.inline %[Lux::Template #{@template} render error\n\nMessage: #{e.message}]
       end
     end
 
