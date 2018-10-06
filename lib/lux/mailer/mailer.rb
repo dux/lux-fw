@@ -57,23 +57,23 @@ class Lux::Mailer
     m[:from]         = @mail.from
     m[:to]           = @mail.to
     m[:subject]      = @mail.subject
-    m[:body]         = @mail.body || body
+    m[:body]         = body
     m[:content_type] = 'text/html; charset=UTF-8'
 
-    m.deliver!
+    Lux.delay { m.deliver! }
+
     instance_exec m, &Lux.config.on_mail
   end
 
-  def deliver_later
-     Lux.delay self, :deliver
-  end
-
   def body
-    return @mail.body if @mail.body
+    data = @mail.body
 
-    helper = Lux::Helper.new self, self.class.helper
+    unless data
+      helper = Lux::Helper.new self, self.class.helper
+      data = Lux::Template.render_with_layout "layouts/#{self.class.layout}", "mailer/#{@_template}", helper
+    end
 
-    Lux::Template.render_with_layout "layouts/#{self.class.layout}", "mailer/#{@_template}", helper
+    data.gsub(%r{\shref=(['"])/}) { %[ href=#{$1}#{Lux.config.host}/] }
   end
 
   def subject
