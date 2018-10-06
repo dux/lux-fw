@@ -109,26 +109,34 @@ class Lux::Response
 
   # redirect '/foo'
   # redirect :back, info: 'bar ...'
-  def redirect where=nil, opts={}
-    return @headers['location'] unless where
-
-    where  = current.request.env['HTTP_REFERER'] || '/' if where == :back
+  def redirect where, opts={}
+    where  = current.request.env['HTTP_REFERER'].or('/') if where == :back
     where  = "#{current.request.path}#{where}" if where[0,1] == '?'
+    where  = current.host + where unless where.include?('://')
 
-    redirect_var = Lux.config.redirect_var || :_r
+    # local redirect
+    if where.include?(current.host)
+      redirect_var = Lux.config.redirect_var || :_r
 
-    url = Url.new where
-    url[redirect_var] = current.request.params[redirect_var].to_i + 1
+      url = Url.new where
+      url[redirect_var] = current.request.params[redirect_var].to_i + 1
 
-    where = url[redirect_var] > 2 ? '/' : url.to_s
-
-    @headers['location'] = where
-    @headers['access-control-expose-headers'] ||= 'Location'
+      where =
+        if opts.delete(:silent)
+          url.delete redirect_var
+          url.to_s
+        else
+          url[redirect_var] > 3 ? '/' : url.to_s
+        end
+    end
 
     @status = opts.delete(:status) || 302
     opts.map { |k,v| flash.send(k, v) }
 
-    @body = %[redirecting to #{@headers['location']}\n\n#{opts.values.join("\n")}]
+    @body = %[redirecting to #{where}\n\n#{opts.values.join("\n")}]
+
+    @headers['location'] = where
+    @headers['access-control-expose-headers'] ||= 'Location'
 
     throw :done
   end
