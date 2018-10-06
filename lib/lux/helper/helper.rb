@@ -31,6 +31,16 @@ class Lux::Helper
     yield.gsub(/>\s+</,'><')
   end
 
+  def content
+    yield
+  end
+
+  # foo = function do |list| ...
+  # foo.call @list
+  def function &block
+    block
+  end
+
   # renders just template but it is called
   # = render :_link, link:link
   # = render 'main/links/_link', link:link

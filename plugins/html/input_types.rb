@@ -80,6 +80,8 @@ class HtmlInput
     body = []
     collection = @opts.delete(:collection)
 
+    @opts[:class] ||= 'form-select'
+
     if nullval = @opts.delete(:null)
       body.push %[<option value="">#{nullval}</option>] if nullval
     end
@@ -145,24 +147,14 @@ class HtmlInput
     ret
   end
 
-  # def as_date
-  #   @opts[:type]  = :date
-  #   @opts[:style] = 'width: 160px; display: inline;'
-
-  #   value      = @opts[:value] || nil
-  #   desc       = value ? '&mdash;' + Time.ago(value) : ''
-
-  #   [@opts.tag(:input), desc].join(' ')
-  # end
-
   def as_date
-    @opts[:type]   = 'text'
-    @opts[:style]  = 'width: 120px; display: inline;'
-    @opts[:value]  = @opts[:value].strftime('%d.%m.%Y') rescue @opts[:value]
-    # @opts[:value]  = @opts[:value].to_s.split(' +').first.to_s.sub(/:\d{2}$/,'')
-    # @opts[:hint]   ||= 'YEAR - MONTH - DAY'
+    @opts[:type]         = 'text'
+    @opts[:style]        = 'width: 120px; display: inline;'
+    @opts[:value]        = @opts[:value].strftime('%d.%m.%Y') rescue @opts[:value]
+    @opts[:autocomplete] = :off
+
     ret = @opts.tag(:input)
-    ret += ' &bull; %s' % Time.ago(Time.parse(@opts[:value])) if @opts[:value].present?
+    ret += '<span class="date-ago"> &bull; %s</span>' % Time.ago(Time.parse(@opts[:value])) if @opts[:value].present? && !@opts.delete(:no_ago)
     # ret += ' &bull; <small>%s</small>' % @opts[:hint]
     ret + %[<script>new Pikaday({ field: document.getElementById('#{@opts [:id]}'), format: "DD.MM.YYYY" }); </script>]
   end

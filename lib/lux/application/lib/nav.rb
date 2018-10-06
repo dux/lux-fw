@@ -11,6 +11,7 @@ class Lux::Application::Nav
 
     @subdomain = request.host.split('.')
     @domain    = @subdomain.pop(2).join('.')
+    @subdomain = @subdomain.join('.')
     @domain    += ".#{@subdomain.pop}" if @domain.length < 6
   end
 

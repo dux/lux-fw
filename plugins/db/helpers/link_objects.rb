@@ -70,6 +70,7 @@ class Sequel::Model
           comm  = "#{klass}.xwhere('id in (select #{klass.tableize.singularize}_id from #{cname.tableize} where #{to_s.tableize.singularize}_id=?)', id)"
           puts "* #{to_s}.link :#{name} -> #{comm}"
         end
+
         class_eval %[
           def #{name_p}
             #{comm}

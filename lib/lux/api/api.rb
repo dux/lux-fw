@@ -67,8 +67,6 @@ class Lux::Api
     rescue Lux::Api::Error => e
       response.error e.message if e.message.to_s != 'false'
     rescue => e
-      Lux.error.dev_log(e)
-
       class_callback(:on_error, e) rescue Lux.error.dev_log($!)
 
       response.error e.message

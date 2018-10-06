@@ -34,8 +34,7 @@ module Lux
     app    = Lux::Application.new state
     app.render
   rescue => exp
-    r 2221111
-    raise exp# if Lux.config(:show_server_errors)
+    raise exp
 
     [500, {}, ['Lux server error: %s' % exp.message]]
   end
@@ -81,31 +80,24 @@ module Lux
     puts what || yield
   end
 
-  def on name, ref=nil, &proc
-    EVENTS[name] ||= []
-
-    if block_given?
-      puts "* event: #{name} defined".white
-      EVENTS[name].push(proc)
-    else
-      for func in EVENTS[name]
-        ref.instance_eval(&func)
-      end
-    end
+  def event
+    Lux::EventBus
   end
 
   # if block given, simple new thread bg job
   # if string given, eval it in bg
   # if object given, instance it and run it
-  def delay *args, &bock
+  def delay *args, &block
     if block_given?
-      BACKGROUND_THREADS.push Thread.new do
+      t = Thread.new do
         begin
           block.call
         rescue => e
           Lux.logger(:delay_errors).error [e.message, e.backtrace]
         end
       end
+
+      BACKGROUND_THREADS.push t
     elsif args[0]
       # Lux.delay(mail_object, :deliver)
       Lux::DelayedJob.push(*args)
@@ -159,17 +151,9 @@ module Lux
     name ||= ENV.fetch('RACK_ENV').downcase
 
     MCACHE['lux-logger-%s' % name] ||=
-      if Lux.config(:log_to_stdout)
-        Logger.new(STDOUT).tap do |it|
-          it.formatter = proc do |severity, datetime, progname, msg|
-            " #{name.to_s.upcase} #{severity} LOG : #{msg}\n"
-          end
-        end
-      else
-        Logger.new('./log/%s.log' % name).tap do |it|
-          it.formatter = proc do |severity, datetime, progname, msg|
-            "[#{datetime.strftime("%Y-%m-%d %H:%M")}] #{severity} : #{msg}\n"
-          end
+      Logger.new('./log/%s.log' % name).tap do |it|
+        it.formatter = proc do |severity, datetime, progname, msg|
+          "[#{datetime.strftime("%Y-%m-%d %H:%M")}] #{severity} : #{msg}\n"
         end
       end
   end

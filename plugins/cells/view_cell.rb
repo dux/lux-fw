@@ -24,11 +24,19 @@ class ViewCell
       Lux.root.join('app/cells/%s' % to_s.tableize.sub('_cells','')).to_s
     end
 
+    def get_all_cell_classes
+      # all base cells have to inherit from ViewCell base class
+      ObjectSpace
+        .each_object(Class)
+        .select{ |it| ViewCell === it.ancestors[1] }
+        .to_a
+    end
+
     # get cell css
     def css
       require 'sassc'
 
-      scss_files = Dir["#{base_folder}/**/*.scss"] + Dir["#{base_folder}/*.css"]
+      scss_files = Dir["#{base_folder}/**/*.scss"] + Dir["#{base_folder}/**/*.css"]
       data       = scss_files.sort.map { |file| File.read(file) }.join("\n\n")
 
       se = SassC::Engine.new(data, :syntax => :scss)
@@ -89,7 +97,8 @@ class ViewCell
     end
   end
 
-  def template name=:cell
+  # if block is passed, template render will be passed as an argument
+  def template name=:cellm, &block
     tpl = 'cell-tpl-%s-%s' % [self.class, name]
 
     tpl = Lux.ram_cache(tpl) do
@@ -101,7 +110,9 @@ class ViewCell
       Tilt[:haml].new { File.read(file) }
     end
 
-    tpl.render(self)
+    data = tpl.render(self)
+    data = block.call(data) if block
+    data
   end
 
   # tag :div, { 'class'=>'iform' } do

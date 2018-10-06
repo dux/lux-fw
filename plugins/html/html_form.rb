@@ -91,7 +91,7 @@ class HtmlForm
   # submit button
   def submit name=nil
     name ||= 'Submit'
-    %[<button type="submit">#{name}</button>]
+    %[<li><button type="submit">#{name}</button></li>]
   end
 
   # render simple row

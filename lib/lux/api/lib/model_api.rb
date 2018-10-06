@@ -179,7 +179,8 @@ class ModelApi < ApplicationApi
     error
   end
 
-  def can? action, object
+  def can? action, object=nil
+    object ||= @object
     object.can?(action) do |err|
       msg  = 'No %s permission for %s' % [action.to_s.sub('?',''), Lux.current.var.user ? Lux.current.var.user.email : :guests]
       msg += ' on %s' % object.class.name if object

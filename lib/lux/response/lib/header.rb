@@ -14,6 +14,14 @@ class Lux::Response::Header
     @data[key.downcase] = value
   end
 
+  def merge hash
+    for key, value in hash
+      @data[key.downcase] = value
+    end
+
+    @data
+  end
+
   def to_h
     # data['Set-Cookie'] = data.delete('set-cookie') if data['set-cookie']
     @data#.to_h.sort.to_h

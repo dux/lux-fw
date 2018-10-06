@@ -27,6 +27,14 @@ class Lux::Config
     Lux.config.on_mail ||= proc do |mail|
       Lux.logger(:email).info "[#{self.class}.#{@_template} to #{mail.to}] #{mail.subject}"
     end
+
+    # default event bus error handle
+    Lux.config.on_event_bus_error = proc do |error, name|
+      Lux.logger(:event_bus).error '[%s] %s' % [name, error.message]
+    end
+
+    # app should not start unless config is loaded
+    Lux.config.lux_config_loaded = true
   end
 
   after_boot do
@@ -95,7 +103,7 @@ class Lux::Config
       c.class_callback :boot
       c.class_callback :after_boot
 
-      start_info start
+      start_info start if start
     end
 
     def start_info start

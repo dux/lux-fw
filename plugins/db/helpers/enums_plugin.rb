@@ -9,12 +9,16 @@ class Sequel::Model
     #   list['w'] = { name: 'Waiting', desc: '...' }.h
     # end
     # enums :steps, values: { 'o'=>'Open', 'w'=>'Waiting' }
+    # enums :kinds, ['string', 'boolean', 'textarea']
     def enums name, opts={}, &block
-      if name.is_a?(Hash)
-        opts = name
-      else
-        opts[:name] = name
+      if opts.class == Array
+        opts = {
+          values: opts,
+          field: false
+        }
       end
+
+      opts[:default] ||= opts.first if opts[:values].class == Array
 
       values = opts[:values] || {}.tap { |_| block.call(_) }
 
@@ -27,7 +31,7 @@ class Sequel::Model
           opts[:field] = opts[:method] + '_sid' unless db_schema[opts[:field].to_sym]
         end
 
-        raise NameError.new('Field %s not found for enums %s' % [opts[:field], opts[:name]]) unless db_schema[opts[:field].to_sym]
+        raise NameError.new('Field %s not found for enums %s' % [opts[:field], name]) unless db_schema[opts[:field].to_sym]
 
         define_method(opts[:method]) do
           value = send(opts[:field]).or opts[:default]
@@ -37,7 +41,7 @@ class Sequel::Model
       end
 
       # this is class method that will list all options
-      define_singleton_method(opts[:name]) do |id=nil|
+      define_singleton_method(name) do |id=nil|
         id ? values[id] : values
       end
     end

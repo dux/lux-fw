@@ -1,7 +1,7 @@
 class Lux::Application
-  LUX_PRINT_ROUTES = !!ENV['LUX_PRINT_ROUTES'] unless defined?(LUX_PRINT_ROUTES)
+  # LUX_PRINT_ROUTES = !!ENV['LUX_PRINT_ROUTES'] unless defined?(LUX_PRINT_ROUTES)
 
-  class_callbacks :before, :after, :routes, :on_error
+  class_callbacks :before, :after, :routes, :on_error, :boot
 
   attr_reader :route_target, :current
 
@@ -20,6 +20,8 @@ class Lux::Application
   ###
 
   def initialize current
+    raise 'Config is not loaded (Lux.start not called), cant render page' unless Lux.config.lux_config_loaded
+
     @current = current
   end
 
@@ -34,7 +36,7 @@ class Lux::Application
   end
 
   def error *args
-    args.first.nil? ? Lux::Error : Lux::Error.report(*args)
+    args.first.nil? ? Lux::AutoRaiseError : Lux::Error.report(*args)
   end
 
   def cell_target? route
@@ -106,6 +108,10 @@ class Lux::Application
     @@namespaces[name] = block
   end
 
+  # self.namespace :city do
+  #   @city = City.first slug: nav.root
+  #   !!@city
+  # end
   # namespace 'dashboard' do
   #   map orgs: 'dashboard/orgs'
   # end
@@ -124,6 +130,11 @@ class Lux::Application
     yield
 
     raise Lux::Error.not_found("Namespace <b>:#{name}</b> matched but nothing is called")
+  end
+
+  def subdomain name
+    return unless nav.subdomain == name
+    error.not_found 'Subdomain "%s" matched but nothing called' % name
   end
 
   # map api: ApiController
@@ -202,7 +213,17 @@ class Lux::Application
       when String
         object, action = object.split('#') if object.include?('#')
       when Array
-        object, action = object
+        if object[0].class == Integer && object[1].class == Hash
+          # [200, {}, 'ok']
+          for key, value in object[1]
+            response.header key, value
+          end
+
+          response.status object[0]
+          response.body object[2]
+        else
+          object, action = object
+        end
       when Proc
         case data = object.call
           when Array
