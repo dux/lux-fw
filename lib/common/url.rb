@@ -62,17 +62,20 @@ class Url
       qs
     end
 
-    if url =~ /:/
+    if url =~ %r{://}
       @proto, _, @domain, @path = url.split '/', 4
-      @proto, @port = @proto.split(':', 2)
-      @port = nil if @port == '80'
+
+      @proto = @proto.sub(':', '')
+
+      @domain, @port = @domain.split(':', 2)
+      @port = nil if @port == '80' || @port.blank?
+
       @domain_parts = @domain.split('.').reverse.map(&:downcase)
     else
-      @path = url.to_s
-      @path = @path.sub('/', '') if @path[0,1] == '/'
+      @path = url.to_s.sub(%r{^/}, '')
     end
 
-    @path = '/' if @path.blank?
+    @path = '' if @path.blank?
   end
 
   def domain what=nil
@@ -106,10 +109,12 @@ class Url
   end
 
   def path val=nil
-    return '/'+@path+(@namespace ? ":#{@namespace}" : '') unless val
-
-    @path = val.sub(/^\//,'')
-    self
+    if val
+      @path = val.sub /^\//, ''
+      return self
+    else
+      '/' + @path
+    end
   end
 
   def delete *keys
@@ -180,7 +185,7 @@ class Url
   end
 
   def host_with_port
-    %[#{proto}://#{host}#{@port.present? ? '' : ":#{@port}"}]
+    %[#{proto}://#{host}#{@port.present? ? ":#{@port}" : ''}]
   end
 
 end
