@@ -6,6 +6,16 @@ class Object
     Clipboard.copy data
     'copied'
   end
+
+  # show method info
+  # show User, :secure_hash
+  def show klass, m
+    el = klass.instance_method(m)
+    puts el.source_location.join(':').yellow
+    puts '-'
+    puts el.source
+    nil
+  end
 end
 
 LuxCli.class_eval do
