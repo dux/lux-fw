@@ -118,7 +118,7 @@ class Lux::Controller
   end
 
   def error *args
-    args.first.nil? ? Lux::Error : Lux::Error.report(*args)
+    args.first.nil? ? Lux::AutoRaiseError : Lux::Error.report(*args)
   end
 
   # render :index

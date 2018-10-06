@@ -94,6 +94,7 @@ class Lux::Error < StandardError
       define_singleton_method(data[:code]) do |message=nil|
         error = new status
         error.message = message if message
+        raise error if Lux::AutoRaiseError === error
         error
       end
     end
@@ -206,3 +207,5 @@ class Lux::Error < StandardError
   end
 end
 
+class Lux::AutoRaiseError < Lux::Error
+end
