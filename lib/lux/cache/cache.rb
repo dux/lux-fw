@@ -13,6 +13,7 @@ module Lux
     def server= name
       @server = if name.class == Symbol
         if name == :memcached
+          require 'dalli'
           Dalli::Client.new('127.0.0.1:11211', { :namespace=>Digest::MD5.hexdigest(__FILE__)[0,4], :compress => true,  :expires_in => 1.hour })
         else
           "Lux::Cache::#{name.to_s.classify}Cache".constantize.new
@@ -20,6 +21,8 @@ module Lux
       else
         name
       end
+
+      fetch('cache-test') { true }
     end
 
     def read key
