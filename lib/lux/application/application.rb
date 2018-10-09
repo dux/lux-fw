@@ -1,6 +1,4 @@
 class Lux::Application
-  # LUX_PRINT_ROUTES = !!ENV['LUX_PRINT_ROUTES'] unless defined?(LUX_PRINT_ROUTES)
-
   class_callbacks :before, :after, :routes, :on_error, :boot
 
   attr_reader :route_target, :current
@@ -272,5 +270,5 @@ class Lux::Application
 
     response.render
   end
-
 end
+
