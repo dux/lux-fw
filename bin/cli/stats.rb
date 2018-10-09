@@ -60,7 +60,14 @@ class LuxStat
       lines = `find ./app/#{el}/ -type f  | xargs wc -l`.split($/).last.to_i
       puts " #{files.pluralize(:files).rjust(9).white} and #{lines.pluralize(:lines).rjust(12).white} in #{el.blue}"
     end
+  end
 
+  def total_ext
+    for ext in [:js, :coffee, :scss, :css, :rb, :haml, :html]
+      lines = `find ./app -type f -name '*.#{ext}' | xargs wc -l`.split($/)
+      cnt = lines.pop.to_i
+      puts "#{ext.to_s.rjust(8).white} #{cnt.pluralize(:line).rjust(14)} in #{lines.length.pluralize(:files)}"
+    end
   end
 
   private
@@ -121,5 +128,6 @@ LuxCli.class_eval do
     stat.call :models
     stat.call :views
     stat.call :total, 'Totals per folder in ./app'
+    stat.call :total_ext, 'Totals per file type in ./app'
   end
 end
