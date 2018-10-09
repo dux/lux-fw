@@ -83,7 +83,8 @@ class ModelApi < ApplicationApi
   def create
     @object = @class_name.constantize.new
 
-    for k,v in @params
+    for k, v in @params
+      v = nil if v.blank?
       @object.send("#{k}=", v) if @object.respond_to?(k.to_sym)
     end
 
@@ -109,6 +110,7 @@ class ModelApi < ApplicationApi
 
     for k,v in @params
       m = "#{k}=".to_sym
+      v = nil if v.blank?
       @object.send(m, v) if @object.respond_to?(m)
     end
 
