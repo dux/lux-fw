@@ -5,7 +5,7 @@ class Integer
     elsif self == 1
       "#{self} #{desc}"
     else
-      "#{self} #{desc.to_s.pluralize}"
+      "#{self.dotted} #{desc.to_s.pluralize}"
     end
   end
 
