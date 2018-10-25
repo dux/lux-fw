@@ -21,7 +21,7 @@ end
 LuxCli.class_eval do
   desc :console, 'Start console'
   def console
-    load_start = Time.now
+    $lux_start_time = Time.now
 
     require 'awesome_print'
     require 'clipboard'
@@ -37,7 +37,7 @@ LuxCli.class_eval do
       puts '* ./config/console.rb not found'
     end
 
-    puts Lux.start load_start
+    Lux.start
 
     # AwesomePrint.pry!
     # nice object dump in console

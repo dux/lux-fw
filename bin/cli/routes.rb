@@ -23,7 +23,10 @@ LuxCli.class_eval do
           target[0]  = target[0].white
           target[1]  = target[1].blue if target[1]
           target     = target.join(' # ')
+        elsif target.is_a?(Array)
+
         else
+          controller  = target
           target      = target.to_s.white
         end
 
@@ -38,7 +41,7 @@ LuxCli.class_eval do
 
         if controller && !target.include?('#')
           print ' - '
-          print controller.instance_methods(false).join(', ')
+          print controller.instance_methods(false).join(', ').trim(60).sub('&hellip;', '...')
         end
 
         puts
@@ -55,7 +58,6 @@ LuxCli.class_eval do
             show_route obj, @target
           end
         end
-
       end
 
       def namespace name
@@ -69,6 +71,10 @@ LuxCli.class_eval do
       end
     end
 
-    Lux::Application.render '/route-mock'
+    begin
+      Lux::Application.render '/route-mock'
+    rescue => e
+      "#{e.class} - #{e.message}"
+    end
   end
 end

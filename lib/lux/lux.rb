@@ -19,7 +19,7 @@ module Lux
   PLUGINS||= {}
 
   BACKGROUND_THREADS ||= []
-  Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
+  # Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
 
   define_method(:prod?)   { ENV_PROD }
   define_method(:dev?)    { ENV_DEV }
@@ -89,6 +89,8 @@ module Lux
   # if object given, instance it and run it
   def delay *args, &block
     if block_given?
+      puts 'add'
+
       t = Thread.new do
         begin
           block.call
@@ -143,8 +145,8 @@ module Lux
     MCACHE[key] ||= yield
   end
 
-  def start time=nil
-    puts Config.start! time
+  def start
+    puts Config.start!
   end
 
   def logger name=nil

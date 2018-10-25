@@ -25,15 +25,20 @@ class Lux::Api::Response
   end
 
   def error key, data=nil
-    if data
-      @error_hash ||= {}
-      @error_hash[key.to_s] = data
-      data
-    else
-      @errors ||= []
-      @errors.push key unless @errors.include?(key)
-      key
+    unless data
+      data = key
+      key  = :base
     end
+
+    key = key.to_s
+
+    @errors ||= {}
+    @errors[key] ||= []
+    @errors[key].push data unless @errors[key].include?(data)
+  end
+
+  def errors?
+    !!@errors
   end
 
   def message what
@@ -49,19 +54,20 @@ class Lux::Api::Response
     @meta['event'].push([name, opts])
   end
 
-  def errors?
-    (@error_hash || @errors) ? true : false
-  end
-
   def render
     output = {}
 
-    if errors?
+    if @errors
       status 400
 
-      output[:error] ||= {}
-      output[:error][:messages] = @errors if @errors
-      output[:error][:hash] = @error_hash if @error_hash
+      errors = @errors.inject({}) { |t, (k, v)| t[k] = v.join(', '); t }
+      base   = errors.values.uniq
+
+      errors.delete('base')
+
+      output[:error]          ||= {}
+      output[:error][:messages] = base
+      output[:error][:hash]     = errors if errors.keys.first
     end
 
     output[:data]    = @data    if @data.present?

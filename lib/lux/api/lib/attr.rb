@@ -1,11 +1,11 @@
-# - in ApplicationApi
+# - in ApplicationApi, class level
 # api_attr :secure_token do |name|
 #   error 'User session required' unless User.current
 #   error 'Secure token not found' unless params[:secure_token]
 #   error 'Invalid secure token' if User.current.secure_token(name) != params.delete(:secure_token)
 # end
 
-# - in object api
+# - in object api, instance level
 # secure_token :delete
 # def delete_me
 #   'ok'

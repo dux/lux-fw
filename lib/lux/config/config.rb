@@ -97,17 +97,17 @@ class Lux::Config
       `ps -o rss -p #{$$}`.chomp.split("\n").last.to_i / 1000
     end
 
-    def start! start=nil
+    def start!
       c = new
       c.class_callback :before_boot
       c.class_callback :boot
       c.class_callback :after_boot
 
-      start_info start if start
+      start_info $lux_start_time
     end
 
-    def start_info start
-      return @@load_info unless start
+    def start_info start=nil
+      return @@load_info if @@load_info
 
       production_mode = true
       production_opts = [
@@ -126,14 +126,16 @@ class Lux::Config
         config_ok ? data : data.yellow
       end
 
-      puts @@load_info = '* Config: %s' % opts.join(', ')
+      mode  = production_mode ? 'production'.green : 'development'.yellow
+      speed = start ? ((Time.now - start)*1000).round.to_s.sub(/(\d)(\d{3})$/,'\1s \2')+'ms' : '?ms'
 
-      mode = production_mode ? 'production'.green : 'development'.yellow
+      info = []
+      info.push '* Config: %s' % opts.join(', ')
+      info.push "* Lux loaded #{mode} mode in #{speed.to_s.white}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
 
-      speed = ((Time.now - start)*1000).round.to_s.sub(/(\d)(\d{3})$/,'\1s \2')+'ms'
-      "* Lux loaded #{mode} mode in #{speed.to_s.white}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec".tap do |it|
-        @@load_info += "\n#{it}"
-      end
+      @@load_info = info.join($/)
+
+      puts @@load_info if start
     end
   end
 

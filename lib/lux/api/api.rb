@@ -17,7 +17,7 @@ class Lux::Api
   class << self
     # public mount method for router
     def call path, opts
-      return 'Unsupported API call' if !path[1] || path[3]
+      return error 'Unsupported API call' if !path[1] || path[3]
 
       if path[2]
         opts[:_id] = path[1]
@@ -41,7 +41,7 @@ class Lux::Api
         begin
           params.merge! params.delete(class_name.underscore)
         rescue
-          error "#{$!.message}. Domain value is probably not hash, invalid parameter #{class_name.underscore}"
+          return error "#{$!.message}. Domain value is probably not hash, invalid parameter #{class_name.underscore}"
         end
       end
 
@@ -52,10 +52,14 @@ class Lux::Api
       begin
         klass = (klass.singularize.camelize+'Api').constantize
       rescue
-        return Lux.current.response.body({ error:"API #{klass} not found" })
+        return error "API #{klass} not found"
       end
 
       klass.new.call(action.to_sym, params)
+    end
+
+    def error message
+      Lux::Api::Response.error message
     end
   end
 

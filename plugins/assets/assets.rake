@@ -25,12 +25,13 @@ namespace :assets do
         puts "Generated #{file.green} -> #{assets.render}"
       end
 
-      # generate cell assets
       if defined?(ViewCell)
-        local  = '/assets/cell-assets.css'
-        handle = Lux.root.join('public' + local)
-        handle.write ViewCell.all_css
-        puts 'Generated %s -> %s' % ['cell css assets'.green, local]
+        for ext in [:css, :js]
+          mname = 'all_%s' % ext
+          fname = './public/assets/cell-assets.%s' % ext
+          puts 'Generated ViewCell.%s -> %s' % [mname, fname]
+          File.write(fname, ViewCell.send(mname))
+        end
       end
     end
 

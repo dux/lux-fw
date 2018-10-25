@@ -1,8 +1,8 @@
 module HtmlHelper
 
   def paginate list
-    return unless list.respond_to?(:paginate_size)
-    return nil if list.paginate_page == 1 && list.length < list.paginate_size
+    return unless list.respond_to?(:paginate_next)
+    return nil if list.paginate_page == 1 && !list.paginate_next
 
     ret = ['<div class="paginate"><div>']
 
@@ -16,7 +16,7 @@ module HtmlHelper
 
     ret.push %[<i>#{list.paginate_page == 1 ? '&bull;' : list.paginate_page}</i>]
 
-    if list.paginate_size == list.length
+    if list.paginate_next
       url = Url.current
       url.qs(list.paginate_param, list.paginate_page+1)
       ret.push %[<a href="#{url.relative}">&rarr;</a>]

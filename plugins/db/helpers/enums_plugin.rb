@@ -21,9 +21,11 @@ class Sequel::Model
       opts[:default] ||= opts.first if opts[:values].class == Array
 
       values = opts[:values] || {}.tap { |_| block.call(_) }
+      values = values.inject({}) { |h, (k,v)| h[k.to_s] = v; h }
 
       opts[:method]  ||= name.to_s.singularize
-      opts[:default] ||= values.keys.first unless opts.key?(:default)
+      opts[:default]   = values.keys.first unless opts.key?(:default)
+      opts[:default]   = opts[:default].to_s
 
       unless opts[:field].class == FalseClass
         unless opts[:field]
@@ -36,7 +38,7 @@ class Sequel::Model
         define_method(opts[:method]) do
           value = send(opts[:field]).or opts[:default]
           return unless value.present?
-          values[value] || raise('Key "%s" not found' % value)
+          values[value.to_s] || raise('Key "%s" not found' % value)
         end
       end
 
