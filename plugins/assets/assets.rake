@@ -11,27 +11,9 @@ namespace :assets do
   task :compile do
     require './config/application'
 
-    assets  = Dir['./app/assets/**/index.*'].map { |el| el.sub('./app/assets/', '').sub(%r{/index\.\w+$}, '') }
-    assets += Dir['./app/assets/**/assets'].map { |el| el.sub('./app/assets/', '').sub(%r{/assets$}, '') }
-
-    assets.uniq!
-
     speed = Lux.speed do
-      for file in assets
-        dir = file.sub(/\/index\.\w+$/, '')
-
-        assets = SimpleAssets.new dir
-
-        puts "Generated #{file.green} -> #{assets.render}"
-      end
-
-      if defined?(ViewCell)
-        for ext in [:css, :js]
-          mname = 'all_%s' % ext
-          fname = './public/assets/cell-assets.%s' % ext
-          puts 'Generated ViewCell.%s -> %s' % [mname, fname]
-          File.write(fname, ViewCell.send(mname))
-        end
+      LuxAssets.compile_all do |name, path|
+        puts "Compile #{name.green} -> #{path}"
       end
     end
 

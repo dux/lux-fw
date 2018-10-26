@@ -1,21 +1,8 @@
-class SimpleAssets::Asset
+class LuxAssets::Asset
 
   def initialize source, opts={}
-    unless source.starts_with?('/')
-      if source =~ %r{^plugin:}
-        source = source.sub(%r{^plugin:([^/]+)}) do
-          plugin = Lux::PLUGINS[$1]
-          die "Plugin %s not loaded, I have %s" % [$1, Lux::PLUGINS.keys.join(', ')] unless plugin
-          plugin
-        end
-      else
-        source = Lux.root.join('app/assets/%s' % source).to_s
-      end
-    end
-
     @source = Pathname.new source
     @opts   = opts
-
     @cache = Pathname.new './tmp/assets/%s' % source.gsub('/','-')
   end
 
@@ -50,7 +37,7 @@ class SimpleAssets::Asset
     coffee_path = './node_modules/coffee-script/bin/coffee'
     coffee_opts = @opts[:production] ? '-cp' : '-Mcp --no-header'
 
-    SimpleAssets.run "#{coffee_path} #{coffee_opts} '#{@source}' > '#{@cache}'", @cache
+    LuxAssets.run "#{coffee_path} #{coffee_opts} '#{@source}' > '#{@cache}'", @cache
 
     data = @cache.read
     data = data.gsub(%r{//#\ssourceURL=[\w\-\.\/]+/app/assets/}, '//# sourceURL=/raw_asset/')
@@ -63,7 +50,8 @@ class SimpleAssets::Asset
   def compile_sass
     node_sass = './node_modules/node-sass/bin/node-sass'
     node_opts = @opts[:production] ? '--output-style compressed' : '--source-comments'
-    SimpleAssets.run "#{node_sass} #{node_opts} '#{@source}' '#{@cache}'", @cache
+    LuxAssets.run "#{node_sass} #{node_opts} '#{@source}' '#{@cache}'", @cache
     @cache.read
   end
+
 end

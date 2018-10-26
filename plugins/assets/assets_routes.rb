@@ -21,7 +21,7 @@ if Lux.config(:compile_assets)
     if nav.root == 'compiled_asset'
       # allow plugin: paths
 
-      asset = SimpleAssets::Asset.new(path)
+      asset = LuxAssets::Asset.new path
       current.response.content_type asset.content_type
       current.response.body asset.compile
 

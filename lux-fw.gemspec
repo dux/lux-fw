@@ -24,12 +24,10 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_runtime_dependency 'typero', '~> 0'
   gem.add_runtime_dependency 'dotenv', '~> 2'
 
-  gem.add_dependency 'sassc', '~> 1'
   gem.add_dependency 'mail', '~> 2'
   gem.add_dependency 'rake', '~> 12'
   gem.add_dependency 'thor', '~> 0'
   gem.add_dependency 'clipboard', '~> 1'
-  gem.add_dependency 'nokogiri', '~> 1'
   gem.add_dependency 'pry', '~> 0'
   gem.add_dependency 'puma', '~> 3'
 end
