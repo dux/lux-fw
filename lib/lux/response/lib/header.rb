@@ -22,6 +22,10 @@ class Lux::Response::Header
     @data
   end
 
+  def delete name
+    @data.delete name.downcase
+  end
+
   def to_h
     # data['Set-Cookie'] = data.delete('set-cookie') if data['set-cookie']
     @data#.to_h.sort.to_h

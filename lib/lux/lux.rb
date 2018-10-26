@@ -6,27 +6,28 @@ require_relative 'cache/cache'
 module Lux
   extend self
 
-  ENV_PROD     = ENV['RACK_ENV']    == 'production'
-  ENV_DEV      = ENV['RACK_ENV']    == 'development'
-  ENV_TEST     = ENV['RACK_ENV']    == 'test'
-  LUX_CLI      = $0 == 'pry' || $0.end_with?('/run.rb') || $0.end_with?('/rspec') || ENV['RACK_ENV'] == 'test'
-  CACHE_SERVER = Lux::Cache.new
-
-  VERSION = File.read File.expand_path('../../../.version', __FILE__).chomp
-  CONFIG ||= Hashie::Mash.new
-  EVENTS ||= {}
-  MCACHE ||= {}
-  PLUGINS||= {}
+  ENV_PROD       = ENV['RACK_ENV'] == 'production' unless defined?(ENV_PROD)
+  CACHE_SERVER ||= Lux::Cache.new
+  VERSION      ||= File.read File.expand_path('../../../.version', __FILE__).chomp
+  CONFIG       ||= Hashie::Mash.new
+  APP_ROOT     ||= Pathname.new(Dir.pwd).freeze
+  FW_ROOT      ||= Pathname.new(File.expand_path('../../', File.dirname(__FILE__))).freeze
+  EVENTS       ||= {}
+  MCACHE       ||= {}
+  PLUGINS      ||= {}
 
   BACKGROUND_THREADS ||= []
   # Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
 
+  define_method(:cli?)    { $0 == 'pry' || $0.end_with?('/run.rb') || $0.end_with?('/rspec') || ENV['RACK_ENV'] == 'test' }
+  define_method(:test?)   { ENV['RACK_ENV'] == 'test' }
   define_method(:prod?)   { ENV_PROD }
-  define_method(:dev?)    { ENV_DEV }
-  define_method(:test?)   { ENV_TEST }
-  define_method(:cli?)    { LUX_CLI }
+  define_method(:dev?)    { !ENV_PROD }
   define_method(:cache)   { CACHE_SERVER }
-  define_method(:secrets) { @app_secrets ||= Lux::Config::Secrets.new.load }
+  define_method(:secrets) { @@secrets ||= Lux::Config::Secrets.new.load }
+  define_method(:root)    { APP_ROOT }
+  define_method(:fw_root) { FW_ROOT }
+  define_method(:event)   { Lux::EventBus }
 
   # main rack response
   def call env=nil
@@ -34,7 +35,7 @@ module Lux
     app    = Lux::Application.new state
     app.render
   rescue => exp
-    raise exp
+    Lux.error.log exp
 
     [500, {}, ['Lux server error: %s' % exp.message]]
   end
@@ -63,14 +64,6 @@ module Lux
     block ? Lux::Application.class_eval(&block) : Lux::Application
   end
 
-  def root
-    @@lux_app_root ||= Pathname.new(Dir.pwd).freeze
-  end
-
-  def fw_root
-    @@lux_fw_root ||= Pathname.new(File.expand_path('../../', File.dirname(__FILE__))).freeze
-  end
-
   def error data=nil
     data ? Lux::Error.render(data) : Lux::Error
   end
@@ -78,10 +71,6 @@ module Lux
   def log what=nil
     return unless Lux.config(:log_to_stdout)
     puts what || yield
-  end
-
-  def event
-    Lux::EventBus
   end
 
   # if block given, simple new thread bg job
@@ -153,11 +142,9 @@ module Lux
     name ||= ENV.fetch('RACK_ENV').downcase
 
     MCACHE['lux-logger-%s' % name] ||=
-      Logger.new('./log/%s.log' % name).tap do |it|
-        it.formatter = proc do |severity, datetime, progname, msg|
-          "[#{datetime.strftime("%Y-%m-%d %H:%M")}] #{severity} : #{msg}\n"
-        end
-      end
+    Logger.new('./log/%s.log' % name).tap do |it|
+      it.formatter = Lux.config.logger_formater
+    end
   end
 end
 

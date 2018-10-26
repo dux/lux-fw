@@ -205,6 +205,7 @@ class Lux::Response
     @headers['x-lux-speed']     = "#{((Time.monotonic - @render_start)*1000).round(1)} ms"
     @headers['content-type']  ||= "#{@content_type}; charset=utf-8"
     @headers['content-length']  = @body.bytesize.to_s
+
     # if "no-store" is present then HTTP_IF_NONE_MATCH is not sent from browser
   end
 
