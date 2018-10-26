@@ -11,13 +11,9 @@ namespace :assets do
   task :compile do
     require './config/application'
 
-    speed = Lux.speed do
-      LuxAssets.compile_all do |name, path|
-        puts "Compile #{name.green} -> #{path}"
-      end
+    LuxAssets.compile_all do |name, path|
+      puts "Compile #{name.green} -> #{path}"
     end
-
-    puts "Asset precomlile done in #{speed}"
   end
 
   desc 'Upload assets to S3'

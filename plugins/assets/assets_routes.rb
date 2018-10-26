@@ -28,7 +28,7 @@ if Lux.config(:compile_assets)
     elsif nav.root == 'raw_asset'
       Lux.error "You can watch raw files only in development" unless Lux.dev?
 
-      file = Lux.root.join('app/assets/%s' % path)
+      file = Pathname.new path
       body file.exist? ? file.read : "error: File not found"
     end
   end

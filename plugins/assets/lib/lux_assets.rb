@@ -55,13 +55,13 @@ class LuxAssets
   end
 
   def self.add_files ext, name, block
-    name = name.to_s
-    return new ext, name if ASSETS_DATA[ext][name]
+    @name = name.to_s
+    return new ext, name if ASSETS_DATA[ext][@name]
 
     @files = []
     @ext   = ext
     class_eval &block
-    ASSETS_DATA[ext][name.to_s] = @files
+    ASSETS_DATA[ext][@name] = @files
   end
 
   def self.js name, &block
@@ -102,7 +102,7 @@ class LuxAssets
 
       files  = Dir[path].sort
 
-      die 'No files found in %s' % path unless files.first
+      die 'No files found in %s (%s :%s)' % [path, @ext, @name] unless files.first
 
       @files += files
     end
