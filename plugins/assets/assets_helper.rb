@@ -32,7 +32,7 @@ module HtmlHelper
 
     # return joined assets if symbol given
     # = asset :main -> asset("css/main") + asset("js/main")
-    return asset("css/#{file}") + asset("js/#{file}") if
+    return [asset("css/#{file}"), asset("js/#{file}")].join($/) if
       file.class == Symbol
 
     # return second link if it is defined and we are in dev mode
