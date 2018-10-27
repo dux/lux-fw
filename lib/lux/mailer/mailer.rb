@@ -11,7 +11,8 @@
 # Mailer.email_login('foo@bar.baz').body
 
 class Lux::Mailer
-  class_callbacks :before, :after
+  class_callback_up :before
+  class_callback_up :after
 
   class_attribute :helper
   class_attribute :layout, 'mailer'

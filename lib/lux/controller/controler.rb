@@ -17,7 +17,11 @@ class Lux::Controller
   class_attribute :helper
 
   # before and after any action filter, ignored in controllers, after is called just before render
-  class_callbacks :before, :before_action, :before_render, :after, :on_error
+  class_callback_up    :before
+  class_callback_up    :before_action
+  class_callback_up    :before_render
+  class_callback_up    :after
+  class_callback_first :on_error
 
   class << self
     # class call method, should not be overridden
@@ -64,7 +68,7 @@ class Lux::Controller
     return if @executed_filters[fiter_name]
     @executed_filters[fiter_name] = true
 
-    class_callback fiter_name, arg
+    arg ? send(fiter_name, arg) : send(fiter_name)
   end
 
   def cache *args, &block
