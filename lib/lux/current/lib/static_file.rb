@@ -90,7 +90,8 @@ class Lux::Current::StaticFile
       return
     end
 
-    c.response.body data || File.read(file)
+    data ||= File.read(file)
+    c.response.body data
 
     true
   end

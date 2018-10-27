@@ -39,11 +39,6 @@ class Lux::Application
     args.first.nil? ? Lux::AutoRaiseError : Lux::Error.report(*args)
   end
 
-  def cell_target? route
-    # symbol is method reference
-    ! [Symbol].include?(route.class)
-  end
-
   def response body=nil, status=nil
     return @current.response unless body
 
@@ -54,7 +49,7 @@ class Lux::Application
   def test? route
     root = nav.root.to_s
 
-    case route
+    ok = case route
       when String
         root == route.sub(/^\//,'')
       when Symbol
@@ -66,6 +61,10 @@ class Lux::Application
       else
         raise 'Route type %s is not supported' % route.class
     end
+
+    nav.shift if ok
+
+    ok
   end
 
   def target_has_action? target
@@ -75,9 +74,8 @@ class Lux::Application
   end
 
   # gets only root
-  def root cell=nil
-    call @cell_object unless cell
-    call cell         unless nav.root
+  def root target
+    call target unless nav.root
   end
 
   # standard route match
@@ -96,13 +94,6 @@ class Lux::Application
     call target
   end
 
-  # action about: RootController
-  # action about: 'root#about_us'
-  def action object
-    route, target = object.keys.first, object.values.first
-    map(target) { map route }
-  end
-
   @@namespaces ||= {}
   def self.namespace name, &block
     @@namespaces[name] = block
@@ -117,11 +108,11 @@ class Lux::Application
   # end
   def namespace name
     if String === name
-      return unless nav.root == name.to_s
-      nav.shift
+      return unless test?(name.to_s)
     else
       if @@namespaces[name]
         return unless instance_exec &@@namespaces[name]
+        nav.shift
       else
         raise ArgumentError.new('Namespace block :%s is not defined' % name)
       end
@@ -147,52 +138,46 @@ class Lux::Application
   #     map :bar
   #   end
   # end
-  def map route_object, opts={}, &block
-    # if given hash
-    if route_object.class == Hash
+  def map route_object
+    Lux.error 'Route map cant accept blocks' if block_given?
+
+    route  = nil
+    target = nil
+
+    case route_object
+    when String
+      call route_object
+    when Hash
       route  = route_object.keys.first
       target = route_object.values.first
 
-      # map '/skils/:skill' => 'main/skills#show'
-      if String === route && route[0,1] == '/'
+      if route.class == Array
+        for el in route
+          if test?(el)
+            target += '#%s' % el unless target.include?('#')
+            call target
+          end
+        end
+
+        return
+      elsif route.class == String && route[0,1] == '/'
+        # map '/skils/:skill' => 'main/skills#show'
         return match route, target
       end
-
-      # return if no match
-      return unless test?(route)
-
-      # must resolve
-      if cell_target?(target) || target.class == String
-        # in maped hash call, drop nav element
-        nav.shift unless target_has_action?(target)
-        call target
-      else
-       call [@cell_object, opts[:to] || target]
-      end
+    else
+      Lux.error 'Unsupported route "%s", only Hash acepted' % route_object.to_s unless route_object.class == Hash
     end
 
-    # nested map :foo
-    unless block_given?
-      if @cell_object
-        call [@cell_object, route_object] if test? route_object
-        return
-      else
-        call route_object
-      end
-    end
+    # return if no match
+    return unless test?(route)
 
-    # map FooController do
-    if cell_target?(route_object)
-      @cell_object = route_object
-      instance_exec &block
-    end
-
-    Lux.error ['Symbol as map attribute is not supported, use namespace method', caller[0]].join("\n\n") if route_object.class == Symbol
+    call target
   end
 
   # call :api_router
   # call proc { 'string' }
   # call proc { [400, {}, 'error: ...'] }
+  # call [200, {}, ['ok']]
   # call Main::UsersController
   # call Main::UsersController, :index
   # call [Main::UsersController, :index]
@@ -203,7 +188,7 @@ class Lux::Application
     sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
     Lux.log ' Routed from: %s' % sources.join(' ') if sources.first
 
-    action = nil
+    Lux.error 'Call action must be "Symbol"' if action && !action.is_a?(Symbol)
 
     case object
       when Symbol
@@ -234,12 +219,29 @@ class Lux::Application
         end
     end
 
+    # figure our action unless defined
+    unless action
+      id =
+      if respond_to?(:id?)
+        nav.root { |root_id| id?(root_id) }
+      else
+        nav.root { |root_id| root_id.is_numeric? ? root_id.to_i : nil }
+      end
+
+      if id
+        current.var.id = id
+        action = nav.shift || :show
+      else
+        action = nav.shift || :index
+      end
+    end
+
     object = ('%s_controller' % object).classify.constantize if object.class == String
 
     Lux.current.files_in_use "app/controllers/#{object.to_s.underscore}.rb"
 
     if action
-      object.action action
+      object.action action.to_sym
     else
       object.call
     end
@@ -257,7 +259,6 @@ class Lux::Application
       end
 
       catch(:done) { self.class.after self }
-
     rescue => e
       catch(:done) { on_error(e) }
     end

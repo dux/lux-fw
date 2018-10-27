@@ -21,13 +21,6 @@ class Lux::Controller
   FILTERS.each { |filter| class_callback_up filter }
 
   class << self
-    # class call method, should not be overridden
-    def call
-      controller = new
-      controller.filter :before
-      controller.call
-    end
-
     # simple shortcut allows direct call to action, bypasing call
     def action *args
       new.action(*args)
@@ -50,14 +43,6 @@ class Lux::Controller
     # before and after should be exected only once
     @executed_filters = {}
     @base_template = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
-  end
-
-  # default action call method
-  def call
-    action_name   = nav.root
-    action_name ||= @id ? :show : :index
-
-    action action_name
   end
 
   # because we can call action multiple times

@@ -108,13 +108,15 @@ class Lux::Error < StandardError
     end
 
     def template text
+      text = text.to_s.gsub('<', '&lt;')
+      text = text.to_s.gsub($/,'<br />')
       %[<html>
           <head>
             <title>Server error (#{Lux.current.response.status})</title>
           </head>
           <body style="background:#fff; font-size:12pt; font-family: Arial; padding: 20px;">
             <h3>Lux HTTP error #{Lux.current.response.status} in #{Lux.config.app.name rescue 'app'}</h3>
-            <pre style="color:red; padding:10px; background-color: #eee; border: 1px solid #ccc; max-width: 700px; font-family:'Lucida console'; line-height: 15pt;">#{text.to_s.gsub($/,'<br />')}</pre>
+            <pre style="color:red; padding:10px; background-color: #eee; border: 1px solid #ccc; font-family:'Lucida console'; line-height: 15pt;">#{text}</pre>
             <br>
             <a href="https://httpstatuses.com/#{Lux.current.response.status}" target="http_error">more info on http error</a>
           </body>

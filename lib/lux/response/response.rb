@@ -69,7 +69,7 @@ class Lux::Response
 
   def body body_data=nil
     if body_data
-      @body = body_data
+      @body ||= body_data
       throw :done
     elsif block_given?
       @body = yield @body

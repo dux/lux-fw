@@ -15,14 +15,19 @@ class Lux::Application::Nav
     @domain    += ".#{@subdomain.pop}" if @domain.length < 6
   end
 
+  def mem_shift
+    @last = @path.shift
+  end
+
   def shift
+    return unless @path[0].present?
+
     if block_given?
       result = yield(@path[0]) || return
-      @path.shift
+
       result
     else
-      @path.shift
-      @path.first
+      mem_shift
     end
   end
 
@@ -33,9 +38,11 @@ class Lux::Application::Nav
 
   def root sub_nav=nil
     if block_given?
+      return unless @path[0]
+
       # shift root in place if yields not nil
       result = yield(@path[0]) || return
-      @path.shift
+      mem_shift
       result
     else
       sub_nav ? ('%s/%s' % [@path.first, sub_nav]) : @path.first
@@ -74,11 +81,19 @@ class Lux::Application::Nav
     @path[2]
   end
 
-  def rest
-    @path.drop(1)
+  def reset
+    out = @path.dup
+    @path = []
+    out
+  end
+
+  # if root was shited but you still need it
+  def root?
+    @last
   end
 
   def to_s
     @path.join('/').sub(/\/$/, '')
   end
+
 end

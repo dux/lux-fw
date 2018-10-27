@@ -16,16 +16,17 @@ if Lux.config(:compile_assets)
       end
     end
 
-    path = nav.rest.join('/')
-
-    if nav.root == 'compiled_asset'
-      # allow plugin: paths
+    case nav.root
+    when 'compiled_asset'
+      path = nav.reset.drop(1).join('/')
 
       asset = LuxAssets::Asset.new path
       current.response.content_type asset.content_type
       current.response.body asset.compile
 
-    elsif nav.root == 'raw_asset'
+    when 'raw_asset'
+      path = nav.reset.drop(1).join('/')
+
       Lux.error "You can watch raw files only in development" unless Lux.dev?
 
       file = Pathname.new path
