@@ -20,17 +20,6 @@ class Object
     end
   end
 
-  # for errors, execute first from AppController to MainController
-  # def self.class_callback_first name
-  #   unless defined?(name)
-  #     define_method(name) { |arg=nil| true }
-  #   end
-
-  #   define_singleton_method(name) do |&block|
-  #     define_method(name) { |arg=nil| arg ? instance_exec(arg, &block) : instance_exec(&block) }
-  #   end
-  # end
-
   # A.routes { print 'R1 ' }
   # A.routes { print 'R2 ' }
   # A.routes { print 'R3 ' }

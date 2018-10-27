@@ -19,7 +19,9 @@ class Lux::Config
     Lux.config.auto_code_reload ||= false
 
     # Default error logging
-    Lux.config.on_error ||= proc do |error|
+    Lux.config.error_logger ||= proc do |error|
+      ap [error.class, error.message, Lux.error.split_backtrace(error)]
+
       'no-key'
     end
 

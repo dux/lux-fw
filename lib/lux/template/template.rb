@@ -81,7 +81,7 @@ class Lux::Template
           yield if block_given?
         end
       rescue => e
-        data = Lux::Error.inline %[Lux::Template #{@template} render error\n\nMessage: #{e.message}]
+        data = Lux::Error.inline %[Lux::Template #{@template} render error], e
       end
     end
 

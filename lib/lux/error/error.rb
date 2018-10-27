@@ -122,26 +122,22 @@ class Lux::Error < StandardError
     end
 
     # render error inline or break in production
-    def inline name
+    def inline name, error=nil
+      error ||= $!
+
       unless Lux.config(:show_server_errors)
-        key = log $!
-        render "Lux inline error: %s\n\nkey: %s" % [$!.message, key]
+        key = log error
+        render "Lux inline error: %s\n\nkey: %s" % [error.message, key]
       end
 
-      # split app log rest of the log
-      dmp = [[], []]
+      name ||= 'Undefined name'
+      msg    = error.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
 
-      $!.backtrace.each do |line|
-        line = line.sub(Lux.root.to_s, '.')
-        dmp[line.include?('/app/') ? 0 : 1].push line
-      end
+      dmp = split_backtrace error
 
       dmp[0] = dmp[0].map { |_| _ = _.split(':', 3); '<b>%s</b> - %s - %s' % _ }
 
-      name ||= 'Undefined name'
-      msg    = $!.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
-
-      dev_log $!
+      log error
 
       <<~TEXT
         <pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;">
@@ -162,14 +158,22 @@ class Lux::Error < StandardError
       raise e
     end
 
-    def dev_log error
-      return unless Lux.config(:log_to_stdout)
-
-      ap [error.class, error.message, error.backtrace]
+    def log error
+      Lux.config.error_logger.call error
     end
 
-    def log error
-      Lux.config.on_error.call error
+    def split_backtrace error
+      # split app log rest of the log
+      dmp = [[], []]
+
+      root = Lux.root.to_s
+
+      error.backtrace.each do |line|
+        line = line.sub(root, '.')
+        dmp[line[0,1] == '.' ? 0 : 1].push line
+      end
+
+      dmp
     end
   end
 

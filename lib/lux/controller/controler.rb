@@ -17,11 +17,10 @@ class Lux::Controller
   class_attribute :helper
 
   # before and after any action filter, ignored in controllers, after is called just before render
-  class_callback_up    :before
-  class_callback_up    :before_action
-  class_callback_up    :before_render
-  class_callback_up    :after
-  # class_callback_first :on_error
+  class_callback_up :before
+  class_callback_up :before_action
+  class_callback_up :before_render
+  class_callback_up :after
 
   class << self
     # class call method, should not be overridden
@@ -31,17 +30,17 @@ class Lux::Controller
       controller.call
     end
 
+    # simple shortcut allows direct call to action, bypasing call
+    def action *args
+      new.action(*args)
+    end
+
     # create mock function, to enable template rendering
     # mock :index, :login
     def mock *args
       args.each do |el|
         define_method(el) { true }
       end
-    end
-
-    # simple shortcut allows direct call to action, bypasing call
-    def action *args
-      new.action(*args)
     end
   end
 
@@ -63,7 +62,8 @@ class Lux::Controller
     action action_name
   end
 
-  # execute before and after filters, only once
+  # because we can call action multiple times
+  # ensure we execute filters only once
   def filter fiter_name, arg=nil
     return if @executed_filters[fiter_name]
     @executed_filters[fiter_name] = true
@@ -107,13 +107,7 @@ class Lux::Controller
 
         send method_name, *args
       rescue => e
-        Lux.error.dev_log(e)
-
-        # call on_error defined on Lux::Controller
         on_error(e)
-
-        # call on_error defined on Lux::Application
-        raise e
       end
 
       render
@@ -128,6 +122,7 @@ class Lux::Controller
   end
 
   def on_error error
+    raise error
   end
 
   # render :index

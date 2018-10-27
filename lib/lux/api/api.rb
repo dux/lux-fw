@@ -14,7 +14,6 @@ class Lux::Api
 
   class_callback_up :before
   class_callback_up :after
-  # class_callback_first :on_error
 
   class << self
     # public mount method for router
@@ -136,11 +135,13 @@ class Lux::Api
   end
 
   def on_error error
-    Lux.error.log error
-
-    response.meta :error_class, error.class
+    response.meta :error_key, Lux.error.log(error)
+    response.meta :error_class, error.class.to_s
     response.error error.message
-    response.meta :error_backtrace, error.backtrace if Lux.dev?
+
+    if Lux.dev?
+      response.meta :error_backtrace, Lux.error.split_backtrace(error)
+    end
   end
 
 end

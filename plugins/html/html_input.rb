@@ -26,7 +26,7 @@ class HtmlInput
 
     opts  = opts_prepare name, opts.dup
     @type = opts.delete(:as) || :text
-    send("as_#{@type}") rescue Lux::Error.inline("as_#{@type}")
+    send("as_#{@type}") rescue Lux::Error.inline("as_#{@type} (HtmlInput)")
   end
 
   private
