@@ -139,7 +139,7 @@ class Lux::Api
     response.meta :error_class, error.class.to_s
     response.error error.message
 
-    if Lux.dev?
+    if Lux.config(:show_server_errors)
       response.meta :error_backtrace, Lux.error.split_backtrace(error)
     end
   end

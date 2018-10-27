@@ -13,11 +13,6 @@ class Lux::Current::Session
     @request     = request
     @session     = JSON.parse(Crypt.decrypt(request.cookies[@cookie_name] || '{}')) rescue {}
 
-    # check for session
-    # if Lux.dev? && request.env['HTTP_REFERER'] && request.env['HTTP_REFERER'].index(request.host) && @session.keys.length == 0
-    #   puts "ERROR: There is no session set!".red
-    # end
-
     security_check
   end
 

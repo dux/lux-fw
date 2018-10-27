@@ -17,10 +17,8 @@ class Lux::Controller
   class_attribute :helper
 
   # before and after any action filter, ignored in controllers, after is called just before render
-  class_callback_up :before
-  class_callback_up :before_action
-  class_callback_up :before_render
-  class_callback_up :after
+  FILTERS = [:before, :before_action, :before_render, :after]
+  FILTERS.each { |filter| class_callback_up filter }
 
   class << self
     # class call method, should not be overridden
@@ -79,6 +77,7 @@ class Lux::Controller
   # action(:select', ['users'])
   def action method_name, *args
     raise ArgumentError.new('Controller action called with blank action name argument') if method_name.blank?
+    raise Lux.error.bad_request(Lux.config(:show_server_errors) ? 'Action name "%s" is not allowed' % method_name : nil) if FILTERS.include?(method_name.to_sym)
 
     method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
@@ -89,7 +88,7 @@ class Lux::Controller
 
     # format error unless method found
     unless respond_to? method_name
-      raise Lux::Error.not_found('Method %s not found' % method_name) unless Lux.config(:show_server_errors)
+      raise Lux::Error.not_found unless Lux.config(:show_server_errors)
 
       list = methods - Lux::Controller.instance_methods
       err = [%[No instance method "#{method_name}" found in class "#{self.class.to_s}"]]

@@ -36,7 +36,7 @@ module HtmlHelper
       file.class == Symbol
 
     # return second link if it is defined and we are in dev mode
-    return asset_include opts[:dev_file] if opts[:dev_file] && Lux.dev?
+    return asset_include opts[:dev_file] if opts[:dev_file] && Lux.config(:compile_assets)
 
     # return internet links
     return asset_include file if file.starts_with?('/') || file.starts_with?('http')

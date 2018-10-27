@@ -19,15 +19,17 @@ module Lux
   BACKGROUND_THREADS ||= []
   # Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
 
-  define_method(:cli?)    { $0 == 'pry' || $0.end_with?('/run.rb') || $0.end_with?('/rspec') || ENV['RACK_ENV'] == 'test' }
-  define_method(:test?)   { ENV['RACK_ENV'] == 'test' }
-  define_method(:prod?)   { ENV_PROD }
-  define_method(:dev?)    { !ENV_PROD }
-  define_method(:cache)   { CACHE_SERVER }
-  define_method(:secrets) { @@secrets ||= Lux::Config::Secrets.new.load }
-  define_method(:root)    { APP_ROOT }
-  define_method(:fw_root) { FW_ROOT }
-  define_method(:event)   { Lux::EventBus }
+  define_method(:cli?)         { $0 == 'pry' || $0.end_with?('/run.rb') || $0.end_with?('/rspec') || ENV['RACK_ENV'] == 'test' }
+  define_method(:test?)        { ENV['RACK_ENV'] == 'test' }
+  define_method(:prod?)        { ENV_PROD }
+  define_method(:production?)  { ENV_PROD }
+  define_method(:dev?)         { !ENV_PROD }
+  define_method(:development?) { !ENV_PROD }
+  define_method(:cache)        { CACHE_SERVER }
+  define_method(:secrets)      { @@secrets ||= Lux::Config::Secrets.new.load }
+  define_method(:root)         { APP_ROOT }
+  define_method(:fw_root)      { FW_ROOT }
+  define_method(:event)        { Lux::EventBus }
 
   # main rack response
   def call env=nil

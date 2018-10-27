@@ -50,7 +50,7 @@ class Lux::Template
     unless @template
       err  = caller.reject{ |l| l =~ %r{(/lux/|/gems/)} }.map{ |l| el=l.to_s.split(Lux.root.to_s); el[1] || l }.join("\n")
       msg  = %[Lux::Template "#{template}.{erb,haml}" not found]
-      msg += %[\n\n#{err}] if Lux.dev?
+      msg += %[\n\n#{err}] if Lux.config(:show_server_errors)
 
       raise Lux.error msg
     end
