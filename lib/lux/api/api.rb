@@ -12,9 +12,9 @@
 class Lux::Api
   attr_accessor :message, :response
 
-  class_callback_up    :before
-  class_callback_up    :after
-  class_callback_first :on_error
+  class_callback_up :before
+  class_callback_up :after
+  # class_callback_first :on_error
 
   class << self
     # public mount method for router
@@ -73,9 +73,7 @@ class Lux::Api
     rescue Lux::Api::Error => e
       response.error e.message if e.message.to_s != 'false'
     rescue => e
-      class_callback(:on_error, e) rescue Lux.error.dev_log($!)
-
-      response.error e.message
+      on_error(e)
     end
 
     puts response.render.pretty_generate if Lux.config(:log_to_stdout)
@@ -105,11 +103,11 @@ class Lux::Api
     return if response.errors?
 
     # execte api call and verify params if possible
-    class_callback :before
+    before
 
     response.data = send(action)
 
-    class_callback :after
+    after
   end
 
   def params
@@ -135,6 +133,14 @@ class Lux::Api
     response.meta :ip, Lux.current.request.ip
     response.meta :user, Lux.current.var.user ? Lux.current.var.user.email : nil
     response.meta :http_status, Lux.current.response.status(200)
+  end
+
+  def on_error error
+    Lux.error.log error
+
+    response.meta :error_class, error.class
+    response.error error.message
+    response.meta :error_backtrace, error.backtrace if Lux.dev?
   end
 
 end

@@ -20,8 +20,7 @@ class Lux::Config
 
     # Default error logging
     Lux.config.on_error ||= proc do |error|
-      Lux::Error.dev_log error
-      raise error
+      'no-key'
     end
 
     # Default mail logging

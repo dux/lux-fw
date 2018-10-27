@@ -52,4 +52,14 @@ class Object
     print "\e[H\e[2J\e[3J" # clear osx screen :)
     rr what
   end
+
+  # show method info
+  # show User, :secure_hash
+  def rr? instance, m
+    el = instance.class.instance_method(m)
+    puts el.source_location.join(':').yellow
+    puts '-'
+    puts el.source if el.respond_to?(:source)
+    nil
+  end
 end

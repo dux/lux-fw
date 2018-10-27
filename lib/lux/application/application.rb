@@ -1,5 +1,5 @@
 class Lux::Application
-  class_callback_first :on_error
+  # class_callback_first :on_error
   class_callback_stack :before
   class_callback_stack :after
   class_callback_stack :routes

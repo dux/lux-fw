@@ -21,7 +21,7 @@ class Lux::Controller
   class_callback_up    :before_action
   class_callback_up    :before_render
   class_callback_up    :after
-  class_callback_first :on_error
+  # class_callback_first :on_error
 
   class << self
     # class call method, should not be overridden
@@ -107,8 +107,10 @@ class Lux::Controller
 
         send method_name, *args
       rescue => e
+        Lux.error.dev_log(e)
+
         # call on_error defined on Lux::Controller
-        class_callback(:on_error, e) rescue Lux.error.dev_log($!)
+        on_error(e)
 
         # call on_error defined on Lux::Application
         raise e
@@ -123,6 +125,9 @@ class Lux::Controller
 
   def error *args
     args.first.nil? ? Lux::AutoRaiseError : Lux::Error.report(*args)
+  end
+
+  def on_error error
   end
 
   # render :index

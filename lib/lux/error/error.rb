@@ -141,7 +141,7 @@ class Lux::Error < StandardError
       name ||= 'Undefined name'
       msg    = $!.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
 
-      ap [name, msg] if Lux.config(:show_server_errors)
+      dev_log $!
 
       <<~TEXT
         <pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;">
@@ -185,10 +185,6 @@ class Lux::Error < StandardError
   end
 
   def code= num
-    # if code.class == Symbol
-    #   num = CODE_LIST.select { |_, v| v[:code] == num }.keys.first
-    # end
-
     @code = num.to_i
 
     raise 'Status code %s not found' % @code unless CODE_LIST[@code]

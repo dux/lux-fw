@@ -10,10 +10,10 @@ class Object
     define_singleton_method(name) do |&block|
       define_method(name) do |arg=nil|
         if arg
-          super(arg)
+          super(arg) if defined?(super)
           instance_exec arg, &block
         else
-          super()
+          super() if defined?(super)
           instance_exec &block
         end
       end
@@ -21,31 +21,37 @@ class Object
   end
 
   # for errors, execute first from AppController to MainController
-  def self.class_callback_first name
-    define_method(name) { true }
+  # def self.class_callback_first name
+  #   unless defined?(name)
+  #     define_method(name) { |arg=nil| true }
+  #   end
 
-    define_singleton_method(name) do |&block|
-      define_method(name) { |arg=nil| arg ? instance_exec(arg, &block) : instance_exec(&block) }
-    end
-  end
+  #   define_singleton_method(name) do |&block|
+  #     define_method(name) { |arg=nil| arg ? instance_exec(arg, &block) : instance_exec(&block) }
+  #   end
+  # end
 
   # A.routes { print 'R1 ' }
   # A.routes { print 'R2 ' }
   # A.routes { print 'R3 ' }
   # A.routes self
   # R1 R2 R3
-  CALL_STACK       ||= {}
-  CALL_STACK_CHECK ||= []
+  CALL_STACK ||= {}
   def self.class_callback_stack name
     self.define_singleton_method(name) do |context=nil, &block|
-      return CALL_STACK[name].each { |m| context.instance_exec(&m) } if context
+      if context
+        for m in CALL_STACK[self.to_s][name].values
+          context.instance_exec(&m)
+        end
+
+        return
+      end
 
       from = caller[0].split(':in ').first
-      return if CALL_STACK_CHECK.include?(from)
-      CALL_STACK_CHECK.push(from)
 
-      CALL_STACK[name] ||= []
-      CALL_STACK[name].push block
+      CALL_STACK[self.to_s]     ||= {}
+      CALL_STACK[self.to_s][name] ||= {}
+      CALL_STACK[self.to_s][name][from] = block
     end
   end
 end
