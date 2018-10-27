@@ -24,9 +24,9 @@ class Lux::Mailer
     def prepare template, *args
       obj = new
       obj.instance_variable_set :@_template, template
-      obj.class_callback :before
+      obj.before
       obj.send template, *args
-      obj.class_callback :after
+      obj.after
       obj
     end
 
