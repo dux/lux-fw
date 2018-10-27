@@ -12,7 +12,9 @@
 class Lux::Api
   attr_accessor :message, :response
 
-  class_callbacks :before, :after, :on_error
+  class_callback_up    :before
+  class_callback_up    :after
+  class_callback_first :on_error
 
   class << self
     # public mount method for router

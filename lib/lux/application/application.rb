@@ -1,5 +1,8 @@
 class Lux::Application
-  class_callbacks :before, :after, :routes, :on_error, :boot
+  class_callback_first :on_error
+  class_callback_stack :before
+  class_callback_stack :after
+  class_callback_stack :routes
 
   attr_reader :route_target, :current
 
@@ -250,14 +253,14 @@ class Lux::Application
   def main
     begin
       catch(:done) do
-        class_callback :before
-        class_callback :routes
+        self.class.before self
+        self.class.routes self
       end
 
-      catch(:done) { class_callback :after }
+      catch(:done) { self.class.after self }
 
     rescue => e
-      catch(:done) { class_callback(:on_error, e) }
+      catch(:done) { on_error(e) }
     end
   end
 

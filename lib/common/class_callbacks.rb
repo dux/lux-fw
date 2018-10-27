@@ -1,77 +1,51 @@
-# frozen_string_literal: true
+class Object
+  # for controllers, execute from AppController to MainController
+  # class_callback_up :before
+  # before do
+  #    ...
+  # end
+  def self.class_callback_up name
+    define_method(name) { |arg=nil| true }
 
-# in some class
-# class_callbacks :before, :after
-#
-# then to execute in instance_object
-# class_callback :before
-# class_callback :after
-#
-# before do
-#   ...
-# end
-#
-# logic is very simple, keep all pointers to all blocks in one class, resolve and execute as needed
-# we keep methods and ponters in different hashes to allow hot reload while development
-
-module ClassCallbacks
-  extend self
-
-  @@methods  = {}
-  @@pointers = {}
-
-  def add klass, unique_id, action, method
-    klass = klass.to_s
-    key   = Digest::SHA1.hexdigest(unique_id)
-
-    @@pointers[key] = method
-
-    @@methods[klass] ||= {}
-    @@methods[klass][action] ||= []
-    @@methods[klass][action].tap { |it| it.push(key) unless it.include?(key) }
-  end
-
-  def execute instance_object, action, object=nil
-    object ? instance_object.send(action, object) : instance_object.send(action)
-
-    # execute for self and parents
-    instance_object.class.ancestors.reverse.map(&:to_s).each do |name|
-      actions = @@methods.dig(name, action)
-
-      next if !actions || name == 'Object'
-
-      for el in actions.map { |o| @@pointers[o] }
-        if el.kind_of?(Symbol)
-          object ? instance_object.send(el, object) : instance_object.send(el)
+    define_singleton_method(name) do |&block|
+      define_method(name) do |arg=nil|
+        if arg
+          super(arg)
+          instance_exec arg, &block
         else
-          object ? instance_object.instance_exec(object, &el) : instance_object.instance_exec(&el)
+          super()
+          instance_exec &block
         end
       end
     end
   end
 
-  def define klass, *args
-    args.each do |action|
-      klass.class_eval %[
-        def #{action}(duck=nil)
-        end
+  # for errors, execute first from AppController to MainController
+  def self.class_callback_first name
+    define_method(name) { true }
 
-        def self.#{action}(proc=nil, &block)
-          ClassCallbacks.add(self, caller[0], :#{action}, proc || block)
-        end
-      ]
+    define_singleton_method(name) do |&block|
+      define_method(name) { |arg=nil| arg ? instance_exec(arg, &block) : instance_exec(&block) }
+    end
+  end
+
+  # A.routes { print 'R1 ' }
+  # A.routes { print 'R2 ' }
+  # A.routes { print 'R3 ' }
+  # A.routes self
+  # R1 R2 R3
+  CALL_STACK       ||= {}
+  CALL_STACK_CHECK ||= []
+  def self.class_callback_stack name
+    self.define_singleton_method(name) do |context=nil, &block|
+      return CALL_STACK[name].each { |m| context.instance_exec(&m) } if context
+
+      from = caller[0].split(':in ').first
+      return if CALL_STACK_CHECK.include?(from)
+      CALL_STACK_CHECK.push(from)
+
+      CALL_STACK[name] ||= []
+      CALL_STACK[name].push block
     end
   end
 end
-
-Object.class_eval do
-  def self.class_callbacks *args
-    ClassCallbacks.define self, *args
-  end
-
-  def class_callback name, arg=nil
-    ClassCallbacks.execute self, name, arg
-  end
-end
-
-
