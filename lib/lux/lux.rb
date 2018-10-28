@@ -26,7 +26,7 @@ module Lux
   define_method(:dev?)         { !ENV_PROD }
   define_method(:development?) { !ENV_PROD }
   define_method(:cache)        { CACHE_SERVER }
-  define_method(:secrets)      { @@secrets ||= Lux::Config::Secrets.new.load }
+  define_method(:secrets)      { @secrets ||= Lux::Config::Secrets.new.load }
   define_method(:root)         { APP_ROOT }
   define_method(:fw_root)      { FW_ROOT }
   define_method(:event)        { Lux::EventBus }

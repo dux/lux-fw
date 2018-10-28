@@ -1,22 +1,22 @@
 module Lux::DelayedJob
   extend self
 
-  @@server = nil
+  @server = nil
 
   def server= name
     adapter = "Lux::DelayedJob::#{name.to_s.capitalize}"
-    @@server = adapter.constantize
+    @server = adapter.constantize
   rescue NameError
     die 'No adapter %s not found' % adapter
   end
 
   def push object, method_to_call=nil
-    die "No DelayedJob server defined" unless @@server
-    @@server.push [object, method_to_call]
+    die "No DelayedJob server defined" unless @server
+    @server.push [object, method_to_call]
   end
 
   def pop
-    obj, method_to_call = @@server.pop
+    obj, method_to_call = @server.pop
     return unless obj
     puts "JOB POP> #{obj.to_s}.#{method_to_call}".yellow
     if method_to_call
@@ -32,7 +32,7 @@ module Lux::DelayedJob
   end
 
   def run! seconds=2
-    puts "JOB QUE> is running for #{@@server}".green
+    puts "JOB QUE> is running for #{@server}".green
     Thread.new do
       while true
         print '.'

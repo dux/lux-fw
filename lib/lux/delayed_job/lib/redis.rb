@@ -3,7 +3,7 @@ module Lux::DelayedJob
     extend self
 
     def que
-      @@server ||= Lux.config(:redis_server)
+      @server ||= Lux.config(:redis_server)
     end
 
     def push(list)

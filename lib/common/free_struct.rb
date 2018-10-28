@@ -42,6 +42,6 @@ class FreeStruct
   private
 
   def check_key_existance? key
-    raise ArgumentError.new('Key :%s not found in DynamicOptions' % key) unless @data.has_key?(key)
+    raise ArgumentError.new('Key "%s" not found in DynamicOptions' % key) unless @data.has_key?(key)
   end
 end

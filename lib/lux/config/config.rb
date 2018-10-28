@@ -31,8 +31,26 @@ class Lux::Config
     end
 
     # default event bus error handle
-    Lux.config.on_event_bus_error = proc do |error, name|
+    Lux.config.on_event_bus_error ||= proc do |error, name|
       Lux.logger(:event_bus).error '[%s] %s' % [name, error.message]
+    end
+
+    # Template to show when displaying unhandled server side errors
+    Lux.config.server_error_template ||= proc do |text|
+      text = text.to_s.gsub('<', '&lt;')
+      text = text.to_s.gsub($/,'<br />')
+
+      %[<html>
+          <head>
+            <title>Server error (#{Lux.current.response.status})</title>
+          </head>
+          <body style="background:#fff; font-size:12pt; font-family: Arial; padding: 20px;">
+            <h3>HTTP error #{Lux.current.response.status} in #{Lux.config.app.name}</h3>
+            <pre style="color:red; padding:10px; background-color: #eee; border: 1px solid #ccc; font-family:'Lucida console'; line-height: 15pt;">#{text}</pre>
+            <br>
+            <a href="https://httpstatuses.com/#{Lux.current.response.status}" target="http_error">more info on http error</a>
+          </body>
+        </html>]
     end
 
     # app should not start unless config is loaded
@@ -49,8 +67,8 @@ class Lux::Config
   ###
 
   # if we have errors in module loading, try to load them one more time
-  @@mtime_cache  ||= {}
-  @@load_info    ||= nil
+  @@mtime_cache ||= {}
+  @@load_info   ||= nil
 
   class << self
     # requires all files recrusive in, with spart sort
@@ -136,7 +154,7 @@ class Lux::Config
 
       @@load_info = info.join($/)
 
-      puts @@load_info if start
+      print @@load_info if start
     end
   end
 

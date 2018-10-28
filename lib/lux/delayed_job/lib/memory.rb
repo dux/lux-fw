@@ -1,14 +1,14 @@
 module Lux::DelayedJob::Memory
   extend self
 
-  @@JOBS = []
+  @jobs = []
 
   def push(data)
-    @@JOBS.push data
+    @jobs.push data
     Thread.new { true while Lux::DelayedJob.pop }
   end
 
   def pop
-    @@JOBS.shift
+    @jobs.shift
   end
 end

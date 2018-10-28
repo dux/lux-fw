@@ -1,59 +1,49 @@
-# frozen_string_literal: true
+# Defines class variable
 
-# ClassAttributes.define klass, :layout, 'default_value_optional'
-# klass.layout -> get value
-# klass.layout = value -> set value
+def Object.class_attribute name, default=nil, &block
+  raise ArgumentError.new('name must be symbol') unless name.class == Symbol
 
-# class A
-#   class_attribute :layout, 'default'
-# end
-# class B < A
-#   layout 'l B'
-# end
-# class C < B
-# end
-# puts A.layout # default
-# puts B.layout # l B
-# puts C.layout # l B
+  ivar = "@cattr_#{name}"
+  instance_variable_set ivar, block || default
 
-module ClassAttributes
-  extend self
+  define_singleton_method(name) do |arg=:_undefined|
+    # define and set if argument given
+    if arg != :_undefined
+      instance_variable_set ivar, arg
+    end
 
-  @@CA_DEFAULTS ||= {}
-
-  # defines class variable
-  def define klass, name, default=nil, &block
-    raise ArgumentError, 'name must be symbol' unless name.class == Symbol
-
-    # auto reload will define class methods again and overload runtime values
-    return if klass.respond_to?(name)
-
-    # store values uder
-    @@CA_DEFAULTS[klass.to_s] ||= {}
-    @@CA_DEFAULTS[klass.to_s][name] = { 'Object' => block || default }
-
-    klass.define_singleton_method('%s=' % name) { |arg=:_nil| send name, arg }
-
-    klass.define_singleton_method(name) do |arg=:_nil|
-      # set and return if value defined
-      if arg != :_nil
-        @@CA_DEFAULTS[klass.to_s][name][self.to_s] = arg
-        return arg
-      end
-
-      # find value and return
-      ancestors.map(&:to_s).each do |el|
-        value = @@CA_DEFAULTS[klass.to_s][name][el]
-
-        if value || el == 'Object'
-          value = instance_exec(&value) if value.is_a?(Proc)
-          return value
-        end
+    # find value and return
+    ancestors.each do |klass|
+      if klass.instance_variable_defined?(ivar)
+        value = klass.instance_variable_get ivar
+        return value.is_a?(Proc) ? instance_exec(&value) : value
       end
     end
   end
 end
 
-def Object.class_attribute name, default=nil, &block
-  ClassAttributes.define self, name, default, &block
-end
+# class A
+#   class_attribute :layout, 'default'
+#   class_attribute(:time) { Time.now }
+# end
+
+# class B < A
+#   layout 'main'
+# end
+
+# class C < B
+#   time '11:55'
+# end
+
+# for func in [:layout, :time]
+#   for klass in [A, B, C]
+#     puts "> %s = %s" % ["#{klass}.#{func}".ljust(8), klass.send(func)]
+#   end
+# end
+
+# # > A.layout = default
+# # > B.layout = main
+# # > C.layout = main
+# # > A.time   = 2018-10-28 18:07:33 +0100
+# # > B.time   = 2018-10-28 18:07:33 +0100
+# # > C.time   = 11:55

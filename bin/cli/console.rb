@@ -37,8 +37,6 @@ LuxCli.class_eval do
       puts '* ./config/console.rb not found'
     end
 
-    Lux.start
-
     # AwesomePrint.pry!
     # nice object dump in console
     Pry.print = proc { |output, data|
