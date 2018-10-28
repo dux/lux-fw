@@ -1,4 +1,4 @@
-# o = DynamicClass.new name: 'a'
+# o = FreeStruct.new name: 'a'
 # o.name -> 'a'
 # o[:name] -> 'a'
 # o.name = 'b'
@@ -7,7 +7,8 @@
 # o.name = nil
 # o.name -> nil
 # o.title -> raises error
-class DynamicClass
+
+class FreeStruct
   def initialize data
     @data  = data
   end
