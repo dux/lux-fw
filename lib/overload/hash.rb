@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative '../common/free_struct'
+
 class Hash
   def h
     Hashie::Mash.new(self)
@@ -9,11 +11,7 @@ class Hash
     HashWithIndifferentAccess.new(self)
   end
 
-	def tag node=nil, text=nil
-		HtmlTagBuilder.build self, node, text
-	end
-
-  def to_struct name=nil
+  def to_readonly name=nil
     Class.new.tap do |c|
       c.define_singleton_method(:to_h) do
         m_list = methods(false) - [:to_h]
@@ -25,10 +23,21 @@ class Hash
       end
 
       each do |k, v|
-        v = v.to_struct if v.class == Hash
+        v = v.to_readonly if v.class == Hash
         c.define_singleton_method(k) { v }
       end
     end
+  end
+
+  def to_opts! *keys
+    self.keys.each { |key| raise 'Hash key :%s is not allowed!' % key unless keys.include?(key) }
+
+    FreeStruct.new keys
+      .inject({}) { |it, key| it[key] = self[key]; it }
+  end
+
+  def tag node=nil, text=nil
+    HtmlTagBuilder.build self, node, text
   end
 
   def blank?
@@ -89,13 +98,6 @@ class Hash
     hash.default_proc = default_proc if default_proc
     replace(hash)
     omit
-  end
-
-  def to_opts! *keys
-    self.keys.each { |key| raise 'Hash key :%s is not allowed!' % key unless keys.include?(key) }
-
-    DynamicClass.new keys
-      .inject({}) { |_, key| _[key] = self[key]; _ }
   end
 
   def pretty_generate

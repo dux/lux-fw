@@ -5,8 +5,8 @@
 require 'yaml'
 
 class Lux::Config
-  class_callback_stack :boot
-  class_callback_stack :after_boot
+  class_callback :boot
+  class_callback :after_boot
 
   boot do
     # Show server errors to a client
@@ -101,8 +101,8 @@ class Lux::Config
 
     def start!
       c = new
-      boot c
-      after_boot c
+      Object.class_callback :boot, c
+      Object.class_callback :after_boot, c
 
       start_info $lux_start_time
     end

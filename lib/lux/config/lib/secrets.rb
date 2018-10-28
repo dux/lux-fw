@@ -33,7 +33,7 @@ class Lux::Config::Secrets
   end
 
   def load
-    to_h.to_struct
+    to_h.to_readonly
   end
 
 end

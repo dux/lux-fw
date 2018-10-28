@@ -18,7 +18,7 @@ class Lux::Controller
 
   # before and after any action filter, ignored in controllers, after is called just before render
   FILTERS = [:before, :before_action, :before_render, :after]
-  FILTERS.each { |filter| class_callback_up filter }
+  FILTERS.each { |filter| class_callback filter }
 
   class << self
     # simple shortcut allows direct call to action, bypasing call
@@ -51,7 +51,7 @@ class Lux::Controller
     return if @executed_filters[fiter_name]
     @executed_filters[fiter_name] = true
 
-    arg ? send(fiter_name, arg) : send(fiter_name)
+    Object.class_callback fiter_name, self
   end
 
   def cache *args, &block
@@ -62,7 +62,7 @@ class Lux::Controller
   # action(:select', ['users'])
   def action method_name, *args
     raise ArgumentError.new('Controller action called with blank action name argument') if method_name.blank?
-    raise Lux.error.bad_request(Lux.config(:show_server_errors) ? 'Action name "%s" is not allowed' % method_name : nil) if FILTERS.include?(method_name.to_sym)
+    # raise Lux.error.bad_request(Lux.config(:show_server_errors) ? 'Action name "%s" is not allowed' % method_name : nil) if FILTERS.include?(method_name.to_sym)
 
     method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
@@ -131,10 +131,11 @@ class Lux::Controller
 
     Lux.cache.set(opts[:cache], page) if opts[:cache]
 
-    # set body unless render to string
-    response.body page unless opts.render_to_string
-
-    response.body page
+    if opts.render_to_string
+      page
+    else
+      response.body page
+    end
   end
 
   # renders template to string

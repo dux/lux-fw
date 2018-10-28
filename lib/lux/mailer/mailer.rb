@@ -11,8 +11,8 @@
 # Mailer.email_login('foo@bar.baz').body
 
 class Lux::Mailer
-  class_callback_up :before
-  class_callback_up :after
+  class_callback :before
+  class_callback :after
 
   class_attribute :helper
   class_attribute :layout, 'mailer'
@@ -24,9 +24,9 @@ class Lux::Mailer
     def prepare template, *args
       obj = new
       obj.instance_variable_set :@_template, template
-      obj.before
+      Object.class_callback :before, obj
       obj.send template, *args
-      obj.after
+      Object.class_callback :after, obj
       obj
     end
 
@@ -46,7 +46,7 @@ class Lux::Mailer
   ###
 
   def initialize
-    @mail = DynamicClass.new subject: nil, body: nil, to: nil, cc: nil, from: nil
+    @mail = FreeStruct.new subject: nil, body: nil, to: nil, cc: nil, from: nil
   end
 
   def deliver
