@@ -11,7 +11,7 @@
 #   'ok'
 # end
 
-class Lux::Api
+class ApplicationApi
   API_ATTR ||= {}
 
   def self.api_attr name, &block

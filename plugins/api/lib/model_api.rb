@@ -36,10 +36,6 @@ end
 ###
 
 class ModelApi < ApplicationApi
-  before do
-
-  end
-
   class << self
     def toggle_ids name
       self.class_eval %[

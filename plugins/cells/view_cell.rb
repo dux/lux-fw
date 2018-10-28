@@ -9,7 +9,7 @@ class ViewCell
     end
   end
 
-  class_callback_up :before
+  class_callback :before
 
   @@cache = {}
 
@@ -65,7 +65,7 @@ class ViewCell
   def initialize parent, vars={}
     @_parent = parent
 
-    before
+    Object.class_callback :before, self
 
     vars.each { |k,v| instance_variable_set "@#{k}", v}
 

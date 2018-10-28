@@ -1,4 +1,4 @@
-class Lux::Api
+class ApplicationApi
   # name   'Show user data'
   # param  :email, type: :email, req: false
   # param  :pass
