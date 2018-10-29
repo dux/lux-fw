@@ -17,15 +17,21 @@ class Lux::Api
 
   class << self
     # public mount method for router
-    def call path, opts
-      return error 'Unsupported API call' if !path[1] || path[3]
+    def call path, opts={}
+      if path.class == Symbol
+        # TestApi.call(:foo, email: '...')
+        new.call path, opts
+      else
+        # Lux::Api.call([:user, :profile], email: '...' )
+        return error 'Unsupported API call' if !path[1] || path[3]
 
-      if path[2]
-        opts[:_id] = path[1]
-        path[1] = path[2]
+        if path[2]
+          opts[:_id] = path[1]
+          path[1] = path[2]
+        end
+
+        run path[0], path[1], opts
       end
-
-      run(path[0], path[1], opts)
     end
 
     # public method for running actions on global class
