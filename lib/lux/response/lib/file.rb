@@ -24,16 +24,16 @@ class Lux::Response::File
     doc:   'application/msword'
   }
 
-  class << self
-    def send file, opts={}
-      new(file, opts).send
-    end
-  end
-
   ###
-
+  # all parametars are optional
+  # :name          - file name
+  # :cache         - client cache in seconds
+  # :content_type  - string type
+  # :inline        - sets disposition to inline if true
+  # :disposition   - inline or attachment
+  # :content       - raw file data
   def initialize file, in_opts={}
-    opts = in_opts.to_opts! :name, :cache, :content_type, :inline, :disposition
+    opts = in_opts.to_opts! :name, :cache, :content_type, :inline, :disposition, :content
     opts.disposition ||= opts.inline.class == TrueClass ? 'inline' : 'attachment'
     opts.cache         = true if opts.cache.nil?
 
@@ -52,7 +52,7 @@ class Lux::Response::File
     File.exist?(@file)
   end
 
-  def send data=nil
+  def send
     file = File.exist?(@file) ? @file : Lux.root.join("public#{@file}").to_s
 
     raise Lux::Error.not_found('Static file not found') unless File.exists?(file)
@@ -60,7 +60,7 @@ class Lux::Response::File
     response.content_type(@opts.content_type || MIMME_TYPES[@ext || '_'] || 'application/octet-stream')
 
     file_mtime = File.mtime(file).utc.to_s
-    key        = Crypt.sha1(file + (data || file_mtime.to_s))
+    key        = Crypt.sha1(file + (@opts.content || file_mtime.to_s))
 
     if @opts.disposition == 'attachment'
       @opts.name ||= @file.split('/').last
@@ -75,7 +75,7 @@ class Lux::Response::File
     if request.env['HTTP_IF_NONE_MATCH'] == key
       response.body('not-modified', 304)
     else
-      response.body data || File.read(file)
+      response.body @opts.content || File.read(file)
     end
   end
 end

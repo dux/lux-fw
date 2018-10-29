@@ -108,6 +108,10 @@ class Lux::Response
     message ? @flash.error(message) : @flash
   end
 
+  def send_file file, opts={}
+    ::Lux::Response::File.new(file, opts).send
+  end
+
   # redirect '/foo'
   # redirect :back, info: 'bar ...'
   def redirect where, opts={}

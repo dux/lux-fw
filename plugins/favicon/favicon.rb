@@ -5,6 +5,6 @@ die './public/favicon.png not found' unless favicon.exist?
 favicon = favicon.read
 
 Lux.app.before do
-  Lux::Response::File.new('favicon.png', inline: true).send(favicon) if
+  response.send_file('favicon.png', inline: true, content: favicon) if
     ['/favicon.ico', '/apple-touch-icon.png'].include?(request.path.downcase)
 end
