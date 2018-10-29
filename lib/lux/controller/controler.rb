@@ -218,12 +218,11 @@ class Lux::Controller
     end
 
     def helper ns=nil
-      rr :helper
       Lux::Helper.new self, :html, self.class.helper, ns
     end
 
     def report_not_found_error
-      raise Lux::Error.not_found unless Lux.config(:show_server_errors)
+      raise Lux::Error.not_found unless Lux.config(:dump_errors)
 
       err = [%[Method "#{@controller_action}" not found found in #{self.class.to_s}]]
       err.push "You have defined \n- %s" % (methods - Lux::Controller.instance_methods).join("\n- ")

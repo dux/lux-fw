@@ -34,7 +34,7 @@ class Policy
     raise Lux::Error.unauthorized('Access disabled in policy')
    rescue Lux::Error
     error = $!.message
-    error += " - #{self.class}.#{@action}" if Lux.config(:show_server_errors)
+    error += " - #{self.class}.#{@action}" if Lux.config(:dump_errors)
     raise Lux::Error.unauthorized(error) unless block
     block.call(error)
     false

@@ -111,7 +111,7 @@ class Lux::Error < StandardError
     def inline name, error=nil
       error ||= $!
 
-      unless Lux.config(:show_server_errors)
+      unless Lux.config(:dump_errors)
         key = log error
         render "Lux inline error: %s\n\nkey: %s" % [error.message, key]
       end

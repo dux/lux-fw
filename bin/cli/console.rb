@@ -27,8 +27,8 @@ LuxCli.class_eval do
     require 'clipboard'
     require './config/application'
 
-    Lux.config.show_server_errors = true
-    Lux.config.log_to_stdout      = true
+    Lux.config.dump_errors   = true
+    Lux.config.log_to_stdout = true
 
     if File.exist?('./config/console.rb')
       puts '* loading ./config/console.rb'
