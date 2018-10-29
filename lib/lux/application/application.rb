@@ -29,12 +29,6 @@ class Lux::Application
     { :@locale=>@locale, :@nav=>nav, :@subdomain=>@subdomain, :@domain=>@domain }
   end
 
-  def plug name, &block
-    m = "#{name}_plug".to_sym
-    return Lux.error(%[Method "#{m}" not defined in #{self.class}]) unless respond_to?(m)
-    send m, &block
-  end
-
   def error *args
     args.first.nil? ? Lux::AutoRaiseError : Lux::Error.report(*args)
   end
@@ -238,7 +232,9 @@ class Lux::Application
 
     object = ('%s_controller' % object).classify.constantize if object.class == String
 
-    Lux.current.files_in_use "app/controllers/#{object.to_s.underscore}.rb"
+    controller_name = "app/controllers/#{object.to_s.underscore}.rb"
+    Lux.log ' %s' % controller_name
+    Lux.current.files_in_use controller_name
 
     if action
       object.action action.to_sym

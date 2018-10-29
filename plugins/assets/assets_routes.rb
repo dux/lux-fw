@@ -1,4 +1,3 @@
-# plug :local_assets
 # /compiled_asset/www/js/pjax.coffee
 # /raw_asset/www/js/pjax.coffee
 if Lux.config(:compile_assets)

@@ -5,16 +5,6 @@
 
 ### Instance methods
 
-#### plug
-
-syntatic shugar
-
-`plug :test`
-
-will just call
-
-`test_plug`
-
 #### root
 
 executes if nav.root is empty
