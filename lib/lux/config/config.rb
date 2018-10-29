@@ -10,7 +10,7 @@ class Lux::Config
 
   boot do
     # Show server errors to a client
-    Lux.config.show_server_errors ||= false
+    Lux.config.dump_errors ||= false
 
     # Log debug output to stdout
     Lux.config.log_to_stdout ||= false
@@ -57,10 +57,17 @@ class Lux::Config
     Lux.config.lux_config_loaded = true
   end
 
-  after_boot do
+  after_boot do |rack_handler|
     # deafult host is required
     unless Lux.config.host.to_s.include?('http')
       raise 'Invalid "Lux.config.host"'
+    end
+
+    if Lux.config(:dump_errors)
+      require 'better_errors'
+
+      rack_handler.use BetterErrors::Middleware
+      BetterErrors.editor = :sublime
     end
   end
 
@@ -120,7 +127,6 @@ class Lux::Config
     def start!
       c = new
       Object.class_callback :boot, c
-      Object.class_callback :after_boot, c
 
       start_info $lux_start_time
     end
@@ -132,7 +138,7 @@ class Lux::Config
       production_opts = [
         [:compile_assets,     false],
         [:auto_code_reload,   false],
-        [:show_server_errors, false],
+        [:dump_errors, false],
         [:log_to_stdout,      false],
       ]
 

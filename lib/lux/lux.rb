@@ -36,10 +36,12 @@ module Lux
     state  = Lux::Current.new env
     app    = Lux::Application.new state
     app.render
-  rescue => exp
-    Lux.error.log exp
-
-    [500, {}, ['Lux server error: %s' % exp.message]]
+  rescue => error
+    if Lux.config(:dump_errors)
+      raise error
+    else
+      [500, {}, ['Server error: %s' % error.message]]
+    end
   end
 
   def env key=nil
@@ -138,6 +140,12 @@ module Lux
 
   def start
     puts Config.start!
+  end
+
+  def serve rack_handler
+    Object.class_callback :after_boot, Lux::Config.new, rack_handler
+
+    rack_handler.run self
   end
 
   def logger name=nil
