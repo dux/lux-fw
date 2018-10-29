@@ -5,19 +5,21 @@
 # before do
 #    ...
 # end
+# before :method_name
 # instance = new
 # Object.class_callback :before, instance
+# Object.class_callback :before, instance, arg
 
 class Object
-  def self.class_callback name, context=nil
+  def self.class_callback name, context=nil, arg=nil
     ivar = "@ccallbacks_#{name}"
 
     unless context
-      define_singleton_method(name) do |&block|
+      define_singleton_method(name) do |method_name=nil, &block|
         ref = caller[0].split(':in ').first
 
         self.instance_variable_set(ivar, {}) unless instance_variable_defined?(ivar)
-        self.instance_variable_get(ivar)[ref] = block
+        self.instance_variable_get(ivar)[ref] = method_name || block
       end
 
     else
@@ -27,7 +29,13 @@ class Object
       list.reverse.each do |klass|
         if klass.instance_variable_defined?(ivar)
           mlist = klass.instance_variable_get(ivar).values
-          mlist.each { |m| context.instance_exec &m }
+          mlist.each do |m|
+            if m.class == Symbol
+              context.send m
+            else
+              context.instance_exec arg, &m
+            end
+          end
         end
       end
     end
