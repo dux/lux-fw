@@ -9,6 +9,8 @@
 
 class FreeStruct
   def initialize hash
+    @keys = hash.keys
+
     hash.each do |key, value|
       ivar = "@#{key}"
 
@@ -27,4 +29,12 @@ class FreeStruct
   def [] key
     instance_variable_get "@#{key}"
   end
+
+  def to_h
+    @keys.inject({}) do |out, key|
+      out[key] = send(key)
+      out
+    end
+  end
 end
+
