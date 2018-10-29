@@ -50,14 +50,14 @@ class Lux::Controller
     return if @executed_filters[fiter_name]
     @executed_filters[fiter_name] = true
 
-    Object.class_callback fiter_name, self
+    Object.class_callback fiter_name, self, @controller_action
   end
 
   def cache *args, &block
     Lux.cache.fetch *args, &block
   end
 
-  # action(:show, 2)
+  # action(:show)
   # action(:select', ['users'])
   def action method_name, *args
     raise ArgumentError.new('Controller action called with blank action name argument') if method_name.blank?
@@ -65,27 +65,19 @@ class Lux::Controller
     method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
     # dev console log
-    Lux.log " #{self.class.to_s}(:#{method_name})".light_blue
+    Lux.log " #{self.class.to_s}##{method_name}".light_blue
 
-    @controller_action = method_name
+    @controller_action = method_name.to_sym
 
     # format error unless method found
-    unless respond_to? method_name
-      raise Lux::Error.not_found unless Lux.config(:show_server_errors)
-
-      list = methods - Lux::Controller.instance_methods
-      err = [%[No instance method "#{method_name}" found in class "#{self.class.to_s}"]]
-      err.push ["Expected so see def show(id) ..."] if method_name == 'show!'
-      err.push %[You have defined \n- #{(list).join("\n- ")}]
-      return Lux.error(err.join("\n\n"))
-    end
+    report_not_found_error unless respond_to? method_name
 
     # catch throw gymnastics to allow after filter in controllers, after the body is set
     catch(:done) do
       # catch error but forward unless handled
       begin
         filter :before
-        filter :before_action, @controller_action.to_sym
+        filter :before_action
 
         send method_name, *args
       rescue => e
@@ -126,17 +118,18 @@ class Lux::Controller
       opts[:template] = name
     end
 
-    opts = opts.to_opts! :text, :html, :cache, :template, :json, :layout, :render_to_string, :data, :status
+    filter :before_render
+
+    opts = opts.to_opts! :text, :html, :cache, :template, :json, :layout, :render_to_string, :data, :status, :ttl
 
     response.status opts.status if opts.status
 
-    return if @no_render
-
-    filter :before_render
-
-    page = render_resolve opts
-
-    Lux.cache.set(opts[:cache], page) if opts[:cache]
+    page =
+    if opts.cache
+      Lux.cache.fetch(opts.cache, opts.ttl || 3600) { render_resolve(opts) }
+    else
+      render_resolve(opts)
+    end
 
     if opts.render_to_string
       page
@@ -225,6 +218,16 @@ class Lux::Controller
     end
 
     def helper ns=nil
+      rr :helper
       Lux::Helper.new self, :html, self.class.helper, ns
+    end
+
+    def report_not_found_error
+      raise Lux::Error.not_found unless Lux.config(:show_server_errors)
+
+      err = [%[Method "#{@controller_action}" not found found in #{self.class.to_s}]]
+      err.push "You have defined \n- %s" % (methods - Lux::Controller.instance_methods).join("\n- ")
+
+      return Lux.error err.join("\n\n")
     end
 end
