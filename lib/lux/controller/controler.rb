@@ -17,8 +17,7 @@ class Lux::Controller
   class_attribute :helper
 
   # before and after any action filter, ignored in controllers, after is called just before render
-  FILTERS = [:before, :before_action, :before_render, :after]
-  FILTERS.each { |filter| class_callback filter }
+  [:before, :before_action, :before_render, :after].each { |filter| class_callback filter }
 
   class << self
     # simple shortcut allows direct call to action, bypasing call
@@ -62,7 +61,6 @@ class Lux::Controller
   # action(:select', ['users'])
   def action method_name, *args
     raise ArgumentError.new('Controller action called with blank action name argument') if method_name.blank?
-    # raise Lux.error.bad_request(Lux.config(:show_server_errors) ? 'Action name "%s" is not allowed' % method_name : nil) if FILTERS.include?(method_name.to_sym)
 
     method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
@@ -109,6 +107,15 @@ class Lux::Controller
     raise error
   end
 
+  def render_to_string name=nil, opts={}
+    opts[:render_to_string] = true
+    render name, opts
+  end
+
+  def send_file file, opts={}
+    Lux::Response::File.send(file, opts)
+  end
+
   # render :index
   # render 'main/root/index'
   # render text: 'ok'
@@ -136,26 +143,6 @@ class Lux::Controller
     else
       response.body page
     end
-  end
-
-  # renders template to string
-  def render_part
-    Lux::Template.render_part("#{@base_template}/#{@controller_action}", instance_variables_hash, namespace)
-  end
-
-  def render_to_string name=nil, opts={}
-    opts[:render_to_string] = true
-    render name, opts
-  end
-
-  def send_file file, opts={}
-    opts = opts.to_opts!(:type, :dialog, :name)
-    opts.name ||= file.to_s.split('/').last
-
-    response.header('content-disposition', 'attachment; filename=%s' % opts.name) if opts.dialog;
-    response.response_type = opts.type if opts.type
-
-    Lux::Current::StaticFile.deliver(file)
   end
 
   private
