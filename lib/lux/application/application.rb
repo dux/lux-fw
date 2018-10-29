@@ -251,6 +251,10 @@ class Lux::Application
     end
   end
 
+  def on_error error
+    raise error
+  end
+
   def main
     begin
       catch(:done) do
