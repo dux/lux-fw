@@ -30,10 +30,14 @@ class Hash
   end
 
   def to_opts! *keys
-    self.keys.each { |key| raise 'Hash key :%s is not allowed!' % key unless keys.include?(key) }
+    copy = keys.inject({}) { |total, key| total[key] = nil; total }
 
-    FreeStruct.new keys
-      .inject({}) { |it, key| it[key] = self[key]; it }
+    self.keys.each do |key|
+      raise 'Hash key :%s is not allowed!' % key unless keys.include?(key)
+      copy[key] = self[key]
+    end
+
+    FreeStruct.new copy
   end
 
   def tag node=nil, text=nil

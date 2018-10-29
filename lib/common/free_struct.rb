@@ -1,6 +1,5 @@
 # o = FreeStruct.new name: 'a'
 # o.name -> 'a'
-# o[:name] -> 'a'
 # o.name = 'b'
 # o.name 'b'
 # o.name -> 'b'
@@ -9,39 +8,23 @@
 # o.title -> raises error
 
 class FreeStruct
-  def initialize data
-    @data  = data
-  end
+  def initialize hash
+    hash.each do |key, value|
+      ivar = "@#{key}"
 
-  def method_missing m, arg=:_UNDEF
-    key = m.to_s.sub('=','').to_sym
+      instance_variable_set ivar, value
 
-    check_key_existance? key
+      define_singleton_method(key) do
+        instance_variable_get ivar
+      end
 
-    if arg == :_UNDEF
-      @data[key]
-    else
-      @data[key] = arg
+      define_singleton_method "#{key}=" do |val|
+        instance_variable_set ivar, val
+      end
     end
   end
 
   def [] key
-    check_key_existance? key
-    @data[key]
-  end
-
-  def []= key, value
-    check_key_existance? key
-    @data[key] = value
-  end
-
-  def key? key
-    @data.key?(key)
-  end
-
-  private
-
-  def check_key_existance? key
-    raise ArgumentError.new('Key "%s" not found in DynamicOptions' % key) unless @data.has_key?(key)
+    instance_variable_get "@#{key}"
   end
 end
