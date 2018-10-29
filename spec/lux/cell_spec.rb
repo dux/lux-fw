@@ -1,56 +1,8 @@
 require 'spec_helper'
 
-describe Lux::Controller do
-  before do
-    Lux::Current.new('http://testing')
-  end
-
-  it 'renders text' do
-    ControllerTestController.action(:render_text)
-    expect(Lux.current.response.body).to eq('foo')
-  end
-
-  it 'renders json' do
-    ControllerTestController.action(:render_json)
-    expect(Lux.current.response.body).to eq({ foo: 'bar' })
-  end
-
-  it 'renders fails' do
-    expect{ ControllerTestController.action(:render_fail) }.to raise_error RuntimeError
-  end
-
-  it 'executes before filter' do
-    ControllerTestController.action(:test_before)
-    expect(Lux.current.response.body).to eq('beforebefore_action')
-  end
-
-  it 'executes before_render filter' do
-    ControllerTestController.action(:test_before)
-    expect(Lux.current.response.body).to eq('beforebefore_action')
-  end
-
-  it 'tests filters on call' do
-    expect{
-      Lux.app.render('/call_test_before') { ControllerTestController.call }
-    }.to raise_error(StandardError, 'before')
-
-    expect{
-      Lux.app.render('/call_test_before_action') { ControllerTestController.call }
-    }.to raise_error(StandardError, nil)
-
-    expect{
-      Lux.app.render('/call_test_before_render') { ControllerTestController.call }
-    }.to raise_error(StandardError, nil)
-  end
-
-end
-
-###
-
 class ControllerTestController < Lux::Controller
-  def before
+  before do
     @before = 'before'
-    super
   end
 
   before_action do
@@ -91,3 +43,50 @@ class ControllerTestController < Lux::Controller
     render text: @before + @before_action
   end
 end
+
+###
+
+describe Lux::Controller do
+  before do
+    Lux::Current.new('http://testing')
+  end
+
+  it 'renders text' do
+    catch(:done) do
+      ControllerTestController.action(:render_text)
+    end
+
+    expect(Lux.current.response.body).to eq('foo')
+  end
+
+  it 'renders json' do
+    catch(:done) do
+      ControllerTestController.action(:render_json)
+    end
+
+    expect(Lux.current.response.body).to eq({ foo: 'bar' })
+  end
+
+  it 'renders fails' do
+    expect{ ControllerTestController.action(:render_fail) }.to raise_error RuntimeError
+  end
+
+  it 'executes before filter' do
+    catch(:done) do
+      ControllerTestController.action(:test_before)
+    end
+
+    expect(Lux.current.response.body).to eq('beforebefore_action')
+  end
+
+  it 'executes before_render filter' do
+    catch(:done) do
+      ControllerTestController.action(:test_before)
+    end
+
+    expect(Lux.current.response.body).to eq('beforebefore_action')
+  end
+
+end
+
+

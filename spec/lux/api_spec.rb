@@ -1,6 +1,8 @@
 require 'spec_helper'
 require 'typero'
 
+Lux.plugin 'api'
+
 class TestApi < ApplicationApi
   def foo
     'foo'
@@ -28,8 +30,8 @@ describe Lux::Api do
   end
 
   it 'renders bar and checks for email' do
-    expect( TestApi.new.call(:bar)[:error][:messages][0] ).to eq('Email is required')
-    expect( TestApi.new.call(:bar, email: 'foo@bar.baz')[:data] ).to eq('bar')
+    expect( TestApi.call(:bar)[:error][:messages][0]).to eq('Email is required')
+    expect( TestApi.call(:bar, email: 'foo@bar.baz')[:data] ).to eq('bar')
   end
 
   it 'checks full message' do
