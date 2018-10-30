@@ -1,23 +1,19 @@
 # LuxAssets.configure do
-#   # admin
-#   css :main do
-#     add 'css/main/index.scss'
+#   asset :admin do
+#     js do
+#       add 'js/admin/js_vendor/*'
+#       add 'js/admin/js/*'
+#       add 'js/shared/*'
+#       add 'js/admin/index.coffee'
+#     end
+#     css do
+#       add 'css/admin/index.scss'
+#     end
 #   end
-
-#   # cell
-#   js :cell do
-#     add ViewCell.all_js
-#   end
-
-#   # main
-#   js :main do
-#     add 'js/main/js/*'
-#     add 'js/shared/*'
-#     add 'plugin:js_widgets'
-#   end
+# end
 # ...
 
-# LuxAssets.files('js/admin')
+# LuxAssets.css('admin').files
 # LuxAssets.css(:admin).compile
 
 # LuxAssets.css(:admin).compile_all do |name, path|
@@ -36,6 +32,11 @@ class LuxAssets
   @@compile   = nil
 
   class << self
+    def asset name
+      @name = name.to_s
+      yield
+    end
+
     def configure &block
       class_eval &block
     end
@@ -61,8 +62,8 @@ class LuxAssets
     end
 
     def add_files ext, name, block
-      @name = name = name.to_s
-      return new ext, name if ASSETS_DATA[ext][@name]
+      @name = name.to_s if name
+      return new ext, @name unless block
 
       @files = []
       @ext   = ext
@@ -70,11 +71,11 @@ class LuxAssets
       ASSETS_DATA[ext][@name] = @files
     end
 
-    def js name, &block
+    def js name=nil, &block
       add_files :js, name, block
     end
 
-    def css name, &block
+    def css name=nil, &block
       add_files :css, name, block
     end
 
