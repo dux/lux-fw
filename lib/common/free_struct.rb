@@ -1,11 +1,13 @@
-# o = FreeStruct.new name: 'a'
-# o.name -> 'a'
-# o.name = 'b'
-# o.name 'b'
-# o.name -> 'b'
-# o.name = nil
-# o.name -> nil
-# o.title -> raises error
+# Convert hash to object with methods
+#   o = FreeStruct.new name: 'a'
+#   o.name   -> 'a'
+#   o[:name] -> 'a'
+#   o.name = 'b'
+#   o.name 'b'
+#   o.name -> 'b'
+#   o.name = nil
+#   o.name -> nil
+#   o.title -> raises error
 
 class FreeStruct
   def initialize hash
@@ -27,7 +29,7 @@ class FreeStruct
   end
 
   def [] key
-    instance_variable_get "@#{key}"
+    send key
   end
 
   def to_h
