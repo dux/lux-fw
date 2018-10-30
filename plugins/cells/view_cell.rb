@@ -34,7 +34,8 @@ class ViewCell
 
     # get cell css
     def css
-      Dir["#{base_folder}/**/*.scss"] + Dir["#{base_folder}/**/*.css"]
+      Dir["#{base_folder}/**/*"]
+        .select { |it| ['css', 'scss'].include?(it.split('.').last) }
     end
 
     # get cell js

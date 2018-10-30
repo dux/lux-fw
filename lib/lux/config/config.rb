@@ -79,12 +79,12 @@ class Lux::Config
 
   class << self
     # requires all files recrusive in, with spart sort
-    def require_all files
-      files = files.to_s.sub(/\/$/,'')
-      raise '* is not allowed' if files.include?('*')
+    def require_all dir_path
+      dir_path = dir_path.to_s.sub(/\/$/,'')
+      raise '* is not allowed' if dir_path.include?('*')
 
-      glob = `echo #{files}/* #{files}/*/*  #{files}/*/*/* #{files}/*/*/*/* #{files}/*/*/*/*/* #{files}/*/*/*/*/*/* |tr ' ' '\n' | grep .rb`.split("\n")
-      glob.select{ |o| o.index('.rb') }.map{ |o| o.split('.rb')[0]}.each do |ruby_file|
+      glob = `echo #{dir_path}/* #{dir_path}/*/*  #{dir_path}/*/*/* #{dir_path}/*/*/*/* #{dir_path}/*/*/*/*/* #{dir_path}/*/*/*/*/*/* |tr ' ' '\n' | grep .rb`.split("\n")
+      glob.select{ |o| o.index('.rb') }.each do |ruby_file|
         require ruby_file
       end
     end

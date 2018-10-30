@@ -19,11 +19,20 @@ class Lux::Config::Secrets
     @strength    = 'HS512'
   end
 
+  def write
+    encoded = JWT.encode @read_file.read, @secret, @strength
+    @secret_file.write encoded
+  end
+
+  def encoded_data
+    JWT.decode(@secret_file.read, @secret, true, { algorithm: @strength }).first
+  end
+
   def to_h
     it = if @common_file.exist?
       @common_file.read
     else
-      JWT.decode(@secret_file.read, @secret, true, { algorithm: @strength }).first
+      encoded_data
     end
 
     it   = YAML.load it
