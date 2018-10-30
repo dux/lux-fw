@@ -14,46 +14,17 @@ class ViewCell
   @@cache = {}
 
   class << self
+    # CityCell.folder -> "./app/cells/city"
+    def base_folder
+      name = instance_methods(false).first || dir('Can not find method')
+      file = instance_method(name).source_location
+      File.dirname file.first
+    end
+
     def get name, parent, vars={}
       w = ('%sCell' % name.to_s.classify).constantize
       w = w.new parent, vars
       w
-    end
-
-    def base_folder
-      Lux.root.join('app/cells/%s' % to_s.tableize.sub('_cells','')).to_s
-    end
-
-    def get_all_cell_classes
-      # all base cells have to inherit from ViewCell base class
-      ObjectSpace
-        .each_object(Class)
-        .select{ |it| ViewCell === it.ancestors[1] }
-        .to_a
-    end
-
-    # get cell css
-    def css
-      Dir["#{base_folder}/**/*"]
-        .select { |it| ['css', 'scss'].include?(it.split('.').last) }
-    end
-
-    # get cell js
-    def js
-      Dir["#{base_folder}/**/*"]
-        .select { |it| ['js', 'coffee'].include?(it.split('.').last) }
-    end
-
-    # get css for all cells
-    def all_css
-      cells = Object.constants.map(&:to_s).select{ |it| it != 'ViewCell' && it.ends_with?('Cell') }.sort.map(&:constantize)
-      cells.inject([]) { |t,w| t.push w.css }.flatten
-    end
-
-    # get css for all cells
-    def all_js
-      cells = Object.constants.map(&:to_s).select{ |it| it != 'ViewCell' && it.ends_with?('Cell') }.map(&:constantize)
-      cells.inject([]) { |t,w| t += w.js }.flatten
     end
   end
 

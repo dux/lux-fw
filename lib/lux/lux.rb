@@ -14,7 +14,6 @@ module Lux
   FW_ROOT      ||= Pathname.new(File.expand_path('../../', File.dirname(__FILE__))).freeze
   EVENTS       ||= {}
   MCACHE       ||= {}
-  PLUGINS      ||= {}
 
   BACKGROUND_THREADS ||= []
   # Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
@@ -30,6 +29,7 @@ module Lux
   define_method(:root)         { APP_ROOT }
   define_method(:fw_root)      { FW_ROOT }
   define_method(:event)        { Lux::EventBus }
+  define_method(:require_all)  { |folder| Lux::Config.require_all folder }
 
   # main rack response
   def call env=nil
@@ -77,6 +77,10 @@ module Lux
     puts what || yield
   end
 
+  def plugin *args
+    args.first ? Lux::Plugin.loader(*args) : Lux::Plugin
+  end
+
   # if block given, simple new thread bg job
   # if string given, eval it in bg
   # if object given, instance it and run it
@@ -101,34 +105,6 @@ module Lux
     end
   end
 
-  def speed loops=1
-    render_start = Time.monotonic
-    loops.times { yield }
-    num = (Time.monotonic - render_start) * 1000
-    num = "#{num.round(1)} ms"
-    loops == 1 ? num : "Done #{loops.to_s.sub(/(\d)(\d{3})$/,'\1s \2')} loops in #{num}"
-  end
-
-  # load specific plugin
-  def plugin name
-    folders = [Lux.fw_root.to_s, './lib', '.']
-      .map { |f| f+'/plugins'}
-      .map { |el| [el, name].join('/') }
-
-    folder = folders.find { |dir| Dir.exist?(dir) } ||
-      die('Plugin %s not found, looked in %s' % [name, folders.map{ |el| "\n #{el}" }.join(', ')])
-
-    PLUGINS[name.to_s] ||= folder
-
-    base = '%s/%s.rb' % [name, folder]
-
-    if File.exist?(base)
-      load base
-    else
-      Lux::Config.require_all(folder)
-    end
-  end
-
   def load_tasks
     require_relative '../../tasks/loader.rb'
   end
@@ -146,6 +122,14 @@ module Lux
     Object.class_callback :after_boot, Lux::Config.new, rack_handler
 
     rack_handler.run self
+  end
+
+  def speed loops=1
+    render_start = Time.monotonic
+    loops.times { yield }
+    num = (Time.monotonic - render_start) * 1000
+    num = "#{num.round(1)} ms"
+    loops == 1 ? num : "Done #{loops.to_s.sub(/(\d)(\d{3})$/,'\1s \2')} loops in #{num}"
   end
 
   def logger name=nil

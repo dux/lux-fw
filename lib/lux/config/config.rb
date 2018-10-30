@@ -152,11 +152,16 @@ class Lux::Config
       end
 
       mode  = production_mode ? 'production'.green : 'development'.yellow
-      speed = start ? ((Time.now - start)*1000).round.to_s.sub(/(\d)(\d{3})$/,'\1s \2')+'ms' : '?ms'
+      speed =
+      if start
+        text = ((Time.now - start)*1000).round.to_s.sub(/(\d)(\d{3})$/,'\1s \2')
+        ' in %s' % text.to_s.white
+      else
+      end
 
       info = []
       info.push '* Config: %s' % opts.join(', ')
-      info.push "* Lux loaded #{mode} mode in #{speed.to_s.white}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
+      info.push "* Lux loaded #{mode} mode#{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
 
       @@load_info = info.join($/)
 

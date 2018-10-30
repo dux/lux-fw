@@ -27,104 +27,122 @@
 require 'open3'
 
 class LuxAssets
-  ASSETS_DATA = { js: {}, css: {} } unless defined?(ASSETS_DATA)
+  ASSETS_DATA ||= { js: {}, css: {} }
+  ASSET_TYPES ||= {
+    js:  ['js', 'coffee'],
+    css: ['css', 'scss']
+  }
+
   @@compile   = nil
 
-  def self.configure &block
-    class_eval &block
-  end
-
-  def self.run what, cache_file=nil
-    puts what.yellow
-
-    stdin, stdout, stderr, wait_thread = Open3.popen3(what)
-
-    error = stderr.gets
-    while line = stderr.gets do
-      error += line
+  class << self
+    def configure &block
+      class_eval &block
     end
 
-    # node-sass prints to stderror on complete
-    error = nil if error && error.index('Rendering Complete, saving .css file...')
+    def run what, cache_file=nil
+      puts what.yellow
 
-    if error
-      cache_file.unlink if cache_file && cache_file.exist?
+      stdin, stdout, stderr, wait_thread = Open3.popen3(what)
 
-      puts error.red
+      error = stderr.gets
+      while line = stderr.gets do
+        error += line
+      end
+
+      # node-sass prints to stderror on complete
+      error = nil if error && error.index('Rendering Complete, saving .css file...')
+
+      if error
+        cache_file.unlink if cache_file && cache_file.exist?
+
+        puts error.red
+      end
     end
-  end
 
-  def self.add_files ext, name, block
-    @name = name.to_s
-    return new ext, name if ASSETS_DATA[ext][@name]
+    def add_files ext, name, block
+      @name = name = name.to_s
+      return new ext, name if ASSETS_DATA[ext][@name]
 
-    @files = []
-    @ext   = ext
-    class_eval &block
-    ASSETS_DATA[ext][@name] = @files
-  end
+      @files = []
+      @ext   = ext
+      class_eval &block
+      ASSETS_DATA[ext][@name] = @files
+    end
 
-  def self.js name, &block
-    add_files :js, name, block
-  end
+    def js name, &block
+      add_files :js, name, block
+    end
 
-  def self.css name, &block
-    add_files :css, name, block
-  end
+    def css name, &block
+      add_files :css, name, block
+    end
 
-  def self.compile &block
-    @@compile = block
-  end
+    def compile &block
+      @@compile = block
+    end
 
-  # adds file or list of files
-  # add 'plugin:js_widgets/*'
-  # add 'js/vendor/*'
-  # add 'index.coffee'
-  def self.add files
-    if files.is_a?(Array)
-      @files += files
-      return
-    elsif files.starts_with?('plugin:')
-      plugin  = files.split('plugin:').last.chomp
-      plugin  = Lux::PLUGINS[plugin] || die("Plugin %s not loaded, I have %s" % [plugin, Lux::PLUGINS.keys.join(', ')])
-      files = Dir['%s/assets/%s/*' % [plugin, @ext]]
-
-      die 'No files found in %s' % plugin unless files.first
-
-      @files += files
-    else
-      path =
-      if files[0,1] == '/'
-        files
+    # adds file or list of files
+    # add 'plugin:js_widgets/*'
+    # add 'js/vendor/*'
+    # add 'index.coffee'
+    def add files
+      if files.is_a?(Array)
+        add_local_files files
+        return
       else
-        "./app/assets/#{files}"
+        files =
+        if files[0,1] == '/' || files[0,2] == './'
+          files
+        else
+          "./app/assets/#{files}"
+        end
+
+        if files.ends_with?('/*')
+          files  = Dir["#{files}*/*"].sort
+          files  = add_local_files files
+        else
+          # it will alert if file not found
+          add_local_files [files]
+        end
+
+        die    'No files found in %s (%s :%s)' % [path, @ext, @name] unless files.first
       end
+    end
 
-      files  = Dir[path].sort
+    # plugin :foo, :bar
+    def plugin *args
+      for name in args.flatten
+        plugin = Lux.plugin.get name
+        add '%s/*' % plugin[:folder]
+      end
+    end
 
-      die 'No files found in %s (%s :%s)' % [path, @ext, @name] unless files.first
+    def files name
+      parts = name.split('/', 2)
+      ASSETS_DATA[parts.first.to_sym][parts[1]]
+    end
+
+    def compile_all
+      for ext in [:js, :css]
+        for name in ASSETS_DATA[ext].keys
+          path = LuxAssets.send(ext, name).compile
+
+          yield "#{ext}/#{name}", path if block_given?
+        end
+      end
+    end
+
+    def add_local_files files
+      files = files.select { |it| ASSET_TYPES[@ext].include?(it.split('.').last) }
+
+      files = files.select do |f|
+        name = f.split('/').last
+        name.include?('.') && !name.starts_with?('!')
+      end
 
       @files += files
-    end
-
-    @files = @files.select do |f|
-      name = f.split('/').last
-      name.include?('.') && !name.starts_with?('!')
-    end
-  end
-
-  def self.files name
-    parts = name.split('/', 2)
-    ASSETS_DATA[parts.first.to_sym][parts[1]]
-  end
-
-  def self.compile_all
-    for ext in [:js, :css]
-      for name in ASSETS_DATA[ext].keys
-        path = LuxAssets.send(ext, name).compile
-
-        yield "#{ext}/#{name}", path if block_given?
-      end
+      files
     end
   end
 
@@ -148,6 +166,8 @@ class LuxAssets
   def compile
     @data = []
 
+    die "No files found for [#{@ext}/#{@name}]" unless @files.try(:first)
+
     for file in @files
       @data.push LuxAssets::Asset.new(file, production: true).compile
     end
@@ -155,6 +175,10 @@ class LuxAssets
     send 'compile_%s' % @ext
 
     @asset_file
+  end
+
+  def files
+    @files
   end
 
   ###

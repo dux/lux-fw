@@ -49,6 +49,9 @@ LuxCli.class_eval do
       output.puts out
     }
 
+    # create mock session
+    Lux::Current.new '/'
+
     Pry.start
   end
 end
