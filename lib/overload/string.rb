@@ -68,7 +68,7 @@ class String
   end
 
   def ends_with? suffix
-    suffix.class == String && self[-suffix.length, suffix.length] == suffix && self != suffix
+    suffix.is_a?(String) && self[-suffix.length, suffix.length] == suffix && self != suffix
    end
 
   def last(num=1)

@@ -64,7 +64,7 @@ class Lux::Application
   def target_has_action? target
     return !!
       target.class == Array ||
-      (target.class == String && target.include?('#'))
+      (target.is_a?(String) && target.include?('#'))
   end
 
   # gets only root
@@ -154,7 +154,7 @@ class Lux::Application
         end
 
         return
-      elsif route.class == String && route[0,1] == '/'
+      elsif route.is_a?(String) && route[0,1] == '/'
         # map '/skils/:skill' => 'main/skills#show'
         return match route, target
       end
@@ -230,7 +230,7 @@ class Lux::Application
       end
     end
 
-    object = ('%s_controller' % object).classify.constantize if object.class == String
+    object = ('%s_controller' % object).classify.constantize if object.is_a?(String)
 
     controller_name = "app/controllers/#{object.to_s.underscore}.rb"
     Lux.log ' %s' % controller_name

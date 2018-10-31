@@ -12,7 +12,7 @@ class Lux::Current
 
   def initialize env=nil
     env   ||= '/mock'
-    env     = ::Rack::MockRequest.env_for(env) if env.class == String
+    env     = ::Rack::MockRequest.env_for(env) if env.is_a?(String)
     request = ::Rack::Request.new env
 
     # reset page cache

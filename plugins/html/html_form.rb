@@ -12,7 +12,7 @@ Lux.plugin 'api'
 ApplicationApi.before do
   name = '[protected]:'
   params.each do |k,v|
-    params[k] = Crypt.decrypt(v.split(name, 2)[1]) if v.class == String && v.starts_with?(name)
+    params[k] = Crypt.decrypt(v.split(name, 2)[1]) if v.is_a?(String) && v.starts_with?(name)
   end
 end
 

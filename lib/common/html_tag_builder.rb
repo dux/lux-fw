@@ -19,7 +19,7 @@ class HtmlTagBuilder
     def tag name=nil, opts={}, data=nil
       # covert tag.a '.foo.bar' to class names
       # covert tag.a '#id' to id names
-      if opts.class == String
+      if opts.is_a?(String)
         case opts[0,1]
           when '.'
             opts = { class: opts.sub('.', '').gsub('.', ' ') }

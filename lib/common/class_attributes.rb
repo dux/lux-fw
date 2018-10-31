@@ -1,7 +1,7 @@
 # Defines class variable
 
 def Object.class_attribute name, default=nil, &block
-  raise ArgumentError.new('name must be symbol') unless name.class == Symbol
+  raise ArgumentError.new('name must be symbol') unless name.is_a?(Symbol)
 
   ivar = "@cattr_#{name}"
   instance_variable_set ivar, block || default

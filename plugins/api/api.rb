@@ -18,7 +18,7 @@ class Lux::Api
   class << self
     # public mount method for router
     def call path, opts={}
-      if path.class == Symbol
+      if path.is_a?(Symbol)
         # TestApi.call(:foo, email: '...')
         new.call path, opts
       else

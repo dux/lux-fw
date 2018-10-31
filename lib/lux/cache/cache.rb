@@ -11,7 +11,7 @@ module Lux
     # Lux.cache.server = :memcached
     # Lux.cache.server = Dalli::Client.new('localhost:11211', { :namespace=>Digest::MD5.hexdigest(__FILE__)[0,4], :compress => true,  :expires_in => 1.hour })
     def server= name
-      @server = if name.class == Symbol
+      @server = if name.is_a?(Symbol)
         if name == :memcached
           require 'dalli'
           Dalli::Client.new('127.0.0.1:11211', { :namespace=>Digest::MD5.hexdigest(__FILE__)[0,4], :compress => true,  :expires_in => 1.hour })

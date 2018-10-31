@@ -20,7 +20,7 @@ LuxCli.class_eval do
     puts 'Class   : %s' % data.class
     puts '-'
 
-    if data.class == String && data.include?('</body>')
+    if data.is_a?(String) && data.include?('</body>')
       require 'nokogiri'
       puts Nokogiri::XML(data, &:noblanks)
     else

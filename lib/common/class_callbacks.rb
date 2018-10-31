@@ -30,7 +30,7 @@ class Object
         if klass.instance_variable_defined?(ivar)
           mlist = klass.instance_variable_get(ivar).values
           mlist.each do |m|
-            if m.class == Symbol
+            if m.is_a?(Symbol)
               context.send m
             else
               context.instance_exec arg, &m

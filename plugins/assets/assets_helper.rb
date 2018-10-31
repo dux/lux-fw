@@ -27,7 +27,7 @@ module HtmlHelper
     # return joined assets if symbol given
     # = asset :main -> asset("css/main") + asset("js/main")
     return [asset("css/#{file}"), asset("js/#{file}")].join($/) if
-      file.class == Symbol
+      file.is_a?(Symbol)
 
     # return second link if it is defined and we are in dev mode
     return asset_include opts[:dev_file] if opts[:dev_file] && Lux.config(:compile_assets)

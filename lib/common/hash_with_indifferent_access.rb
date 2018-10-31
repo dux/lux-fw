@@ -44,7 +44,7 @@ class HashWithIndifferentAccess
   end
 
   def dig *args
-    list = args.map{ |it| it.class == Symbol ? it.to_s : it }
+    list = args.map{ |it| it.is_a?(Symbol) ? it.to_s : it }
     @data.dig *list
   end
 
