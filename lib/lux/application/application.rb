@@ -25,6 +25,16 @@ class Lux::Application
     @current = current
   end
 
+  def render
+    Lux.log "\n#{current.request.request_method.white} #{current.request.url}"
+
+    Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
+
+    main
+
+    response.render
+  end
+
   def debug
     { :@locale=>@locale, :@nav=>nav, :@subdomain=>@subdomain, :@domain=>@domain }
   end
@@ -250,6 +260,7 @@ class Lux::Application
   def main
     begin
       catch(:done) do
+        deliver_static_assets
         Object.class_callback :before, self
         Object.class_callback :routes, self
       end
@@ -260,14 +271,15 @@ class Lux::Application
     end
   end
 
-  def render
-    Lux.log "\n#{current.request.request_method.white} #{current.request.url}"
+  def deliver_static_assets
+    return if body? || !Lux.config(:serve_static_files)
 
-    Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
+    ext = request.path.split('.').last
+    return unless ext.length > 1 && ext.length < 5
+    file = Lux::Response::File.new request.path.sub('/', ''), inline: true
 
-    main
-
-    response.render
+    file.send if file.is_static_file?
   end
+
 end
 

@@ -13,6 +13,7 @@ class Object
     desc ||= 'died without desc'
     desc = '%s: %s' % [exp_object.class, desc] if exp_object
     puts desc.red
+    puts caller.slice(0, 10)
     raise desc
   end
 

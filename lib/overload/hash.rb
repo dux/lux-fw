@@ -11,6 +11,7 @@ class Hash
     HashWithIndifferentAccess.new(self)
   end
 
+  # readonly hash with .to_h
   def to_readonly name=nil
     Class.new.tap do |c|
       c.define_singleton_method(:to_h) do

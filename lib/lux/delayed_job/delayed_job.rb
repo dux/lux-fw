@@ -10,6 +10,10 @@ module Lux::DelayedJob
     die 'No adapter %s not found' % adapter
   end
 
+  def server
+    @server
+  end
+
   def push object, method_to_call=nil
     die "No DelayedJob server defined" unless @server
     @server.push [object, method_to_call]

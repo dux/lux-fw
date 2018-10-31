@@ -25,6 +25,10 @@ module Lux
       fetch('cache-test') { true }
     end
 
+    def server
+      @server
+    end
+
     def read key
       return nil if (Lux.current.no_cache? rescue false)
       @server.get(key)

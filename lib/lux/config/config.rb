@@ -9,50 +9,6 @@ class Lux::Config
   class_callback :after_boot
 
   boot do
-    # Show server errors to a client
-    Lux.config.dump_errors ||= false
-
-    # Log debug output to stdout
-    Lux.config.log_to_stdout ||= false
-
-    # Automatic code reloads in development
-    Lux.config.auto_code_reload ||= false
-
-    # Default error logging
-    Lux.config.error_logger ||= proc do |error|
-      ap [error.class, error.message, Lux.error.split_backtrace(error)]
-
-      'no-key'
-    end
-
-    # Default mail logging
-    Lux.config.on_mail ||= proc do |mail|
-      Lux.logger(:email).info "[#{self.class}.#{@_template} to #{mail.to}] #{mail.subject}"
-    end
-
-    # default event bus error handle
-    Lux.config.on_event_bus_error ||= proc do |error, name|
-      Lux.logger(:event_bus).error '[%s] %s' % [name, error.message]
-    end
-
-    # Template to show when displaying unhandled server side errors
-    Lux.config.server_error_template ||= proc do |text|
-      text = text.to_s.gsub('<', '&lt;')
-      text = text.to_s.gsub($/,'<br />')
-
-      %[<html>
-          <head>
-            <title>Server error (#{Lux.current.response.status})</title>
-          </head>
-          <body style="background:#fff; font-size:12pt; font-family: Arial; padding: 20px;">
-            <h3>HTTP error #{Lux.current.response.status} in #{Lux.config.app.name}</h3>
-            <pre style="color:red; padding:10px; background-color: #eee; border: 1px solid #ccc; font-family:'Lucida console'; line-height: 15pt;">#{text}</pre>
-            <br>
-            <a href="https://httpstatuses.com/#{Lux.current.response.status}" target="http_error">more info on http error</a>
-          </body>
-        </html>]
-    end
-
     # app should not start unless config is loaded
     Lux.config.lux_config_loaded = true
   end
@@ -125,9 +81,7 @@ class Lux::Config
     end
 
     def start!
-      c = new
-      Object.class_callback :boot, c
-
+      Object.class_callback :boot, new
       start_info $lux_start_time
     end
 
@@ -136,10 +90,10 @@ class Lux::Config
 
       production_mode = true
       production_opts = [
-        [:compile_assets,     false],
-        [:auto_code_reload,   false],
-        [:dump_errors, false],
-        [:log_to_stdout,      false],
+        [:compile_assets,   false],
+        [:auto_code_reload, false],
+        [:dump_errors,      false],
+        [:log_to_stdout,    false],
       ]
 
       opts = production_opts.map do |key, production_value|
@@ -166,6 +120,71 @@ class Lux::Config
       @@load_info = info.join($/)
 
       print @@load_info if start
+    end
+
+    def init!
+      # Show server errors to a client
+      Lux.config.dump_errors = Lux.dev?
+
+      # Log debug output to stdout
+      Lux.config.log_to_stdout = Lux.dev?
+
+      # Automatic code reloads in development
+      Lux.config.auto_code_reload = Lux.dev?
+
+      # Runtime compile js and css assets
+      Lux.config.compile_assets = Lux.dev?
+
+      Lux.config.session_cookie_domain = false
+      Lux.config.asset_root            = false
+
+      ###
+
+      if ENV['LUX_MODE'].to_s.downcase == 'log'
+        Lux.config.dump_errors      = false
+        Lux.config.auto_code_reload = false
+        Lux.config.compile_assets   = false
+      end
+
+      ###
+
+      # Default error logging
+      Lux.config.error_logger = proc do |error|
+        ap [error.class, error.message, Lux.error.split_backtrace(error)]
+
+        'no-key'
+      end
+
+      # Default mail logging
+      Lux.config.on_mail = proc do |mail|
+        Lux.logger(:email).info "[#{self.class}.#{@_template} to #{mail.to}] #{mail.subject}"
+      end
+
+      # default event bus error handle
+      Lux.config.on_event_bus_error = proc do |error, name|
+        Lux.logger(:event_bus).error '[%s] %s' % [name, error.message]
+      end
+
+      # server static files
+      Lux.config.serve_static_files = true
+
+      # Template to show when displaying unhandled server side errors
+      Lux.config.server_error_template = proc do |text|
+        text = text.to_s.gsub('<', '&lt;')
+        text = text.to_s.gsub($/,'<br />')
+
+        %[<html>
+            <head>
+              <title>Server error (#{Lux.current.response.status})</title>
+            </head>
+            <body style="background:#fff; font-size:12pt; font-family: Arial; padding: 20px;">
+              <h3>HTTP error #{Lux.current.response.status} in #{Lux.config.app.name}</h3>
+              <pre style="color:red; padding:10px; background-color: #eee; border: 1px solid #ccc; font-family:'Lucida console'; line-height: 15pt;">#{text}</pre>
+              <br>
+              <a href="https://httpstatuses.com/#{Lux.current.response.status}" target="http_error">more info on http error</a>
+            </body>
+          </html>]
+      end
     end
   end
 

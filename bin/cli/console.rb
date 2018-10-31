@@ -10,6 +10,7 @@ class Object
   # show method info
   # show User, :secure_hash
   def show klass, m
+    klass = klass.class unless klass.respond_to?(:new)
     el = klass.instance_method(m)
     puts el.source_location.join(':').yellow
     puts '-'
@@ -17,6 +18,9 @@ class Object
     nil
   end
 end
+
+
+ARGV[0] = 'console' if ARGV[0] == 'c'
 
 LuxCli.class_eval do
   desc :console, 'Start console'

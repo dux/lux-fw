@@ -45,15 +45,23 @@ module Lux
   end
 
   def env key=nil
-    return ENV['RACK_ENV'] unless key
-    die "ENV['#{key}'] not found" if ENV[key].nil?
-    ENV[key]
+    if key
+      value = ENV[key]
+      die "ENV['#{key}'] not found" if value.nil?
+      value
+    else
+      ENV['RACK_ENV']
+    end
   end
 
   def config key=nil
-    return CONFIG unless key
-    die 'Lux.config.%s not found' % key if CONFIG[key].nil?
-    CONFIG[key].kind_of?(Proc) ? CONFIG[key].call() : CONFIG[key]
+    if key
+      value = CONFIG[key]
+      die 'Lux.config.%s not found' % key if value.nil?
+      value.kind_of?(Proc) ? value.call() : value
+    else
+      CONFIG
+    end
   end
 
   def current

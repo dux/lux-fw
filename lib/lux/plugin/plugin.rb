@@ -64,6 +64,10 @@ module Lux::Plugin
       .map { |it| it[:folder] }
   end
 
+  def keys
+    @plugins.keys
+  end
+
   # # Lux::Plugin.files 'city'
   # # Lux::Plugin.files 'city', ['js', 'coffee']
   # def files *args
