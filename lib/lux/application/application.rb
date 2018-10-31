@@ -236,11 +236,7 @@ class Lux::Application
     Lux.log ' %s' % controller_name
     Lux.current.files_in_use controller_name
 
-    if action
-      object.action action.to_sym
-    else
-      object.call
-    end
+    object.action action.to_sym
 
     unless response.body
       Lux.error 'Lux cell "%s" called via route "%s" but page body is not set' % [object, nav.root]

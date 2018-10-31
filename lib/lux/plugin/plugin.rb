@@ -28,6 +28,8 @@ module Lux::Plugin
   def load name:, folder: nil, namespace: :main
     name = name.to_s
 
+    return if @plugins[name]
+
     folder ||= Proc.new do
       folders = [Lux.fw_root.to_s, './lib', '.']
         .map { |f| f+'/plugins'}

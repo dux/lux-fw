@@ -1,3 +1,5 @@
+Lux.plugin 'html'
+
 require_relative 'view_cell'
 
 # make cell available in helpers

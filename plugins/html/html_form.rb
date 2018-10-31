@@ -7,6 +7,8 @@
 #   .custom= f.input :email
 #   = f.submit 'Save'
 
+Lux.plugin 'api'
+
 ApplicationApi.before do
   name = '[protected]:'
   params.each do |k,v|

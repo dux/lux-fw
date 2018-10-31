@@ -101,3 +101,4 @@ class Lux::Helper
   end
 
 end
+
