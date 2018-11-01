@@ -1,5 +1,5 @@
 class Integer
-  def pluralize(desc)
+  def pluralize desc
     if self == 0
       "no #{desc.to_s.pluralize}"
     elsif self == 1

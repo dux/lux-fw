@@ -9,7 +9,7 @@ module Lux::Plugin
         # cell can load plugin via
         # Lux.plugin __dir__
         parts = args.first.split('/')
-        name  = parts.pop
+        name  = parts.last
 
         load name: name, folder: parts.join('/')
       else
@@ -30,14 +30,9 @@ module Lux::Plugin
 
     return if @plugins[name]
 
-    folder ||= Proc.new do
-      folders = [Lux.fw_root.to_s, './lib', '.']
-        .map { |f| f+'/plugins'}
-        .map { |el| [el, name].join('/') }
+    folder ||= Lux.fw_root.join('plugins', name).to_s
 
-       folders.find { |dir| Dir.exist?(dir) } ||
-        die('Plugin %s not found, looked in %s' % [name, folders.map{ |el| "\n #{el}" }.join(', ')])
-    end.call
+    die(%{Plugin "#{name}" not found in "#{folder}"}) unless Dir.exist?(folder)
 
     @plugins[name] ||= { namespace: namespace, folder: folder }
 
@@ -55,6 +50,10 @@ module Lux::Plugin
     data.to_opts! :namespace, :folder
   end
 
+  def keys
+    @plugins.keys
+  end
+
   # get all name => folder hash for plugins in namespace
   def namespace name
     name = name.to_sym
@@ -63,23 +62,5 @@ module Lux::Plugin
       .select { |plugin| plugin[:namespace] == name }
       .map { |it| it[:folder] }
   end
-
-  def keys
-    @plugins.keys
-  end
-
-  # # Lux::Plugin.files 'city'
-  # # Lux::Plugin.files 'city', ['js', 'coffee']
-  # def files *args
-  #   plugin = get args.shift
-  #   files  = Dir["#{plugin[:folder]}/**/*"]
-
-  #   if args.first
-  #     types  = args.flatten.map(&:to_s)
-  #     files.select { |it| types.include?(it.split('.').last) }
-  #   else
-  #     files
-  #   end
-  # end
 
 end

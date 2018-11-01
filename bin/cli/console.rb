@@ -12,7 +12,7 @@ class Object
   def show klass, m
     klass = klass.class unless klass.respond_to?(:new)
     el = klass.instance_method(m)
-    puts el.source_location.join(':').yellow
+    puts el.source_location.or([]).join(':').yellow
     puts '-'
     puts el.source
     nil

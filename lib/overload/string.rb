@@ -1,4 +1,8 @@
 class String
+  def constantize
+    Object.const_get('::'+self)
+  end
+
   # simple markdown
   def as_html
     self.gsub($/, '<br />')

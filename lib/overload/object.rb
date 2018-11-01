@@ -1,5 +1,27 @@
 class Object
 
+  def self.const_missing klass
+    file  = klass.to_s.tableize.singularize
+    paths = [
+      'models',
+      'lib',
+      'lib/vendor',
+      'vendor',
+      file.split('_').last.pluralize
+    ].map  { |it| './app/%s/%s.rb' % [it, file] }
+
+    klass_file = paths.find { |it| File.exist?(it) } or
+      raise NameError.new('Can not find and autoload class "%s", looked in %s' % [klass, paths.map{ |it| "\n#{it}" }.join('')])
+
+    # puts '* autoload: %s from %s' % [file, klass_file]
+
+    require klass_file
+
+    Object.const_get(klass)
+  end
+
+  ###
+
   def or _or
     self.blank? || self == 0 ? _or : self
   end
@@ -66,13 +88,4 @@ class Object
     Hash[instance_variables.map { |name| [name, instance_variable_get(name)] } ]
   end
 end
-
-# if we dont have awesome print in prodction, define mock
-method(:ap) rescue Proc.new do
-  class Object
-    def ap(*args)
-      puts args
-    end
-  end
-end.call
 

@@ -1,5 +1,5 @@
 LuxCli.class_eval do
-  desc :secrets, 'Show and compile secrets'
+  desc :secrets, 'Edit, show and compile secrets'
   def secrets
     require 'lux-fw'
 

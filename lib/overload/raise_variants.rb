@@ -63,3 +63,15 @@ class Object
     nil
   end
 end
+
+###
+
+# if we dont have awesome print in prodction, define mock
+method(:ap) rescue Proc.new do
+  class Object
+    def ap(*args)
+      puts args
+    end
+  end
+end.call
+

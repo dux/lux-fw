@@ -1,5 +1,5 @@
 LuxCli.class_eval do
-  desc :stats, 'Print routes'
+  desc :routes, 'Print routes'
   def routes
     require './config/application'
 
