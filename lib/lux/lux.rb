@@ -3,7 +3,7 @@
 require_relative '../common/class_callbacks'
 require_relative 'cache/cache'
 
-module Lux
+module ::Lux
   extend self
 
   ENV_PROD       = ENV['RACK_ENV'] == 'production' unless defined?(ENV_PROD)
@@ -123,7 +123,7 @@ module Lux
   end
 
   def start
-    puts Config.start!
+    Config.start!
   end
 
   def serve rack_handler
