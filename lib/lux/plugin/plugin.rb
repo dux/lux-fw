@@ -43,10 +43,12 @@ module Lux::Plugin
     else
       Lux::Config.require_all(folder)
     end
+
+    @plugins[name]
   end
 
   def get name
-    data = @plugins[name.to_s] || die("Plugin %s not loaded")
+    data = @plugins[name.to_s] || die('Plugin "%s" not loaded' % name)
     data.to_opts! :namespace, :folder
   end
 
