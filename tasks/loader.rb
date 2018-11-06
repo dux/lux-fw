@@ -4,7 +4,7 @@ def run what
 end
 
 def die what
-  puts what.red
+  puts '%s (%s)' % [what.red. caller[0]]
   exit
 end
 
@@ -22,34 +22,12 @@ end
 
 ###
 
-task :app do
+task :env do
   require './config/application'
 end
 
-task :env do
-  require './config/environment'
-end
-
 task :default do
-  # system 'rake -T'
-  # ruby_path = `which ruby`
-  # rake_path = `which rake`
-  # puts `#{ruby_path} #{rake_path} -T`
-  tasks = `rake -T`.split("\n")
-  tasks.each_with_index do |el, i|
-    num = i + 1
-    puts "#{num.to_s.rjust(3)}. #{el}"
-  end
-  print "Execute task: "
-  val = STDIN.gets.chomp.to_s.to_i
-  task = tasks[val-1].to_s.split(/\s+#/).first
-  if val == 0
-  elsif task
-    puts "Executing: #{task.yellow}"
-    system task
-  else
-    puts 'Taks not found'.red
-  end
+  puts '"rake -T" to show all tasks'
 end
 
 ###
@@ -61,6 +39,11 @@ Dotenv.load
 Bundler.require :default, ENV.fetch('RACK_ENV')
 
 tasks  = []
-tasks += Dir['%s/**/*.rake' % Lux.fw_root]
+tasks += Dir['%s/tasks/*.rake' % Lux.fw_root]
 tasks += Dir['./lib/**/*.rake']
+
+for dir in Lux.plugin.loaded.map(&:folder)
+  tasks += Dir['%s/**/*.rake' % dir]
+end
+
 tasks.each { |file| eval File.read file }
