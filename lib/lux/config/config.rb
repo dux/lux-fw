@@ -7,6 +7,7 @@ require 'yaml'
 class Lux::Config
   class_callback :boot
   class_callback :after_boot
+  class_callback :info         # called by "lux config" cli
 
   boot do
     # app should not start unless config is loaded
@@ -53,27 +54,19 @@ class Lux::Config
       end
     end
 
-    # gets last 3 changed files
-    def get_last_changed_files dir
-      `find #{dir} -type f -name "*.rb" -print0 | xargs -0 stat -f"%m %Sm %N" | sort -rn | head -n3`.split("\n").map{ |it| it.split(/\s+/).last }
-    end
-
     def live_require_check!
-      files  = get_last_changed_files './app'
-      files += get_last_changed_files '%s/lib' % Lux.fw_root
-      files += get_last_changed_files '%s/plugins' % Lux.fw_root
+      $live_require_check ||= Time.now
 
-      for file in files
-        @@mtime_cache[file] ||= 0
-        file_mtime = File.mtime(file).to_i
-        next if @@mtime_cache[file] == file_mtime
+      changed_files = $LOADED_FEATURES
+        .select{ |f| f.include?('/app/') || f.include?('lux') }
+        .select {|f| File.mtime(f) > $live_require_check }
 
-        Lux.log ' Reloaded: %s' % file.split(Lux.root.to_s).last.red if @@mtime_cache[file] > 0
-        @@mtime_cache[file] = file_mtime
+      for file in changed_files
+        Lux.log ' Reloaded: %s' % file.split(Lux.root.to_s).last.red
         load file
       end
 
-      true
+      $live_require_check = Time.now
     end
 
     def ram
@@ -119,7 +112,7 @@ class Lux::Config
 
       @@load_info = info.join($/)
 
-      print @@load_info if start
+      puts @@load_info if start
     end
 
     def init!
