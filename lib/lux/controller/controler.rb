@@ -99,11 +99,6 @@ class Lux::Controller
     raise error
   end
 
-  def render_to_string name=nil, opts={}
-    opts[:render_to_string] = true
-    render name, opts
-  end
-
   def send_file file, opts={}
     Lux::Response::File.send(file, opts)
   end
@@ -138,6 +133,11 @@ class Lux::Controller
     end
   end
 
+  def render_to_string name=nil, opts={}
+    opts[:render_to_string] = true
+    render name, opts
+  end
+
   private
     # delegated to current
     define_method(:current)  { Lux.current }
@@ -150,7 +150,7 @@ class Lux::Controller
     define_method(:post?)    { request.request_method == 'POST' }
     define_method(:redirect) { |where, flash={}| current.redirect where, flash }
     define_method(:etag)     { |*args| current.response.etag *args }
-    define_method(:layout)   { |arg| @layout = arg }
+    define_method(:layout)   { |arg| current.var[:controller_layout] = arg }
 
     # called be render
     def render_resolve opts
@@ -184,7 +184,7 @@ class Lux::Controller
     def render_layout opts, page_data
       layout = opts.layout
       layout = nil   if layout.class == TrueClass
-      layout = false if @layout.class == FalseClass
+      layout = false if current.var[:controller_layout].class == FalseClass
 
       if layout.class == FalseClass
         page_data
