@@ -36,18 +36,9 @@ LuxCli.class_eval do
     puts
     puts 'plugins:'
     Lux.plugin.keys.each do |key|
-
       puts '  Lux.plugin.%s - %s' % [key.ljust(22).white, Lux.plugin.get(key).folder]
     end
 
-    puts
-    puts 'assets:'
-    for ext in LuxAssets::ASSETS_DATA.keys
-      for key, value in LuxAssets::ASSETS_DATA[ext]
-        name = '  LuxAsset.%s(:%s)' % [ext, key]
-        print name.ljust(35)
-        puts ' - %s' % value.length.pluralize(:file)
-      end
-    end
+    Object.class_callback :info, Lux::Config.new
   end
 end
