@@ -171,7 +171,6 @@ class ModelApi < ApplicationApi
       desc = v.join(', ')
 
       response.error k, desc
-      response.error desc
     end
 
     error
