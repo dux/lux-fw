@@ -21,6 +21,39 @@ Sequel::Model.dataset_module do
     return where(Sequel.lit("coalesce(%s,'')!=''" % hash_or_string)) if hash_or_string.is_a?(Symbol)
     return where(Sequel.lit(hash_or_string, *args))                  if hash_or_string.is_a?(String)
 
+    # check if we do where in a array
+    if hash_or_string.class == Hash
+      key = hash_or_string.keys.first
+
+      if model.db_schema[key][:db_type].include?('[]')
+        value = hash_or_string.values.first
+
+        if value.is_a?(Array)
+          # { skills: ['ruby', 'perl'] }, 'or'
+          # { skills: ['ruby', 'perl'] }, 'and'
+          join_type = args.first or die('Define join type for xwhere array search ("or" or "and")')
+
+          data = value.map do |v|
+            val =
+            if v.is_a?(Integer)
+              v
+            else
+              v = v.gsub(/['"]/,'')
+              v = "'%s'" % v
+            end
+
+            "%s=any(#{key})" % v
+          end
+            .join(' %s ' % join_type)
+
+          return where(Sequel.lit(data))
+        else
+          # skills: 'ruby'
+          return where(Sequel.lit("?=any(#{key})", value))
+        end
+      end
+    end
+
     q = hash_or_string.select{ |k,v| v.present? && v != 0 }
     q.keys.blank? ? self : where(q)
   end
