@@ -3,21 +3,16 @@ class Dir
   def self.folders dir
     dir = dir.to_s
 
-    files = Dir
+    Dir
       .entries(dir)
-      .drop(2)
+      .reject { |el| ['.', '..'].include?(el) }
       .select { |el| File.directory?([dir, el].join('/')) }
-
-    # call block on each if block given
-    files.each { |dir| yield(dir) } if block_given?
-
-    files
   end
 end
 
 class Pathname
   # Lux.fw_root.join('plugins').folders do |folder| ...
   def folders &block
-    Dir.folders(self.to_s, &block)
+    Dir.folders(to_s, &block)
   end
 end
