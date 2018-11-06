@@ -117,7 +117,7 @@ class Lux::Error < StandardError
       end
 
       name ||= 'Undefined name'
-      msg    = error.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
+      msg    = error.message.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
 
       dmp = split_backtrace error
 
@@ -129,7 +129,7 @@ class Lux::Error < StandardError
         <pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;">
         <b style="font-size:110%;">#{name}</b>
 
-        <b>#{msg}</b>
+        <b>#{error}: #{msg}</b>
 
         #{dmp[0].join("\n")}
 
