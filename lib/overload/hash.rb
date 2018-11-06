@@ -41,6 +41,10 @@ class Hash
     FreeStruct.new copy
   end
 
+  def to_struct!
+    to_opts! *keys
+  end
+
   def tag node=nil, text=nil
     HtmlTagBuilder.build self, node, text
   end

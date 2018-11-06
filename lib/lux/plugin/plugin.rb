@@ -34,7 +34,11 @@ module Lux::Plugin
 
     die(%{Plugin "#{name}" not found in "#{folder}"}) unless Dir.exist?(folder)
 
-    @plugins[name] ||= { namespace: namespace, folder: folder }
+    @plugins[name] ||= {
+      name:      name,
+      namespace: namespace,
+      folder:    folder
+    }.to_struct!
 
     base = '%s/%s.rb' % [name, folder]
 
@@ -50,6 +54,10 @@ module Lux::Plugin
   def get name
     data = @plugins[name.to_s] || die('Plugin "%s" not loaded' % name)
     data.to_opts! :namespace, :folder
+  end
+
+  def loaded
+     @plugins.values
   end
 
   def keys
