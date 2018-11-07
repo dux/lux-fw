@@ -263,7 +263,7 @@ class Lux::Application
       end
 
       if id
-        current.var.id = id
+        current.nav.id = id
         action = nav.shift || :show
       else
         action = nav.shift || :index
@@ -274,7 +274,7 @@ class Lux::Application
 
     controller_name = "app/controllers/#{object.to_s.underscore}.rb"
     Lux.log ' %s' % controller_name
-    Lux.current.files_in_use controller_name
+    current.files_in_use controller_name
 
     object.action action.to_sym
 

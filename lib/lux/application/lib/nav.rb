@@ -1,8 +1,8 @@
 # experiment for different nav in rooter
 
 class Lux::Application::Nav
-  attr_accessor :path
-  attr_reader :original, :subdomain, :domain, :id
+  attr_accessor :path, :id
+  attr_reader :original, :subdomain, :domain
 
   # acepts path as a string
   def initialize request
