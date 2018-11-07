@@ -52,12 +52,12 @@ module Lux::Plugin
     @plugins
   end
 
-  # get all name => folder hash for plugins in namespace
-  def folders name=nil
+  # get all folders in a namespace
+  def folders namespace=:main
     name = name.to_sym
 
     list = @plugins.values
-    list.select { |it| it.namespace == name } if name
+    list.select { |it| it.namespace == namespace }
     list.map { |it| it.folder }
   end
 
