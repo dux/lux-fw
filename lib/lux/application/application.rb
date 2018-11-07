@@ -39,8 +39,14 @@ class Lux::Application
     { :@locale=>@locale, :@nav=>nav, :@subdomain=>@subdomain, :@domain=>@domain }
   end
 
-  def error *args
-    args.first.nil? ? Lux::AutoRaiseError : Lux::Error.report(*args)
+  def error code=nil, message=nil
+    if code
+      error = Lux::Error.new code
+      error.message = message if message
+      raise error
+    else
+      Lux::AutoRaiseError
+    end
   end
 
   def response body=nil, status=nil
