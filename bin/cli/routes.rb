@@ -5,6 +5,9 @@ LuxCli.class_eval do
 
     # overload route methods to print routes
     ::Lux::Application.class_eval do
+      def error *args
+      end
+
       def indent value=nil
         @indent ||= 0
         @indent += value if value
@@ -14,35 +17,39 @@ LuxCli.class_eval do
       def show_route route, target
         route = route.keys.first if route.is_a?(Hash)
 
-        route       = route.to_s
         controller  = nil
 
-        if target.is_a?(String)
+        if route.is_a?(Array)
+          for rut in route
+            rut = rut.to_s
+            rut = [@prefix, rut].join('/') if @prefix
+            print "#{indent}/#{rut}".ljust(50)
+            puts ["#{target}_controller".classify, rut].join ' # '
+          end
+          return
+        elsif target.is_a?(String)
           target     = target.split('#')
           target[0] += '_controller'
           target[0]  = target[0].classify
           controller = target[0].constantize rescue nil
           target     = target.join(' # ')
-        elsif target.is_a?(Array)
-
         else
           controller  = target
           target      = target
         end
 
-        print indent
         route = route.to_s
         route = [@prefix, route].join('/') if @prefix
         route = '/%s' % route unless route.include?('/')
         route += '/*' unless target.include?('#')
         route = "#{@prefix}/*" if route .include?('#')
-        print route.ljust(45 - indent.length)
-        print target.ljust(45)
+        print "#{indent}#{route}".ljust(50)
+        print target.ljust(50)
 
         if controller && !target.include?('#')
           puts
           for el in controller.instance_methods(false)
-            print " #{route.to_s.sub('/*', '/')}#{el}".ljust(45)
+            print "  #{route.to_s.sub('/*', '/')}#{el}".ljust(50)
             puts [target, el].join(' # ')
           end
         else
