@@ -3,57 +3,41 @@ module Lux::Plugin
 
   @plugins = {}
 
-  def loader *args
-    if [String, Symbol].include?(args.first.class)
-      if args.first.to_s.include?('/')
-        # cell can load plugin via
-        # Lux.plugin __dir__
-        parts = args.first.split('/')
-        name  = parts.last
-
-        load name: name, folder: parts.join('/')
-      else
-        # plain string is reference to name
-        # Lux.plugin 'favicon'
-        load name: args.first
-      end
-    else
-      # pass arguents hash
-      # Lux.plugin name: 'city', folder: './app/foo/bar'
-      load *args
-    end
-  end
-
   # load specific plugin
-  def load name:, folder: nil, namespace: :main
-    name = name.to_s
+  # Lux.plugin :foo
+  # Lux.plugin 'foo/bar'
+  # Lux.plugin.folders
+  def load arg
+    arg = arg.to_s if arg.is_a?(Symbol)
 
-    return if @plugins[name]
-
-    folder ||= Lux.fw_root.join('plugins', name).to_s
-
-    die(%{Plugin "#{name}" not found in "#{folder}"}) unless Dir.exist?(folder)
-
-    @plugins[name] ||= {
-      name:      name,
-      namespace: namespace,
-      folder:    folder
-    }.to_struct!
-
-    base = '%s/%s.rb' % [name, folder]
-
-    if File.exist?(base)
-      load base
-    else
-      Lux::Config.require_all(folder)
+    if arg.is_a?(String)
+      arg = arg.include?('/') ? { folder: arg } : { name: arg }
     end
 
-    @plugins[name]
+    opts          = arg.to_opts! :name, :folder, :namespace
+    opts.name   ||= opts.folder.split('/').last
+    opts.name     = opts.name.to_s
+    opts.folder ||= Lux.fw_root.join('plugins', opts.name).to_s
+
+    return @plugins[opts.name] if @plugins[opts.name]
+
+    die(%{Plugin "#{opts.name}" not found in "#{opts.folder}"}) unless Dir.exist?(opts.folder)
+
+    @plugins[opts.name] ||= opts
+
+    base = Pathname.new(opts.folder).join(opts.name, '.rb')
+
+    if base.exist?
+      require base.to_s
+    else
+      Lux::Config.require_all(opts.folder)
+    end
+
+    @plugins[opts.name]
   end
 
   def get name
-    data = @plugins[name.to_s] || die('Plugin "%s" not loaded' % name)
-    data.to_opts! :namespace, :folder
+    @plugins[name.to_s] || die('Plugin "%s" not loaded' % name)
   end
 
   def loaded
@@ -64,13 +48,17 @@ module Lux::Plugin
     @plugins.keys
   end
 
+  def plugins
+    @plugins
+  end
+
   # get all name => folder hash for plugins in namespace
-  def namespace name
+  def folders name=nil
     name = name.to_sym
 
-    @plugins
-      .select { |plugin| plugin[:namespace] == name }
-      .map { |it| it[:folder] }
+    list = @plugins.values
+    list.select { |it| it.namespace == name } if name
+    list.map { |it| it.folder }
   end
 
 end
