@@ -39,6 +39,8 @@ end
 
 ###
 
+trap("SIGINT") { Cli.die 'ctrl+c exit' }
+
 LuxCli = Class.new Thor
 
 Dir['%s/bin/cli/*.rb' % LUX_ROOT].each { |it| load it }

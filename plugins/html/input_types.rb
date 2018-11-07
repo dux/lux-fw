@@ -135,7 +135,7 @@ class HtmlInput
     ret = %[
     <script>
        window.draw_tag = window.draw_tag || function (id) {
-        tags = $.map($('#'+id).val().split(/\s*,\s*/), function(el) {
+        tags = $.map(String($('#'+id).val()).split(/\s*,\s*/), function(el) {
           val = el.replace(/\s+/,'-');
           return val ? '<span class="label label-default">'+val+'</span> ' : ''
         });

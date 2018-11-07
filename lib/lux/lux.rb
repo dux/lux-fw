@@ -18,7 +18,7 @@ module ::Lux
   BACKGROUND_THREADS ||= []
   # Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
 
-  define_method(:cli?)         { $0 == 'pry' || $0.end_with?('/run.rb') || $0.end_with?('/rspec') || ENV['RACK_ENV'] == 'test' }
+  define_method(:cli?)         { !@rackup_start }
   define_method(:test?)        { ENV['RACK_ENV'] == 'test' }
   define_method(:prod?)        { ENV_PROD }
   define_method(:production?)  { ENV_PROD }
@@ -80,13 +80,17 @@ module ::Lux
     data ? Lux::Error.render(data) : Lux::Error
   end
 
+  # simple log to stdout
   def log what=nil
     return unless Lux.config(:log_to_stdout)
     puts what || yield
   end
 
+  # simple interface to plugins
+  # Lux.plugin :foo
+  # Lux.plugin
   def plugin *args
-    args.first ? Lux::Plugin.loader(*args) : Lux::Plugin
+    args.first ? Lux::Plugin.load(*args) : Lux::Plugin
   end
 
   # if block given, simple new thread bg job
@@ -113,33 +117,38 @@ module ::Lux
     end
   end
 
+  # load rake tasks + including ones in plugins
   def load_tasks
     require_relative '../../tasks/loader.rb'
   end
 
+  # in memory cache, used on app init, no need for Mutex
   def ram_cache key
     MCACHE[key] = nil if Lux.config(:compile_assets)
     MCACHE[key] ||= yield
   end
 
+  # initialize the Lux application
   def start
     Config.start!
   end
 
+  # must be called when serving web pages from rackup
   def serve rack_handler
+    @rackup_start = true
     Object.class_callback :after_boot, Lux::Config.new, rack_handler
-
     rack_handler.run self
   end
 
-  def speed loops=1
+  # simple block to calc block execution speed
+  def speed
     render_start = Time.monotonic
-    loops.times { yield }
+    yield
     num = (Time.monotonic - render_start) * 1000
-    num = "#{num.round(1)} ms"
-    loops == 1 ? num : "Done #{loops.to_s.sub(/(\d)(\d{3})$/,'\1s \2')} loops in #{num}"
+    '%s ms' % num.round(1)
   end
 
+  # Lux.logger(:foo).warn 'bar'
   def logger name=nil
     name ||= ENV.fetch('RACK_ENV').downcase
 

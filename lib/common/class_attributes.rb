@@ -6,10 +6,12 @@ def Object.class_attribute name, default=nil, &block
   ivar = "@cattr_#{name}"
   instance_variable_set ivar, block || default
 
+  define_singleton_method('%s=' % name) { |arg| send(name, arg) }
   define_singleton_method(name) do |arg=:_undefined|
     # define and set if argument given
     if arg != :_undefined
       instance_variable_set ivar, arg
+      return arg
     end
 
     # find value and return

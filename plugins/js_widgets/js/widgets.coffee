@@ -58,14 +58,14 @@
     for i, w of @ref
       delete @ref[i] unless document.body.contains(w.node)
 
-  init: ->
+  init: (data) ->
     @clear()
 
-    while node = @get_next_widget_node()
+    while node = @get_next_widget_node(data)
       @bind(node)
 
   get_next_widget_node: (root) ->
-    root  = window.document if root == undefined
+    root ||= window.document
 
     for node in root.getElementsByClassName(@css_klass)
       return node if node && !node.getAttribute('data-widget_id')
