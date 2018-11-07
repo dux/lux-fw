@@ -20,6 +20,10 @@ class RoutesTestController < Lux::Controller
   def city
     render text: 'zagreb'
   end
+
+  def nested
+    render text: 'nested'
+  end
 end
 
 ###
@@ -45,6 +49,11 @@ Lux.app do
 
     map '/test1/test2/:foo' => 'routes_test#foo'
 
+    map 'routes_test' do
+      map 'nested'
+      map 'foo-nested' => :nested
+    end
+
     response.status 404
     response.body 'not found'
   end
@@ -61,6 +70,9 @@ Lux.app do
 
     it 'should get nested routess' do
       expect(Lux.app.render('/test1/test2/bar').body).to eq 'bar'
+      expect(Lux.app.render('/nested').body).to eq 'nested'
+      expect(Lux.app.render('/foo-nested').body).to eq 'nested'
+      expect(Lux.app.render('/foo-bar-nested').body).to eq 'not found'
     end
 
     it 'should get list routess' do

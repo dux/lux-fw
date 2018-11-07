@@ -12,6 +12,8 @@ LuxCli.class_eval do
       end
 
       def show_route route, target
+        route = route.keys.first if route.is_a?(Hash)
+
         route       = route.to_s
         controller  = nil
 
@@ -20,14 +22,12 @@ LuxCli.class_eval do
           target[0] += '_controller'
           target[0]  = target[0].classify
           controller = target[0].constantize rescue nil
-          target[0]  = target[0].white
-          target[1]  = target[1].blue if target[1]
           target     = target.join(' # ')
         elsif target.is_a?(Array)
 
         else
           controller  = target
-          target      = target.to_s.white
+          target      = target
         end
 
         print indent
@@ -40,23 +40,26 @@ LuxCli.class_eval do
         print target.ljust(45)
 
         if controller && !target.include?('#')
-          print ' - '
-          print controller.instance_methods(false).join(', ').trim(60).sub('&hellip;', '...')
+          puts
+          for el in controller.instance_methods(false)
+            print " #{route.to_s.sub('/*', '/')}#{el}".ljust(45)
+            puts [target, el].join(' # ')
+          end
+        else
+          puts
         end
-
-        puts
       end
 
-      def map obj, opts={}, &block
-        if obj.is_a?(Hash)
+      def map obj, &block
+        if @target
+          target = @target.is_a?(String) && !@target.include?('#') ? @target + "##{obj}" : @target
+          show_route obj, target
+        elsif obj.is_a?(Hash)
           show_route obj.keys.first, obj.values.first
-        else
-          if block_given?
-            @target = obj
-            yield
-          else
-            show_route obj, @target
-          end
+        elsif block_given?
+          @target = obj
+          yield
+          @target = nil
         end
       end
 

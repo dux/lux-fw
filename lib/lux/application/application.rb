@@ -133,49 +133,73 @@ class Lux::Application
   end
 
   # map api: ApiController
+  # map api: 'api'
+  # map [:api, ApiController]
+  # map 'main/root' do
+  # map [:login, :signup] => 'main/root'
   # map Main::RootController do
-  #   action :about
-  #   action '/verified-user'
-  # end
-  # map :foo do
-  #   map Foo::BarController do
-  #     map :bar
-  #   end
+  #   map :about
+  #   map '/verified-user'
   # end
   def map route_object
-    Lux.error 'Route map cant accept blocks' if block_given?
-
+    klass  = nil
     route  = nil
-    target = nil
+    action = nil
+
+    # map 'root' do
+    #   ...
+    if block_given?
+      @lux_action_target = route_object
+      yield
+      @lux_action_target = nil
+      return
+    elsif @lux_action_target
+      klass  = @lux_action_target
+      route  = route_object
+      action = route_object
+
+      # map :foo => :some_action
+      if route_object.is_a?(Hash)
+        route  = route_object.keys.first
+        action = route_object.values.first
+      end
+
+      if test?(route)
+        call klass, action
+      else
+        return
+      end
+    end
 
     case route_object
     when String
+      # map 'root#call'
       call route_object
     when Hash
       route  = route_object.keys.first
-      target = route_object.values.first
+      klass  = route_object.values.first
 
       if route.class == Array
-        for el in route
-          if test?(el)
-            target += '#%s' % el unless target.include?('#')
-            call target
+        # map [:foo, :bar] => 'root'
+        for route_action in route
+          if test?(route_action)
+            call klass, route_action
           end
         end
 
         return
       elsif route.is_a?(String) && route[0,1] == '/'
         # map '/skils/:skill' => 'main/skills#show'
-        return match route, target
+        return match route, klass
       end
+    when Array
+      # map [:foo, 'main/root']
+      route, klass = *route_object
     else
-      Lux.error 'Unsupported route "%s", only Hash acepted' % route_object.to_s unless route_object.class == Hash
+      Lux.error 'Unsupported route type "%s"' % route_object.class
     end
 
-    # return if no match
-    return unless test?(route)
-
-    call target
+    test?(route) ? call(klass) : nil
   end
 
   # call :api_router
@@ -190,9 +214,9 @@ class Lux::Application
     # log original app caller
     root    = Lux.root.join('app/').to_s
     sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
-    Lux.log ' Routed from: %s' % sources.join(' ') if sources.first
+    action  = action.gsub('-', '_').to_sym if action && action.is_a?(String)
 
-    Lux.error 'Call action must be "Symbol"' if action && !action.is_a?(Symbol)
+    Lux.log ' Routed from: %s' % sources.join(' ') if sources.first
 
     case object
       when Symbol
