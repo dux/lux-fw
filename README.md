@@ -9,17 +9,25 @@ created by @dux in 2017
 
 ## How to start
 
+Add `lux-fw` to gemfile.
+
+Define `config.ru` file (if you define `$lux_start_time` you will get speed load statistics)
+```
+$lux_start_time = Time.now
+require './config/application'
+Lux.serve self
+```
+
 * define Lux.app do ...
 * use Controllers to render templates
-* example to come ...
+* example to come
 
 ## Lux components
 
-* [api](lib/lux/api)                 - api handler
 * [application](lib/lux/application) - main application controller and router
-* [cache](lib/lux/cache)             - Lux.cache mimics Rails.cache
-* [cell](lib/lux/cell)               - Lux view controllers
+* [cell](lib/lux/controller)         - Lux view controllers
 * [config](lib/lux/config)           - config loader
+* [cache](lib/lux/cache)             - Lux.cache mimics Rails.cache
 * [current](lib/lux/current)         - main state object
 * [delayed_job](lib/lux/delayed_job) - experimental delayed job interface
 * [error](lib/lux/error)             - in case of error
@@ -27,6 +35,7 @@ created by @dux in 2017
 * [mailer](lib/lux/mailer)           - mailers
 * [response](lib/lux/response)       - response
 * [template](lib/lux/template)       - server template rendering logic
+* [api](lib/plugins/api)             - simple api handler
 
 ## Example
 
@@ -54,17 +63,18 @@ end
 Lux.app.routes do
   root   RootController
 
-  action foo: RootController
+  map  foo: 'root#index'
 
-  map    bar: RootController
+  map  bar: 'root' # /bar/baz => root#baz
 
-  map RootController do
-    map :baz
+  map 'root' do
+    map :foo     # /foo => root#foo
+    map :baz     # /baz => root#baz
   end
 end
-
-run Lux
 ```
+
+More examples https://github.com/dux/lux-fw/tree/master/lib/lux/application
 
 `puma -p 3000`
 

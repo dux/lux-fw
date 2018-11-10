@@ -7,7 +7,7 @@ Alias - `Lux.cache`
 use RAM cache in development, as default
 
 ```
-Lux::Cache.server = :ram
+Lux::Cache.server = :memcached
 ```
 
 You can use memcached or redis in production

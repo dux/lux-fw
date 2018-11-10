@@ -54,8 +54,7 @@ class Mailer < Lux::Mailer
   def raw to:, subject:, body:
     mail.subject = subject
     mail.to      = to
-
-    @body = body.as_html
+    mail.body    = body.as_html
   end
 
   # send mail as

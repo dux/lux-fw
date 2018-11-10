@@ -14,10 +14,11 @@ module Lux::Plugin
       arg = arg.include?('/') ? { folder: arg } : { name: arg }
     end
 
-    opts          = arg.to_opts! :name, :folder, :namespace
-    opts.name   ||= opts.folder.split('/').last
-    opts.name     = opts.name.to_s
-    opts.folder ||= Lux.fw_root.join('plugins', opts.name).to_s
+    opts           = arg.to_opts! :name, :folder, :namespace
+    opts.name    ||= opts.folder.split('/').last
+    opts.name      = opts.name.to_s
+    opts.folder  ||= Lux.fw_root.join('plugins', opts.name).to_s
+    opts.namespace = [opts.namespace] unless opts.namespace.is_?(Array)
 
     return @plugins[opts.name] if @plugins[opts.name]
 
@@ -57,7 +58,7 @@ module Lux::Plugin
     name = name.to_sym
 
     list = @plugins.values
-    list.select { |it| it.namespace == namespace }
+    list.select { |it| it.namespace.include?(namespace) }
     list.map { |it| it.folder }
   end
 
