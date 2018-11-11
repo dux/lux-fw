@@ -2,7 +2,7 @@
 
 class Lux::Application::Nav
   attr_accessor :path, :id
-  attr_reader :original, :subdomain, :domain
+  attr_reader :original, :subdomain, :domain, :format
 
   # acepts path as a string
   def initialize request

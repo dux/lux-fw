@@ -291,11 +291,11 @@ class Lux::Application
     begin
       catch(:done) do
         deliver_static_assets
-        Object.class_callback :before, self
-        Object.class_callback :routes, self
+        class_callback :before
+        class_callback :routes
       end
 
-      catch(:done) { Object.class_callback :after, self }
+      catch(:done) { class_callback :after }
     rescue => e
       catch(:done) { on_error(e) } unless current.response.body?
     end

@@ -6,7 +6,7 @@ require 'yaml'
 
 class Lux::Config
   class_callback :boot
-  class_callback :after_boot
+  class_callback :web_boot
   class_callback :info         # called by "lux config" cli
 
   boot do
@@ -14,7 +14,7 @@ class Lux::Config
     Lux.config.lux_config_loaded = true
   end
 
-  after_boot do |rack_handler|
+  web_boot do |rack_handler|
     # deafult host is required
     unless Lux.config.host.to_s.include?('http')
       raise 'Invalid "Lux.config.host"'

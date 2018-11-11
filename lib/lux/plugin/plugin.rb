@@ -18,7 +18,7 @@ module Lux::Plugin
     opts.name    ||= opts.folder.split('/').last
     opts.name      = opts.name.to_s
     opts.folder  ||= Lux.fw_root.join('plugins', opts.name).to_s
-    opts.namespace = [opts.namespace] unless opts.namespace.is_?(Array)
+    opts.namespace = [opts.namespace] unless opts.namespace.is_a?(Array)
 
     return @plugins[opts.name] if @plugins[opts.name]
 

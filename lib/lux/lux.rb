@@ -136,7 +136,7 @@ module ::Lux
   # must be called when serving web pages from rackup
   def serve rack_handler
     @rackup_start = true
-    Object.class_callback :after_boot, Lux::Config.new, rack_handler
+    Object.class_callback :web_boot, Lux::Config, rack_handler
     rack_handler.run self
   end
 

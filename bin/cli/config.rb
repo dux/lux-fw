@@ -39,6 +39,7 @@ LuxCli.class_eval do
       puts '  Lux.plugin.%s - %s' % [key.ljust(22).white, Lux.plugin.get(key).folder]
     end
 
-    Object.class_callback :info, Lux::Config.new
+    Lux::Config.class_callback :info
+    # Object.class_callback :info, Lux::Config.new
   end
 end

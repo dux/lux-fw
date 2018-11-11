@@ -7,10 +7,14 @@
 # end
 # before :method_name
 # instance = new
-# Object.class_callback :before, instance
-# Object.class_callback :before, instance, arg
+# instance.class_callback :before,
+# instance.class_callback :before, arg
 
 class Object
+  def class_callback name, arg=nil
+    Object.class_callback name, self, arg
+  end
+
   def self.class_callback name, context=nil, arg=nil
     ivar = "@ccallbacks_#{name}"
 
@@ -23,7 +27,7 @@ class Object
       end
 
     else
-      list = context.class.ancestors
+      list = context.respond_to?(:new) ? context.ancestors : context.class.ancestors
       list = list.slice 0, list.index(Object)
 
       list.reverse.each do |klass|
