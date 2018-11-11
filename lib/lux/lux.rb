@@ -130,6 +130,8 @@ module ::Lux
 
   # initialize the Lux application
   def start
+    Lux.config.lux_config_loaded = true
+
     Config.start!
   end
 

@@ -12,6 +12,9 @@
 # e.message => foo
 
 class Lux::Error < StandardError
+  class AutoRaise < Lux::Error
+  end
+
   # https://httpstatuses.com/
   CODE_LIST ||= {
     # 1×× Informational
@@ -94,7 +97,7 @@ class Lux::Error < StandardError
       define_singleton_method(data[:code]) do |message=nil|
         error = new status
         error.message = message if message
-        raise error if Lux::AutoRaiseError === error
+        raise error if Lux::Error::AutoRaise === error
         error
       end
     end
@@ -193,5 +196,3 @@ class Lux::Error < StandardError
   end
 end
 
-class Lux::AutoRaiseError < Lux::Error
-end

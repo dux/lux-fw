@@ -1,12 +1,7 @@
 # frozen_string_literal: true
 
-# Controllers can be called in few ways
-# Controller.call path
-# Controller.action action_name, path
-# Controller.new.action_name *args
-
 # filters stack for call
-# before, call, before_action, action, after
+# before, before_action, :action, after
 
 class Lux::Controller
   # define maser layout
@@ -92,7 +87,7 @@ class Lux::Controller
   end
 
   def error *args
-    args.first.nil? ? Lux::AutoRaiseError : Lux::Error.report(*args)
+    args.first.nil? ? Lux::Error::AutoRaise : Lux::Error.report(*args)
   end
 
   def on_error error

@@ -1,4 +1,7 @@
 class Lux::Application
+  class_callback :boot
+  class_callback :web_boot
+  class_callback :info         # called by "lux config" cli
   class_callback :before
   class_callback :after
   class_callback :routes
@@ -16,6 +19,22 @@ class Lux::Application
   define_method(:nav)      { @current.nav }
   define_method(:redirect) { |where, flash={}| @current.redirect where, flash }
   define_method(:body?)    { response.body? }
+
+  ###
+
+  web_boot do |rack_handler|
+    # deafult host is required
+    unless Lux.config.host.to_s.include?('http')
+      raise 'Invalid "Lux.config.host"'
+    end
+
+    if Lux.config(:dump_errors)
+      require 'better_errors'
+
+      rack_handler.use BetterErrors::Middleware
+      BetterErrors.editor = :sublime
+    end
+  end
 
   ###
 
@@ -45,7 +64,7 @@ class Lux::Application
       error.message = message if message
       raise error
     else
-      Lux::AutoRaiseError
+      Lux::Error::AutoRaise
     end
   end
 
@@ -77,13 +96,7 @@ class Lux::Application
     ok
   end
 
-  def target_has_action? target
-    return !!
-      target.class == Array ||
-      (target.is_a?(String) && target.include?('#'))
-  end
-
-  # gets only root
+  # matches only root
   def root target
     call target unless nav.root
   end
