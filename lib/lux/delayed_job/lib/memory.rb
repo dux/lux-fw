@@ -3,9 +3,11 @@ module Lux::DelayedJob::Memory
 
   @jobs = []
 
-  def push(data)
+  def push data
     @jobs.push data
-    Thread.new { true while Lux::DelayedJob.pop }
+
+    # delayed jobs in memory are resolved asap
+    Thread.new { true while pop }
   end
 
   def pop

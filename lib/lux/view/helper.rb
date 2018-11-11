@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
-class Lux::Helper
+require_relative 'view'
+
+class Lux::View::Helper
 
   # create helper object that cah be used in template render
   def initialize instance, *list
@@ -77,9 +79,9 @@ class Lux::Helper
     if block_given?
       name = "#{name}/layout" unless name.index('/')
 
-      Lux::Template.new(name, self).render_part { yield }
+      Lux::View.new(name, self).render_part { yield }
     else
-      Lux::Template.new(name, self).render_part
+      Lux::View.new(name, self).render_part
     end
   end
 
@@ -103,7 +105,7 @@ class Lux::Helper
 
   # helper(:main).method
   def helper *names
-    Lux::Helper.new(self, *names)
+    Lux::View::Helper.new(self, *names)
   end
 
   def once id=nil

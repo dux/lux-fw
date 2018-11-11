@@ -1,4 +1,6 @@
-class ViewCell
+require_relative 'view'
+
+class Lux::View::Cell
   class Loader
     def initialize parent
       @parent = parent

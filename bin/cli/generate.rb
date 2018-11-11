@@ -14,7 +14,7 @@ module LuxGenerate
     end
 
     template_dir = 'config/templates'
-    exit puts "Lux::Template dir #{template_dir} is not accessible" unless Dir.exists?(template_dir)
+    exit puts "Lux::View dir #{template_dir} is not accessible" unless Dir.exists?(template_dir)
 
     tpl_desc = {
       p:'api',
@@ -57,8 +57,8 @@ module LuxGenerate
       templates[type].push [path, data]
     end
 
-    # # puts  "Lux::Templates : #{templates.keys.sort.map{ |el| tpl_desc[el.to_sym] ? tpl_desc[el.to_sym].sub(el, el.upcase.yellow) : el.yellow }.join(', ')}"
-    puts  "Lux::Templates : #{templates.keys.map{ |el| "#{tpl_desc[el.to_sym]}(#{el.yellow})" }.join(', ')}"
+    # # puts  "Lux::Views : #{templates.keys.sort.map{ |el| tpl_desc[el.to_sym] ? tpl_desc[el.to_sym].sub(el, el.upcase.yellow) : el.yellow }.join(', ')}"
+    puts  "Lux::Views : #{templates.keys.map{ |el| "#{tpl_desc[el.to_sym]}(#{el.yellow})" }.join(', ')}"
     print "Execute   : "
 
     parse_templates = STDIN.gets.chomp

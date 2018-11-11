@@ -90,7 +90,7 @@ module ::Lux
   # Lux.plugin :foo
   # Lux.plugin
   def plugin *args
-    args.first ? Lux::Plugin.load(*args) : Lux::Plugin
+    args.first ? Lux::Config::Plugin.load(*args) : Lux::Config::Plugin
   end
 
   # if block given, simple new thread bg job

@@ -1,4 +1,4 @@
-module Lux::Plugin
+module Lux::Config::Plugin
   extend self
 
   @plugins = {}

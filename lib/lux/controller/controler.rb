@@ -173,7 +173,7 @@ class Lux::Controller
         template = "#{@base_template}/#{@controller_action}"
       end
 
-      Lux::Template.render_part(template, helper)
+      Lux::View.render_part(template, helper)
     end
 
     def render_layout opts, page_data
@@ -197,7 +197,7 @@ class Lux::Controller
             'layouts/%s' % @base_template.split('/')[0]
         end
 
-        Lux::Template.new(layout, helper).render_part { page_data }
+        Lux::View.new(layout, helper).render_part { page_data }
       end
     end
 
@@ -213,7 +213,7 @@ class Lux::Controller
     end
 
     def helper ns=nil
-      Lux::Helper.new self, :html, self.class.helper, ns
+      Lux::View::Helper.new self, :html, self.class.helper, ns
     end
 
     def report_not_found_error

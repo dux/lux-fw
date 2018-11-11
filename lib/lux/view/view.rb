@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 require 'thread'
 
-class Lux::Template
+class Lux::View
   @@template_cache = {}
 
   class << self
@@ -21,7 +21,7 @@ class Lux::Template
 
     @helper = if context.class == Hash
       # create helper class if only hash given
-      Lux::Helper.new(context)
+      Lux::View::Helper.new(context)
     else
       context
     end
@@ -49,7 +49,7 @@ class Lux::Template
 
     unless @template
       err  = caller.reject{ |l| l =~ %r{(/lux/|/gems/)} }.map{ |l| el=l.to_s.split(Lux.root.to_s); el[1] || l }.join("\n")
-      msg  = %[Lux::Template "#{template}.{erb,haml}" not found]
+      msg  = %[Lux::View "#{template}.{erb,haml}" not found]
       msg += %[\n\n#{err}] if Lux.config(:dump_errors)
 
       raise Lux.error msg
@@ -81,7 +81,7 @@ class Lux::Template
           yield if block_given?
         end
       rescue => e
-        data = Lux::Error.inline %[Lux::Template #{@template} render error], e
+        data = Lux::Error.inline %[Lux::View #{@template} render error], e
       end
     end
 
