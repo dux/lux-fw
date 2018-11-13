@@ -72,6 +72,8 @@ class Lux::View::Helper
       name = "#{Thread.current[:lux][:last_template_path]}/#{name}" unless name.index('/')
     end
 
+    Lux.current.files_in_use name
+
     for k, v in locals
       instance_variable_set("@_#{k}", v)
     end

@@ -46,41 +46,87 @@ Install gem with `gem install lux-fw`
 ```ruby
 require 'lux-fw'
 
-class RootController < Lux::Controller
+class Main::RootController < Lux::Controller
+  # action to perform before
+  before do do |action_name|
+    @org = Org.find @object_id if @object_id
+    # ...
+  end
+  # action to perform before
+
+  before_action do |action_name|
+    next if action_name == :index
+    # ...
+  end
+
+  ###
+
   def index
     render text: 'Hello world'
   end
 
   def foo
-    render text: 'Foo text'
+    # renders ./app/views/main/root/foo.(haml, erb)
   end
 
   def baz
-    render text: 'Baz text'
+    send_file local_file, file_name: 'local.txt'
+  end
+
+  def bar
+    render json: { data: 'Bar text' }
+  end
+
+end
+
+# app boot stack
+Lux.app do
+  # app config
+  config do
+    Lux.config.foo = :bar
+  end
+
+  # after config on app boot
+  boot do
+    # ...
   end
 end
 
-Lux.app.routes do
-  root   RootController
+# on every request, while in routing
+Lux.app do
+  # before routes resolve
+  before do
+    # ...
+  end
 
-  map  foo: 'root#index'
+  # after routes resolve
+  after do
+    # ...
+  end
 
-  map  bar: 'root' # /bar/baz => root#baz
+  routes do
+    root   RootController
 
-  map 'root' do
-    map :foo     # /foo => root#foo
-    map :baz     # /baz => root#baz
+    map  foo: 'root#index' # /foo  => 'root#index'
+
+    # similar to resources in Rails, maps adaptively
+    map  bar: 'root' # /bar        => root#index
+                     # /bar/1/baz  => root#show (current.nav.id == 1)
+                     # /bar/baz    => root#baz
+                     # /bar/1/baz  => root#baz (current.nav.id == 1)
+
+    map 'root' do
+      map :foo     # /foo => root#foo
+      map :baz     # /baz => root#baz
+    end
+
+    namespace 'foo' do
+      map baz: 'root#baz' # /foo/baz => root#baz
+    end
+
   end
 end
 ```
 
 More examples https://github.com/dux/lux-fw/tree/master/lib/lux/application
-
-`puma -p 3000`
-
-* `curl http://localhost:3000/` -> `Hello world`
-* `curl http://localhost:3000/foo` -> `Foo text`
-* `curl http://localhost:3000/bar` -> `Hello world` (maps to RootController that calls :index)
-* `curl http://localhost:3000/baz` -> `Baz text`
-
 

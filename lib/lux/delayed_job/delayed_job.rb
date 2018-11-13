@@ -3,6 +3,8 @@ module Lux::DelayedJob
 
   attr_reader :server
 
+  @server = :memory
+
   def server= name
     adapter = "Lux::DelayedJob::#{name.to_s.capitalize}"
     @server = adapter.constantize

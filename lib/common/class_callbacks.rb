@@ -27,8 +27,8 @@ class Object
       end
 
     else
-      list = context.respond_to?(:new) ? context.ancestors : context.class.ancestors
-      list = list.slice 0, list.index(Object)
+      list = context.respond_to?(:const_missing) ? context.ancestors : context.class.ancestors
+      list = list.slice 0, list.index(Object) if list.index(Object)
 
       list.reverse.each do |klass|
         if klass.instance_variable_defined?(ivar)

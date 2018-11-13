@@ -43,3 +43,38 @@ RailsHelper module has to define link_to method
 ## ViewCell
 
 View components in rails
+
+Define them like this
+
+```
+class CityCell < ViewCell
+
+  before do
+    @skill = parent { @skill }
+  end
+
+  ###
+
+  def skills
+    @city
+      .jobs
+      .skills[0,3]
+      .map{ |it| it[:name].wrap(:span, class: 'skill' ) }
+      .join(' ')
+  end
+
+  def render city
+    @city    = city
+    @country = city.country
+
+    template :city
+  end
+end
+```
+
+And call them on templates like this
+
+```
+cell.city.skills
+cell.city.render @city
+```
