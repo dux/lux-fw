@@ -14,7 +14,7 @@ module Lux::Config::Plugin
       arg = arg.include?('/') ? { folder: arg } : { name: arg }
     end
 
-    opts           = arg.to_opts! :name, :folder, :namespace
+    opts           = arg.to_opts name: String, folder: String, namespace: Symbol
     opts.name    ||= opts.folder.split('/').last
     opts.name      = opts.name.to_s
     opts.folder  ||= Lux.fw_root.join('plugins', opts.name).to_s

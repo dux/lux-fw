@@ -52,7 +52,7 @@ module Lux
 
     def fetch key, opts={}
       opts = { ttl: opts } unless opts.is_a?(Hash)
-      opts = opts.to_opts!(:ttl, :force, :log, :if)
+      opts = opts.to_opts(:ttl, :force, :log, :if)
 
       return yield if opts.if.is_a?(FalseClass)
 

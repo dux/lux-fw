@@ -23,7 +23,7 @@ class LuxStat
       .map(&:constantize)
 
     desc = list.length.pluralize(:models)
-    mcnt = list.inject(0){ |t, m| t += m.instance_methods(false).length; t }
+    mcnt = list.inject(0){ |t, m| t + m.instance_methods(false).length }
 
     list = list.map(&:to_s)
 

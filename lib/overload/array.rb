@@ -63,4 +63,5 @@ class Array
     i = string.split('').map{ |_| _.ord }.sum
     self[i % length]
   end
+
 end

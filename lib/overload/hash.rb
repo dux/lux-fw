@@ -30,19 +30,34 @@ class Hash
     end
   end
 
-  def to_opts! *keys
-    copy = keys.inject({}) { |total, key| total[key] = nil; total }
+  # {...}.to_opts :name, :age
+  # {...}.to_opts name: String, age: Integer
+  def to_opts *keys
+    if keys.first.is_a?(Hash)
+      # if given Hash check opt class types
+      keys.first.each do |key, target_class|
+        source = self[key]
 
-    self.keys.each do |key|
-      raise 'Hash key :%s is not allowed!' % key unless keys.include?(key)
-      copy[key] = self[key]
+        if target_class && !source.nil? && !source.is_a?(target_class)
+          raise ArgumentError.new(%[Expected argument :#{key} to be of type "#{target_class}" not "#{source.class}"])
+        end
+      end
+
+      keys = keys.first.keys
     end
 
-    FreeStruct.new copy
+    not_allowed = self.keys - keys
+    raise ArgumentError.new('Key :%s not allowed in option' % not_allowed.first) if not_allowed.first
+
+    FreeStruct.new keys.inject({}) { |total, key|
+      raise 'Hash key :%s is not allowed!' % key unless keys.include?(key)
+      total[key] = self[key]
+      total
+    }
   end
 
-  def to_struct!
-    to_opts! *keys
+  def to_struct
+    to_opts *keys
   end
 
   def tag node=nil, text=nil

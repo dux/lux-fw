@@ -110,7 +110,7 @@ class Lux::Controller
 
     filter :before_render
 
-    opts = opts.to_opts! :text, :html, :cache, :template, :json, :layout, :render_to_string, :data, :status, :ttl
+    opts = opts.to_opts :text, :html, :cache, :template, :json, :layout, :render_to_string, :data, :status, :ttl
 
     response.status opts.status if opts.status
 

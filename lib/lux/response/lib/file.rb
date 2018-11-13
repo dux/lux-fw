@@ -33,7 +33,7 @@ class Lux::Response::File
   # :disposition   - inline or attachment
   # :content       - raw file data
   def initialize file, in_opts={}
-    opts = in_opts.to_opts! :name, :cache, :content_type, :inline, :disposition, :content
+    opts = in_opts.to_opts :name, :cache, :content_type, :inline, :disposition, :content
     opts.disposition ||= opts.inline.class == TrueClass ? 'inline' : 'attachment'
     opts.cache         = true if opts.cache.nil?
 
