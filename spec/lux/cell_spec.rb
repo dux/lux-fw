@@ -68,7 +68,7 @@ describe Lux::Controller do
   end
 
   it 'renders fails' do
-    expect{ ControllerTestController.action(:render_fail) }.to raise_error RuntimeError
+    expect{ ControllerTestController.action(:render_fail) }.to raise_error ArgumentError
   end
 
   it 'executes before filter' do
