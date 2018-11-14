@@ -1,8 +1,8 @@
 # experiment for different nav in rooter
 
 class Lux::Application::Nav
-  attr_accessor :path, :id
-  attr_reader :original, :subdomain, :domain, :format
+  attr_accessor :path, :id, :format
+  attr_reader :original, :subdomain, :domain
 
   # acepts path as a string
   def initialize request
@@ -13,6 +13,18 @@ class Lux::Application::Nav
     @domain    = @subdomain.pop(2).join('.')
     @subdomain = @subdomain.join('.')
     @domain    += ".#{@subdomain.pop}" if @domain.length < 6
+
+    set_format
+  end
+
+  def set_format
+    return unless @path.last
+    parts = @path.last.split('.')
+
+    if parts[1]
+      @format    = parts.pop.to_s.downcase.to_sym
+      @path.last = parts.join('.')
+    end
   end
 
   def active_shift
@@ -79,12 +91,6 @@ class Lux::Application::Nav
 
   def second
     @path[2]
-  end
-
-  def reset
-    out = @path.dup
-    @path = []
-    out
   end
 
   def active

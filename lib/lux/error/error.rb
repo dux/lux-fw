@@ -95,8 +95,7 @@ class Lux::Error < StandardError
   CODE_LIST.each do |status, data|
     if data[:code]
       define_singleton_method(data[:code]) do |message=nil|
-        error = new status
-        error.message = message if message
+        error = new status, message
         raise error if Lux::Error::AutoRaise === error
         error
       end
@@ -168,8 +167,11 @@ class Lux::Error < StandardError
 
   ###
 
-  def initialize code
-    self.code = code
+  attr_accessor :message
+
+  def initialize code_num, message=nil
+    self.code = code_num
+    @message = message || CODE_LIST[code_num][:name]
   end
 
   def code
@@ -181,14 +183,6 @@ class Lux::Error < StandardError
     @code = num.to_i
 
     raise 'Status code %s not found' % @code unless CODE_LIST[@code]
-  end
-
-  def message
-    @message || CODE_LIST[code][:name]
-  end
-
-  def message= data
-    @message = data
   end
 
   def render

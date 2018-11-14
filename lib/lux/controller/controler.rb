@@ -63,6 +63,9 @@ class Lux::Controller
     Lux.log " #{self.class.to_s}##{method_name}".light_blue
 
     @controller_action = method_name.to_sym
+    if @controller_format = current.nav.format
+      current.nav.format = nil
+    end
 
     # format error unless method found
     report_not_found_error unless respond_to? method_name
@@ -102,6 +105,8 @@ class Lux::Controller
   # render 'main/root/index'
   # render text: 'ok'
   def render name=nil, opts={}
+    on_error Lux::Error.new(404, '%s document Not Found' % @controller_format.to_s.upcase) if @controller_format
+
     if name.class == Hash
       opts.merge! name
     else
@@ -134,94 +139,106 @@ class Lux::Controller
   end
 
   private
-    # delegated to current
-    define_method(:current)  { Lux.current }
-    define_method(:request)  { current.request }
-    define_method(:response) { current.response }
-    define_method(:params)   { current.request.params }
-    define_method(:nav)      { current.nav }
-    define_method(:session)  { current.session }
-    define_method(:get?)     { request.request_method == 'GET' }
-    define_method(:post?)    { request.request_method == 'POST' }
-    define_method(:redirect) { |where, flash={}| current.redirect where, flash }
-    define_method(:etag)     { |*args| current.response.etag *args }
-    define_method(:layout)   { |arg| current.var[:controller_layout] = arg }
 
-    # called be render
-    def render_resolve opts
-      # resolve basic types
-      types = [ [:text, 'text/plain'], [:html, 'text/html'], [:json, 'application/json'] ]
-      types.select{ |it| opts[it.first] }.each do |name, content_type|
-        response.content_type = content_type
-        return opts[name]
+  # delegated to current
+  define_method(:current)  { Lux.current }
+  define_method(:request)  { current.request }
+  define_method(:response) { current.response }
+  define_method(:params)   { current.request.params }
+  define_method(:nav)      { current.nav }
+  define_method(:session)  { current.session }
+  define_method(:get?)     { request.request_method == 'GET' }
+  define_method(:post?)    { request.request_method == 'POST' }
+  define_method(:redirect) { |where, flash={}| current.redirect where, flash }
+  define_method(:etag)     { |*args| current.response.etag *args }
+  define_method(:layout)   { |arg| current.var[:controller_layout] = arg }
+
+  # called be render
+  def render_resolve opts
+    # resolve basic types
+    types = [ [:text, 'text/plain'], [:html, 'text/html'], [:json, 'application/json'] ]
+    types.select{ |it| opts[it.first] }.each do |name, content_type|
+      response.content_type = content_type
+      return opts[name]
+    end
+
+    # resolve page data, without template
+    page_part = opts.data || render_body(opts)
+
+    # resolve data with layout
+    full_page = render_layout opts, page_part
+
+    full_page
+  end
+
+  def render_body opts
+    if template = opts.template
+      template = template.to_s
+      template = "#{@base_template}/#{template}" unless template.starts_with?('/')
+    else
+      template = "#{@base_template}/#{@controller_action}"
+    end
+
+    Lux::View.render_part(template, helper)
+  end
+
+  def render_layout opts, page_data
+    layout = opts.layout
+    layout = nil   if layout.class == TrueClass
+    layout = false if current.var[:controller_layout].class == FalseClass
+
+    if layout.class == FalseClass
+      page_data
+    else
+      layout_define = layout || self.class.layout
+
+      layout = case layout_define
+        when String
+          'layouts/%s' % layout_define
+        when Symbol
+          send(layout_define)
+        when Proc
+          layout_define.call
+        else
+          'layouts/%s' % @base_template.split('/')[0]
       end
 
-      # resolve page data, without template
-      page_part = opts.data || render_body(opts)
-
-      # resolve data with layout
-      full_page = render_layout opts, page_part
-
-      full_page
+      Lux::View.new(layout, helper).render_part { page_data }
     end
+  end
 
-    def render_body opts
-      if template = opts.template
-        template = template.to_s
-        template = "#{@base_template}/#{template}" unless template.starts_with?('/')
-      else
-        template = "#{@base_template}/#{@controller_action}"
-      end
+  def halt status, desc=nil
+    response.status = status
+    response.body   = desc || "Hatlt code #{status}"
 
-      Lux::View.render_part(template, helper)
+    throw :done
+  end
+
+  def namespace
+    @base_template.split('/')[0].to_sym
+  end
+
+  def helper ns=nil
+    Lux::View::Helper.new self, :html, self.class.helper, ns
+  end
+
+  def report_not_found_error
+    raise Lux::Error.not_found unless Lux.config(:dump_errors)
+
+    err = [%[Method "#{@controller_action}" not found found in #{self.class.to_s}]]
+    err.push "You have defined \n- %s" % (methods - Lux::Controller.instance_methods).join("\n- ")
+
+    return Lux.error err.join("\n\n")
+  end
+
+  def respond_to ext=nil
+    fmt = @controller_format || :html
+    @controller_format = nil
+
+    if ext
+      yield if ext == fmt
+    else
+      yield fmt
     end
-
-    def render_layout opts, page_data
-      layout = opts.layout
-      layout = nil   if layout.class == TrueClass
-      layout = false if current.var[:controller_layout].class == FalseClass
-
-      if layout.class == FalseClass
-        page_data
-      else
-        layout_define = layout || self.class.layout
-
-        layout = case layout_define
-          when String
-            'layouts/%s' % layout_define
-          when Symbol
-            send(layout_define)
-          when Proc
-            layout_define.call
-          else
-            'layouts/%s' % @base_template.split('/')[0]
-        end
-
-        Lux::View.new(layout, helper).render_part { page_data }
-      end
-    end
-
-    def halt status, desc=nil
-      response.status = status
-      response.body   = desc || "Hatlt code #{status}"
-
-      throw :done
-    end
-
-    def namespace
-      @base_template.split('/')[0].to_sym
-    end
-
-    def helper ns=nil
-      Lux::View::Helper.new self, :html, self.class.helper, ns
-    end
-
-    def report_not_found_error
-      raise Lux::Error.not_found unless Lux.config(:dump_errors)
-
-      err = [%[Method "#{@controller_action}" not found found in #{self.class.to_s}]]
-      err.push "You have defined \n- %s" % (methods - Lux::Controller.instance_methods).join("\n- ")
-
-      return Lux.error err.join("\n\n")
-    end
+  end
 end

@@ -22,6 +22,10 @@ class RoutesTestController < Lux::Controller
   end
 
   def nested
+    respond_to(:js) do
+      render json: { a: 1 }
+    end
+
     render text: 'nested'
   end
 end
@@ -89,6 +93,10 @@ Lux.app do
     it 'should get bad routes' do
       expect(Lux.app.render('/not-found').status).to eq 404
       expect(Lux.app.render('/x@dux').status).to eq 404
+    end
+
+    it 'should render js route' do
+      expect(Lux.app.render('/foo-nested.js').body).to eq({"a"=>1})
     end
   end
 end

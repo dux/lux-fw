@@ -308,10 +308,13 @@ class Lux::Application
         class_callback :routes
       end
 
-      catch(:done) { class_callback :after }
+      catch(:done) do
+        class_callback :after
+      end
     rescue => e
       catch(:done) { on_error(e) } unless current.response.body?
     end
+
   end
 
   def deliver_static_assets
