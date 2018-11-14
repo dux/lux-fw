@@ -301,20 +301,19 @@ class Lux::Application
   end
 
   def main
-    begin
-      catch(:done) do
-        deliver_static_assets
-        class_callback :before
-        class_callback :routes
-      end
+    return if deliver_static_assets
 
-      catch(:done) do
-        class_callback :after
-      end
-    rescue => e
-      catch(:done) { on_error(e) } unless current.response.body?
+    catch(:done) do
+      class_callback :before
+      class_callback :routes unless body?
     end
 
+    catch(:done) do
+      class_callback :after
+    end
+  rescue => e
+    response.body { nil }
+    on_error(e)
   end
 
   def deliver_static_assets
@@ -323,7 +322,6 @@ class Lux::Application
     ext = request.path.split('.').last
     return unless ext.length > 1 && ext.length < 5
     file = Lux::Response::File.new request.path.sub('/', ''), inline: true
-
     file.send if file.is_static_file?
   end
 

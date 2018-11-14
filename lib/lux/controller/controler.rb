@@ -70,23 +70,19 @@ class Lux::Controller
     # format error unless method found
     report_not_found_error unless respond_to? method_name
 
-    # catch throw gymnastics to allow after filter in controllers, after the body is set
-    catch(:done) do
-      # catch error but forward unless handled
-      begin
-        filter :before
-        filter :before_action
-
-        send method_name, *args
-      rescue => e
-        on_error(e)
-      end
-
+    catch :done do
+      filter :before
+      filter :before_action
+      send method_name, *args
       render
     end
 
     filter :after
+
     throw :done
+  rescue => e
+    response.body { nil }
+    on_error(e)
   end
 
   def error *args
@@ -129,7 +125,8 @@ class Lux::Controller
     if opts.render_to_string
       page
     else
-      response.body page
+      response.body { page }
+      throw :done
     end
   end
 
@@ -166,29 +163,12 @@ class Lux::Controller
     page_part = opts.data || render_body(opts)
 
     # resolve data with layout
-    full_page = render_layout opts, page_part
-
-    full_page
-  end
-
-  def render_body opts
-    if template = opts.template
-      template = template.to_s
-      template = "#{@base_template}/#{template}" unless template.starts_with?('/')
-    else
-      template = "#{@base_template}/#{@controller_action}"
-    end
-
-    Lux::View.render_part(template, helper)
-  end
-
-  def render_layout opts, page_data
     layout = opts.layout
     layout = nil   if layout.class == TrueClass
     layout = false if current.var[:controller_layout].class == FalseClass
 
     if layout.class == FalseClass
-      page_data
+      page_part
     else
       layout_define = layout || self.class.layout
 
@@ -203,8 +183,19 @@ class Lux::Controller
           'layouts/%s' % @base_template.split('/')[0]
       end
 
-      Lux::View.new(layout, helper).render_part { page_data }
+      Lux::View.new(layout, helper).render_part { page_part }
     end
+  end
+
+  def render_body opts
+    if template = opts.template
+      template = template.to_s
+      template = "#{@base_template}/#{template}" unless template.starts_with?('/')
+    else
+      template = "#{@base_template}/#{@controller_action}"
+    end
+
+    Lux::View.render_part(template, helper)
   end
 
   def halt status, desc=nil
@@ -242,7 +233,7 @@ class Lux::Controller
         on_error Lux::Error.new(404, '%s document Not Found' % fmt.to_s.upcase)
       end
     else
-      yield(fmt || :html)
+      yield fmt
     end
   end
 end

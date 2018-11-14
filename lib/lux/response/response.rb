@@ -68,15 +68,10 @@ class Lux::Response
   end
 
   def body body_data=nil, status=nil
-    if body_data
-      @status = status if status
-      @body ||= body_data
-      throw :done
-    elsif block_given?
-      @body = yield @body
-    else
-      @body
-    end
+    @status = status      if status
+    @body   = body_data   if body_data
+    @body   = yield @body if block_given?
+    @body
   end
 
   def body?
