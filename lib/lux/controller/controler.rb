@@ -232,13 +232,17 @@ class Lux::Controller
   end
 
   def respond_to ext=nil
-    fmt = @controller_format || :html
+    fmt = @controller_format
     @controller_format = nil
 
     if ext
-      yield if ext == fmt
+      if ext == fmt
+        yield
+      elsif fmt
+        on_error Lux::Error.new(404, '%s document Not Found' % fmt.to_s.upcase)
+      end
     else
-      yield fmt
+      yield(fmt || :html)
     end
   end
 end
