@@ -1,10 +1,10 @@
 # http://stackoverflow.com/questions/5159607/rails-engine-gems-dependencies-how-to-load-them-into-the-application
 
 gem_files  = Dir['./bin/**/*']
-gem_files += Dir['./lib/**/*.rb']
-gem_files += Dir['./misc/**/*.rb']
-gem_files += Dir['./plugins/**/*.rb']
-gem_files += Dir['./tasks/**/*.rb']
+gem_files += Dir['./lib/**/*']
+gem_files += Dir['./misc/**/*']
+gem_files += Dir['./plugins/**/*']
+gem_files += Dir['./tasks/**/*']
 gem_files +=    ['./.version']
 
 Gem::Specification.new 'lux-fw' do |gem|
