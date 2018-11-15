@@ -72,5 +72,6 @@ File.write './README.md', out
 
 `rm -rf misc/demo/public/assets`
 `rm -rf misc/demo/node_modules`
+`rm -rf misc/demo/tmp`
 `rm -rf misc/demo/Gemfile.lock`
 `rm -rf misc/demo/package.json`
