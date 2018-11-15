@@ -40,6 +40,7 @@ module ::Lux
     if Lux.config(:dump_errors)
       raise error
     else
+      log error.backtrace
       [500, {}, ['Server error: %s' % error.message]]
     end
   end

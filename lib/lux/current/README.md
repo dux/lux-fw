@@ -1,4 +1,4 @@
-## Lux::Current
+## Lux::Current - Main state object
 
 Current application state as single object. Defined in Thread.current, available everywhere.
 

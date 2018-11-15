@@ -1,5 +1,12 @@
 # http://stackoverflow.com/questions/5159607/rails-engine-gems-dependencies-how-to-load-them-into-the-application
 
+gem_files  = Dir['./bin/**/*']
+gem_files += Dir['./lib/**/*.rb']
+gem_files += Dir['./misc/**/*.rb']
+gem_files += Dir['./plugins/**/*.rb']
+gem_files += Dir['./tasks/**/*.rb']
+gem_files +=    ['./.version']
+
 Gem::Specification.new 'lux-fw' do |gem|
   gem.version     = File.read('.version')
   gem.summary     = 'Lux - the ruby framework'
@@ -8,7 +15,7 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.license     = 'MIT'
   gem.author      = 'Dino Reic'
   gem.email       = 'rejotl@gmail.com'
-  gem.files       = Dir['./lib/**/*.rb'] + Dir['./bin/**/*'] + ['./.version']
+  gem.files       = gem_files
 
   gem.executables = ['lux']
 
@@ -16,14 +23,13 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_runtime_dependency 'as-duration', '~> 0'
   gem.add_runtime_dependency 'colorize', '~> 0'
   gem.add_runtime_dependency 'jwt', '~> 1'
-  gem.add_runtime_dependency 'hamlit', '2.9.0'
+  gem.add_runtime_dependency 'hamlit', '~>2'
   gem.add_runtime_dependency 'hamlit-block', '~> 0'
   gem.add_runtime_dependency 'hashie', '~> 3'
   gem.add_runtime_dependency 'rack', '~> 2'
   gem.add_runtime_dependency 'sequel_pg', '~> 1'
   gem.add_runtime_dependency 'typero', '~> 0'
   gem.add_runtime_dependency 'dotenv', '~> 2'
-
 
   gem.add_dependency 'mail', '~> 2'
   gem.add_dependency 'rake', '~> 12'

@@ -1,8 +1,8 @@
-### Lux::Errors
+## Lux::Errors - In case of error
 
-## module Lux::Error
+### module Lux::Error
 
-```
+```ruby
   # try to execute part of the code, log exeception if fails
   def try(name, &block)
 
@@ -20,9 +20,9 @@
 ```
 
 
-## defines standard Lux errors and erro generating helpers
+### defines standard Lux errors and erro generating helpers
 
-```
+```ruby
 # 400: for bad parameter request or similar
 Lux::Error.forbidden foo
 

@@ -1,4 +1,4 @@
-# Lux::Config
+# Lux::Config - Config loader helpers
 
 Methods for config and pluin loading.
 
@@ -55,7 +55,7 @@ development:
 
 `lux c` - console
 
-```
+```ruby
 Lux.secrets.a == "d"
 Lux.secrets.x == "s"
 Lux.secrets.b.c == "nested"

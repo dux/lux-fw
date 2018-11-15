@@ -1,0 +1,76 @@
+#!/usr/bin/env ruby
+
+require 'pathname'
+require 'awesome_print'
+
+class Doc
+
+  attr_reader :data
+
+  def initialize file
+    @file = Pathname.new file
+    @data = {}
+    read
+  end
+
+  private
+
+  def read
+    comments = []
+    last_line = ''
+
+    for line in @file.read.split($/)
+      line = line.sub /^\s+/, ''
+
+      if line[0,1] == '#'
+        line = '# ```ruby' if line == '# ```' && !comments.include?('```ruby')
+        comments.push line.sub('# ', '')
+      elsif line.include?('def ') && last_line[0,1] == '#' && comments[0]
+        m = line.split(/\s+/)
+        @data[m[1]] = comments
+        comments = []
+      else
+        comments = []
+      end
+
+      last_line = line
+    end
+  end
+end
+
+components = ['application', 'controller', 'view', 'current', 'mailer', 'config', 'cache', 'error', 'response']
+
+data = []
+
+for c, desc in components
+  klass  = 'Lux::%s' % c.capitalize
+  readme = Pathname.new 'lib/lux/%s/README.md' % c
+  code   = Pathname.new 'lib/lux/%s/%s.rb' % [c, c]
+
+  data << ''
+  data << readme.read.sub(/\s+$/, '')
+
+  blocks = Doc.new(code.to_s).data
+
+  if blocks.first
+    data << ''
+    data << '### %s methods' % klass
+
+    for name, parts in blocks
+      data << ''
+      data << '#### %s' % name
+      data << ''
+      data << parts.join($/)
+    end
+  end
+end
+
+out = File.read('lib/README.md')
+out += data.join $/
+
+File.write './README.md', out
+
+`rm -rf misc/demo/public/assets`
+`rm -rf misc/demo/node_modules`
+`rm -rf misc/demo/Gemfile.lock`
+`rm -rf misc/demo/package.json`

@@ -1,6 +1,8 @@
-# Lux::View - template based rendering helpers
+## Lux::View - Backend template helpers
 
-## Tempalte render flow
+Template based rendering helpers
+
+### Tempalte render flow
 
 * Lux::View.render_with_layout('main/users/show', { :@user=>User.find(1) })
 * Lux::View.render_part('main/users/show', { :@user=>User.find(1) })
@@ -8,7 +10,8 @@
 * templte 'main/users/show' is renderd with options
 * layout template 'main/layout' is renderd and previous render result is injected via yield
 
-## Lux::View - Calling templates
+
+### Lux::View - Calling templates
 
 * all templates are in app/views folder
 * you can call template with Lux::View.render_with_layout(template, opts={}) or Lux::View.render_part(template, opts={})
@@ -18,11 +21,12 @@
 
 ### Inline render
 
-```
+```ruby
 = render :_part, name: 'Foo'
 ```
 
 in `_part.haml` access option `name: ...` via instance variable `@_name`
+
 
 ### Lux::View::Helper
 
@@ -32,6 +36,7 @@ Lux Helpers provide easy way to group common functions.
 * same as Rails View helpers
 * called by Lux::View before rendering any view
 
+
 ### Example
 
 for this to work
@@ -40,13 +45,13 @@ for this to work
 
 RailsHelper module has to define link_to method
 
-## ViewCell
+### ViewCell
 
 View components in rails
 
 Define them like this
 
-```
+```ruby
 class CityCell < ViewCell
 
   before do
@@ -74,7 +79,7 @@ end
 
 And call them on templates like this
 
-```
+```ruby
 cell.city.skills
 cell.city.render @city
 ```

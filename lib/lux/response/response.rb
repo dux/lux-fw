@@ -81,14 +81,16 @@ class Lux::Response
   def content_type type=nil
     return @content_type unless type
 
-    # can be set only once
-    return @content_type if @content_type
-
-    type = 'application/json' if type == :json
-    type = 'text/plain' if type == :text
-    type = 'text/html' if type == :html
-
-    raise 'Invalid page content-type %s' % type if type === Symbol
+    if type.is_a?(Symbol)
+      case type
+      when :javascript then 'application/javascript'
+      when :json       then 'application/json'
+      when :text       then 'text/plain'
+      when :html       then 'text/html'
+      else
+        raise ArgumentError.new('Bad content type')
+      end
+    end
 
     @content_type = type
   end

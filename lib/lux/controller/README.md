@@ -1,50 +1,49 @@
-## Lux::Controller - Calling cells
+## Lux::Controller - Simplified Rails like view controllers
 
 Controllers are Lux view models
 
 * all cells shoud inherit from Lux::Controller
-* before and after class methods supportd
-  * you can also use before and after instance methods (better)
-* rescue_from is supported
-* calls temaplates
+* `before`, `before_action` and `after` class methods supportd
+* instance_method `on_error` is supported
+* calls templates as default action, behaves as Rails controller.
 
-* Www::UserController.call(:show, params[:id]) will
-  * call show instance method in Www::UserController
-  * will pass instance variales to 'app/views/www/users/show'
-  * and will use layout template 'app/views/www/layout.{haml,erb}'
+### Example code
 
-## Class methods
+```ruby
+require 'lux-fw'
 
-### Lux::Controller.call(@path)
+class Main::RootController < Lux::Controller
+  # action to perform before
+  before do
+    @org = Org.find @org_id if @org_id
+    # ...
+  end
+  # action to perform before
 
-* Www::UserController.call(@path)
-  * /users          -> will render :index if @path.blank?
-  * /user/2         -> will render :show, @path.first if @path.first.kind_of?(Integer)
-  * /users/comments -> will render :comments, @path.first == :comments
-  * /users/2/comments -> render :commnets, 2, @path == [2, :comments]
+  before_action do |action_name|
+    next if action_name == :index
+    # ...
+  end
 
-### Lux::Controller.action(:name, *opts)
+  ###
 
-```@cell.action(:name, *opts)```
+  mock :show # mock `show` action
 
-Calls single action
+  def index
+    render text: 'Hello world'
+  end
 
-```UserController.action(:show, 1)```
+  def foo
+    # renders ./app/views/main/root/foo.(haml, erb)
+  end
 
-### Lux::Controller.mock(:names)
+  def baz
+    send_file local_file, file_name: 'local.txt'
+  end
 
-Mock methods
+  def bar
+    render json: { data: 'Bar text' }
+  end
 
-```mock :index, :show```
-
-### Lux::Controller.
-
-* for use in helpers, mostly
-* renders only cell without layout
-
-= cell :method, argument
-
-
-
-
-
+end
+```

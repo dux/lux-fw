@@ -107,6 +107,7 @@ class Lux::Error < StandardError
     def render text, status=500
       Lux.current.response.status status
       Lux.current.response.body Lux.config.server_error_template.call(text)
+      throw :done
     end
 
     # render error inline or break in production

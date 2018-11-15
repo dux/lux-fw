@@ -1,0 +1,10 @@
+!!!
+%html{ lang: 'en' }
+  %head
+    %title= @title || 'Lux'
+    = assets :main
+  %body
+    %div{ style: 'margin: auto; max-width: 800px;' }
+      %h2= @title
+
+      = yield

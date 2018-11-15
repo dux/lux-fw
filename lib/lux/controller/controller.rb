@@ -111,9 +111,10 @@ class Lux::Controller
 
     filter :before_render
 
-    opts = opts.to_opts :text, :html, :cache, :template, :json, :layout, :render_to_string, :data, :status, :ttl
+    opts = opts.to_opts :text, :html, :cache, :template, :json, :layout, :render_to_string, :data, :status, :ttl, :content_type
 
     response.status opts.status if opts.status
+    response.content_type = opts.content_type if opts.content_type
 
     page =
     if opts.cache
@@ -135,6 +136,12 @@ class Lux::Controller
     render name, opts
   end
 
+  def render_javascript name=nil, opts={}
+    opts[:content_type] = :javascript
+    opts[:layout]       = false
+    render name, opts
+  end
+
   private
 
   # delegated to current
@@ -152,13 +159,6 @@ class Lux::Controller
 
   # called be render
   def render_resolve opts
-    # resolve basic types
-    types = [ [:text, 'text/plain'], [:html, 'text/html'], [:json, 'application/json'] ]
-    types.select{ |it| opts[it.first] }.each do |name, content_type|
-      response.content_type = content_type
-      return opts[name]
-    end
-
     # resolve page data, without template
     page_part = opts.data || render_body(opts)
 
@@ -228,7 +228,8 @@ class Lux::Controller
 
     if ext
       if ext == fmt
-        yield
+        yield if block_given?
+        true
       elsif fmt
         on_error Lux::Error.new(404, '%s document Not Found' % fmt.to_s.upcase)
       end
@@ -236,4 +237,5 @@ class Lux::Controller
       yield fmt
     end
   end
+
 end

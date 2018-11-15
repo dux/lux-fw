@@ -1,4 +1,4 @@
-## Lux::Application
+## Lux::Application - main application controller and router
 
 * can capture errors with `on_error` instance method
 * calls `before`, `routes` and `after` class filters on every request
@@ -32,7 +32,7 @@ more examples
 
 Calls specific controller action inside call.
 
-```
+```ruby
   call 'main/links#index'
   call [Main::LinksController, :index]
   call -> { [200, {}, ['OK']]}
@@ -47,7 +47,7 @@ For Lux routing you need to know only few things
 * "map" method calls object if nav.first == match
 * "namespace" method accepts block that wraps map calls.
 
-```
+```ruby
 Lux.app do
 
   def api_router
@@ -112,7 +112,6 @@ Lux.app do
 
     message = case error
       when PG::ConnectionBad
-        # this should never happen
         msg = error.message || 'DB connection error, please refresh page.'
         msg = "PG: #{msg}"
         Lux.logger(:db_error).error msg
@@ -124,6 +123,7 @@ Lux.app do
         Main::RootController.action(:error, error)
 
       else
+        # raise errors in developmet
         raise error if Lux.dev?
 
         key = Lux.error.log error

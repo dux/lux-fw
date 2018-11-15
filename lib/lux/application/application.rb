@@ -1,26 +1,14 @@
+# frozen_string_literal: true
+
+# Main application router
+
 class Lux::Application
-  class_callback :boot
-  class_callback :web_boot
-  class_callback :info         # called by "lux config" cli
-  class_callback :before
-  class_callback :after
-  class_callback :routes
-
-  attr_reader :route_target, :current
-
-  # define common http methods as get? methods
-  [:get, :head, :post, :delete, :put, :patch].map(&:to_s).each do |m|
-    define_method('%s?' % m) { @current.request.request_method == m.upcase }
-  end
-
-  # simple one liners and delegates
-  define_method(:request)  { @current.request }
-  define_method(:params)   { @current.request.params }
-  define_method(:nav)      { @current.nav }
-  define_method(:redirect) { |where, flash={}| @current.redirect where, flash }
-  define_method(:body?)    { response.body? }
-
-  ###
+  class_callback :config    # pre boot app config
+  class_callback :web_boot  # rack_handler is passed as argument
+  class_callback :info      # called by "lux config" cli
+  class_callback :before    # before any page load
+  class_callback :routes    # routes resolve
+  class_callback :after     # after any page load
 
   web_boot do |rack_handler|
     # deafult host is required
@@ -38,26 +26,33 @@ class Lux::Application
 
   ###
 
+  attr_reader :route_target, :current
+
+  # define common http methods as get? methods
+  [:get, :head, :post, :delete, :put, :patch].map(&:to_s).each do |m|
+    define_method('%s?' % m) { @current.request.request_method == m.upcase }
+  end
+
+  # simple one liners and delegates
+  define_method(:request)  { @current.request }
+  define_method(:params)   { @current.request.params }
+  define_method(:nav)      { @current.nav }
+  define_method(:redirect) { |where, flash={}| @current.redirect where, flash }
+  define_method(:body?)    { response.body? }
+
   def initialize current
     raise 'Config is not loaded (Lux.start not called), cant render page' unless Lux.config.lux_config_loaded
 
     @current = current
   end
 
-  def render
-    Lux.log "\n#{current.request.request_method.white} #{current.request.url}"
-
-    Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
-
-    main
-
-    response.render
-  end
-
-  def debug
-    { :@locale=>@locale, :@nav=>nav, :@subdomain=>@subdomain, :@domain=>@domain }
-  end
-
+  # Triggers HTTP page error
+  # ```
+  # error.not_found
+  # error.not_found 'Doc not fount'
+  # error(404)
+  # error(404, 'Doc not fount')
+  # ```
   def error code=nil, message=nil
     if code
       error = Lux::Error.new code
@@ -68,13 +63,19 @@ class Lux::Application
     end
   end
 
+  # Quick response to page body
+  # ```
+  # response 'ok' if nav.root == 'healthcheck'
+  # ```
   def response body=nil, status=nil
     return @current.response unless body
 
-    response.status(status || 200)
-    response.body(body)
+    response.status status || 200
+    response.body body
   end
 
+  # Tests current root against the string to get a mach.
+  # Used by map function
   def test? route
     root = nav.root.to_s
 
@@ -96,7 +97,11 @@ class Lux::Application
     ok
   end
 
-  # matches only root
+  # Matches if there is not root in nav
+  # Example calls MainController.action(:index) if in root
+  # ```
+  # root 'main#index'
+  # ```
   def root target
     call target unless nav.root
   end
@@ -122,6 +127,11 @@ class Lux::Application
     @@namespaces[name] = block
   end
 
+  # Matches namespace block in a path
+  # if returns true value, match is positive and nav is shifted
+  # if given `Symbol`, it will call the function to do a match
+  # if given `String`, it will match the string value
+  # ```
   # self.namespace :city do
   #   @city = City.first slug: nav.root
   #   !!@city
@@ -129,6 +139,7 @@ class Lux::Application
   # namespace 'dashboard' do
   #   map orgs: 'dashboard/orgs'
   # end
+  # ```
   def namespace name
     if String === name
       return unless test?(name.to_s)
@@ -146,11 +157,15 @@ class Lux::Application
     raise Lux::Error.not_found("Namespace <b>:#{name}</b> matched but nothing is called")
   end
 
+  # Matches given subdomain name
   def subdomain name
     return unless nav.subdomain == name
     error.not_found 'Subdomain "%s" matched but nothing called' % name
   end
 
+  # Main routing object, maps path part to target
+  # if path part is positively matched with `test?` method, target is called with `call` method
+  # ```
   # map api: ApiController
   # map api: 'api'
   # map [:api, ApiController]
@@ -160,6 +175,7 @@ class Lux::Application
   #   map :about
   #   map '/verified-user'
   # end
+  # ```
   def map route_object
     klass  = nil
     route  = nil
@@ -221,6 +237,8 @@ class Lux::Application
     test?(route) ? call(klass) : nil
   end
 
+  # Calls target action in a controller, if no action is given, defaults to :index
+  # ```
   # call :api_router
   # call proc { 'string' }
   # call proc { [400, {}, 'error: ...'] }
@@ -229,6 +247,7 @@ class Lux::Application
   # call Main::UsersController, :index
   # call [Main::UsersController, :index]
   # call 'main/orgs#show'
+  # ```
   def call object=nil, action=nil
     # log original app caller
     root    = Lux.root.join('app/').to_s
@@ -296,10 +315,25 @@ class Lux::Application
     end
   end
 
+  # Action to do if there is an application error.
+  # You want to overload this in a production.
   def on_error error
     raise error
   end
 
+  def render
+    Lux.log "\n#{current.request.request_method.white} #{current.request.url}"
+
+    Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
+
+    main
+
+    response.render
+  end
+
+  private
+
+  # internall call to resolve the routes
   def main
     return if deliver_static_assets
 
@@ -313,9 +347,13 @@ class Lux::Application
     end
   rescue => e
     response.body { nil }
-    on_error(e)
+
+    catch(:done) do
+      on_error(e)
+    end
   end
 
+  # Deliver static assets if `Lux.config.serve_static_files == true`
   def deliver_static_assets
     return if body? || !Lux.config(:serve_static_files)
 

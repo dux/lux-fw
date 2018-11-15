@@ -1,4 +1,4 @@
-## Lux::Cache
+## Lux::Cache - Mimics Rails.cache interface
 
 Alias - `Lux.cache`
 

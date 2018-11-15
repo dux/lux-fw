@@ -52,7 +52,7 @@ class Lux::View
       msg  = %[Lux::View "#{template}.{erb,haml}" not found]
       msg += %[\n\n#{err}] if Lux.config(:dump_errors)
 
-      raise Lux.error msg
+      Lux.error msg
     end
 
     begin

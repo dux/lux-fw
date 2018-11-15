@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# -*- mode: ruby -*-
 
 if File.exists?('lux-fw.gemspec')
   puts 'Cant run in lux folder'
@@ -47,7 +48,9 @@ Dir['%s/bin/cli/*.rb' % LUX_ROOT].each { |it| load it }
 
 LuxCli.start ARGV
 
-unless ARGV[0]
+rakes = Dir['./Rakefile*'] + Dir['./rakefile*']
+
+if !ARGV[0] && rakes[0]
   puts 'Or use one of rake tasks'
   puts '  ' + `rake -T`.gsub($/, "\n  ")
 end

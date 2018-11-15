@@ -46,7 +46,7 @@ module Lux::Config
   end
 
   def start!
-    Object.class_callback :boot, Lux::Application
+    Object.class_callback :config, Lux::Application
     start_info $lux_start_time
   end
 
@@ -74,7 +74,7 @@ module Lux::Config
     speed =
     if start
       text = ((Time.now - start)*1000).round.to_s.sub(/(\d)(\d{3})$/,'\1s \2')
-      ' in %s' % text.to_s.white
+      ' in %s ms' % text.to_s.white
     else
     end
 
