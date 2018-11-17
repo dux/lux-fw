@@ -25,6 +25,6 @@ Start the app
 
 Look at the generated code and play with it.
 
-## Lux components
+
 
 

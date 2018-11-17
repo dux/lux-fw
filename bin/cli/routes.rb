@@ -43,13 +43,14 @@ LuxCli.class_eval do
         route = '/%s' % route unless route.include?('/')
         route += '/*' unless target.include?('#')
         route = "#{@prefix}/*" if route .include?('#')
+
         print "#{indent}#{route}".ljust(50)
         print target.ljust(50)
 
         if controller && !target.include?('#')
           puts
           for el in controller.instance_methods(false)
-            print "  #{route.to_s.sub('/*', '/')}#{el}".ljust(50)
+            print "  #{route.to_s.sub('/*', '/').gsub('//', '/')}#{el}".ljust(50)
             puts [target, el].join(' # ')
           end
         else
@@ -61,6 +62,8 @@ LuxCli.class_eval do
         if @target
           target = @target.is_a?(String) && !@target.include?('#') ? @target + "##{obj}" : @target
           show_route obj, target
+        elsif obj.is_a?(Array)
+          show_route obj[0], obj[1]
         elsif obj.is_a?(Hash)
           show_route obj.keys.first, obj.values.first
         elsif block_given?

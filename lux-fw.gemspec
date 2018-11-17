@@ -1,7 +1,7 @@
 # http://stackoverflow.com/questions/5159607/rails-engine-gems-dependencies-how-to-load-them-into-the-application
 
 gem_files = [:bin, :lib, :plugins, :tasks]
-  .inject([]) { |t, el| t += `find ./#{el}`.split($/) }
+  .inject([]) { |t, el| t + `find ./#{el}`.split($/) }
   .push './.version'
 
 Gem::Specification.new 'lux-fw' do |gem|
@@ -35,4 +35,6 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_dependency 'pry', '~> 0'
   gem.add_dependency 'puma', '~> 3'
   gem.add_dependency 'better_errors', '~> 2'
+  gem.add_dependency 'binding_of_caller', '~> 0'
+  gem.add_dependency 'nokogiri', '~> 1'
 end

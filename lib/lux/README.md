@@ -1,6 +1,6 @@
-# Page render flow
+## Page render flow
 
-## Example config ru
+### Example config.ru
 ```
 $lux_start_time = Time.now
 require './config/application'

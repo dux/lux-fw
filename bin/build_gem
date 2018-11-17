@@ -75,3 +75,5 @@ File.write './README.md', out
 `rm -rf misc/demo/tmp`
 `rm -rf misc/demo/Gemfile.lock`
 `rm -rf misc/demo/package.json`
+
+puts 'lux-fw Readme, demo build'

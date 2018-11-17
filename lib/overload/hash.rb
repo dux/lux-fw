@@ -109,6 +109,11 @@ class Hash
     transform_keys!{ |key| key.to_sym rescue key }
   end
 
+  def pretty_generate
+    JSON.pretty_generate(self).gsub(/"([\w\-]+)":/) { %["#{$1.yellow}":] }
+  end
+
+  # Returns hash with only se
   def slice *keys
     keys.map! { |key| convert_key(key) } if respond_to?(:convert_key, true)
     keys.each_with_object(self.class.new) { |k, hash| hash[k] = self[k] if has_key?(k) }
@@ -124,8 +129,21 @@ class Hash
     omit
   end
 
-  def pretty_generate
-    JSON.pretty_generate(self).gsub(/"([\w\-]+)":/) { %["#{$1.yellow}":] }
+  # Returns a hash that includes everything but the given keys.
+  #    hash = { a: true, b: false, c: nil}
+  #    hash.except(:c) # => { a: true, b: false}
+  #    hash # => { a: true, b: false, c: nil}
+  #
+  # This is useful for limiting a set of parameters to everything but a few known toggles:
+  #    @person.update(params[:person].except(:admin))
+  def except(*keys)
+    dup.except!(*keys)
+  end
+
+  # Hash#except in place, modifying current hash
+  def except!(*keys)
+    keys.each { |key| delete(key) }
+    self
   end
 end
 

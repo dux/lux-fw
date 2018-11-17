@@ -25,7 +25,7 @@ Start the app
 
 Look at the generated code and play with it.
 
-## Lux components
+
 
 
 
@@ -95,7 +95,7 @@ Lux.app do
 
   ###
 
-  routes do
+  routes do |r|
     # we show on root method, that target can be multiple object types, 5 variants
     root [RootController, :index] # calls RootController#index
     root 'root#call'              # calls RootController#call
@@ -106,7 +106,12 @@ Lux.app do
     # we can route based on the user status
     root User.current ? 'main/root' : 'guest'
 
+    # simple route
+    r.about 'static#about'
+
     # map "/api" to "api_router" method
+    r.api :api_router
+    # or
     map api: :api_router
 
     # with MainController
@@ -337,11 +342,6 @@ action(:select', ['users'])
 create mock function, to enable template rendering
 mock :index, :login
 
-#### filter
-
-because we can call action multiple times
-ensure we execute filters only once
-
 #### render
 
 render :index
@@ -351,6 +351,11 @@ render text: 'ok'
 #### render_resolve
 
 called be render
+
+#### filter
+
+because we can call action multiple times
+ensure we execute filters only once
 
 ## Lux::View - Backend template helpers
 Template based rendering helpers
@@ -454,17 +459,41 @@ Current application state as single object. Defined in Thread.current, available
 
 ### Lux::Current methods
 
+#### domain
+
+Domain part of the host
+
+#### host
+
+Full host with port
+
+#### var
+
+Current scope variables hash
+
 #### cache
 
-cache data in current page
+Cache data in current page
 
 #### no_cache?
 
-set current.can_clear_cache = true in production for admins
+Set current.can_clear_cache = true in production for admins
+
+#### redirect
+
+Redirect from current page
 
 #### once
 
-execute action once per page
+Execute action once per page
+
+#### uid
+
+Generete unique ID par page render
+
+#### files_in_use
+
+Add to list of files in use
 
 ## Lux::Mailer - send mails
 * before and after class methods are supported

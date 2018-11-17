@@ -22,9 +22,13 @@ class Lux::Application::Nav
     parts = @path.last.split('.')
 
     if parts[1]
-      @format    = parts.pop.to_s.downcase.to_sym
+      @format    = @format_once = parts.pop.to_s.downcase.to_sym
       @path.last = parts.join('.')
     end
+  end
+
+  def get_format_once
+    @format_once.tap { @format_once = nil }
   end
 
   def active_shift
