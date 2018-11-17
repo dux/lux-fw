@@ -39,6 +39,7 @@ class Lux::Current
     @nav = Lux::Application::Nav.new request
   end
 
+  # Domain part of the host
   def domain
     host = Lux.current.request.host.split('.')
     host_country = host.pop
@@ -46,32 +47,35 @@ class Lux::Current
     host_name ? "#{host_name}.#{host_country}" : host_country
   end
 
+  # Full host with port
   def host
     "#{request.env['rack.url_scheme']}://#{request.host}:#{request.port}".sub(':80','')# rescue 'http://locahost:3000'
   end
 
+  # Current scope variables hash
   def var
     Thread.current[:lux][:var] ||= Hashie::Mash.new
   end
 
-  # cache data in current page
+  # Cache data in current page
   def cache key
     data = Thread.current[:lux][:cache][key]
     return data if data
     Thread.current[:lux][:cache][key] = yield
   end
 
-  # set current.can_clear_cache = true in production for admins
+  # Set current.can_clear_cache = true in production for admins
   def no_cache?
     @can_clear_cache = true if Lux.dev?
     @can_clear_cache && @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache' ? true : false
   end
 
+  # Redirect from current page
   def redirect *args
     response.redirect *args
   end
 
-  # execute action once per page
+  # Execute action once per page
   def once id=nil, data=nil, &block
     id ||= Digest::SHA1.hexdigest caller[0] if block
 
@@ -82,11 +86,13 @@ class Lux::Current
     block_given? ? yield : data
   end
 
+  # Generete unique ID par page render
   def uid
     Thread.current[:uid_cnt] ||= 0
     "uid-#{Thread.current[:uid_cnt]+=1}"
   end
 
+  # Add to list of files in use
   def files_in_use file=nil
     if block_given?
       return yield(file) unless @files_in_use.include?(file)
