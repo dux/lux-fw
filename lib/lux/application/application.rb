@@ -4,19 +4,20 @@
 
 class Lux::Application
   class_callback :config    # pre boot app config
-  class_callback :web_boot  # rack_handler is passed as argument
+  class_callback :rack_boot  # rack_handler is passed as argument
   class_callback :info      # called by "lux config" cli
   class_callback :before    # before any page load
   class_callback :routes    # routes resolve
   class_callback :after     # after any page load
 
-  web_boot do |rack_handler|
+  rack_boot do |rack_handler|
     # deafult host is required
     unless Lux.config.host.to_s.include?('http')
       raise 'Invalid "Lux.config.host"'
     end
 
     if Lux.config(:dump_errors)
+      require 'binding_of_caller'
       require 'better_errors'
 
       rack_handler.use BetterErrors::Middleware
@@ -280,7 +281,7 @@ class Lux::Application
         case data = object.call
           when Array
             response.status = data.first
-            response.body data[2]
+            response.body data[2].is_a?(Array) ? data[2][0] : data[2]
           else
             response.body data
         end
@@ -340,13 +341,15 @@ class Lux::Application
   def main
     return if deliver_static_assets
 
+    magic = MagicRoutes.new self
+
     catch(:done) do
-      class_callback :before
-      class_callback :routes unless body?
+      class_callback :before, magic
+      class_callback :routes, magic unless body?
     end
 
     catch(:done) do
-      class_callback :after
+      class_callback :after, magic
     end
   rescue => e
     response.body { nil }

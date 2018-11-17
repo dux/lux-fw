@@ -65,7 +65,7 @@ Lux.app do
 
   ###
 
-  routes do
+  routes do |r|
     # we show on root method, that target can be multiple object types, 5 variants
     root [RootController, :index] # calls RootController#index
     root 'root#call'              # calls RootController#call
@@ -76,7 +76,12 @@ Lux.app do
     # we can route based on the user status
     root User.current ? 'main/root' : 'guest'
 
+    # simple route
+    r.about 'static#about'
+
     # map "/api" to "api_router" method
+    r.api :api_router
+    # or
     map api: :api_router
 
     # with MainController
