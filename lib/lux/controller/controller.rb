@@ -111,7 +111,7 @@ class Lux::Controller
 
     filter :before_render
 
-    opts = opts.to_opts :text, :html, :cache, :template, :json, :layout, :render_to_string, :data, :status, :ttl, :content_type
+    opts = opts.to_opts :text, :html, :json, :javascript, :cache, :template, :layout, :render_to_string, :data, :status, :ttl, :content_type
 
     response.status opts.status if opts.status
     response.content_type = opts.content_type if opts.content_type
@@ -159,6 +159,14 @@ class Lux::Controller
 
   # called be render
   def render_resolve opts
+    # render static types
+    for el in [:text, :html, :json, :javascript]
+      if value = opts[el]
+        response.content_type = "text/#{el}"
+        return value
+      end
+    end
+
     # resolve page data, without template
     page_part = opts.data || render_body(opts)
 

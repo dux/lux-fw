@@ -1,7 +1,2 @@
-class ApplicationContrller < Lux::Controller
-
-end
-
-class Main
-
-end
+Main                 = Module.new
+ApplicationContrller = Class.new Lux::Controller

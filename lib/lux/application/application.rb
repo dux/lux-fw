@@ -72,6 +72,7 @@ class Lux::Application
 
     response.status status || 200
     response.body body
+    throw :done
   end
 
   # Tests current root against the string to get a mach.
@@ -284,6 +285,8 @@ class Lux::Application
             response.body data
         end
     end
+
+    throw :done if body?
 
     # figure our action unless defined
     unless action

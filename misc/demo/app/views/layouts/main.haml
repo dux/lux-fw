@@ -7,4 +7,10 @@
     %div{ style: 'margin: auto; max-width: 800px;' }
       %h2= @title
 
+      %button{ onclick: "window.open('/text')" } Text route demo
+      %button{ onclick: "window.open('/foo/bar')" } plain nested demo
+      %button{ onclick: "window.open('/zagreb/foo')" } nested demo
+
+      %hr
+
       = yield
