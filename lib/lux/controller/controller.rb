@@ -39,15 +39,6 @@ class Lux::Controller
     @base_template = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
   end
 
-  # because we can call action multiple times
-  # ensure we execute filters only once
-  def filter fiter_name, arg=nil
-    return if @executed_filters[fiter_name]
-    @executed_filters[fiter_name] = true
-
-    Object.class_callback fiter_name, self, @controller_action
-  end
-
   def cache *args, &block
     Lux.cache.fetch *args, &block
   end
@@ -246,4 +237,12 @@ class Lux::Controller
     end
   end
 
+  # because we can call action multiple times
+  # ensure we execute filters only once
+  def filter fiter_name, arg=nil
+    return if @executed_filters[fiter_name]
+    @executed_filters[fiter_name] = true
+
+    Object.class_callback fiter_name, self, @controller_action
+  end
 end
