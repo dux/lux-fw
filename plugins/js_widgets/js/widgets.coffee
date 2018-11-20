@@ -52,11 +52,11 @@
 
   get: (node) ->
     parts = node.split('#', 2)
+    node = document.getElementById(parts[1]) if parts[1]
 
-    if parts[1]
-      node = document.getElementById(parts[1])
-      @bind node
+    return unless node
 
+    @bind node
     node = node.closest(".#{@css_klass}") || alert('Cant find closest widgets')
     Widget.ref[parseInt(node.getAttribute(@inst_id_name))]
 

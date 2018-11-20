@@ -29,11 +29,11 @@ module Lux::Config
   def live_require_check!
     $live_require_check ||= Time.now
 
-    changed_files = $LOADED_FEATURES
-      .select{ |f| f.include?('/app/') || f.include?('lux') }
+    watched_files = $LOADED_FEATURES
+      .select{ |f| f.include?(Lux.root.to_s) || f.include?(ENV['LUX_GEMS'] || 'not!defiend')}
       .select {|f| File.mtime(f) > $live_require_check }
 
-    for file in changed_files
+    for file in watched_files
       Lux.log ' Reloaded: %s' % file.split(Lux.root.to_s).last.red
       load file
     end
@@ -71,20 +71,15 @@ module Lux::Config
     end
 
     mode  = production_mode ? 'production'.green : 'development'.yellow
-    speed =
-    if start
-      text = ((Time.now - start)*1000).round.to_s.sub(/(\d)(\d{3})$/,'\1s \2')
-      ' in %s ms' % text.to_s.white
-    else
-    end
+    speed = start ? ' in %s sec' % ((Time.now - start)).round(1).to_s.white : nil
 
     info = []
     info.push '* Config: %s' % opts.join(', ')
     info.push "* Lux loaded #{mode} mode#{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
 
-    @@load_info = info.join($/)
-
-    puts @@load_info if start
+    @load_info = info.join($/)
+    puts @load_info if start
+    @load_info
   end
 
   def init!

@@ -87,7 +87,9 @@ class ModelApi < ApplicationApi
     @object.same_as_last? rescue error($!.message)
 
     can? :create, @object
+
     @object.save if @object.valid?
+
     return if report_errros_if_any @object
 
     if @object.id

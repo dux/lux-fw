@@ -92,6 +92,13 @@ class Lux::Current
     "uid-#{Thread.current[:uid_cnt]+=1}"
   end
 
+  # Get or check current session secure token
+  def secure_token token=nil
+    generated = Crypt.sha1(request.ip)
+    return generated == token if token
+    generated
+  end
+
   # Add to list of files in use
   def files_in_use file=nil
     if block_given?

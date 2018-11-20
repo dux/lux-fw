@@ -132,7 +132,7 @@ class Lux::Error < StandardError
         <pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;">
         <b style="font-size:110%;">#{name}</b>
 
-        <b>#{error}: #{msg}</b>
+        <b>#{error.class}: #{msg}</b>
 
         #{dmp[0].join("\n")}
 

@@ -117,8 +117,8 @@ class Lux::Api
     @params
   end
 
-  def error what=nil
-    raise Lux::Api::Error.new(what || 'false')
+  def error what
+    raise Lux::Api::Error.new(what)
   end
 
   def message what

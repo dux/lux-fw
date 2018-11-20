@@ -7,6 +7,12 @@
 #   .precache(:org_id)
 
 class Sequel::Model
+  module InstanceMethods
+    def cache_id
+      "#{self.class}/#{id}"
+    end
+  end
+
   module ClassMethods
     # find will cache all finds in a scope
     def find id
