@@ -1,4 +1,5 @@
 # Convert hash to object with methods
+#   o = FreeStruct.new :name, :surname
 #   o = FreeStruct.new name: 'a'
 #   o.name   -> 'a'
 #   o[:name] -> 'a'
@@ -10,8 +11,8 @@
 #   o.title -> raises error
 
 class FreeStruct
-  def initialize hash
-    @keys = hash.keys
+  def initialize *hash
+    hash = hash.first unless hash.first.is_a?(Symbol)
 
     hash.each do |key, value|
       ivar = "@#{key}"

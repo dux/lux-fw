@@ -35,8 +35,9 @@ class Lux::Controller
 
   def initialize
     # before and after should be exected only once
-    @executed_filters = {}
-    @base_template = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
+    @lux = FreeStruct.new :executed_filters, :template, :action
+    @lux.executed_filters = {}
+    @lux.template = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
   end
 
   def cache *args, &block
@@ -53,10 +54,7 @@ class Lux::Controller
     # dev console log
     Lux.log " #{self.class.to_s}##{method_name}".light_blue
 
-    @controller_action = method_name.to_sym
-    if @controller_format = current.nav.format
-      current.nav.format = nil
-    end
+    @lux.action = method_name.to_sym
 
     # format error unless method found
     report_not_found_error unless respond_to? method_name
@@ -92,7 +90,10 @@ class Lux::Controller
   # render 'main/root/index'
   # render text: 'ok'
   def render name=nil, opts={}
-    on_error Lux::Error.new(404, '%s document Not Found' % @controller_format.to_s.upcase) if @controller_format
+    if nav.format && !current.var.format_handled
+      current.var.format_handled = true
+      error.not_found('%s document Not Found' % nav.format.to_s.upcase)
+    end
 
     if name.class == Hash
       opts.merge! name
@@ -179,7 +180,7 @@ class Lux::Controller
         when Proc
           layout_define.call
         else
-          'layouts/%s' % @base_template.split('/')[0]
+          'layouts/%s' % @lux.template.split('/')[0]
       end
 
       Lux::View.new(layout, helper).render_part { page_part }
@@ -189,9 +190,9 @@ class Lux::Controller
   def render_body opts
     if template = opts.template
       template = template.to_s
-      template = "#{@base_template}/#{template}" unless template.starts_with?('/')
+      template = "#{@lux.template}/#{template}" unless template.starts_with?('/')
     else
-      template = "#{@base_template}/#{@controller_action}"
+      template = "#{@lux.template}/#{@lux.action}"
     end
 
     Lux::View.render_part(template, helper)
@@ -205,7 +206,7 @@ class Lux::Controller
   end
 
   def namespace
-    @base_template.split('/')[0].to_sym
+    @lux.template.split('/')[0].to_sym
   end
 
   def helper ns=nil
@@ -215,34 +216,34 @@ class Lux::Controller
   def report_not_found_error
     raise Lux::Error.not_found unless Lux.config(:dump_errors)
 
-    err = [%[Method "#{@controller_action}" not found found in #{self.class.to_s}]]
+    err = [%[Method @lux.action}" not found found in #{self.class.to_s}]]
     err.push "You have defined \n- %s" % (methods - Lux::Controller.instance_methods).join("\n- ")
 
     return Lux.error err.join("\n\n")
   end
 
   def respond_to ext=nil
-    fmt = @controller_format
-    @controller_format = nil
+    return if current.var.format_handled
+    current.var.format_handled = true
 
     if ext
-      if ext == fmt
+      if ext == nav.format
         yield if block_given?
         true
-      elsif fmt
-        on_error Lux::Error.new(404, '%s document Not Found' % fmt.to_s.upcase)
+      elsif nav.format
+        error.not_found '%s document Not Found' % nav.format.to_s.upcase
       end
     else
-      yield fmt
+      yield nav.format
     end
   end
 
   # because we can call action multiple times
   # ensure we execute filters only once
   def filter fiter_name, arg=nil
-    return if @executed_filters[fiter_name]
-    @executed_filters[fiter_name] = true
+    return if @lux.executed_filters[fiter_name]
+    @lux.executed_filters[fiter_name] = true
 
-    Object.class_callback fiter_name, self, @controller_action
+    Object.class_callback fiter_name, self, @lux.action
   end
 end
