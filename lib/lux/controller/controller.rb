@@ -90,9 +90,11 @@ class Lux::Controller
   # render 'main/root/index'
   # render text: 'ok'
   def render name=nil, opts={}
-    if nav.format && !current.var.format_handled
-      current.var.format_handled = true
-      error.not_found('%s document Not Found' % nav.format.to_s.upcase)
+    if nav.format
+      current.once(:format_handled) do
+        current.var.format_handled = true
+        error.not_found('%s document Not Found' % nav.format.to_s.upcase)
+      end
     end
 
     if name.class == Hash
@@ -223,18 +225,17 @@ class Lux::Controller
   end
 
   def respond_to ext=nil
-    return if current.var.format_handled
-    current.var.format_handled = true
-
-    if ext
-      if ext == nav.format
-        yield if block_given?
-        true
-      elsif nav.format
-        error.not_found '%s document Not Found' % nav.format.to_s.upcase
+    current.once(:format_handled) do
+      if ext
+        if ext == nav.format
+          yield if block_given?
+          true
+        elsif nav.format
+          error.not_found '%s document Not Found' % nav.format.to_s.upcase
+        end
+      else
+        yield nav.format
       end
-    else
-      yield nav.format
     end
   end
 
