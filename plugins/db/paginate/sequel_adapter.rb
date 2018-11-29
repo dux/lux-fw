@@ -1,23 +1,20 @@
-module Sequel::Plugins::LuxSimplePaginate
-  module DatasetMethods
-    def page size: 20, param: :page, page: nil, count: nil
-      page = (page || Lux.current.request.params[param]).to_i
-      page = 1 if page < 1
+Sequel::Model.db.extension :pagination
 
-      # ret = paginate(page, size).all
-      ret = offset((page-1) * size).limit(size+1).all
+Sequel::Model.dataset_module do
+  def page size: 20, param: :page, page: nil, count: nil
+    page = (page || Lux.current.request.params[param]).to_i
+    page = 1 if page < 1
 
-      has_next = ret.length == size + 1
-      ret.pop if has_next
+    # ret = paginate(page, size).all
+    ret = offset((page-1) * size).limit(size+1).all
 
-      ret.define_singleton_method(:paginate_param) do; param ;end
-      ret.define_singleton_method(:paginate_page)  do; page; end
-      ret.define_singleton_method(:paginate_next)  do; has_next; end
+    has_next = ret.length == size + 1
+    ret.pop if has_next
 
-      ret
-    end
+    ret.define_singleton_method(:paginate_param) do; param ;end
+    ret.define_singleton_method(:paginate_page)  do; page; end
+    ret.define_singleton_method(:paginate_next)  do; has_next; end
+
+    ret
   end
 end
-
-Sequel::Model.db.extension :pagination
-Sequel::Model.plugin :lux_simple_paginate
