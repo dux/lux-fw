@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 
-gem 'lux-fw', path: '/Users/dux/dev/apps/my/gems/lux-fw'
+gem 'lux-fw'
 gem 'lux_assets'
 
 
