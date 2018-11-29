@@ -74,14 +74,7 @@ class Lux::Controller
     on_error(e)
   end
 
-  def error *args
-    args.first.nil? ? Lux::Error::AutoRaise : Lux::Error.report(*args)
-  end
-
-  def on_error error
-    raise error
-  end
-
+  # send file to browser
   def send_file file, opts={}
     Lux::Response::File.send(file, opts)
   end
@@ -125,11 +118,13 @@ class Lux::Controller
     end
   end
 
+  # does not set the body, returns body string
   def render_to_string name=nil, opts={}
     opts[:render_to_string] = true
     render name, opts
   end
 
+  # shortcut to render javascript
   def render_javascript name=nil, opts={}
     opts[:content_type] = :javascript
     opts[:layout]       = false
@@ -218,10 +213,18 @@ class Lux::Controller
   def report_not_found_error
     raise Lux::Error.not_found unless Lux.config(:dump_errors)
 
-    err = [%[Method @lux.action}" not found found in #{self.class.to_s}]]
+    err = [%[Method :#{@lux.action}" not found found in #{self.class.to_s}]]
     err.push "You have defined \n- %s" % (methods - Lux::Controller.instance_methods).join("\n- ")
 
     return Lux.error err.join("\n\n")
+  end
+
+  def error *args
+    args.first.nil? ? Lux::Error::AutoRaise : Lux::Error.report(*args)
+  end
+
+  def on_error error
+    raise error
   end
 
   def respond_to ext=nil

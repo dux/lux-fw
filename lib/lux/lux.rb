@@ -78,7 +78,11 @@ module ::Lux
   end
 
   def error data=nil
-    data ? Lux::Error.render(data) : Lux::Error
+    if data
+      raise Lux::Error.new(500, data)
+    else
+      Lux::Error
+    end
   end
 
   # simple log to stdout

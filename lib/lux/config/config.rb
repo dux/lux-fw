@@ -110,7 +110,7 @@ module Lux::Config
 
     # Default error logging
     Lux.config.error_logger = proc do |error|
-      ap [error.class, error.message, Lux.error.split_backtrace(error)]
+      ap Lux.error.split_backtrace(error)
 
       'no-key'
     end

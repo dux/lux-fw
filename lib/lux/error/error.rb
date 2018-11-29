@@ -96,7 +96,13 @@ class Lux::Error < StandardError
     if data[:code]
       define_singleton_method(data[:code]) do |message=nil|
         error = new status, message
-        raise error if Lux::Error::AutoRaise === error
+
+        if error.is_a?(Lux::Error::AutoRaise)
+          Lux.current.response.status status
+          Lux.log " error.#{data[:code]} in #{split_backtrace(error)[1].first.to_s.split(':in ').first}"
+          raise error
+        end
+
         error
       end
     end
@@ -124,7 +130,7 @@ class Lux::Error < StandardError
 
       dmp = split_backtrace error
 
-      dmp[0] = dmp[0].map { |_| _ = _.split(':', 3); '<b>%s</b> - %s - %s' % _ }
+      dmp[1] = dmp[1].map { |_| _ = _.split(':', 3); '<b>%s</b> - %s - %s' % _ }
 
       log error
 
@@ -132,11 +138,11 @@ class Lux::Error < StandardError
         <pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;">
         <b style="font-size:110%;">#{name}</b>
 
-        <b>#{error.class}: #{msg}</b>
-
-        #{dmp[0].join("\n")}
+        <b>#{dmp[0][0]}: #{dmp[0][1]}</b>
 
         #{dmp[1].join("\n")}
+
+        #{dmp[2].join("\n")}
         </pre>
       TEXT
     end
@@ -153,13 +159,13 @@ class Lux::Error < StandardError
 
     def split_backtrace error
       # split app log rest of the log
-      dmp = [[], []]
+      dmp = [[error.class, error.message], [], []]
 
       root = Lux.root.to_s
 
-      error.backtrace.each do |line|
+      (error.backtrace || caller).each do |line|
         line = line.sub(root, '.')
-        dmp[line[0,1] == '.' ? 0 : 1].push line
+        dmp[line[0,1] == '.' ? 1 : 2].push line
       end
 
       dmp
