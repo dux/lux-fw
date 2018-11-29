@@ -36,8 +36,10 @@ class Lux::Application
 
   # simple one liners and delegates
   define_method(:request)  { @current.request }
+  define_method(:session)  { @current.session }
   define_method(:params)   { @current.request.params }
   define_method(:nav)      { @current.nav }
+
   define_method(:redirect) { |where, flash={}| @current.redirect where, flash }
   define_method(:body?)    { response.body? }
 
@@ -364,6 +366,7 @@ class Lux::Application
     return if body? || !Lux.config(:serve_static_files)
 
     ext = request.path.split('.').last
+
     return unless ext.length > 1 && ext.length < 5
     file = Lux::Response::File.new request.path.sub('/', ''), inline: true
     file.send if file.is_static_file?
