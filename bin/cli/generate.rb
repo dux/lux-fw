@@ -8,13 +8,10 @@ module LuxGenerate
   extend self
 
   def generate object=nil, objects=nil
-    unless object
-      puts "./generate [object singular]".red
-      exit
-    end
+    Cli.die "./generate [object singular]" unless object
 
     template_dir = 'config/templates'
-    exit puts "Lux::View dir #{template_dir} is not accessible" unless Dir.exists?(template_dir)
+    Cli.die "Lux::View dir #{template_dir} is not accessible" unless Dir.exists?(template_dir)
 
     tpl_desc = {
       p:'api',
