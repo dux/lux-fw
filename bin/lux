@@ -11,6 +11,7 @@ require 'colorize'
 require 'optparse'
 require 'awesome_print'
 require 'dotenv'
+require_relative '../lib/overload/thread'
 
 Dotenv.load
 
@@ -48,9 +49,22 @@ Dir['%s/bin/cli/*.rb' % LUX_ROOT].each { |it| load it }
 
 LuxCli.start ARGV
 
-rakes = Dir['./Rakefile*'] + Dir['./rakefile*']
+###
 
-if !ARGV[0] && rakes[0]
-  puts 'Or use one of rake tasks'
-  puts '  ' + `rake -T`.gsub($/, "\n  ")
+unless ARGV[0]
+  t = Thread::Simple.new
+  t.add(:rake) { `rake -T` }      if (Dir['./Rakefile*'] + Dir['./rakefile*'])[0]
+  t.add(:capistrano) { `cap -T` } if File.exist?('./Capfile')
+  t.run
+
+  if t[:rake]
+    puts 'Rake tasks:'
+    puts '  ' + t[:rake].gsub($/, "\n  ")
+  end
+
+  if t[:capistrano]
+    puts 'Capinstrano tasks:'
+    puts '  ' + t[:capistrano].gsub($/, "\n  ")
+  end
 end
+
