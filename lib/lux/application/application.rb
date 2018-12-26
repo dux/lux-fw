@@ -4,7 +4,7 @@
 
 class Lux::Application
   class_callback :config    # pre boot app config
-  class_callback :rack_boot  # rack_handler is passed as argument
+  class_callback :rack_boot # rack_handler is passed as argument
   class_callback :info      # called by "lux config" cli
   class_callback :before    # before any page load
   class_callback :routes    # routes resolve

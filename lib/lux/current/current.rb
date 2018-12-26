@@ -39,14 +39,6 @@ class Lux::Current
     @nav = Lux::Application::Nav.new request
   end
 
-  # Domain part of the host
-  def domain
-    host = Lux.current.request.host.split('.')
-    host_country = host.pop
-    host_name    = host.pop
-    host_name ? "#{host_name}.#{host_country}" : host_country
-  end
-
   # Full host with port
   def host
     "#{request.env['rack.url_scheme']}://#{request.host}:#{request.port}".sub(':80','')# rescue 'http://locahost:3000'

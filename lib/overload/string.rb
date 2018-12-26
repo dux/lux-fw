@@ -44,16 +44,16 @@ class String
   end
 
   def parameterize
-    self.downcase.gsub(/[^\w]+/,'-')
-  end
-
-  def to_url
     str_from = 'šđčćžŠĐČĆŽäÄéeöÖüüÜß'
     str_to   = 'sdcczSDCCZaAeeoOuuUs'
-    str      = self.downcase.gsub(/\s+/,'-').tr(str_from, str_to)
-    # self.downcase.gsub(/\s+/,'-').tr(str_from, str_to).gsub(/[^\w\-]/,'')
-    str.sub(/\.$/, '').gsub('&',' and ').gsub('.',' dot ').parameterize.gsub('-dot-','.').downcase[0, 50].sub(/[\.\-]$/,'')
+
+    self
+      .tr(str_from, str_to)
+      .sub(/[^\w+]$/, '')
+      .downcase
+      .gsub(/[^\w+]+/,'-')[0, 50]
   end
+  alias :to_url :parameterize
 
   def css_to_hash
     self.split('&').inject({}) do |h,line|

@@ -1,5 +1,4 @@
 # frozen_string_literal: true
-require 'thread'
 
 class Lux::View
   @@template_cache = {}

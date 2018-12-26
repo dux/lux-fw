@@ -7,11 +7,11 @@ def Object.class_attribute name, default=nil, &block
   instance_variable_set ivar, block || default
 
   define_singleton_method('%s=' % name) { |arg| send(name, arg) }
-  define_singleton_method(name) do |arg=:_undefined|
+  define_singleton_method(name) do |arg=:_undefined, &block|
     # define and set if argument given
-    if arg != :_undefined
-      instance_variable_set ivar, arg
-      return arg
+
+    if block || arg != :_undefined
+      return instance_variable_set ivar, block || arg
     end
 
     # find value and return
