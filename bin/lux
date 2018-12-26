@@ -11,6 +11,7 @@ require 'colorize'
 require 'optparse'
 require 'awesome_print'
 require 'dotenv'
+require 'whirly'
 require_relative '../lib/overload/thread'
 
 Dotenv.load
@@ -52,19 +53,21 @@ LuxCli.start ARGV
 ###
 
 unless ARGV[0]
-  t = Thread::Simple.new
-  t.add(:rake) { `rake -T` }      if (Dir['./Rakefile*'] + Dir['./rakefile*'])[0]
-  t.add(:capistrano) { `cap -T` } if File.exist?('./Capfile')
-  t.run
+  Whirly.start spinner: "dots" do
+    t = Thread::Simple.new
+    t.add(:rake) { `rake -T` }      if (Dir['./Rakefile*'] + Dir['./rakefile*'])[0]
+    t.add(:capistrano) { `cap -T` } if File.exist?('./Capfile')
+    t.run
 
-  if t[:rake]
-    puts 'Rake tasks:'
-    puts '  ' + t[:rake].gsub($/, "\n  ")
-  end
+    if t[:rake]
+      puts 'Rake tasks:'
+      puts '  ' + t[:rake].gsub($/, "\n  ")
+    end
 
-  if t[:capistrano]
-    puts 'Capinstrano tasks:'
-    puts '  ' + t[:capistrano].gsub($/, "\n  ")
+    if t[:capistrano]
+      puts 'Capinstrano tasks:'
+      puts '  ' + t[:capistrano].gsub($/, "\n  ")
+    end
   end
 end
 
