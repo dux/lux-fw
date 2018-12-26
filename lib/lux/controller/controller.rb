@@ -35,7 +35,7 @@ class Lux::Controller
 
   def initialize
     # before and after should be exected only once
-    @lux = FreeStruct.new :executed_filters, :template, :action
+    @lux = FreeStruct.new :executed_filters, :template, :action, :layout
     @lux.executed_filters = {}
     @lux.template = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
   end
@@ -56,9 +56,6 @@ class Lux::Controller
 
     @lux.action = method_name.to_sym
 
-    # format error unless method found
-    report_not_found_error unless respond_to? method_name
-
     catch :done do
       filter :before
       filter :before_action
@@ -69,9 +66,16 @@ class Lux::Controller
     filter :after
 
     throw :done
-  rescue => e
+  rescue NoMethodError => error
+    # format error unless method found
+    if error.message.include?("`%s'" % method_name)
+      report_not_found_error error
+    else
+      on_error error
+    end
+  rescue => error
     response.body { nil }
-    on_error(e)
+    on_error error
   end
 
   # send file to browser
@@ -144,7 +148,7 @@ class Lux::Controller
   define_method(:post?)    { request.request_method == 'POST' }
   define_method(:redirect) { |where, flash={}| current.redirect where, flash }
   define_method(:etag)     { |*args| current.response.etag *args }
-  define_method(:layout)   { |arg| current.var[:controller_layout] = arg }
+  define_method(:layout)   { |arg| @lux.layout = arg }
 
   # called be render
   def render_resolve opts
@@ -162,7 +166,7 @@ class Lux::Controller
     # resolve data with layout
     layout = opts.layout
     layout = nil   if layout.class == TrueClass
-    layout = false if current.var[:controller_layout].class == FalseClass
+    layout = false if @lux.layout.class == FalseClass
 
     if layout.class == FalseClass
       page_part
@@ -173,7 +177,7 @@ class Lux::Controller
         when String
           'layouts/%s' % layout_define
         when Symbol
-          send(layout_define)
+          'layouts/%s' % layout_define
         when Proc
           layout_define.call
         else
@@ -210,11 +214,13 @@ class Lux::Controller
     Lux::View::Helper.new self, :html, self.class.helper, ns
   end
 
-  def report_not_found_error
+  def report_not_found_error error
     raise Lux::Error.not_found unless Lux.config(:dump_errors)
 
-    err = [%[Method :#{@lux.action}" not found found in #{self.class.to_s}]]
-    err.push "You have defined \n- %s" % (methods - Lux::Controller.instance_methods).join("\n- ")
+    ap Lux::Error.split_backtrace error
+
+    err =   [%[Method "#{@lux.action}" not found found in #{self.class.to_s}]]
+    err.push %[You have defined \n- %s] % (methods - Lux::Controller.instance_methods).join("\n- ")
 
     return Lux.error err.join("\n\n")
   end
