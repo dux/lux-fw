@@ -1,6 +1,14 @@
 ApplicationHelper.class_eval do
 
-  def widget name, opts={}
+  def widget name, object=nil, opts=nil
+    if object.is_a?(Hash)
+      opts = object
+    elsif object.is_a?(Sequel::Model)
+      opts       ||= {}
+      opts[:id]    = object.id
+      opts[:model] = object.class.to_s.tableize
+    end
+
     tag, name = name.split(':') if name === String
 
     tag = :div
