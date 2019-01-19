@@ -1,12 +1,20 @@
 # tag.ul do |n|
 #   1.upto(3) do |num|
 #     n.li do |n|
-#       n.i '.arrow'
-#       n.span num
-#       n.id
+#       n.i 'arrow'              # <i class="arrow"></i>
+#       n._arrow                 # <div class="arrow"></div>
+#       n.span 123               # <span>123</span>
+#       n.span { 123 }           # <span>123</span>
+#       n.('foo')                # <div class="foo"></div>
+#       n._foo(bar: baz) { 123 } # <div class="foo" bar="baz">123</div>
 #     end
 #   end
 # end
+#
+# tag._row [                      # <div class="row">
+#   tag.('#menu.col') { @menu },  #   <div id="menu" class="col">@menu</div>
+#   tag._col { @data }            #   <div class="col">@data</div>
+# ]                               # </div>
 
 class HtmlTagBuilder
   class << self
@@ -17,16 +25,29 @@ class HtmlTagBuilder
 
     # tag :div, { 'class'=>'iform' } do
     def tag name=nil, opts={}, data=nil
+      # join data given as an array
+      if opts.class == Array
+        data = opts
+        opts = {}
+      end
+
+      # covert n._row to n(class: 'row')
+      name = name.to_s
+      if name.to_s[0, 1] == '_'
+        opts ||= {}
+        opts[:class] = name.to_s.sub('_', '')
+        name = :div
+      end
+
       # covert tag.a '.foo.bar' to class names
       # covert tag.a '#id' to id names
-      if opts.is_a?(String)
-        case opts[0,1]
-          when '.'
-            opts = { class: opts.sub('.', '').gsub('.', ' ') }
-          when '#'
-            opts = { id: opts.sub('#', '') }
-          end
-        else
+      if (data || block_given?) && opts.is_a?(String)
+        given = opts.dup
+        opts  = {}
+
+        given.sub(/#([\w\-]+)/) { opts[:id] = $1 }
+        klass = given.sub(/^\./, '').gsub('.', ' ')
+        opts[:class] = klass if klass.present?
       end
 
       # fix data and opts unless opts is Hash
@@ -61,7 +82,7 @@ class HtmlTagBuilder
 
     # tag.div(class: 'klasa') do -> tag.('klasa') do
     def call class_name, &block
-      tag(:div, { class: class_name }, &block)
+      tag(:div, class_name, &block)
     end
 
   end
