@@ -9,12 +9,29 @@ module Lux::Config
 
   # requires all files recrusive in, with spart sort
   def require_all dir_path
-    dir_path = dir_path.to_s.sub(/\/$/,'')
+    dir_path = dir_path.to_s.sub(/\/$/, '')
+    dir_path = './%s' % dir_path if dir_path =~ /^\w/
+
     raise '* is not allowed' if dir_path.include?('*')
 
-    glob = `echo #{dir_path}/* #{dir_path}/*/*  #{dir_path}/*/*/* #{dir_path}/*/*/*/* #{dir_path}/*/*/*/*/* #{dir_path}/*/*/*/*/*/* |tr ' ' '\n' | grep .rb`.split("\n")
-    glob.select{ |o| o.index('.rb') }.each do |ruby_file|
-      require ruby_file
+    glob = []
+    glob.push 'echo'
+    glob.push '%s/*'           % dir_path
+    glob.push '%s/*/*'         % dir_path
+    glob.push '%s/*/*/*'       % dir_path
+    glob.push '%s/*/*/*/*'     % dir_path
+    glob.push '%s/*/*/*/*/*'   % dir_path
+    glob.push '%s/*/*/*/*/*/*' % dir_path
+    glob.push "| tr ' ' '\n'"
+    glob.push "| grep .rb"
+    list = `#{glob.join(' ')}`.split("\n")
+
+    list.select{ |o| o.index('.rb') }.each do |ruby_file|
+      begin
+        require ruby_file
+      rescue => e
+        ap Lux::Error.split_backtrace e
+      end
     end
   end
 
@@ -34,7 +51,7 @@ module Lux::Config
       .select {|f| File.mtime(f) > $live_require_check }
 
     for file in watched_files
-      Lux.log ' Reloaded: %s' % file.split(Lux.root.to_s).last.red
+      Lux.log ' Reloaded: .%s' % file.split(Lux.root.to_s).last.yellow
       load file
     end
 
