@@ -16,6 +16,17 @@ class String
     value
   end
 
+  def to_html_safe
+    self
+      .sub(/^\s+/, '')
+      .sub(/\s+$/, '')
+      .gsub(/\s+/, ' ')
+      .gsub("'", '&#39')
+      .gsub('"', '&#34')
+      .gsub('<', '&lt;')
+      .gsub('>', '&gt;')
+  end
+
   def trim(len)
     return self if self.length<len
     data = self.dup[0,len]+'&hellip;'

@@ -1,6 +1,6 @@
 Sequel::Model.dataset_module do
   # only postgree
-  # Bucket.can.all_tags -> can_tags mora biti zadnji
+  # Bucket.can.all_tags -> all_tags mora biti zadnji
   def all_tags field=:tags, *args
     sqlq = sql.split(' FROM ')[1]
     sqlq = "select lower(unnest(#{field})) as tag FROM " + sqlq

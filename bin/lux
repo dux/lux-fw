@@ -18,7 +18,7 @@ Dotenv.load
 
 LUX_ROOT = File.expand_path '../..', __FILE__
 
-puts 'Lux (%s, v%s)' % [LUX_ROOT, File.read('%s/.version' % LUX_ROOT)] unless ARGV[0]
+puts 'Lux v%s (%s)' % [File.read('%s/.version' % LUX_ROOT), LUX_ROOT] unless ARGV[0]
 
 ###
 
@@ -46,16 +46,20 @@ trap("SIGINT") { Cli.die 'ctrl+c exit' }
 
 LuxCli = Class.new Thor
 
-Dir['%s/bin/cli/*.rb' % LUX_ROOT].each { |it| load it }
+# remove new in app, or allow only new while not in app
+files  = Dir['%s/bin/cli/*.rb' % LUX_ROOT]
+filter = File.exist?('./Gemfile') ? :reject : :select
+files  = files.send(filter) { |name| name.include?('/new.rb') }
+files.each { |it| load it }
 
 LuxCli.start ARGV
 
 ###
 
-unless ARGV[0]
+if !ARGV[0] && (Dir['./Rakefile*'] + Dir['./rakefile*'])[0]
   Whirly.start spinner: "dots" do
     t = Thread::Simple.new
-    t.add(:rake) { `rake -T` }      if (Dir['./Rakefile*'] + Dir['./rakefile*'])[0]
+    t.add(:rake) { `rake -T` }
     t.add(:capistrano) { `cap -T` } if File.exist?('./Capfile')
     t.run
 
@@ -70,4 +74,3 @@ unless ARGV[0]
     end
   end
 end
-

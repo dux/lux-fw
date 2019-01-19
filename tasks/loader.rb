@@ -4,7 +4,7 @@ def run what
 end
 
 def die what
-  puts '%s (%s)' % [what.red. caller[0]]
+  puts '%s (%s)' % [what.red, caller[0]]
   exit
 end
 
@@ -23,7 +23,7 @@ end
 ###
 
 task :env do
-  require './config/application'
+  require './config/environment'
 end
 
 task :default do

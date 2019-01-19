@@ -60,6 +60,10 @@ class Sequel::Model
       self[:created_by] ? User.find(self[:created_by]) : nil
     end
 
+    def updater
+      self[:updated_by] ? User.find(self[:updated_by]) : nil
+    end
+
     def parent_model
       model_type.constantize.find(model_id)
     end

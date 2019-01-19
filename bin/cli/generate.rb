@@ -17,7 +17,7 @@ module LuxGenerate
       p:'api',
       m:'model',
       a:'admin',
-      c:'cell',
+      c:'controller',
       v:'view'
     }
 

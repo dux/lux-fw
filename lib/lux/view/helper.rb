@@ -38,15 +38,9 @@ class Lux::View::Helper
   # - content :foo do ...
   # = content :foo
   def content name=nil
-    ivar = '@content_%s' % name
-
-    if block_given?
-      yield.tap do |data|
-        instance_variable_set(ivar, data) if name
-      end
-    else
-      name ? instance_variable_get(ivar) : nil
-    end
+    block = 'haml_content_%s' % name
+    Lux.current.var[block] = yield if block_given?
+    Lux.current.var[block]
   end
 
   # foo = function do |list| ...

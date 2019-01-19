@@ -68,6 +68,10 @@ class Lux::Api
     def error message
       Lux::Api::Response.error message
     end
+
+    def rpc_call body
+      call body['method'].split('.'), body['params']
+    end
   end
 
   ###

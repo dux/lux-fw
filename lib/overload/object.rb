@@ -28,7 +28,7 @@ class Object
 
   def try *args
     return nil if self.class == NilClass
-    self.send(*args)
+    block_given? ? yield(self) : self.send(*args)
   end
 
   def die desc=nil, exp_object=nil

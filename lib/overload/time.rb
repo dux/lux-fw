@@ -78,3 +78,8 @@ end
 class DateTime
   include TimeOptions
 end
+
+class Date
+  include TimeOptions
+end
+

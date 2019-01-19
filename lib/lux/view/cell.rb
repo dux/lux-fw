@@ -11,6 +11,8 @@ class Lux::View::Cell
     end
   end
 
+  ###
+
   class_callback :before
 
   @@cache = {}
@@ -27,6 +29,13 @@ class Lux::View::Cell
       w = ('%sCell' % name.to_s.classify).constantize
       w = w.new parent, vars
       w
+    end
+
+    # delegate current scope methods to parent binding
+    def delegate *list
+      list.each do |el|
+        define_method(el) { |*args| parent.send(el, *args) }
+      end
     end
   end
 

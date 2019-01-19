@@ -7,6 +7,7 @@ class Dir
       .entries(dir)
       .reject { |el| ['.', '..'].include?(el) }
       .select { |el| File.directory?([dir, el].join('/')) }
+      .sort
   end
 end
 

@@ -342,11 +342,23 @@ action(:select', ['users'])
 create mock function, to enable template rendering
 mock :index, :login
 
+#### send_file
+
+send file to browser
+
 #### render
 
 render :index
 render 'main/root/index'
 render text: 'ok'
+
+#### render_to_string
+
+does not set the body, returns body string
+
+#### render_javascript
+
+shortcut to render javascript
 
 #### render_resolve
 
@@ -459,10 +471,6 @@ Current application state as single object. Defined in Thread.current, available
 
 ### Lux::Current methods
 
-#### domain
-
-Domain part of the host
-
 #### host
 
 Full host with port
@@ -490,6 +498,10 @@ Execute action once per page
 #### uid
 
 Generete unique ID par page render
+
+#### secure_token
+
+Get or check current session secure token
 
 #### files_in_use
 

@@ -111,6 +111,7 @@ class Lux::Error < StandardError
   class << self
     # template to show full error page
     def render text, status=500
+      Lux.log text.red
       Lux.current.response.status status
       Lux.current.response.body Lux.config.server_error_template.call(text)
       throw :done

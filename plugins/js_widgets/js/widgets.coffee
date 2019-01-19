@@ -138,6 +138,8 @@
     widget.id    = instance_id
     widget.ref   = "Widget.ref[#{instance_id}]"
     widget.node  = dom_node
+    widget.error = (data) -> @node.innerHTML = """<div style="background-color:#fcc; padding: 5px; margin-bottom: 10px;">#{data}</div>"""
+    widget.parse = (data) -> data.replace(/\$\$\./g, @ref+'.')
 
     # set widget state, copy all date-attributes to state
     json = dom_node.getAttribute('data-json') || '{}'

@@ -314,6 +314,11 @@ class Lux::Application
     Lux.log ' %s' % controller_name
     current.files_in_use controller_name
 
+    # needed for
+    # map 'main/root' do
+    #  r.login
+    action = action.first if action.is_a?(Array)
+
     object.action action.to_sym
 
     unless response.body

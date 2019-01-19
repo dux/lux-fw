@@ -79,9 +79,10 @@ class Lux::Current
   end
 
   # Generete unique ID par page render
-  def uid
-    Thread.current[:uid_cnt] ||= 0
-    "uid-#{Thread.current[:uid_cnt]+=1}"
+  def uid num_only=false
+    Thread.current[:lux][:uid_cnt] ||= 0
+    num = Thread.current[:lux][:uid_cnt] += 1
+    num_only ? num : "uid-#{num}"
   end
 
   # Get or check current session secure token
@@ -108,6 +109,12 @@ class Lux::Current
       @files_in_use.push file
       false
     end
+  end
+
+  def request_body
+    body = @request.body.read
+    return unless body.present?
+    body[0,1] == '{' ? JSON.load(body) : body
   end
 end
 

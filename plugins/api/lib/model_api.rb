@@ -81,7 +81,7 @@ class ModelApi < ApplicationApi
 
     for k, v in @params
       v = nil if v.blank?
-      @object.send("#{k}=", v) if @object.respond_to?(k.to_sym)
+      @object.send("#{k}=", v) if @object.respond_to?("#{k}=")
     end
 
     @object.same_as_last? rescue error($!.message)
@@ -174,14 +174,12 @@ class ModelApi < ApplicationApi
 
       response.error k, desc
     end
-
-    error
   end
 
   def can? action, object=nil
     object ||= @object
     object.can?(action) do |err|
-      msg  = 'No %s permission for %s' % [action.to_s.sub('?',''), Lux.current.var.user ? Lux.current.var.user.email : :guests]
+      msg  = 'No %s permission for %s (%s)' % [action.to_s.sub('?',''), Lux.current.var.user ? Lux.current.var.user.email : :guests, err.split(' - ').first]
       msg += ' on %s' % object.class.name if object
       error msg
     end

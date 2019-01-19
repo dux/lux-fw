@@ -18,18 +18,18 @@ module ::Lux
   BACKGROUND_THREADS ||= []
   # Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
 
-  define_method(:cli?)         { !@rackup_start }
-  define_method(:test?)        { ENV['RACK_ENV'] == 'test' }
-  define_method(:prod?)        { ENV_PROD }
-  define_method(:production?)  { ENV_PROD }
-  define_method(:dev?)         { !ENV_PROD }
-  define_method(:development?) { !ENV_PROD }
-  define_method(:cache)        { CACHE_SERVER }
-  define_method(:secrets)      { @secrets ||= Lux::Config::Secrets.new.load }
-  define_method(:root)         { APP_ROOT }
-  define_method(:fw_root)      { FW_ROOT }
-  define_method(:event)        { Lux::EventBus }
-  define_method(:require_all)  { |folder| Lux::Config.require_all folder }
+  define_method(:cli?)                { !@rackup_start }
+  define_method(:test?)               { ENV['RACK_ENV'] == 'test' }
+  define_method(:prod?)               { ENV_PROD }
+  define_method(:production?)         { ENV_PROD }
+  define_method(:dev?)                { !ENV_PROD }
+  define_method(:development?)        { !ENV_PROD }
+  define_method(:cache)               { CACHE_SERVER }
+  define_method(:secrets)             { @secrets ||= Lux::Config::Secrets.new.load }
+  define_method(:root)                { APP_ROOT }
+  define_method(:fw_root)             { FW_ROOT }
+  define_method(:event)               { Lux::EventBus }
+  define_method(:require_all)         { |folder| Lux::Config.require_all folder }
 
   # main rack response
   def call env=nil
@@ -107,7 +107,7 @@ module ::Lux
 
       t = Thread.new do
         begin
-          block.call
+          block.call *args
         rescue => e
           Lux.logger(:delay_errors).error [e.message, e.backtrace]
         end
@@ -116,7 +116,7 @@ module ::Lux
       BACKGROUND_THREADS.push t
     elsif args[0]
       # Lux.delay(mail_object, :deliver)
-      Lux::DelayedJob.push(*args)
+      Lux::DelayedJob.push *args
     else
       Lux::DelayedJob
     end

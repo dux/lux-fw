@@ -261,6 +261,23 @@ class AutoMigrate
       name ||= :model
       @fields["#{name}_id".to_sym]   = [:integer, opts.merge(index: true) ]
       @fields["#{name}_type".to_sym] = [:string, opts.merge(limit: 100, index: "#{name}_id")]
+    elsif type == :table
+      # table :orgs do |t|
+      #   t.table :users do |t|
+      #   end
+      # end
+      # table :org_users do |t|
+      #   t.integer :org_id, null: false
+      #   t.integer :user_id, null: false
+      # end
+      first  = @table_name.to_s.singularize
+      second = args[0].to_s.singularize
+      t = self.class.new '%s_%s' % [first, second.pluralize]
+      t.integer '%s_id' % first,  null: false
+      t.integer '%s_id' % second, null: false
+      yield t
+      t.fix_fields
+      t.update
     else
       puts "Unknown #{type.to_s.red}"
     end

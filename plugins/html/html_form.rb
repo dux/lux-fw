@@ -43,7 +43,11 @@ class HtmlForm
   def render
     data  = @before.join('')
     data += yield self
-    data = form data
+    data = form_wrap data
+
+    if @opts.delete(:disabled)
+      data = data.wrap(:fieldset, disabled: true)
+    end
 
     @opts.tag(:form, data)
   end
@@ -105,7 +109,7 @@ class HtmlForm
 
   private
 
-  def form data
+  def form_wrap data
     @opts[:class]  = 'ul-form'
     %[<ul>#{data}</ul>]
   end
