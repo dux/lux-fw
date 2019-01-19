@@ -128,7 +128,12 @@ class Url
 
   def qs name, value=:_nil
     if value != :_nil
-      @qs[name.to_s] = value
+      if value.nil?
+        @qs.delete(name.to_s)
+      else
+        @qs[name.to_s] = value
+      end
+
       self
     elsif name
       @qs[name.to_s]
