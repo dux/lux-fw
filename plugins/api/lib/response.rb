@@ -70,8 +70,11 @@ class Lux::Api::Response
       output[:error][:hash]     = errors if errors.keys.first
     end
 
+    @meta||= {}
+    @meta['http_status'] ||= 200
+
+    output[:meta]    = @meta
     output[:data]    = @data    if @data.present?
-    output[:meta]    = @meta    if @meta.present?
     output[:message] = @message if @message.present?
 
     output
