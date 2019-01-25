@@ -1,7 +1,7 @@
 class Object
 
   def self.const_missing klass
-    file  = klass.to_s.tableize.singularize
+    file  = klass.to_s.underscore
     paths = [
       'models',
       'lib',
