@@ -101,13 +101,13 @@ module ::Lux
   # if block given, simple new thread bg job
   # if string given, eval it in bg
   # if object given, instance it and run it
-  def delay *args, &block
+  def delay *args
     if block_given?
-      puts 'add'
-
+      lux_env = Thread.current[:lux]
       t = Thread.new do
         begin
-          block.call *args
+          Thread.current[:lux] = lux_env
+          yield *args
         rescue => e
           Lux.logger(:delay_errors).error [e.message, e.backtrace]
         end
@@ -162,7 +162,7 @@ module ::Lux
     name ||= ENV.fetch('RACK_ENV').downcase
 
     MCACHE['lux-logger-%s' % name] ||=
-    Logger.new('./log/%s.log' % name).tap do |it|
+    Logger.new(Lux.prod? || Lux.cli? ? './log/%s.log' % name : STDOUT).tap do |it|
       it.formatter = Lux.config.logger_formater
     end
   end
