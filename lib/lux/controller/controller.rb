@@ -155,7 +155,7 @@ class Lux::Controller
     # render static types
     for el in [:text, :html, :json, :javascript]
       if value = opts[el]
-        response.content_type = "text/#{el}"
+        response.content_type ||= el
         return value
       end
     end
