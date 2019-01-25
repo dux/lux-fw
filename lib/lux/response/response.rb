@@ -6,7 +6,7 @@ class Lux::Response
   # define in seconds, how long should page be accessible in client cache
   # if defined, cache becomes public and can be cache by proxies
   # use with care.only for static resources and
-  attr_reader :max_age
+  attr_reader :max_age, :render_start
   attr_accessor :headers, :cookies, :content_type, :status
 
   def initialize
@@ -82,9 +82,11 @@ class Lux::Response
     return @content_type unless type
 
     if type.is_a?(Symbol)
-      case type
+      type = case type
       when :javascript then 'application/javascript'
       when :json       then 'application/json'
+      when :svg        then 'image/svg+xml'
+      when :png        then 'image/png'
       when :text       then 'text/plain'
       when :html       then 'text/html'
       else
