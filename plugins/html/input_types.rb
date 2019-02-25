@@ -149,7 +149,7 @@ class HtmlInput
 
   def as_date
     @opts[:type]         = 'text'
-    @opts[:style]        = 'width: 120px; display: inline;'
+    @opts[:style]        = 'width: 100px; display: inline;'
     @opts[:value]        = @opts[:value].strftime('%d.%m.%Y') rescue @opts[:value]
     @opts[:autocomplete] = :off
 

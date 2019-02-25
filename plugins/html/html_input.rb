@@ -54,7 +54,7 @@ class HtmlInput
 
     opts[:as]    ||= :select if opts[:collection]
     opts[:id]    ||= Lux.current.uid
-    opts[:value] ||= @object.send(name) if @object
+    opts[:value] ||= @object.send(name) if @object && name.is_a?(Symbol)
     opts[:value]   = opts[:default] if opts[:value].blank?
     opts[:name]    = name.kind_of?(Symbol) && @object ? "#{@object.class.name.underscore}[#{name}]" : name
 

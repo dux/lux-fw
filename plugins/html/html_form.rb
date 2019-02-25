@@ -59,10 +59,12 @@ class HtmlForm
 
   # hidden filed
   def hidden name, opts={}
-    fname  = @object.class.name.tableize.singularize rescue nil
+    opts = { value: opts } unless opts.is_a?(Hash)
+    fname  = @object.class.to_s.underscore rescue nil
 
     if name.respond_to?(:update)
-      oname = name.class.name.tableize.singularize
+      oname = name.class.to_s.underscore
+
       if @object && @object.respond_to?("#{oname}_id") # grp
         Lux::Current::EncryptParams.hidden_input "#{fname}[#{oname}_id]", name.id
       else
