@@ -1,10 +1,11 @@
 module TimeOptions
   def short
-    strftime("%Y-%m-%d")
+    # lang = Lux.current.request.env['HTTP_ACCEPT_LANGUAGE'] rescue 'en'
+    strftime(Lux.current.var.date_format || "%Y-%m-%d")
   end
 
   def long
-    strftime("%Y-%m-%d %H:%M")
+    strftime("#{short} %H:%M")
   end
 end
 
