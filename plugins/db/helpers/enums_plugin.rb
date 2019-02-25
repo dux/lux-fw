@@ -35,8 +35,12 @@ class Sequel::Model
 
         raise NameError.new('Field %s or %s not found for enums %s' % [opts[:field].sub('_sid', '_id'), opts[:field], name]) unless db_schema[opts[:field].to_sym]
 
+        define_method(opts[:field]) do
+          self[opts[:field].to_sym].or opts[:default]
+        end
+
         define_method(opts[:method]) do
-          value = send(opts[:field]).or opts[:default]
+          value = send(opts[:field])
           return unless value.present?
           values[value.to_s] || raise('Key "%s" not found' % value)
         end

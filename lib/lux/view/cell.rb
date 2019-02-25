@@ -108,4 +108,8 @@ class Lux::View::Cell
     w = w.new @_parent
     w
   end
+
+  def cache *args
+    Lux.cache.fetch(*args) { yield }
+  end
 end

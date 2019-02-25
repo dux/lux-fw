@@ -1,7 +1,7 @@
 LuxCli.class_eval do
   desc :secrets, 'Edit, show and compile secrets'
   def secrets
-    require './config/application'
+    require 'lux-fw'
 
     @secrets = Lux::Config::Secrets.new
 

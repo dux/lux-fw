@@ -2,20 +2,20 @@
 
 class Lux::Response::File
   MIMME_TYPES = {
-    txt:  'text/plain',
-    html: 'text/html',
-    gif:  'image/gif',
-    jpg:  'image/jpeg',
-    jpeg: 'image/jpeg',
-    png:  'image/png',
-    ico:  'image/png', # image/x-icon
-    css:  'text/css',
-    map:  'application/json',
-    js:   'application/javascript',
-    gz:   'application/x-gzip',
-    zip:  'application/x-gzip',
-    svg:  'image/svg+xml',
-    mp3:  'application/mp3',
+    txt:   'text/plain',
+    html:  'text/html',
+    gif:   'image/gif',
+    jpg:   'image/jpeg',
+    jpeg:  'image/jpeg',
+    png:   'image/png',
+    ico:   'image/png', # image/x-icon
+    css:   'text/css',
+    map:   'application/json',
+    js:    'application/javascript',
+    gz:    'application/x-gzip',
+    zip:   'application/x-gzip',
+    svg:   'image/svg+xml',
+    mp3:   'application/mp3',
     woff:  'application/x-font-woff',
     woff2: 'application/x-font-woff',
     ttf:   'application/font-ttf',
@@ -37,6 +37,7 @@ class Lux::Response::File
     opts.disposition ||= opts.inline.class == TrueClass ? 'inline' : 'attachment'
     opts.cache         = true if opts.cache.nil?
 
+    file = file.to_s if file.class == Pathname
     file = 'public/%s' % file unless file[0, 1] == '/'
 
     @ext  = file.include?('.') ? file.split('.').last.to_sym : nil
@@ -53,7 +54,7 @@ class Lux::Response::File
   end
 
   def send
-    file = File.exist?(@file) ? @file : Lux.root.join("public#{@file}").to_s
+    file = File.exist?(@file) ? @file : Lux.root.join('public', @file).to_s
 
     raise Lux::Error.not_found('Static file not found') unless File.exists?(file)
 

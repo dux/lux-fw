@@ -18,7 +18,7 @@ module ::Lux
   BACKGROUND_THREADS ||= []
   # Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
 
-  define_method(:cli?)                { !@rackup_start }
+  define_method(:cli?)                { $0.end_with?('/rake') || !@rackup_start }
   define_method(:test?)               { ENV['RACK_ENV'] == 'test' }
   define_method(:prod?)               { ENV_PROD }
   define_method(:production?)         { ENV_PROD }

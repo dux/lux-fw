@@ -49,7 +49,7 @@ class Lux::Current
     Thread.current[:lux][:var] ||= Hashie::Mash.new
   end
 
-  # Cache data in current page
+  # Cache data in current request
   def cache key
     data = Thread.current[:lux][:cache][key]
     return data if data
@@ -82,7 +82,7 @@ class Lux::Current
   def uid num_only=false
     Thread.current[:lux][:uid_cnt] ||= 0
     num = Thread.current[:lux][:uid_cnt] += 1
-    num_only ? num : "uid-#{num}"
+    num_only ? num : "uid_#{num}"
   end
 
   # Get or check current session secure token

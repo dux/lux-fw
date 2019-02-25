@@ -51,6 +51,8 @@ module Lux
     end
 
     def fetch key, opts={}
+      key = generate_key key
+
       opts = { ttl: opts } unless opts.is_a?(Hash)
       opts = opts.to_opts(:ttl, :force, :log, :if)
 

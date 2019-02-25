@@ -1,6 +1,8 @@
 module Sequel::Plugins::LuxBeforeSave
   module InstanceMethods
     def before_save
+      return unless defined?(User)
+
       # timestamps
       self[:created_at] = Time.now.utc if !self[:id] && respond_to?(:created_at)
       self[:updated_at] ||= Time.now.utc if respond_to?(:updated_at)

@@ -25,7 +25,11 @@ class Lux::Config::Secrets
   end
 
   def encoded_data
-    JWT.decode(@secret_file.read, @secret, true, { algorithm: @strength }).first
+    if @secret_file.exist?
+      JWT.decode(@secret_file.read, @secret, true, { algorithm: @strength }).first
+    else
+      '{}'
+    end
   end
 
   def to_h

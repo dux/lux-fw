@@ -60,5 +60,10 @@ module SimpleException
   def clear
     system 'rm -rf "%s"' % ERROR_FOLDER
   end
+
+  def load code
+    file = get(code)[:file]
+    File.read(file)
+  end
 end
 

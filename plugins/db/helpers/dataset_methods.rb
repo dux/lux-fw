@@ -60,23 +60,24 @@ Sequel::Model.dataset_module do
 
   def xlike search, *args
     unless search.blank?
-      search = search.gsub(/'/,"''").downcase
+      search = search.to_s.gsub(/'/,"''").downcase
       where_str = []
 
       for str in search.split(/\s+/).select(&:present?)
         and_str = []
-        str = "%#{str}%"
+        str = "%#{str}%".downcase
 
         for el in args
           if model.db_schema[el][:db_type] == 'jsonb'
-            like_sql = "CAST(#{el} -> '#{Locale.current}' as text) ilike '#{str}'"
+            like_sql = "lower(CAST(#{el} -> '#{Locale.current}' as text)) ilike '#{str}'"
+
             if Locale::DEFAULT != Locale.current
-              and_str << "(#{like_sql}) or (CAST(#{el} -> '#{Locale::DEFAULT}' as text) ilike '#{str}')"
+              and_str << "(#{like_sql}) or lower(CAST(#{el} -> '#{Locale::DEFAULT}' as text) ilike '#{str}')"
             else
               and_str << like_sql
             end
           else
-            and_str << "#{el}::text ilike '#{str}'"
+            and_str << "lower((#{el})::text) ilike '#{str}'"
           end
         end
 

@@ -19,13 +19,23 @@ class Sequel::Model
       return nil if id.blank?
       Lux.current.cache("#{self}/#{id}") { where(id:id).first }
     end
+
+    def cached_first filter
+      where_filter = xwhere filter
+      Lux.current.cache(where_filter.sql) { where_filter.first }
+    end
   end
 end
 
 class Array
   # we have to call all on set and then precache
   def precache field, klass=nil
-    list = self.map(&field).uniq.sort
+    list = self
+      .select{ |it| it && it[field] }
+      .map{ |it| it[field] }
+      .uniq
+      .sort
+
     klass ||= field.to_s.sub(/_ids?$/, '').classify.constantize
 
     for el in klass.where(id: list).all

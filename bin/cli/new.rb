@@ -1,3 +1,5 @@
+require 'pathname'
+
 LuxCli.class_eval do
   desc 'new APP_NAME', 'Creates new lux application'
   def new app_folder

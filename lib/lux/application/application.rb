@@ -377,5 +377,10 @@ class Lux::Application
     file.send if file.is_static_file?
   end
 
+  # direct template render, bypass controller
+  def template name, opts={}
+    # rr name
+  end
+
 end
 

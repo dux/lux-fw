@@ -78,6 +78,12 @@ class Url
     @path = '' if @path.blank?
   end
 
+  def prepare_qs name
+    url = delete(name).relative
+    url += url.index('?') ? '&' : '?'
+    "#{url}#{name}="
+  end
+
   def domain what=nil
     if what
       @host = what

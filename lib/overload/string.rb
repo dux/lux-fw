@@ -83,6 +83,7 @@ class String
   end
 
   def ends_with? suffix
+    return true if suffix == self
     suffix.is_a?(String) && self[-suffix.length, suffix.length] == suffix && self != suffix
    end
 

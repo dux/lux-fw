@@ -42,8 +42,6 @@ end
 
 ###
 
-trap("SIGINT") { Cli.die 'ctrl+c exit' }
-
 LuxCli = Class.new Thor
 
 # remove new in app, or allow only new while not in app
@@ -60,7 +58,11 @@ if !ARGV[0] && (Dir['./Rakefile*'] + Dir['./rakefile*'])[0]
   Whirly.start spinner: "dots" do
     t = Thread::Simple.new
     t.add(:rake) { `rake -T` }
-    t.add(:capistrano) { `cap -T` } if File.exist?('./Capfile')
+
+    if File.exist?('./Capfile') && ENV['RACK_ENV'] == 'development'
+      t.add(:capistrano) { `bundle exec cap -T` }
+    end
+
     t.run
 
     if t[:rake]

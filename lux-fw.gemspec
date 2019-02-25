@@ -38,4 +38,5 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_dependency 'binding_of_caller', '~> 0'
   gem.add_dependency 'nokogiri', '~> 1'
   gem.add_dependency 'whirly', '~> 0'
+  gem.add_dependency 'pry-coolline', '~> 0'
 end

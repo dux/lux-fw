@@ -65,4 +65,27 @@ module Crypt
     data['data']
   end
 
+  # encrypts data, with unsafe base64 + basic check
+  # not for sensitive data
+  def short_encrypt data, ttl=nil
+    # expires in one day by deafult
+    ttl ||= 1.day
+    ttl   = ttl.to_i + Time.now.to_i
+
+    data  = [data, ttl].to_json
+    sha1(data)[0,8] + base64(data).sub(/=+$/, '')
+  end
+
+  def short_decrypt data
+    check   = nil
+    data    = data.sub(/^(.{8})/) { check = $1; ''}
+    decoded = Base64.urlsafe_decode64(data)
+    out     = JSON.load decoded
+
+    raise ArgumentError.new('Invalid check') unless sha1(decoded)[0,8] == check
+    raise ArgumentError.new('Short code expired') if out[1] < Time.now.to_i
+
+    out[0]
+  end
+
 end

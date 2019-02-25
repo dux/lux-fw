@@ -114,6 +114,7 @@ class Lux::Response
   # redirect '/foo'
   # redirect :back, info: 'bar ...'
   def redirect where, opts={}
+    opts   = { info: opts } if opts.is_a?(String)
     where  = current.request.env['HTTP_REFERER'].or('/') if where == :back
     where  = "#{current.request.path}#{where}" if where[0,1] == '?'
     where  = current.host + where unless where.include?('://')

@@ -41,8 +41,9 @@ class Lux::Api::Response
     !!@errors
   end
 
-  def message what
-    @message = what
+  def message what=:undefined
+    @message = what if what != :undefined
+    @message
   end
 
   def redirect url

@@ -19,6 +19,7 @@ module Sequel::Plugins::LuxCreateLimit
 
   module InstanceMethods
     def validate
+      return unless defined?(User)
       return unless ::User.current
 
       name = self.class.to_s.tableize.humanize.downcase

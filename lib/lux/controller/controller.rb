@@ -80,13 +80,15 @@ class Lux::Controller
 
   # send file to browser
   def send_file file, opts={}
-    Lux::Response::File.send(file, opts)
+    response.send_file(file, opts)
   end
 
   # render :index
   # render 'main/root/index'
   # render text: 'ok'
   def render name=nil, opts={}
+    return if response.body?
+
     if nav.format
       current.once(:format_handled) do
         current.var.format_handled = true

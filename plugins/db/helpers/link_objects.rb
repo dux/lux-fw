@@ -67,7 +67,7 @@ class Sequel::Model
         else
           # we have a link table
           cname = klass[0,1] > to_s[0,1] ? "#{to_s}#{klass}" : "#{klass}#{to_s}"
-          comm  = "#{klass}.xwhere('id in (select #{klass.tableize.singularize}_id from #{cname.tableize} where #{to_s.tableize.singularize}_id=?)', id)"
+          comm  = "#{klass}.default.xwhere('id in (select #{klass.tableize.singularize}_id from #{cname.tableize} where #{to_s.tableize.singularize}_id=?)', id)"
           puts "* #{to_s}.link :#{name} -> #{comm}"
         end
 

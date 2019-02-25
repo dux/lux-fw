@@ -1,0 +1,1394 @@
+commit 3b3b4ca52b525461b06d99deaeaa6e83fa15e950
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jan 25 08:31:09 2019 +0100
+
+    master: added licence
+
+commit 89c4676635eb61c5c12139aa8cb55a48888be38c
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jan 25 08:30:59 2019 +0100
+
+    image content types in static files
+
+commit f35cd965c7f5b03d976fa5ee2a1c72f7a858af0c
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jan 25 08:30:26 2019 +0100
+
+    copy lux env to threads
+
+commit 7061f72bc460ce7a7924b93c6a638aaab111114f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jan 25 08:30:07 2019 +0100
+
+    use underscore instead of tableize
+
+commit 9d8aa3f9cd02c7a36d220d565795b7809cd778a9
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jan 25 08:29:23 2019 +0100
+
+    bug fix on content_type assign
+
+commit b7f9578b9931ba51a31ff0f423f09947be062618
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Jan 20 18:16:34 2019 +0100
+
+    master: added meta http_status as mandatory to response
+
+commit a1a0fbc37a1e8a45bbdb37a7d16e88c16d33178e
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Jan 20 16:15:46 2019 +0100
+
+    master: simplified and optimized HashWithIndifferentAccess
+
+commit d4470e328559415953e369e7eec9d9072c990414
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Jan 19 19:23:02 2019 +0100
+
+    master: small code fixes and imrovements
+
+commit f57c9b2b7e2442e6845f6481f08aa7cc148c7234
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Jan 19 19:22:40 2019 +0100
+
+    more options on widget creation
+
+commit 855f5d777a4e4ed5b8ea8f2d08a4daa5b13f6599
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Jan 19 19:20:16 2019 +0100
+
+    refactor to make more readable
+
+commit cd6b3961262ebaf7d298c81716973e34c2b092ca
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Jan 19 19:19:21 2019 +0100
+
+    siplified url generation
+
+commit b6b5bd982379ddf7dd22615366576046e5d0ae57
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Jan 19 19:17:47 2019 +0100
+
+    simplification and consistency
+
+commit 0ed5f9e420bebf0beb6a58fa9268536a95526f12
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Dec 26 22:32:29 2018 +0100
+
+    master: simple iprovements
+
+commit 1de21b127accdfa8fdb1ecd16a73b1fbe6b4c9a5
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Dec 26 22:31:48 2018 +0100
+
+    reduced code smell
+
+commit 0ff914cc9845ef0ca4417932f68076a4e420bd0e
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Dec 26 22:31:00 2018 +0100
+
+    added whirly spinner
+
+commit 66ef9e358ef774a7f924f4c595153d3ad7ebd7b1
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Dec 26 18:29:15 2018 +0100
+
+    add simple pooled threads
+
+commit 3854d50b2aaf516f4413c80a28f21856f70a65af
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Dec 26 18:28:10 2018 +0100
+
+    show rake and capistrano tasks, if installed
+
+commit 8890065b1e61f1aa4ceba0e7cc6c7979c02936c0
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Dec 26 18:26:56 2018 +0100
+
+    simplified code
+
+commit 611a55f05130f0d9ad43e1c566c91696516e668d
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Nov 29 16:03:25 2018 +0100
+
+    master: moved demo cell files to demo folder
+
+commit a889432f7c8de9d2905f6ff2d05820736c485a72
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Nov 29 16:02:44 2018 +0100
+
+    added create_limit plugin to core plugins
+
+commit f0a94741bc4eca74ca4005dd3661d35313f0b658
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Nov 29 16:02:11 2018 +0100
+
+    removed local path
+
+commit e373e7e8f7689bf79e67d9b78e557dd8e0d1cae9
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Nov 29 16:01:46 2018 +0100
+
+    errors refactored
+
+commit b37ace2ad8ce7e7dd370d9a18e303181302c81d5
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Nov 29 16:01:17 2018 +0100
+
+    added session helper method
+
+commit bf87b2d4e303ac325d513307b3727f5ffbce41c8
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 21 19:46:05 2018 +0100
+
+    master: refactored       end
+
+commit adf8f675f87d3d899ac6b0d6b4bbda43c15691c4
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 21 19:39:36 2018 +0100
+
+    master: controller variables reorganized
+
+commit 8cd0cd4e64d5c95f13e8d9eb4d0c49c0ac8bb691
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 20 14:34:27 2018 +0100
+
+    master: added secure token and small fixes
+
+commit 8fc4be25119990fae074d8a0facedd7f3d6cec20
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Nov 17 18:44:27 2018 +0100
+
+    master: various updates
+
+commit 5aaee6f19f7f93c645959ba36da068511ad3aa82
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Nov 17 18:43:51 2018 +0100
+
+    readme updates
+
+commit 8d294efe13e69d5901c43253a3e92ae65b6c62bf
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Nov 17 18:43:41 2018 +0100
+
+    moved filter method to private
+
+commit 98801cad8b52f9af3b9aa37a1d53dba1e8f63244
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Nov 17 18:43:20 2018 +0100
+
+    added magic routes, simplified routing interface
+
+commit a05bad3abd21e7f75407f67ac0436e5bf0534bb2
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Nov 17 03:10:18 2018 +0100
+
+    master: updated demo files
+
+commit 20626e008b8239fd3a451df080ece664e60e5c31
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Nov 15 20:57:30 2018 +0100
+
+    master: demo files fix
+
+commit 260a23845f9ee1460c89d07f8ce302c38cebe222
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Nov 15 20:46:44 2018 +0100
+
+    master: added source to Gemfile
+
+commit a22fa1b82e09cdf34e124cd019522105c4bea35a
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Nov 15 20:41:34 2018 +0100
+
+    master: include more files in a gem
+
+commit 99b37f73e01120f10bcbf6199e3773cd0fe53c41
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Nov 15 20:11:01 2018 +0100
+
+    master: documentation and demo app
+
+commit 04b2bf7966f9362693b4128a377c468dfc6db205
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 14 17:55:52 2018 +0100
+
+    master: more optimized reponse and error flow
+
+commit 17e673bf6cf2293f7b6d3340ead6bddf93a449fb
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 14 02:34:14 2018 +0100
+
+    master: bug fix in format responder for single format
+
+commit 1f0485daf28eac0157b580e749cabde66c6b2616
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 14 02:07:11 2018 +0100
+
+    master: formats in routes (.js)
+
+commit 18cdc89eb65177ebd4ece1279469866e8507556f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 13 17:41:54 2018 +0100
+
+    master: test fix
+
+commit 10d378854528e462a04589c72e7745ed91726341
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 13 17:38:43 2018 +0100
+
+    master: small improvements
+
+commit bf5c63e1a55e7451e458cce7cda3465b91ad4784
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 13 17:38:32 2018 +0100
+
+    to_opts refactor
+
+commit d244f930db28ead3b4785ac67796e281f68aca7d
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Nov 11 18:11:08 2018 +0100
+
+    master: reorganized files in Lux::View
+
+commit 87d8bcc6f68507871f47e0f39aa05d969f321ffc
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Nov 11 13:49:21 2018 +0100
+
+    master: moved all app config to Lux::Application
+
+commit 17618a5a2c533441f5da5c77fbe8ee25e9f59a83
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Nov 11 12:11:03 2018 +0100
+
+    master: cleaner class_callbacks call
+
+commit 0cd7f4c09a66cefb7a861b0bd24cf8ccb4694833
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Nov 11 12:10:43 2018 +0100
+
+    more robust get
+
+commit fef5b4bec53c8ba3cbc3cc7e9cbb0a63d234215e
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Nov 10 02:05:27 2018 +0100
+
+    master: doc update
+
+commit 6d655b4f7a1d10b51fb471270d1d6dedb8d96d22
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Nov 8 00:19:15 2018 +0100
+
+    master: moved nav @id to Nav class
+
+commit 652621fc4f01bb93d8fa6ea4eb97258a5d1a8ec0
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 7 23:39:57 2018 +0100
+
+    master: better application error interface
+
+commit d88746e5b11e640f0b1735ae9e7438f9a95fc881
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 7 23:38:49 2018 +0100
+
+    lux routes - new features dump
+
+commit cccbafbbd9621be94bb169e52770b6f84a2ee264
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 7 19:25:50 2018 +0100
+
+    master: get folders in plugins allways in a namespace
+
+commit 4bfb4f7e4356d1af4a9cded4f02c370469e8fc88
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 7 18:59:25 2018 +0100
+
+    master: nested routes and simplified plugin init
+
+commit 05fcdfb030e690787ef3aca4a1a0c2b6829f97f9
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 7 18:58:32 2018 +0100
+
+    master: nested routes and simplified plugin init
+
+commit c2591f5841160ee2037d29dcd6b1394f6d2b65b2
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 7 18:46:49 2018 +0100
+
+    small improvements
+
+commit e2a969859a4095f924dfb4da572e61c115cfed40
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 7 18:45:55 2018 +0100
+
+    simpler and more robust plugin init
+
+commit b704a0b3edb9586f8256d636c5ffdf0f94d93057
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Nov 7 18:45:28 2018 +0100
+
+    new nested routes features
+
+commit 4e856c1f79941933aeab4335be0c8fe8f3e6fcb9
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:56:14 2018 +0100
+
+    strong define for plugin options
+
+commit 1f11357f466916a6aaba7ca543cff390b233b9da
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:55:51 2018 +0100
+
+    added if option to cache fetch
+
+commit a79083276eeab9abfe0b93bf1c3010af64b2ff5a
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:55:20 2018 +0100
+
+    refactored live check to monior all loaded files
+
+commit dc23220b0a6565d606e6fae8565edaeb60c4f8a8
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:54:28 2018 +0100
+
+    moved controller layout to thread varaible not to polute local namespace
+
+commit c01e4a5c5426c0b9f1d9e130ebba750a099f9445
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:49:11 2018 +0100
+
+    xwhere now knows how to search in array type fileds
+
+commit 6e1f62103c3b959c710253a22046973b92341478
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:46:04 2018 +0100
+
+    moved automigrate to plugin
+
+commit c52c3a4146554a3f707a7ec82a7d6b74c46b15d1
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:43:47 2018 +0100
+
+    added loaded rake tasks from rake
+
+commit daa05e77e971e5b6378f706532bf28664811cfad
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:43:14 2018 +0100
+
+    moved auto_migrate to plugin
+
+commit 64a717e48ef95619a5b4376c95afb8199aaa41b2
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:42:50 2018 +0100
+
+    moved assets to lux_assets gem
+
+commit d03b88bc4f0fd264a28ce82b265863d164fc8713
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:14:31 2018 +0100
+
+    removed double error bug
+
+commit c38b90916de586ec043c4dd6fb462dc742d81a9d
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:13:32 2018 +0100
+
+    added optional name for content html tag
+
+commit 6901036cb0865aac36c6f34f20126e081aa945c1
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:12:58 2018 +0100
+
+    better inline error
+
+commit cf90410cb4a1746d12a191ffdc86c445110fe37d
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:12:21 2018 +0100
+
+    added folders method to Dir base class
+
+commit 414a3e6678f3f7f4c3007fe3405ec92b92e7e67d
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:11:54 2018 +0100
+
+    return plugin on plugin define + bug fix
+
+commit 11d24009e96bde5100fa250569cfb32eeb951bf5
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:11:05 2018 +0100
+
+    defined Lux in root and removed unnesesary new line
+
+commit 316a2fb14b5ba85c31ca476ca5a95508e1d91a10
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Nov 6 05:10:02 2018 +0100
+
+    renamed previous_root to active
+
+commit 71479784d14ed200c4152d4c1c24bca6eb613c5a
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Nov 1 02:36:13 2018 +0100
+
+    master: reorganized and cleand
+
+commit 64f9220c15cfe97435d0e2e24df1d476fe69d5f8
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Oct 31 20:13:07 2018 +0100
+
+    master: lux config show, config conventions and small improvements
+
+commit a22f656990f42a3946c0c721709e133d08e2f1cb
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Oct 31 10:31:45 2018 +0100
+
+    master: replaced .class == with .is_a?
+
+commit 8968d05c0c26c5725c77ae812d5d65c6a89b52da
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Oct 31 10:28:21 2018 +0100
+
+    master: moved policy to plugins and plugin loader fix
+
+commit 8d4d5c09ee443607506de85d4f7f8efc1b0617a9
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Oct 30 22:34:53 2018 +0100
+
+    master: bug fiix
+
+commit 0ba04794cd0e2b4428781d6e474eefb3b6ca6b45
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Oct 30 22:22:45 2018 +0100
+
+    master: simplified assets and cells
+
+commit a0b86a69a7673cdde525db9444bf8bcaf6197a47
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Oct 30 15:54:15 2018 +0100
+
+    master: secrets simplification
+
+commit 9eaceaeb42268bfba8d4951a870e528b97bcb3dd
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Oct 30 13:19:30 2018 +0100
+
+    master: added tests
+
+commit 13bf951dc6de82e25255cf25ec4b6a3f4805b128
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 17:05:36 2018 +0100
+
+    passing build_handler to Lux.serve
+
+commit 03d39389f1480128b05fd387aa55890ad887b38f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 17:04:47 2018 +0100
+
+    renamed show_server_errors to dump_errors
+
+commit 1c2775f1552bd3d8d9ea5fa0ea207a3cd75d7477
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 15:48:47 2018 +0100
+
+    send file improvements
+
+commit 31a41e7b6f95b45b4729b7bbac2c415e5301e1c4
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 15:47:59 2018 +0100
+
+    refactor
+
+commit c3fc758c2c9edff48ab4557917edcebc6d97d294
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 15:47:36 2018 +0100
+
+    added posibility of sending argument callbacks
+
+commit 7b644011d96e2c9f4a26427555d0443f4af480a4
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 13:43:08 2018 +0100
+
+    send_file refacotor and api simplification
+
+commit 40dbc52ba9db42ff2a5bc49026e3f6d000182f84
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 13:42:26 2018 +0100
+
+    added previous_root method
+
+commit 1e8cdd06e9f17d005d57f4dffe45880501d949bb
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 13:42:00 2018 +0100
+
+    removed plugs
+
+commit d78c59dd3a1d21c664b0b064b0f432a6f04bc933
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 13:41:24 2018 +0100
+
+    added to_h method
+
+commit fc23ab62d0519d31ebdf186578241a726c2ae6eb
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 01:56:40 2018 +0100
+
+    tests updated
+
+commit c4e5b57ce56b1e9d5a761f71758f9ef3c4773732
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 01:56:34 2018 +0100
+
+    added different api call style
+
+commit ef566d0dbff3d97e6795e31fb47e8f49c2602f39
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 01:56:10 2018 +0100
+
+    addded default on_error
+
+commit 7fbc0545f18ac3e03e7c9c2802814d6c13d4dc9d
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 01:55:55 2018 +0100
+
+    small reafctors
+
+commit 7c246600b7cb6bf4d302c4f97eca75c7b8ceab7f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Oct 29 01:54:46 2018 +0100
+
+    converted to instance variables
+
+commit ebcb61d0606f3d096ac9d2e2d8e966077f3612aa
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Oct 28 20:44:50 2018 +0100
+
+    master: refactors
+
+commit e58520dd92a73e3b59f4275ac7415409a824a459
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Oct 28 04:02:05 2018 +0100
+
+    master: moved api to plugins
+
+commit 289a155e6cec15302469399991981cff06fd344a
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Oct 28 04:01:54 2018 +0100
+
+    refactor
+
+commit 015d3ce9cef88c83e9ced99d7236ea20c59f88e0
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Oct 28 04:01:06 2018 +0100
+
+    rename
+
+commit eb2449d697f33c52e6d58703c5abbe9b576c368c
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Oct 28 04:00:36 2018 +0100
+
+    refactor
+
+commit a0303138b470973722063b9b4770d48d0abb31c8
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 27 19:16:36 2018 +0200
+
+    master: new routing inteface
+
+commit 87c6945e9b849f822485b58a44a1057e53318d92
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 27 13:07:51 2018 +0200
+
+    master: error reporting improvements, security
+
+commit 14b06da96b6725b81ce937f13620e6e179abd6c9
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 27 12:04:32 2018 +0200
+
+    master: error rescues refactor
+
+commit 82ea52a111f1333dbb3af0530bea8d86e540c03a
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 27 05:21:13 2018 +0200
+
+    cc: error reporting refactor
+
+commit bb0ce432ea93011d482d8d8aea71cce27307bbc7
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 27 02:30:35 2018 +0200
+
+    cc: refactor or class_callbacks with new features
+
+commit e1d66acebdc93298d25b68d18e92b7ff8dab3c8a
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 27 01:18:37 2018 +0200
+
+    master: refactor and delete on headers
+
+commit f64602bf55fd76cbb6e9e3c0ef9cbad78bc100c6
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Oct 26 04:33:31 2018 +0200
+
+    master: small improvements
+
+commit 2f3864818ad3b63d4822f7873966834c7d74cf7c
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Oct 26 03:23:58 2018 +0200
+
+    master: style fix
+
+commit 57266f335c8fa1159354fe9b48500e83e5944500
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Oct 26 03:13:02 2018 +0200
+
+    master: assets refactored + added support for cell assets
+
+commit c16d7a16281e388f4bd8e6f49fa75bc31a81908d
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Oct 25 22:19:55 2018 +0200
+
+    master: small refactors
+
+commit 324dc10e7367690aa2e56fddd4d4b219fecbd6be
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Oct 9 15:15:13 2018 +0200
+
+    add route printing in cli via lux routes
+
+commit 7f96f0b27657f8c69446656674a6b84bebaa1766
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Oct 9 15:14:49 2018 +0200
+
+    add extention statistics to stats
+
+commit b715008c26b6112d2bb50a59829e153a807bcf57
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Oct 9 15:14:07 2018 +0200
+
+    show dotted values in integer pluralize
+
+commit 504201ff29c534363e8ccdd9851e1dacadb61baa
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Oct 9 15:13:42 2018 +0200
+
+    set value to nil for blank values
+
+commit c42aac1e45f38f85b1712df54ba498c5d98822de
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 6 19:56:38 2018 +0200
+
+    master: various refactors
+
+commit c8169c346ca9123df61a0b058174a7c28cae1b5f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 6 19:55:51 2018 +0200
+
+    added redirect count tracker on local redirects
+
+commit 0dcd0e1d3030983761a1db5337a42ddcb146d964
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 6 19:54:43 2018 +0200
+
+    mail logging and small refactor
+
+commit faaacf2361ceedea08bbfabd88ff4550a8b31d3f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 6 19:54:06 2018 +0200
+
+    auto rasie erros on set
+
+commit fcdafaad7a9b5a8ec405e402d9c833890dec58b2
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 6 19:53:18 2018 +0200
+
+    inline require dalli gem when needed and cache test on set
+
+commit dbe807416653e9e480215c37699823f5c7c723b8
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 6 19:51:56 2018 +0200
+
+    small refactor of Url class
+
+commit e85b167a6096aa2b6acd62a6340aa5464afae061
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Oct 6 19:50:47 2018 +0200
+
+    show source of a method in consloe
+
+commit b4e66e58b40bc676b34afbbedb5d992ac3a123f8
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 16 18:06:28 2018 +0200
+
+    added config loader trough callbacks loader
+
+commit eecdfa31b6c969af2de5c814281b8c63408c8eb8
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 16 18:03:52 2018 +0200
+
+    load assets routes only if we need them
+
+commit a58222769575a7fc7a4e0470140b16f0ddc199bb
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 16 18:02:09 2018 +0200
+
+    added option to define redirect variable name
+
+commit babd7a9430ca7ea5ef006697bba06ef91d755215
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 16 18:01:36 2018 +0200
+
+    pass action name to before_action filter
+
+commit e53195638ff95f896144e701c7cdbd8a14b46184
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 16 03:54:59 2018 +0200
+
+    renamed Popup to Dialog
+
+commit 2757ffc869e4ed3ae75bcc54e2ab0e01a5e4a3c7
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 16 03:54:43 2018 +0200
+
+    small updates
+
+commit 03ea9c3597b36dbca9cf2c8996054e4d7e92b9f9
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 16 03:53:42 2018 +0200
+
+    added default error calls
+
+commit 80b1bf31028ee2918ea3ac6bcdc10f8fb9ed2871
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 16 03:48:43 2018 +0200
+
+    small Url class refactor, added hash interface to qs
+
+commit fd894683314bb1237055bf45a0e711eba8666762
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 16 03:48:12 2018 +0200
+
+    removed application policy comment
+
+commit 3491deb0440d5ded07f10662ed7d63c7106a5e2f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 16 03:47:44 2018 +0200
+
+    simplified Lux loader/starter
+
+commit 9d086676b72372dd43aadc1f8221f9855e77b808
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Sep 14 21:22:19 2018 +0200
+
+    added 2 redirects max
+
+commit eb3ad2517a7d7d4895882369842770eec3e9f507
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Sep 14 21:22:09 2018 +0200
+
+    bug fix with ttl error
+
+commit 8fb4238539d40036eedc396442980bec86ab366c
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Sep 13 19:19:33 2018 +0200
+
+    master: error resolve in api
+
+commit c0febc6ad169f542d7f56d1d466ec92010fc7ca6
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Sep 11 15:29:03 2018 +0200
+
+    check uniq only if value is present
+
+commit 8349052465186822f5f21bcfa66d3b455ef5ef96
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Sep 11 15:28:13 2018 +0200
+
+    simplified fields
+
+commit dfac803cdce6ce134e2e3a3228a9cc4cc616c5f2
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Sep 11 15:27:45 2018 +0200
+
+    render js and coffee in cell assets
+
+commit 0f214354f864a6dfc2b22c08e1c00d276c7ea7c4
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Sep 11 15:27:04 2018 +0200
+
+    optional status at controlller render
+
+commit 20746c9b11a5b6db99420901e0b6bab5efddb936
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 9 00:19:28 2018 +0200
+
+    send mails in a same process
+
+commit ea278a7290c3a86178e327ed5d523f7aedcda9f3
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 9 00:18:22 2018 +0200
+
+    error logger for delayed jobs
+
+commit f6f25ffe178e0b2876347e28b30c5729fdd789bb
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Sep 9 00:18:07 2018 +0200
+
+    loggers in config
+
+commit 0557cdec2e4b0d26c023b862035afad838cc3976
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Sep 8 22:48:55 2018 +0200
+
+    added 204 when no body set
+
+commit 19e4966a22730c2b5a3484d843ea62b3ce9daf91
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Sep 8 22:48:37 2018 +0200
+
+    better exception management and logge
+
+commit ef075c89047909efc9484f55c02b7b23be1b83de
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Sep 8 22:46:37 2018 +0200
+
+    better checker for duplicate objects
+
+commit baeb5cc5ac5cafe377bf6f3b80116f4622dd3ab3
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Sep 7 12:48:31 2018 +0200
+
+    master: session in Lux.render and small fixes
+
+commit 12807353d356bfc0956865ed405d8bc9276f78cc
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Aug 31 17:51:49 2018 +0200
+
+    master: moved application session to separate class
+
+commit f2f18e4c94864fb59753e311cdf3dda029828348
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Aug 31 17:02:59 2018 +0200
+
+    small optimizations
+
+commit 0765bd60ede2c9221ce6f54aad7036a7139dcb1b
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Aug 31 17:02:43 2018 +0200
+
+    better application cookie and removed is_first? request check
+
+commit 00198fe3c1a4809dc2bdeabe912ffb489f121644
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Aug 31 17:01:37 2018 +0200
+
+    better comparison with last object created
+
+commit d92994973c96f1d66ef4dd83327f44f643831958
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Aug 31 16:57:44 2018 +0200
+
+    default config init moved to loader
+
+commit c9a394b8efbcbd2e44efdd41737bf6bb221acb3b
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Aug 28 01:06:04 2018 +0200
+
+    master: updated version
+
+commit 4a8850fcdf4912a2589067148c30b343aacad488
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Aug 28 01:05:10 2018 +0200
+
+    simplified oauth loader
+
+commit cb22713ef568a2bc84661932624b65dffea5d18a
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Aug 28 01:04:47 2018 +0200
+
+    fixed wrong method nameing
+
+commit 9b3e2a6f06c7149c74ab90d08a9991095245e390
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Aug 28 01:04:11 2018 +0200
+
+    added logger to mailer
+
+commit da2ebe0fc1b4e27009654390f712c9db13e8fa65
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Aug 28 01:03:45 2018 +0200
+
+    added logger class, experimental
+
+commit 4818b82648680bbab570dab57dfe2a117c2daf15
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Aug 28 01:03:28 2018 +0200
+
+    response can be defined as proc
+
+commit 58ed84082a5f3cba80b29569db9e0a4c4cf6c9b3
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Aug 28 01:02:54 2018 +0200
+
+    added alternative way to define div with class, experimental
+
+commit 605d1a24920e71ea7b43409df3d3d327df4ecbec
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Aug 28 01:01:51 2018 +0200
+
+    define class prams unless defined
+
+commit 23dcb2d3836a5919719a4e743c0ae5a26bcbc300
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Aug 12 01:30:19 2018 +0200
+
+    master: refactored plugin names
+
+commit e93585b563fab99695178b8d6c15175b290439e0
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Aug 11 03:20:33 2018 +0200
+
+    allow block in wigets
+
+commit 9d2da075b97c1314802c4cf4daa11f26f9b59e0d
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Aug 11 03:19:45 2018 +0200
+
+    do not encrypt params if params not given
+
+commit 3eb833c2233ffad4cc7fbab7dd98dd5b0222eeb1
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Aug 11 03:18:14 2018 +0200
+
+    simplified cell invocation
+
+commit 5def5795306528f03023fba3ad522765ac9859f7
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Aug 11 03:17:44 2018 +0200
+
+    default error style change
+
+commit c63793affcd444906e0d9fd540b109c30493243f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Aug 11 03:17:14 2018 +0200
+
+    more clear files in use array
+
+commit 3875995a50860556777e0fd33bd0fd17ac54a57f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Aug 11 03:16:44 2018 +0200
+
+    moved match to map
+
+commit 5ac815a5f72c86162c7004bf84d7062872caeed9
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Aug 11 03:15:35 2018 +0200
+
+    better routing docs
+
+commit 87512ceb565875d2558d08f1b388de35fdff2d4e
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Aug 6 21:23:00 2018 +0200
+
+    added redirect :back
+
+commit 19ec650e88937bd89f4fb79445b9117eec36c62d
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Aug 6 21:22:36 2018 +0200
+
+    improved assets render
+
+commit 6aba533ef53ff9da8d0bfc510b352a7ef2155512
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Aug 6 21:21:42 2018 +0200
+
+    added after filter to controllers
+
+commit 09a0b7f510c38c46827e5001cf98d0cabc057ce5
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Aug 6 12:21:16 2018 +0200
+
+    master: fixed Invalid byte seq bug on body check
+
+commit 99435fba3baacdc4a1484e620ac7adb325d0000a
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Aug 6 04:45:43 2018 +0200
+
+    master: dobule db query logging fixed
+
+commit 8e96ea19d5f7b6a60d501e929ce8f70b6a3ce6f1
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Aug 6 04:14:38 2018 +0200
+
+    master: render and response filters
+
+commit 4abd5e4b10396b5be8d39acd789eece41b95e914
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Aug 4 23:40:23 2018 +0200
+
+    master: errors refactored
+
+commit 4770474119c88da9fbe921a03492a835b0b1515e
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Aug 4 17:38:59 2018 +0200
+
+    refactored and simplified errors
+
+commit 42a5f38b3eb221250e5d7abe5d173d30fd27a612
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Aug 4 17:38:38 2018 +0200
+
+    error on zero file include
+
+commit 5ec373009f1aa38be327e3d63d2f45433fb341dc
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jul 27 05:55:16 2018 +0200
+
+    master: cells, ability to define instance variables as hash options
+
+commit 457ddf2f0aa69cd48b0ae297c98f109160e0e2f1
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Jul 22 18:32:59 2018 +0200
+
+    master: assets plugin refacotr
+
+commit 97f7edc3d5ba7b1aca3e9b5abf63fdf44113c026
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Jul 22 02:43:38 2018 +0200
+
+    master: refactored and simplified assets
+
+commit 5e68830203a46dd2ca66476c215cc4f4c9ffa803
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Jul 21 19:03:41 2018 +0200
+
+    master: added support for asset plugins
+
+commit 138f04eccb4475d116cc0fb5e7af78c21845918e
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jul 19 22:26:37 2018 +0200
+
+    master: moved puma to Gemfile
+
+commit 8b0a4521e1f89843ae39f1f293fa704e07d7bbe1
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jul 19 22:23:45 2018 +0200
+
+    moved sassc and dotenv to framework
+
+commit 29d4cdfcc63319ed1953766ae7a533b277123da5
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jul 19 22:23:21 2018 +0200
+
+    updated cell plugiun
+
+commit 97a6078690e4cdd0e0a2d64d0568aa6c423e4d39
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jul 19 22:22:52 2018 +0200
+
+    removed loading of Lux logger unless needed
+
+commit 3dadda8735882c43a17e71c51c6630c013dc71f2
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jul 19 22:22:01 2018 +0200
+
+    added geography to supported types
+
+commit 6bcc45302fca9b2f66371098d53a7c71bea09c31
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jul 19 22:21:33 2018 +0200
+
+    better handling of collection in a hash for html input
+
+commit 8305a28882cbed612ec4e40b41b0ccd93ea2c617
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jul 19 22:20:06 2018 +0200
+
+    typero plugin name refactor
+
+commit d133e16e0ab31ec49bf63f9089cf5e7451532ad6
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jul 19 22:19:35 2018 +0200
+
+    added features to enum class
+
+commit 35beccf9a3e66b36cc2728d6b6ae1b14daa4e562
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jul 19 22:19:19 2018 +0200
+
+    removed tag form string methods
+
+commit 40b31e4a045022ed68763d8cc19c1631c2851039
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jul 19 22:19:00 2018 +0200
+
+    secrets bug fix
+
+commit 5037a6e1df421e4c51499c416e64b2f3f2850771
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun Jul 8 03:09:36 2018 +0200
+
+    master: made asset plugin to work automatic
+
+commit a8a9da8e55c9141ecadb6819bc31c7a783774a36
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Jul 7 12:25:17 2018 +0200
+
+    master: simplified nav object, added namespace bloks to routes, fixed bug in html input
+
+commit b002423e577fd21a07e58b4c56cb76de8bf61af1
+Merge: 89760a2 99c6b73
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Jun 30 23:42:30 2018 +0200
+
+    Merge branch 'master' of github.com:dux/lux-fw
+
+commit 89760a251f9452dd7e2c0c0032032e77f386976b
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Jun 30 23:34:22 2018 +0200
+
+    secure tokens in api
+
+commit 99c6b73a8c61eab518bda5f46bc5a8d9af04ce7b
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat Jun 30 23:34:22 2018 +0200
+
+    master: add me to city as aepert
+
+commit 6a358141113dc1a07998c0e5947664a0c6d3ec85
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jun 29 02:48:10 2018 +0200
+
+    master: moved namespacing in routes to namespace method
+
+commit 7c6571c44fc422ca28b8f63ce46e24a6f7f057a8
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jun 29 02:18:49 2018 +0200
+
+    master: better api method attributes and andand
+
+commit 6562a522b44c7528fbf1577da128443d863a3fc7
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Jun 27 02:48:26 2018 +0200
+
+    master: break if given bad plgin name
+
+commit 955b7cd3801b981920be67b60894f2de682bb58f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Jun 27 01:02:09 2018 +0200
+
+    master: moved from nav.id to @id
+
+commit 0494aacf4693d29ce96ab3a74746a11277285b30
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Jun 13 13:23:30 2018 +0200
+
+    master: removed redundant cookies and params objects
+
+commit fcfec3ed07d41ca1b85c04ecec8bd587a752f6ce
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Jun 13 11:32:33 2018 +0200
+
+    master: @array.push? if_present
+
+commit 340b8a08db1d817e3339e75b406ccb4edc69cd09
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue Jun 12 03:04:39 2018 +0200
+
+    master: view cell precache and css render
+
+commit fbc92758773d751148e868704e248fc3633e6d91
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Jun 11 03:14:49 2018 +0200
+
+    master: refactored view cell to keep data in a folder
+
+commit b885be6b084a8afc35fd84ced5545951652e08a1
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon Jun 11 02:50:02 2018 +0200
+
+    master: renmed plugin classed
+
+commit faa12317bbcce048df1aa08a90b73cba8305eabf
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jun 8 17:23:33 2018 +0200
+
+    master: fixed error, mailer path, render_with_layout
+
+commit 2f90e4d9ff30c60b94c6ca3b9e5c66e09e45348f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jun 8 11:04:15 2018 +0200
+
+    master: better logging of controller sources
+
+commit ee52f7f80af30f97ecc749038ef553222e1103a9
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jun 8 01:48:56 2018 +0200
+
+    master: updated version to 0.3
+
+commit eb35a1fb41bd02c8bbe7d2508c0457a91af70ff0
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Jun 8 01:48:12 2018 +0200
+
+    master: renamed cells to controllers
+
+commit ee9d3535a8ec468dd05cac5b990846f7153f2392
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jun 7 21:15:06 2018 +0200
+
+    master: renamed cells to controllers and widgets to cells to make it more rails-convinient like
+
+commit 2c1f797e928c93ec54c51772114ec0a0776db98b
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jun 7 20:19:15 2018 +0200
+
+    master: small refactors
+
+commit 6b2320bc956e7a501fa7bfbf36e6c1bbcd8ad551
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Jun 7 00:03:40 2018 +0200
+
+    master: small optimizations + widgets plugin
+
+commit 0b78a68ad6430b228ff354f9d92566caeee758f2
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue May 29 16:19:15 2018 +0200
+
+    master: added version check to secrets file
+
+commit 158e88d984e9a33c0d54cd25faa64cee1a1ce362
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue May 29 14:14:26 2018 +0200
+
+    master: cache access refactor and cli dbconsole
+
+commit 74795566a52c0d808d5ffbc1f3755a728c71c397
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue May 29 09:20:33 2018 +0200
+
+    master: small refactors and improvements
+
+commit 94a18d99d5b0d4e4d4e326c347be57917dfd9a41
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat May 26 16:06:04 2018 +0200
+
+    master: host location from App.host to Lux.config.host
+
+commit 291f7094a3d8d4e8e72fe02b6f6f68ba7627a312
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat May 26 15:55:59 2018 +0200
+
+    Revert "master: host location from App.host to Lux.config.hosy"
+    
+    This reverts commit 49debe147b0bf6a8e1c6b6647f59c61a32f2fdf9.
+
+commit 49debe147b0bf6a8e1c6b6647f59c61a32f2fdf9
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sat May 26 15:54:32 2018 +0200
+
+    master: host location from App.host to Lux.config.hosy
+
+commit 1b044abe129268d71790459740a07171d1718631
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri May 25 19:39:09 2018 +0200
+
+    Added feature "lux secrets"
+
+commit 5863e689e6c8c9e5e23c1149a1a7787b8d48cc1c
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri May 25 19:38:40 2018 +0200
+
+    Small fixes and refactors
+
+commit 45e6a6c38f0e98e1131005a938cca79d8e5383de
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri May 25 19:35:29 2018 +0200
+
+    Added support for adding events to api response
+
+commit 78b14bacd7643e1da36dbe08d2aa607845a586ed
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri May 25 19:33:29 2018 +0200
+
+    Fixed bug (thor method name for evalualte)
+
+commit b3fdf83ef97fe45ce1d1b7b630ba277a9ebc90b9
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Tue May 15 23:17:10 2018 +0200
+
+    master: errors and html input/form to plugin
+
+commit 2b3f79cb1f63a7f5a0af232bb79040703e8ca58b
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Mon May 7 13:06:58 2018 +0200
+
+    master: moved automigrations to rake
+
+commit 9e45b8503e4cd35618de3f7fc5e3c6cccb206622
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun May 6 18:04:43 2018 +0200
+
+    master: added on error to cells
+
+commit a26a7f0d1d3671c3b9bf42b357adb7b26454b77e
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun May 6 12:59:25 2018 +0200
+
+    master: lux base tasks moved to Thor
+
+commit ad3337a52dfef60410cc614a48fed0a658f53b28
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Sun May 6 12:05:39 2018 +0200
+
+    master: rake tasks and plugins refactor
+
+commit 9ebdc2e9bfa312b8525a95fb4c73d35e8a9e7af0
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Apr 26 15:35:37 2018 +0200
+
+    master: optimized routing
+
+commit ad793fadba1f020f45fcb5d9bc1a73ca9cd2a6b2
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Apr 26 00:16:07 2018 +0200
+
+    master: nav refactor, tests
+
+commit 417add03173d65a6e536730c4a56e3d0e2e6f45f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Wed Apr 25 19:00:47 2018 +0200
+
+    master: code refactor and improvements
+
+commit ea10754d1b41f9cad4199588090cfdd180f4b025
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Fri Apr 6 04:16:49 2018 +0200
+
+    master: code refactor and spec
+
+commit 1e3080e6ad5f8b1944bedc5a07cdae832bf2734a
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Apr 5 18:39:59 2018 +0200
+
+    master: tests fixed
+
+commit a4f83a82f2084981921e96a79ff920abd8700b8b
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Apr 5 18:03:34 2018 +0200
+
+    master: code refactor
+
+commit 1da93af3de73451acbd3a6bac458bd2c05d04459
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Apr 5 14:04:06 2018 +0200
+
+    master: readme example update and small code refactor
+
+commit e84b07e72ec5fa28a2821bb3b00d627ba3dda0d7
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Apr 5 01:37:51 2018 +0200
+
+    master: documentation update
+
+commit 87514d167c6c569790360155c9eebe992ea4e66f
+Author: Dino Reic <rejotl@gmail.com>
+Date:   Thu Apr 5 00:50:25 2018 +0200
+
+    HEAD: first clean commit

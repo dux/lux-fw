@@ -89,6 +89,11 @@ class Sequel::Model
     def save!
       save
     end
+
+    def slice *args
+      args.inject({}) { |t, el| t[el] = self.send(el); t }
+    end
+    alias :pluck :slice
   end
 
   module DatasetMethods
