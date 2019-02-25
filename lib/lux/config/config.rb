@@ -163,6 +163,13 @@ module Lux::Config
         </html>]
     end
 
+    # Simpler log formatter
+    Lux.config.logger_formater = proc do |severity, datetime, progname, msg|
+      date = datetime.utc
+      msg  = '%s: %s' % [severity, msg] if severity != 'INFO'
+      "[%s] %s\n" % [date, msg]
+    end
+
     # inflector
     String.inflections do |inflect|
       inflect.plural   'bonus', 'bonuses'
