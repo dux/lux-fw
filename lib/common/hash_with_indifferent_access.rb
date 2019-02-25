@@ -11,11 +11,11 @@ class HashWithIndifferentAccess < Hash
 
   def [] key
     out = super key.to_s
-    out.class == Hash ? self.class.new(out) : out
+    check_fix(out)
   end
 
   def []= key, value
-    super key.to_s, value
+    super key.to_s, check_fix(value)
   end
 
   def key? key
@@ -39,4 +39,19 @@ class HashWithIndifferentAccess < Hash
     out
   end
 
+  def merge h
+    out = dup
+    h.each { |k,v| out[k] = v }
+    out
+  end
+
+  def merge! h
+    h.each { |k,v| self[k] = v }
+  end
+
+  private
+
+  def check_fix value
+    value.class == Hash ? self.class.new(value) : value
+  end
 end
