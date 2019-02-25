@@ -106,7 +106,24 @@ class ModelApi < ApplicationApi
   def update
     error "Object not found" unless @object
 
-    for k,v in @params
+    # toggle array or hash field presence
+    # toggle__field__value = 0 | 1
+    for k, v in @params
+      if k.starts_with?('toggle__')
+        field, value = k.split('__').drop(1)
+
+        if @object[field.to_sym].class.to_s.include?('Array')
+          # array field
+          @object.send('%s=' % field, @object.send(field).to_a - [value])
+          @object.send('%s=' % field, @object.send(field).to_a + [value]) if v.to_i == 1
+        else
+          # jsonb field, toggle true false
+          @object.send(field)[value] = v.to_i == 1
+        end
+
+        next
+      end
+
       m = "#{k}=".to_sym
       v = nil if v.blank?
       @object.send(m, v) if @object.respond_to?(m)
@@ -131,12 +148,8 @@ class ModelApi < ApplicationApi
     error "Object not found" unless @object
     can? :delete, @object
 
-    if !force && @object.respond_to?(:is_active)
-      @object.update is_active: false
-
-      message 'Object deleted (exists in trashcan)'
-    elsif !force && @object.respond_to?(:active)
-      @object.update active: false
+    if !force && @object.respond_to?(:is_deleted)
+      @object.update is_deleted: true
 
       message 'Object deleted (exists in trashcan)'
     else
@@ -153,12 +166,10 @@ class ModelApi < ApplicationApi
     error "Object not found" unless @object
     can? :create, @object
 
-    if @object.respond_to?(:is_active)
-      @object.update :is_active=>true
-    elsif @object.respond_to?(:active)
-      @object.update :active=>true
+    if @object.respond_to?(:is_deleted)
+      @object.update is_deleted: false
     else
-      error "No is_active, can't undelete"
+      error "No is_deleted field, can't undelete"
     end
 
     response.message = 'Object raised from the dead.'
