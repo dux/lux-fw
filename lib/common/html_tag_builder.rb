@@ -25,10 +25,14 @@ class HtmlTagBuilder
 
     # tag :div, { 'class'=>'iform' } do
     def tag name=nil, opts={}, data=nil
-      # join data given as an array
-      if opts.class == Array
+      if Array === opts
+        # join data given as an array
         data = opts
         opts = {}
+      elsif Hash === data
+        # tag.button('btn', href: '/') { 'Foo' }
+        opts = data.merge class: opts
+        data = nil
       end
 
       # covert n._row to n(class: 'row')
