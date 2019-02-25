@@ -13,7 +13,12 @@ class Object
     klass_file = paths.find { |it| File.exist?(it) } or
       raise NameError.new('Can not find and autoload class "%s", looked in %s' % [klass, paths.map{ |it| "\n#{it}" }.join('')])
 
-    # puts '* autoload: %s from %s' % [file, klass_file]
+    if @last_autoload == klass_file
+      puts '* Autoload fail: "%s" from "%s"'.red % [klass, klass_file]
+      exit
+    end
+
+    @last_autoload = klass_file
 
     require klass_file
 
@@ -26,9 +31,10 @@ class Object
     self.blank? || self == 0 ? _or : self
   end
 
-  def try *args
+  def try *args, &block
     return nil if self.class == NilClass
-    block_given? ? yield(self) : self.send(*args)
+    data = self.send(*args) || return
+    block_given? ? block.call(data) : data
   end
 
   def die desc=nil, exp_object=nil
