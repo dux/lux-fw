@@ -12,7 +12,7 @@ require_relative './overload/object'
 
 Encoding.default_internal = Encoding.default_external = 'utf-8'
 
-Sequel.extension :inflector, :string_date_time
+Sequel.extension     :inflector
 Sequel::Model.plugin :after_initialize
 Sequel::Model.plugin :def_dataset_method
 
