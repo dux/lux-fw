@@ -291,25 +291,7 @@ class Lux::Application
 
     throw :done if body?
 
-    # figure our action unless defined
-    unless action
-      id =
-      if respond_to?(:id?)
-        nav.root { |root_id| id?(root_id) }
-      else
-        nav.root { |root_id| root_id.is_numeric? ? root_id.to_i : nil }
-      end
-
-      if id
-        current.nav.id = id
-        action = nav.shift || :show
-      else
-        action = nav.shift || :index
-      end
-    end
-
     object = ('%s_controller' % object).classify.constantize if object.is_a?(String)
-
     controller_name = "app/controllers/#{object.to_s.underscore}.rb"
     Lux.log ' %s' % controller_name
     current.files_in_use controller_name
@@ -317,6 +299,7 @@ class Lux::Application
     # needed for
     # map 'main/root' do
     #  r.login
+    action ||= :call
     action = action.first if action.is_a?(Array)
 
     object.action action.to_sym

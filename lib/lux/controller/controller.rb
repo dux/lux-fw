@@ -12,7 +12,7 @@ class Lux::Controller
   class_attribute :helper
 
   # before and after any action filter, ignored in controllers, after is called just before render
-  [:before, :before_action, :before_render, :after].each { |filter| class_callback filter }
+  [:before, :before_action, :after_action, :before_render, :after].each { |filter| class_callback filter }
 
   class << self
     # simple shortcut allows direct call to action, bypasing call
@@ -89,6 +89,9 @@ class Lux::Controller
   def render name=nil, opts={}
     return if response.body?
 
+    filter :after_action
+    filter :before_render
+
     if nav.format
       current.once(:format_handled) do
         current.var.format_handled = true
@@ -102,11 +105,9 @@ class Lux::Controller
       opts[:template] = name
     end
 
-    filter :before_render
-
     opts = opts.to_opts :text, :html, :json, :javascript, :cache, :template, :layout, :render_to_string, :data, :status, :ttl, :content_type
 
-    response.status opts.status if opts.status
+    response.status opts.status               if opts.status
     response.content_type = opts.content_type if opts.content_type
 
     page =
@@ -135,6 +136,11 @@ class Lux::Controller
     opts[:content_type] = :javascript
     opts[:layout]       = false
     render name, opts
+  end
+
+  def call
+    nav.root ||= @id ? :show : :index
+    action nav.root
   end
 
   private
@@ -191,12 +197,14 @@ class Lux::Controller
   end
 
   def render_body opts
-    if template = opts.template
-      template = template.to_s
-      template = "#{@lux.template}/#{template}" unless template.starts_with?('/')
+    if opts.template
+      template = opts.template.to_s
+      template = "#{@lux.template}/#{template}" if template =~ /^\w/
     else
-      template = "#{@lux.template}/#{@lux.action}"
+      template = "/#{@lux.template}/#{@lux.action}"
     end
+
+    Lux.current.var.root_template_path = template.sub(%r{/[\w]+$}, '')
 
     Lux::View.render_part(template, helper)
   end
