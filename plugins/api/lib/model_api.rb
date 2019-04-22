@@ -1,34 +1,22 @@
 class Sequel::Model
   module InstanceMethods
-    def same_as_last_field_value data
-      data = data.join('-') if data.is_array?
-      data = '' if data.is_hash?
-      data
-    end
-
     def same_as_last?
-      @last = self.class.xorder('id desc').first
+      return unless respond_to?(:created_by)
+
+      @last = self.class.xorder('id desc').my.first
+
       return unless @last
 
-      return if respond_to?(:name) && name != @last[:name]
-
-      new_o = self.to_h
-      new_o.delete :created_at
-      new_o.delete :updated_at
-      new_o.delete :id
-
-      old_o = new_o.keys.inject({}) do |t, key|
-        t[key] = @last.send(key)
-
-        new_o[key] = same_as_last_field_value new_o[key]
-        t[key]     = same_as_last_field_value t[key]
-
-        t
+      if respond_to?(:created_at)
+        diff = (Time.now.to_i - @last.created_at.to_i)
+        return diff < 5
       end
 
-      if new_o.to_s.length == old_o.to_s.length
-        raise "#{self.class} is the copy of the last one created."
+      if respond_to?(:name)
+        return true if name == @last.name
       end
+
+      false
     end
   end
 end
@@ -84,7 +72,7 @@ class ModelApi < ApplicationApi
       @object.send("#{k}=", v) if @object.respond_to?("#{k}=")
     end
 
-    @object.same_as_last? rescue error($!.message)
+    error('Object is same as last') if @object.same_as_last?
 
     can? :create, @object
 
@@ -109,8 +97,15 @@ class ModelApi < ApplicationApi
     # toggle array or hash field presence
     # toggle__field__value = 0 | 1
     for k, v in @params
+
+      v = v.xuniq if v.is_a?(Array)
+
       if k.starts_with?('toggle__')
         field, value = k.split('__').drop(1)
+
+        value = value.to_i if @object.db_schema[field.to_sym][:db_type].include?('int')
+
+        rr! value
 
         if @object[field.to_sym].class.to_s.include?('Array')
           # array field
@@ -124,8 +119,8 @@ class ModelApi < ApplicationApi
         next
       end
 
-      m = "#{k}=".to_sym
       v = nil if v.blank?
+      m = "#{k}=".to_sym
       @object.send(m, v) if @object.respond_to?(m)
     end
 
