@@ -1,5 +1,101 @@
 # https://github.com/jeremyevans/sequel/blob/master/doc/schema_modification.rdoc
 
+# class User < ApplicationModel
+#   schema do |t|
+#     t.string   'name', null: false
+#     t.string   'email'
+#   end
+# end
+
+# AutoMigrate.migrate do
+#   table :users do |t|
+#     t.string   'name', null: false
+#     t.string   'email'
+#   end
+# end
+
+
+class ModelAutoMigrate
+  attr_reader :typero, :fields
+
+  def initialize
+    @typero = Typero.new
+    @fields = []
+  end
+
+  def method_missing type, *args
+    t_field = field = args[0]
+    t_opts  = args[1] || {}
+    f_opts  = t_opts.dup
+
+    if field.is_a?(Array)
+      field = t_field.first
+      f_opts[:array] = true
+      t_opts[:type]  = :array
+      t_opts[:array_type] = type
+      t_field = field
+    else
+      t_opts[:type] = type
+      t_opts[:type] = :string if [:text, :email].include?(type)
+    end
+
+    f_opts[:null]  = false if f_opts[:req]
+    f_opts[:limit] = f_opts[:max] if f_opts[:max] && type == :string
+
+    if t_opts[:label]
+      t_opts[:form] ||= {}
+      t_opts[:form][:label] = t_opts.delete :label
+    end
+
+    t_field = nil if type == :polymorphic
+
+    @typero.set t_field, t_opts if t_field
+    @fields.push [field, type, f_opts]
+  end
+end
+
+class Sequel::Model
+  def self.schema &block
+    return unless Lux.config.migrate
+    AutoMigrate.table table_name, &block
+  end
+
+  # attributes + schema
+  # attrs do
+  #   string     :name,        null: false
+  #   string     :image_url
+  #   text       :body
+  # end
+  def self.attrs &block
+    o = ModelAutoMigrate.new
+    o.instance_exec &block
+    # puts o.typero.rules.pretty_generate if self == Campaign
+    self.instance_variable_set :@typero, o.typero
+
+    if Lux.config.migrate
+      AutoMigrate.table(table_name) do |t|
+        for field, type, opts in o.fields
+          if field
+            opts.delete :form
+            type = :string  if [:url, :email, :label].include?(type.to_sym)
+
+            if type == :float
+              type = :decimal
+              opts[:precision] = 8
+              opts[:scale]     = 2
+            end
+
+            opts = opts.slice :null, :array, :limit
+            t.send type, field.to_sym, opts
+          else
+            t.send(type) # timestamps
+          end
+        end
+      end
+    end
+  end
+end
+
 class AutoMigrate
   attr_accessor :fields
 
@@ -17,10 +113,12 @@ class AutoMigrate
         end
       end
 
-      t = new table_name, opts
-      yield t
-      t.fix_fields
-      t.update
+      if block_given?
+        t = new table_name, opts
+        yield t
+        t.fix_fields
+        t.update
+      end
     end
 
     def migrate &block

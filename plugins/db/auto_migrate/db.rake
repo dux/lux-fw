@@ -10,6 +10,10 @@ namespace :db do
     die('"DB.extension :pg_array" not loaded') unless LuxTest.first.int_array.class == Sequel::Postgres::PGArray
     DB.run %[DROP TABLE IF EXISTS lux_tests;]
 
-    require './config/schema.rb'
+    schema = Pathname.new './config/schema.rb'
+    require schema.to_s if schema.exist?
+
+    Lux.config.migrate = true
+    require './config/application'
   end
 end
