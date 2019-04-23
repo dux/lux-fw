@@ -20,11 +20,12 @@ module Sequel::Plugins::LuxCreateLimit
   module InstanceMethods
     def validate
       return unless defined?(User)
-      return unless ::User.current
 
       name = self.class.to_s.tableize.humanize.downcase
 
       if data = self.class.create_limit_data
+        raise Lux::Error.unauthorized('You need to log in to save') unless ::User.try(:current)
+
         count, seconds = *data
 
         cnt = self.class.my.xwhere("created_at > (now() - interval '#{seconds} seconds')").count

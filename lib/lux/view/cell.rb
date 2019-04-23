@@ -34,7 +34,7 @@ class Lux::View::Cell
     # delegate current scope methods to parent binding
     def delegate *list
       list.each do |el|
-        define_method(el) { |*args| parent.send(el, *args) }
+        define_method(el) { |*args, &block| parent.send(el, *args, &block) }
       end
     end
   end

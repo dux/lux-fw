@@ -14,7 +14,7 @@ module SimpleException
       .join("\n")
 
     data = '%s in %s (user: %s)' % [exception.class, Lux.current.request.url, (Lux.current.var.user.email rescue 'guest')]
-    data = [data, exception.message, history].join("\n\n")
+    data = [data, 'REFER: %s' % Lux.current.request.env['HTTP_REFERER'].or(':unknown'), exception.message, history].join("\n\n")
     key  = Digest::SHA1.hexdigest history
 
     folder = Lux.root.join('log/exceptions').to_s

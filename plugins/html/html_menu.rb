@@ -2,6 +2,13 @@
 # menu.add 'Home', '/'
 # menu.add 'People', '/people', lambda { |path| path.index('peor') }
 # menu.add 'Jobs', '/jobs', { icon: true }
+#
+# match exact path, defaults to path.start_with?
+#  menu.add 'Jobs', '/jobs', :path
+#  menu.add 'Jobs', '/jobs', { icon: true, active: :path }
+# same as
+#  menu.add 'Jobs', '/jobs', lambda { request.path == '/jobs '}
+#
 # menu.to_a
 # ---
 # [["Home", "/", {}, true], ["People", "/people", {}, false], ["Jobs", "/jobs", { icon: true }, false]]
@@ -17,30 +24,29 @@ class HtmlMenu
 
   # item 'Links', '/link'
   # item('Links', '/link') { ... }
-  def add name, path, opt1=nil, opt2=nil, &block
-    test, opts = opt1.is_a?(Hash) ? [opt2, opt1] : [opt1, opt2 || {}]
+  def add name, path, opts={}, &block
+    opts = { active: opts } unless opts.is_a?(Hash)
 
-    if @data.first
-      active = nil
-      active = false if test.class == FalseClass && !@data.first
+    test   = opts.delete(:active)
+    test   = block if block
+    test ||= @path == path
 
-      if !@is_activated && @data.first && path != @data.first[1]
-        test          ||= block || path
-        active          = item_active(test)
-        @is_activated ||= active
-      end
+    active = @is_activated ? false : item_active(test, path)
+    active = false unless @data.first
+    @is_activated ||= active
 
-      @data.push [name, path, opts, active]
-    else
-      @data.push [name, path, opts, test.class == FalseClass ? false : nil]
-    end
+    @data.push [name, path, opts, active]
   end
 
   # is menu item active?
-  def item_active data
+  def item_active data, path
     case data
       when Symbol
-        @path.include?(data.to_s)
+        if data == :path
+          @path == path
+        else
+          @path.include?(data.to_s)
+        end
       when String
         @path.starts_with? data
       when Regexp
@@ -60,7 +66,7 @@ class HtmlMenu
 
   # return result as a list
   def to_a
-    @data[0][3] = true if ! @is_activated && @data[0][3].class != FalseClass
+    @data[0][3] = true unless @is_activated
     @data
   end
 

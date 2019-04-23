@@ -1,6 +1,12 @@
 class Object
+  LUX_AUTO_LOAD = {}
 
-  def self.const_missing klass
+  def self.const_missing klass, path=nil
+    if path
+      LUX_AUTO_LOAD[klass.to_s] = path
+      return
+    end
+
     file  = klass.to_s.underscore
     paths = [
       'models',
@@ -10,7 +16,8 @@ class Object
       file.split('_').last.pluralize
     ].map  { |it| './app/%s/%s.rb' % [it, file] }
 
-    klass_file = paths.find { |it| File.exist?(it) } or
+    klass_file   = LUX_AUTO_LOAD[klass.to_s]
+    klass_file ||= paths.find { |it| File.exist?(it) } or
       raise NameError.new('Can not find and autoload class "%s", looked in %s' % [klass, paths.map{ |it| "\n#{it}" }.join('')])
 
     if @last_autoload == klass_file
@@ -93,5 +100,6 @@ class Object
   def instance_variables_hash
     Hash[instance_variables.map { |name| [name, instance_variable_get(name)] } ]
   end
+
 end
 

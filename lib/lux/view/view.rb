@@ -15,8 +15,8 @@ class Lux::View
   end
 
   def initialize template, context={}
-    template           = template.sub(/^[^\w]+/, '')
-    @original_template = template
+    template = template.sub(/^\//, '')
+    template = './app/views/' + template if template =~ /^\w/
 
     @helper = if context.class == Hash
       # create helper class if only hash given
@@ -38,12 +38,10 @@ class Lux::View
       return
     end
 
-    for dir in ['./app/views']
-      for ext in Tilt.default_mapping.template_map.keys
-        next if @template
-        test = "#{dir}/#{template}.#{ext}"
-        @template = test if File.exists?(test)
-      end
+    for ext in Tilt.default_mapping.template_map.keys
+      next if @template
+      test = [template, ext].join('.')
+      @template = test if File.exists?(test)
     end
 
     unless @template
@@ -69,7 +67,6 @@ class Lux::View
     # global thread safe reference pointer to last temaplte rendered
     # we nned this for inline template render
 
-    Thread.current[:lux][:last_template_path] = @template.sub('/app/views','').sub(/\/[^\/]+$/,'').sub(/^\./,'')
     Lux.current.files_in_use @template
 
     data = nil
@@ -80,11 +77,25 @@ class Lux::View
           yield if block_given?
         end
       rescue => e
-        data = Lux::Error.inline %[Lux::View #{@template} render error], e
+        if Lux.config(:dump_errors)
+          data = Lux::Error.inline %[Lux::View #{@template} render error], e
+        else
+          raise e
+        end
       end
     end
 
-    Lux.log " app/views/#{@template.split('app/views/').last}, #{speed}"
+    Lux.log do
+      log = @template.split('app/views/').last
+
+      if log.start_with?('./')
+        log = log.sub('./', '')
+      else
+        log = 'app/views/%s' % log
+      end
+
+      ' %s, %s' % [log, speed]
+    end
 
     data
   end

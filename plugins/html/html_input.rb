@@ -12,13 +12,13 @@ class HtmlInput
 
   ###
 
-  def initialize(obj=nil, opts={})
+  def initialize obj=nil, opts={}
     @object  = obj
     @globals = opts.dup
   end
 
   # if type is written in parameter :as=> use this helper function
-  def render(name, opts={})
+  def render name, opts={}
     if name.is_hash?
       opts = name
       name  = :null
@@ -33,7 +33,6 @@ class HtmlInput
 
   # exports @name and @opts globals
   def opts_prepare name, opts={}
-
     opts[:as] ||= lambda do
       return :select if opts[:collection]
 

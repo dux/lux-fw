@@ -45,13 +45,13 @@ class Lux::Error < StandardError
     308 => { name: 'Permanent Redirect' },
 
     # 4×× Client Error
-    400 => { name: 'Bad Request', code: :bad_request },
-    401 => { name: 'Unauthorized', code: :unauthorized },
-    402 => { name: 'Payment Required', code: :payment_required },
-    403 => { name: 'Forbidden', code: :forbidden },
+    400 => { name: 'Bad Request',        code: :bad_request },
+    401 => { name: 'Unauthorized',       code: :unauthorized },
+    402 => { name: 'Payment Required',   code: :payment_required },
+    403 => { name: 'Forbidden',          code: :forbidden },
     404 => { name: 'Document Not Found', code: :not_found },
     405 => { name: 'Method Not Allowed', code: :method_not_allowed },
-    406 => { name: 'Not Acceptable', code: :not_acceptable },
+    406 => { name: 'Not Acceptable',     code: :not_acceptable },
     407 => { name: 'Proxy Authentication Required' },
     408 => { name: 'Request Timeout' },
     409 => { name: 'Conflict' },
@@ -78,7 +78,7 @@ class Lux::Error < StandardError
 
     # 5×× Server Error
     500 => { name: 'Internal Server Error', code: :internal_server_error },
-    501 => { name: 'Not Implemented', code: :not_implemented },
+    501 => { name: 'Not Implemented',       code: :not_implemented },
     502 => { name: 'Bad Gateway' },
     503 => { name: 'Service Unavailable' },
     504 => { name: 'Gateway Timeout' },

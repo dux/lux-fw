@@ -1,92 +1,93 @@
-# frozen_string_literal: true
-
-# = form Lux.current.var.user do |f|
-#   = f.hidden :company_id
-#   = f.row :name
-#   = f.row :counrty_id, :as=>:country
-#   .custom= f.input :email
-#   = f.submit 'Save'
-
-Lux.plugin 'api'
-
-ApplicationApi.before do
-  name = '[protected]:'
-  params.each do |k,v|
-    params[k] = Crypt.decrypt(v.split(name, 2)[1]) if v.is_a?(String) && v.starts_with?(name)
-  end
-end
-
 class HtmlForm
-  def initialize target, opts={}
-    opts[:method]   = 'get' if opts.delete(:get)
-    opts[:method] ||= 'get' unless @target
-    opts[:method] ||= 'post'
-    opts[:method]   = opts[:method].upcase
+  def initialize object=nil, opts={}
+    if !object
+      opts[:method] ||= 'get'
 
-    opts[:id] ||= 'form-%s' % Lux.current.uid
-
-    @target = target
-    @opts   = opts
-    @before = []     # add stuff to the begining of the form block
-
-    if @target.respond_to?(:update)
-      @object = @target
-      @opts['data-model'] = @object.class.to_s.underscore.singularize
+    elsif object.is_a?(ApplicationModel)
+      opts['data-model'] = object.class.to_s.underscore.singularize
+      opts[:action]      = object.id ? object.api_path(:update) : object.api_path(:create)
+      @object = object
+    else
+      object = '/api/' + object unless object[0,1]
+      opts[:action] = object
     end
 
-    before
+    opts[:method] ||= 'post'
+    opts[:id]     ||= 'form-%s' % Lux.current.uid
+    opts[:class]  ||= :default
 
-    @opts[:action] = @target if @target
+    opts[:action]   = '/api/' + opts[:action] if opts[:action] && opts[:action][0,1] != '/'
+
+    if opts[:action].to_s.start_with?('/api/')
+      opts[:onsubmit]   = 'ApiForm.bind(this); return false;'
+      opts['data-done'] = opts.delete(:done) || :refresh
+    end
+
+    @opts = opts
   end
 
   # render full form, accepts block
   def render
-    data  = @before.join('')
-    data += yield self
-    data = form_wrap data
+    data  = []
+    data.push yield(self)
 
-    if @opts.delete(:disabled)
-      data = data.wrap(:fieldset, disabled: true)
+    # add hidden fields (ending with _id) for new objects
+    if @object && !@object.id
+      for k, v in @object.attributes
+        if v.present?
+          data.unshift  hidden(k.to_sym, v)
+        end
+      end
     end
 
-    @opts.tag(:form, data)
-  end
+    data = wrap data.join($/)
 
-  # run stuff after block initialize
-  def before
-    true
+    @opts.tag :form, data
   end
 
   # hidden filed
-  def hidden name, opts={}
-    opts = { value: opts } unless opts.is_a?(Hash)
-    fname  = @object.class.to_s.underscore rescue nil
+  def hidden object, value=nil
+    value   = value[:value] if value.is_a?(Hash)
 
-    if name.respond_to?(:update)
-      oname = name.class.to_s.underscore
+    if object.is_a?(ApplicationModel)
+      name = '%s_id' % object.class.to_s.tableize.singularize
 
-      if @object && @object.respond_to?("#{oname}_id") # grp
-        Lux::Current::EncryptParams.hidden_input "#{fname}[#{oname}_id]", name.id
+      if @object.respond_to?(name)
+        value ||= @object.send(name)
+        hidden_field name, value
       else
         [
-          Lux::Current::EncryptParams.hidden_input("#{fname}[model_id]", name.id),
-          Lux::Current::EncryptParams.hidden_input("#{fname}[model_type]", name.class.name),
+          hidden_field(:model_id, object.id),
+          hidden_field(:model_type, object.class.name)
         ].join('')
       end
     else
-      opts[:value] ||= @object[name] if @object && name.is_a?(Symbol)
-      name = '%s[%s]' % [fname, name] if fname && name.is_a?(Symbol)
-
-      if opts[:value].present?
-        Lux::Current::EncryptParams.hidden_input(name, opts[:value])
-      else
-        ''
-      end
+      value ||= @object.send(object) if object.is_a?(Symbol)
+      hidden_field object, value
     end
   end
 
   # standard input linked to HtmlInput class
   def input name, opts={}
+    if @object && name.is_a?(Symbol)
+      rules = @object.class.typero.rules[name] || {}
+      rules[:form] ||= {}
+      rules[:form][:label] = rules[:label] if rules[:label]
+
+      for k, v in rules[:form]
+        v = @object.instance_exec &v if v.is_a?(Proc)
+        opts[k] = v unless opts.key?(k)
+      end
+
+      if @object.respond_to?(:db_schema)
+        opts[:as] ||= :datetime if @object.db_schema[name][:db_type].include?('timestamp')
+        opts[:as] ||= :date     if @object.db_schema[name][:db_type] == 'date'
+        opts[:as] ||= :memo     if @object.db_schema[name][:db_type] == 'text'
+      end
+    end
+
+    opts[:placeholder] ||= 'https://...' if name.to_s.ends_with?('url')
+
     @name          = name
     opts[:id]    ||= Lux.current.uid
     opts[:value] ||= Lux.current.request.params[name] if @opts[:method] == 'GET'
@@ -96,29 +97,46 @@ class HtmlForm
     data
   end
 
-  # submit button
-  def submit name=nil
-    name ||= 'Submit'
-    %[<li><button type="submit">#{name}</button></li>]
-  end
-
-  # render simple row
-  def row name, opts={}
-    node  = input(name, opts)
-    label = %[<label for="#{opts[:id]}">#{opts[:label] || name.to_s.humanize}</label>]
-    %[<li class="as-#{opts[:as]}">#{label}#{node}<span class="error"></span></li>]
-  end
-
   private
 
-  def form_wrap data
-    @opts[:class]  = 'ul-form'
-    %[<ul>#{data}</ul>]
+  # format input name
+  def input_name name
+    if @object
+      '%s[%s]' % [@object.class.to_s.tableize.singularize, name]
+    else
+      name.to_s
+    end
   end
 
-  def encrypt data
-    return unless data
-    '[protected]:%s' % Crypt.encrypt(data)
+  # create hidden field
+  def hidden_field name, value
+    {
+      type:  :hidden,
+      name:  '__enc__%s' % Lux.current.uid,
+      value: Crypt.short_encrypt([name, value])
+    }.tag :input
   end
 end
 
+###
+
+module MainHelper
+  def form location=nil, opts={}, &block
+    builder = HtmlForm.new location, opts
+    builder.render &block
+  end
+end
+
+###
+
+Lux.plugin 'api'
+
+class ApplicationApi
+  before do
+    for key in params.keys
+      next unless key.start_with?('__enc__')
+      key, value  = Crypt.short_decrypt params.delete(key)
+      params[key] = value
+    end
+  end
+end

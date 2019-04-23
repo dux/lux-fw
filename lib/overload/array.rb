@@ -64,4 +64,8 @@ class Array
     self[i % length]
   end
 
+  def xuniq
+    uniq.select { |it| it.present? }
+  end
+
 end

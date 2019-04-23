@@ -1,14 +1,26 @@
-#$tag 'button.btn.btn-xs', button_name, class: 'btn-primary'
-@$tag = (name, args...) ->
+# tag 'a', { href: '#'}, 'link name' -> <a href="#">link name</a>
+# tag 'a', 'link name'               -> <a>link name</a>
+# tag '.a', 'b'                      -> <div class="a">b</div>
+# tag '#a.b', ['c','d']              -> <div class="b" id="a">cd</div>
+# tag '#a.b', {c:'d'}                -> <div c="d" class="b" id="a"></div>
+
+tag_events = {}
+tag_uid    = 0
+
+tag = (name, args...) ->
+  return tag_events unless name
+
   # evaluate function if data is function
   args = args.map (el) -> if typeof el == 'function' then el() else el
 
-  # fill second value
-  args[1] ||= if typeof args[0] == 'object' then '' else {}
-
   # swap args if first option is object
-  [opts, data] = if typeof args[0] == 'object' then args else args.reverse()
+  args[1] ||= undefined # fill second value
+  [opts, data] = if typeof args[0] == 'object' && !Array.isArray(args[0]) then args else args.reverse()
+
+  # set default values
   opts ||= {}
+  data = '' if typeof(data) == 'undefined'
+  data = data.join('') if Array.isArray(data)
 
   # haml style id define
   name = name.replace /#([\w\-]+)/, (_, id) ->
@@ -25,12 +37,14 @@
 
   node = ['<'+name]
 
-  for key in Object.keys(opts)
+  for key in Object.keys(opts).sort()
     val = opts[key]
 
+    # hide function calls
     if typeof val == 'function'
-      val = String(val).replace(/\s+/g,' ')
-      val = """(#{val})();"""
+      uid = ++tag_uid
+      tag_events[uid] = val
+      val = "tag()[#{uid}](this)"
 
     node.push ' '+key+'="'+val+'"'
 
@@ -40,3 +54,9 @@
     node.push '>'+data+'</'+name+'>'
 
   node.join('')
+
+# export
+if @window
+  @tag = tag
+else
+  module.exports = tag

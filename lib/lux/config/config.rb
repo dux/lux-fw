@@ -9,28 +9,36 @@ module Lux::Config
 
   # requires all files recrusive in, with spart sort
   def require_all dir_path
-    dir_path = dir_path.to_s.sub(/\/$/, '')
-    dir_path = './%s' % dir_path if dir_path =~ /^\w/
+    list =
+    if dir_path.is_a?(Array)
+      dir_path
+    else
+      dir_path = dir_path.to_s.sub(/\/$/, '')
+      dir_path = './%s' % dir_path if dir_path =~ /^\w/
 
-    raise '* is not allowed' if dir_path.include?('*')
+      raise '* is not allowed' if dir_path.include?('*')
 
-    glob = []
-    glob.push 'echo'
-    glob.push '%s/*'           % dir_path
-    glob.push '%s/*/*'         % dir_path
-    glob.push '%s/*/*/*'       % dir_path
-    glob.push '%s/*/*/*/*'     % dir_path
-    glob.push '%s/*/*/*/*/*'   % dir_path
-    glob.push '%s/*/*/*/*/*/*' % dir_path
-    glob.push "| tr ' ' '\n'"
-    glob.push "| grep .rb"
-    list = `#{glob.join(' ')}`.split("\n")
+      glob = []
+      glob.push 'echo'
+      glob.push '%s/*'           % dir_path
+      glob.push '%s/*/*'         % dir_path
+      glob.push '%s/*/*/*'       % dir_path
+      glob.push '%s/*/*/*/*'     % dir_path
+      glob.push '%s/*/*/*/*/*'   % dir_path
+      glob.push '%s/*/*/*/*/*/*' % dir_path
+      glob.push "| tr ' ' '\n'"
+      glob.push "| grep .rb"
+
+      `#{glob.join(' ')}`.split("\n")
+    end
 
     list.select{ |o| o.index('.rb') }.each do |ruby_file|
       begin
         require ruby_file
       rescue => e
+        ap 'Tried to load: %s' % ruby_file
         ap Lux::Error.split_backtrace e
+        exit
       end
     end
   end

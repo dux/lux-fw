@@ -132,7 +132,9 @@ class Url
     @hash = "##{val}"
   end
 
-  def qs name, value=:_nil
+  def qs name=nil, value=:_nil
+    return @qs unless name
+
     if value != :_nil
       if value.nil?
         @qs.delete(name.to_s)

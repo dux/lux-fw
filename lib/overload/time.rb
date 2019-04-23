@@ -1,11 +1,15 @@
 module TimeOptions
-  def short
+  def short use_default=false
     # lang = Lux.current.request.env['HTTP_ACCEPT_LANGUAGE'] rescue 'en'
-    strftime(Lux.current.var.date_format || "%Y-%m-%d")
+    default = '%Y-%m-%d'
+    fmt     = Lux.current.var.date_format.or(Lux.config.date_format || default)
+    fmt     = default if use_default
+
+    strftime fmt.sub('yyyy', '%Y').sub('mm', '%m').sub('dd', '%d')
   end
 
-  def long
-    strftime("#{short} %H:%M")
+  def long use_default=false
+    strftime("#{short(use_default)} %H:%M")
   end
 end
 

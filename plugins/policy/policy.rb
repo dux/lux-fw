@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # base caller
-# Policy::User.new(model: @model, user: User.current).can?(:update) -> can current user update @user
+# Policy::User.new(model: @model, user: User.current).can?(:update) -> can current user update @model
 
 # block will capture error message and be triggered only if error is present
 # User.can?(:login) { |msg| http_error 401, "Err: #{msg}".red; return 'no access' }
@@ -32,12 +32,16 @@ class Policy
     return true if before(@action)
     return true if send(@action)
     raise Lux::Error.unauthorized('Access disabled in policy')
-   rescue Lux::Error
-    error = $!.message
+   rescue Lux::Error => e
+    error = e.message
     error += " - #{self.class}.#{@action}" if Lux.config(:dump_errors)
-    raise Lux::Error.unauthorized(error) unless block
-    block.call(error)
-    false
+
+    if block
+      block.call(error)
+      false
+    else
+      raise Lux::Error.unauthorized(error)
+    end
   end
 
   ###

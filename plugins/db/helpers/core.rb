@@ -32,7 +32,7 @@ class Sequel::Model
 
   module InstanceMethods
     def cache_key
-      "#{self.class}/#{id}"
+      "#{self.class}/#{id}-#{self[:updated_at].to_i}"
     end
 
     def attributes
@@ -94,6 +94,12 @@ class Sequel::Model
       args.inject({}) { |t, el| t[el] = self.send(el); t }
     end
     alias :pluck :slice
+
+    # @deal.init(:task) -> Task.new(deal_id: 1)
+    def init name, fields={}
+      fields['%s_id' % self.class.to_s.tableize.singularize] = id
+      name.to_s.classify.constantize.new(fields)
+    end
   end
 
   module DatasetMethods

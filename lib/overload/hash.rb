@@ -69,10 +69,10 @@ class Hash
   end
 
   def to_query namespace=nil
-    self.keys.sort.map { |k|
+    self.keys.sort.map do |k|
       name = namespace ? "#{namespace}[#{k}]" : k
       "#{name}=#{CGI::escape(self[k].to_s)}"
-    }.join('&')
+    end.join('&')
   end
 
   def data_attributes
@@ -144,6 +144,14 @@ class Hash
   def except!(*keys)
     keys.each { |key| delete(key) }
     self
+  end
+
+  def remove_empty
+    self.keys.inject({}) do |t, el|
+      v = self[el]
+      t[el] = v if v.present?
+      t
+    end
   end
 end
 

@@ -38,9 +38,14 @@ class Lux::View::Helper
   # - content :foo do ...
   # = content :foo
   def content name=nil
-    block = 'haml_content_%s' % name
-    Lux.current.var[block] = yield if block_given?
-    Lux.current.var[block]
+    if name.is_a?(Array)
+      data = yield
+      name.push data if data.present?
+    else
+      block = 'haml_content_%s' % name
+      Lux.current.var[block] = yield if block_given?
+      Lux.current.var[block]
+    end
   end
 
   # foo = function do |list| ...
@@ -56,17 +61,16 @@ class Lux::View::Helper
     if name.is_array?
       return name.map { |b| render(b) }.join("\n")
     elsif name.respond_to?(:db_schema)
-      path = Thread.current[:lux][:last_template_path].split('/')[1]
+      raise 'not supported'
+      path = Lux.current.var.root_template_path.split('/')[1]
       table_name = name.class.name.tableize
       locals[table_name.singularize.to_sym] = name
       eval "@_#{table_name.singularize} = name"
       name = "#{path}/#{table_name}/_#{table_name.singularize}"
     else
       name = name.to_s
-      name = "#{Thread.current[:lux][:last_template_path]}/#{name}" unless name.index('/')
+      name = [Lux.current.var.root_template_path, name].join('/') if name =~ /^\w/
     end
-
-    Lux.current.files_in_use name
 
     for k, v in locals
       instance_variable_set("@_#{k}", v)
@@ -87,7 +91,8 @@ class Lux::View::Helper
     Lux.cache.fetch(key, ttl) { yield }
   end
 
-  def error msg
+  def error msg=nil
+    return Lux::Error unless msg
     %[<pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:14pt; font-size:10pt;">#{msg}</pre>]
   end
 

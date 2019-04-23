@@ -5,7 +5,9 @@ class String
 
   # simple markdown
   def as_html
-    self.gsub($/, '<br />')
+    self
+      .gsub($/, '<br />')
+      .gsub(/(https?:\/\/[^\s<]+)/) { %[<a href="#{$1}">#{$1}</a>] }
   end
 
   # convert escaped strings, remove scritpts

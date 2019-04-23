@@ -11,7 +11,7 @@
 # set(k,v) - set state k to v and call render() if render defined
 # id       - instance_id
 # node     - dom_node
-# ref      - "Widget.ref[this.id]", dom instance reference
+# ref      - "Widget.ref[this.id]", dom instance reference as string
 # state    - data-json="{...}" -> @state all data-attributes are translated to state
 
 # Widget public interface
@@ -22,7 +22,7 @@
 
 # Example code
 # <div class="w yes_no" data-filed="yes"></div>
-# Widget.register 'yes_no',
+# w.register 'yes_no',
 #   init:
 #     @root = $ @node
 #     @state =
@@ -41,7 +41,7 @@
 #     @state.state = state
 #     @render()
 
-# $ -> Widget.bind()
+# $ -> w.bind()
 
 @Widget =
   css_klass: 'w'
@@ -50,15 +50,15 @@
   count: 0,
   ref: {},
 
+  # #consent.w.toggle ...
+  # w.get('#consent').activate()
+  # w.get('#consent').set('foo','bar') -> set state and call @render() if defined
   get: (node) ->
     parts = node.split('#', 2)
     node = document.getElementById(parts[1]) if parts[1]
-
+    # node = node.closest(".#{@css_klass}") || alert('Cant find closest widgets')
     return unless node
-
     @bind node
-    node = node.closest(".#{@css_klass}") || alert('Cant find closest widgets')
-    Widget.ref[parseInt(node.getAttribute(@inst_id_name))]
 
   clear: ->
     for i, w of @ref
@@ -105,6 +105,12 @@
       @state[name] = value
       @render() if @render
 
+    # for k, v of widget
+    #   if typeof(v) == 'function'
+    #     v = String(v)
+    #     v = v.replace('{', "{\nvar w=$tag;\n")
+    #     eval "widget.#{k} = #{v}"
+
   # runtime apply registered widget to dom node
   bind: (dom_node) ->
     dom_node = document.getElementById(dom_node) if typeof(dom_node) == 'string'
@@ -117,7 +123,7 @@
       instance_id = ++@count
       dom_node.setAttribute(@inst_id_name, instance_id)
 
-    return if @ref[instance_id]
+    return @ref[instance_id] if @ref[instance_id]
 
     dom_node.setAttribute('id', "widget-#{instance_id}") unless dom_node.getAttribute('id')
     dom_node.setAttribute(@inst_id_name, instance_id)
@@ -138,7 +144,6 @@
     widget.id    = instance_id
     widget.ref   = "Widget.ref[#{instance_id}]"
     widget.node  = dom_node
-    widget.error = (data) -> @node.innerHTML = """<div style="background-color:#fcc; padding: 5px; margin-bottom: 10px;">#{data}</div>"""
     widget.parse = (data) -> data.replace(/\$\$\./g, @ref+'.')
 
     # set widget state, copy all date-attributes to state
@@ -153,6 +158,9 @@
     widget.init() if widget.init
     widget.render() if widget.render
 
+    # return widget instance
+    widget
+
   is_widget: (node) ->
     klass = node.getAttribute('class')
 
@@ -161,3 +169,4 @@
     else
       undefined
 
+@w = Widget

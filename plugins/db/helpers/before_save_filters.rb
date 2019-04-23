@@ -14,8 +14,8 @@ module Sequel::Plugins::LuxBeforeSave
       end
 
       # add timestamps
-      self[:created_by]   = User.current.id if respond_to?(:created_by) && !id
-      self[:updated_by] ||= User.current.id if respond_to?(:updated_by)
+      self[:created_by] = User.current.id if respond_to?(:created_by) && !id
+      self[:updated_by] = User.current.id if respond_to?(:updated_by)
 
       # delete cache key if defined
       Lux.cache.delete(cache_key)

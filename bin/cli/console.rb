@@ -19,7 +19,6 @@ class Object
   end
 end
 
-
 ARGV[0] = 'console' if ARGV[0] == 'c'
 
 LuxCli.class_eval do
