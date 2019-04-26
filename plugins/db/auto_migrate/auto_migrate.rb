@@ -290,8 +290,6 @@ class AutoMigrate
           log_run "ALTER TABLE #{@table_name} ALTER COLUMN #{field} TYPE #{type.to_s.upcase} using #{field}::#{type};"
         end
 
-        #ap [current, field, type, opts] if current[:type] == :string && @table_name == :informators
-
         # field default changed
         if current[:default].to_s != opts[:default].to_s
           # skip for arrays

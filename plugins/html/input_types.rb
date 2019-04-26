@@ -30,7 +30,8 @@ class HtmlInput
   end
 
   def as_date
-    @opts[:type] = 'date'
+    @opts[:type]  = 'date'
+    @opts[:value] = @opts[:value].short(true) if @opts[:value].respond_to?(:short)
     @opts.tag(:input)
   end
 

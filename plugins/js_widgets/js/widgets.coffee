@@ -105,12 +105,6 @@
       @state[name] = value
       @render() if @render
 
-    # for k, v of widget
-    #   if typeof(v) == 'function'
-    #     v = String(v)
-    #     v = v.replace('{', "{\nvar w=$tag;\n")
-    #     eval "widget.#{k} = #{v}"
-
   # runtime apply registered widget to dom node
   bind: (dom_node) ->
     dom_node = document.getElementById(dom_node) if typeof(dom_node) == 'string'
