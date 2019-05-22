@@ -56,7 +56,4 @@ tag = (name, args...) ->
   node.join('')
 
 # export
-if @window
-  @tag = tag
-else
-  module.exports = tag
+window.tag = tag

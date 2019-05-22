@@ -1,0 +1,3 @@
+web: LUX_MODE=dev puma -e development -p 3000
+js: sleep 3 && rollup -cw
+css: sleep 3 && find app/assets/css | entr -s 'npx node-sass app/assets/main.css -o public/assets/ --output-style expanded --source-comments'

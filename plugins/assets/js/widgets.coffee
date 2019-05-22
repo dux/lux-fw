@@ -1,18 +1,17 @@
-'use strict'
-
 # Micro Widget/Component lib by @dux
 # Super simple component lib for server side rendered templates
 # if you need someting similar but more widely adopted, use https://stimulusjs.org/
 
 # instance public interface
-# init()   - called on every wiget $init
-# once()   - called once on every page
-# css()    - will add css to document head if present
-# set(k,v) - set state k to v and call render() if render defined
-# id       - instance_id
-# node     - dom_node
-# ref      - "Widget.ref[this.id]", dom instance reference as string
-# state    - data-json="{...}" -> @state all data-attributes are translated to state
+# once()           - called only once on widget register
+# init()           - called on wiget init
+# css()            - will add css to document head if present
+# set(k,v)         - set @state[k]=v to v and call render() if render defined
+# html(data, node) - set innerHTML to current node, auto call helpers
+# id               - instance_id
+# node             - dom_node
+# ref              - "Widget.ref[this.id]", dom instance reference as string
+# state            - data-json="{...}" -> @state all data-attributes are translated to state
 
 # Widget public interface
 # registere(name, object) - register widget
@@ -21,6 +20,7 @@
 # refresh()               - call render() on all widgets instances
 
 # Example code
+# <w-yes_no data-filed="yes"></w-yes_no>
 # <div class="w yes_no" data-filed="yes"></div>
 # w.register 'yes_no',
 #   init:
@@ -43,9 +43,9 @@
 
 # $ -> w.bind()
 
-@Widget =
+window.Widget =
   css_klass: 'w'
-  inst_id_name: 'data-widget_id'
+  inst_id_name: 'widget_id'
   registered: {},
   count: 0,
   ref: {},
@@ -56,27 +56,12 @@
   get: (node) ->
     parts = node.split('#', 2)
     node = document.getElementById(parts[1]) if parts[1]
-    # node = node.closest(".#{@css_klass}") || alert('Cant find closest widgets')
     return unless node
     @bind node
 
   clear: ->
     for i, w of @ref
       delete @ref[i] unless document.body.contains(w.node)
-
-  init: (data) ->
-    @clear()
-
-    while node = @get_next_widget_node(data)
-      @bind(node)
-
-  get_next_widget_node: (root) ->
-    root ||= window.document
-
-    for node in root.getElementsByClassName(@css_klass)
-      return node if node && !node.getAttribute('data-widget_id')
-
-    null
 
   # refresh all widgets
   refresh: ->
@@ -102,12 +87,28 @@
 
     # create set method unless defined
     widget.set ||= (name, value) ->
-      @state[name] = value
+      if typeof name == 'string'
+        @state[name] = value
+      else
+        Object.assign @state, name
+
       @render() if @render
 
+    # set html to current node
+    widget.html ||= (data, root) ->
+      data = data.join('') if typeof data != 'string'
+      data = data.replace(/\$\$\./g, "#{@ref}.")
+      (root || @node).innerHTML = data
+
+    # create custom HTML element
+    DOMCustomElement.define "w-#{name}", (node) -> Widget.bind(node, name)
+
   # runtime apply registered widget to dom node
-  bind: (dom_node) ->
+  bind: (dom_node, widget_name) ->
     dom_node = document.getElementById(dom_node) if typeof(dom_node) == 'string'
+
+    return if dom_node.classList.contains('mounted')
+    dom_node.classList.add('mounted')
 
     instance_id  = dom_node.getAttribute(@inst_id_name)
 
@@ -122,28 +123,25 @@
     dom_node.setAttribute('id', "widget-#{instance_id}") unless dom_node.getAttribute('id')
     dom_node.setAttribute(@inst_id_name, instance_id)
 
-    widget_name = dom_node.getAttribute('class').split(' ')[1]
+    widget_name ||= dom_node.classList.item(1) if dom_node.classList.item(0) == @css_klass
     widget_opts = @registered[widget_name]
 
     # return if widget is not defined
     return alert "Widget #{widget_name} is not registred" unless widget_opts
 
     # define widget instance
-    widget = {}
-
-    # apply basic methods
-    widget[key] = widget_opts[key] for key in Object.keys(widget_opts)
+    widget = {...widget_opts}
 
     # bind root to root
     widget.id    = instance_id
     widget.ref   = "Widget.ref[#{instance_id}]"
     widget.node  = dom_node
-    widget.parse = (data) -> data.replace(/\$\$\./g, @ref+'.')
 
     # set widget state, copy all date-attributes to state
-    json = dom_node.getAttribute('data-json') || '{}'
-    json = JSON.parse json
-    widget.state = Object.assign(json, dom_node.dataset)
+    json         = dom_node.getAttribute('data-json') || '{}'
+    json         = JSON.parse(json)
+    widget.state = {...json, ...dom_node.dataset}
+    delete widget.state.json
 
     # store in global object
     @ref[instance_id] = widget
@@ -155,12 +153,28 @@
     # return widget instance
     widget
 
-  is_widget: (node) ->
-    klass = node.getAttribute('class')
+  isWidget: (node) ->
+    node.classList.item(0) == @css_klass
 
-    if klass?.split(' ')[0] == 'w'
-      node
-    else
-      undefined
+  # get dom node child nodes as a list of objects
+  childNodes: (root, node_name) ->
+    list = []
+    i    = 0
 
-@w = Widget
+    root.childNodes.forEach (node) ->
+      return unless node.attributes
+      return if node_name && node_name.toUpperCase() != node.nodeName
+      o = {}
+      o.HTML = node.innerHTML
+      o.NODE = node
+      o.ID   = i++
+
+      for a in node.attributes
+        o[a.name] = a.value
+
+      list.push o
+
+    list
+
+window.w = Widget
+
