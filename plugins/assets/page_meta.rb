@@ -17,7 +17,7 @@ class PageMeta
     @links.push %[<link rel="preload" href="#{resource}" as="font" type="#{type}" crossorigin="anonymous" />]
   end
 
-  def auto_reload
+  def live_reload
     Lux.dev? ? %[<script src="/autoreload-check"></script>] : nil
   end
 

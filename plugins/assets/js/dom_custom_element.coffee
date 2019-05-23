@@ -30,8 +30,9 @@ window.DOMCustomElement =
         func node, @attributes(node)
 
   init: ->
-    setInterval =>
-      @bind()
-    , @ping_interval
+    unless window.customElements
+      setInterval =>
+        @bind()
+      , @ping_interval
 
 DOMCustomElement.init()

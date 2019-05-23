@@ -5,59 +5,77 @@ import nodeResolve from 'rollup-plugin-node-resolve'
 import commonjs from 'rollup-plugin-commonjs'
 import { terser } from 'rollup-plugin-terser'
 import coffee from 'rollup-plugin-coffee-script'
-import fs from 'fs'
+import livereload from 'rollup-plugin-livereload'
 
 const production = !process.env.ROLLUP_WATCH;
+const extensions = ['.js', '.coffee']
 
-// js compile template
-let configFor = function(name) {
-  return {
-    //external: ['react', 'react-dom'],
-    input: `app/assets/${name}`,
-    output: {
-      // sourcemap: !production,
-      sourcemap: false,
-      format: 'iife',
-      file: `public/assets/${name}`,
-      name: name,
-    },
-    external: [
-      "react",
-      "react-dom"
-    ],
-    plugins: [
-      coffee({exclude: 'node_modules/**'}),
-      svelte({
-        dev: !production,
-        preprocess: { style: scss() }
-      }),
-      nodeResolve({
-        browser: true,
-        extensions: ['.js', '.coffee']
-      }),
-      babel({
-        extensions: ['.js', '.coffee'],
-        plugins: [
-          '@babel/plugin-proposal-object-rest-spread',
-          '@babel/plugin-proposal-optional-chaining',
-          '@babel/plugin-syntax-dynamic-import',
-          '@babel/plugin-proposal-class-properties',
-          'transform-react-remove-prop-types',
-        ],
-        exclude: 'node_modules/**',
-      }),
-      commonjs({
-        extensions: ['.js', '.coffee'],
-        ignoreGlobal: true,
-      }),
-      production && terser()
-    ]
+class Config {
+  constructor(init) {
+    this.list = []
+  }
+
+  default(name) {
+    return {
+      input: `app/assets/${name}`,
+      output: {
+        sourcemap: false,
+        format: 'iife',
+        file: `public/assets/${name}`,
+        name: name,
+      },
+      plugins: [
+        coffee({exclude: 'node_modules/**'}),
+        nodeResolve({
+          browser: true,
+          extensions: extensions
+        }),
+        babel({
+          extensions: extensions
+        }),
+        commonjs({
+          extensions: extensions,
+          ignoreGlobal: true,
+        }),
+        production && terser()
+      ]
+    }
+  }
+
+  add(name, func) {
+    let opts = this.default(name)
+    if (func) { func(opts) }
+    this.list.push(opts)
   }
 }
 
-// glob files
-export default fs
-  .readdirSync('app/assets')
-  .filter((f)=>{ return (f.endsWith('.js') || f.endsWith('.coffee')) })
-  .map((f)=>{ return configFor(f) })
+let config = new Config()
+
+config.add('main.js', (cfg) => {
+  cfg.plugins.push(
+    livereload({ watch: './public/assets' })
+  )
+})
+
+config.add('main-react.js', (cfg) => {
+  cfg.output.globals = {
+    'react': 'React',
+    'react-dom':'ReactDOM'
+  }
+  cfg.external = [
+    "react",
+    "react-dom"
+  ]
+})
+
+config.add('main-svelte.js', (cfg) => {
+  cfg.plugins.push(
+    svelte({
+      dev: !production,
+      preprocess: { style: scss() }
+    })
+  )
+})
+
+export default config.list
 
