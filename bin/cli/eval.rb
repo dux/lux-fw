@@ -3,7 +3,7 @@ LuxCli.class_eval do
   def evaluate *args
     require './config/application'
 
-    Lux.start
+    # Lux.start
 
     if File.exist?('./config/console.rb')
       puts '* loading ./config/console.rb'
@@ -24,7 +24,11 @@ LuxCli.class_eval do
       require 'nokogiri'
       puts Nokogiri::XML(data, &:noblanks)
     else
-      ap data
+      if data.is_a?(String)
+        puts data
+      else
+        ap data
+      end
     end
 
     exit

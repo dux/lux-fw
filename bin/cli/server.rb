@@ -18,7 +18,7 @@ LuxCli.class_eval do
     env   = options[:env][0,1] == 'p' ? 'production' : 'development'
 
     if options[:rerun]
-      Cli.run "#{mode} rerun -p '**/*.{rb,ru}' -d . -d #{LUX_ROOT} 'lux s -p #{options[:port]}'"
+      Cli.run "find #{LUX_ROOT} . -name *.rb | entr -r lux s -p #{options[:port]}"
     else
       Cli.run "#{mode} puma -e #{env} -p #{options[:port]}"
     end

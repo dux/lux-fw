@@ -7,7 +7,7 @@
 tag_events = {}
 tag_uid    = 0
 
-tag = (name, args...) ->
+window.tag = (name, args...) ->
   return tag_events unless name
 
   # evaluate function if data is function
@@ -55,5 +55,19 @@ tag = (name, args...) ->
 
   node.join('')
 
-# export
-window.tag = tag
+# # export
+# flatten = (arr) ->
+#   arr.reduce ((flat, toFlatten) ->
+#     flat.concat if Array.isArray(toFlatten) then flatten(toFlatten) else toFlatten
+#   ), []
+
+# # for JSX transpilers
+# window.React ||=
+#   createElement: (name, opts, ...args) ->
+#     console.log [name, opts, args]
+#     tag name, opts || {}, flatten(args).join('')
+
+
+
+
+

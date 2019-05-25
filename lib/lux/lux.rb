@@ -167,6 +167,12 @@ module ::Lux
       it.formatter = Lux.config.logger_formater
     end
   end
+
+  def run command
+    puts command.gray
+    logger(:system_run).info command
+    system command
+  end
 end
 
 require_relative 'config/config'

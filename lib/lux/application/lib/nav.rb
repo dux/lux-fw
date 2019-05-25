@@ -2,33 +2,15 @@
 
 class Lux::Application::Nav
   attr_accessor :path, :id, :format
-  attr_reader :original, :subdomain, :domain
+  attr_reader :original, :domain, :subdomain
 
   # acepts path as a string
   def initialize request
-    @path = request.path.split('/').slice(1, 100) || []
-    @original = @path.dup
+    @path         = request.path.split('/').slice(1, 100) || []
+    @original     = @path.dup
 
-    @subdomain = request.host.split('.')
-    @domain    = @subdomain.pop(2).join('.')
-    @subdomain = @subdomain.join('.')
-    @domain    += ".#{@subdomain.pop}" if @domain.length < 6
-
+    set_domain request
     set_format
-  end
-
-  def set_format
-    return unless @path.last
-    parts = @path.last.split('.')
-
-    if parts[1]
-      @format    = parts.pop.to_s.downcase.to_sym
-      @path.last = parts.join('.')
-    end
-  end
-
-  def active_shift
-    @active = @path.shift
   end
 
   def shift
@@ -101,4 +83,31 @@ class Lux::Application::Nav
     @path.join('/').sub(/\/$/, '')
   end
 
+  private
+
+  def set_domain request
+    # localtest.me
+    parts = request.host.split('.')
+    if parts.last.is_numeric?
+      @domain = request.host
+    else
+      @domain    = parts.pop(2).join('.')
+      @domain    += ".#{parts.pop}" if @domain.length < 6
+      @subdomain = parts.join('.')
+    end
+  end
+
+  def set_format
+    return unless @path.last
+    parts = @path.last.split('.')
+
+    if parts[1]
+      @format    = parts.pop.to_s.downcase.to_sym
+      @path.last = parts.join('.')
+    end
+  end
+
+  def active_shift
+    @active = @path.shift
+  end
 end

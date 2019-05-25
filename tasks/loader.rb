@@ -1,3 +1,5 @@
+require 'whirly'
+
 def run what
   puts what.yellow
   system what
@@ -27,7 +29,9 @@ task :env do
 end
 
 task :default do
-  puts '"rake -T" to show all tasks'
+  require 'lux-fw'
+
+  system Lux.fw_root.join('bin/lux').to_s
 end
 
 ###

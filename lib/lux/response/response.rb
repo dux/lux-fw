@@ -83,6 +83,7 @@ class Lux::Response
 
     if type.is_a?(Symbol)
       type = case type
+      when :js         then 'application/javascript'
       when :javascript then 'application/javascript'
       when :json       then 'application/json'
       when :svg        then 'image/svg+xml'

@@ -87,6 +87,7 @@ window.Pjax =
     else
       $(window).trigger 'page:change'
 
+  # load a new page
   load: (href, opts={}) ->
     @info 'You did not use Pjax.init()' unless @init_ok
 
@@ -179,13 +180,13 @@ window.Pjax =
   # extract node as object from html data
   extract: (data, node_name) ->
     out = {}
-    match = new RegExp("<#{node_name}([^>]*)>([^§]+)</#{node_name}>")
-    match.test(data)
 
-    attrs    = RegExp.$1
-    out.HTML = RegExp.$2
-    attrs.replace /([\-\w]+)=['"]([^'"]+)/, ->
-      out[RegExp.$1] = RegExp.$2
+    match = new RegExp("<#{node_name}([^>]*)>([^§]+)</#{node_name}>")
+    if match.test(data)
+      attrs    = RegExp.$1
+      out.HTML = RegExp.$2
+      attrs.replace /([\-\w]+)=['"]([^'"]+)/, ->
+        out[RegExp.$1] = RegExp.$2
 
     out
 
