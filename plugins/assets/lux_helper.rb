@@ -21,8 +21,7 @@ ApplicationHelper.class_eval do
 
     data = block_given? ? yield : nil
 
-    { class: 'w %s' % name, id: id, 'data-json': opts.to_json }.tag(tag, data) +
-    %[<script>Widget.bind('#{id}');</script>]
+    { id: id, 'data-json': opts.to_json }.tag('w-%s' % name, data)
   end
 
 end
