@@ -17,6 +17,7 @@ class Config {
 
   default(name) {
     return {
+      context: 'window',
       input: `app/assets/${name}`,
       output: {
         sourcemap: false,

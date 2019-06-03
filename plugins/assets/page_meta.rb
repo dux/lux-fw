@@ -46,43 +46,6 @@ class PageMeta
   end
   alias_method :image=, :image
 
-  # public asset from manifest
-  def asset name, opts={}
-    return asset_tag(name, opts) if name.include?('://')
-
-    if name[0,1] == '/'
-      name += '?%s' % Digest::SHA1.hexdigest(File.read('./public%s' % name))[0,12]
-    else
-      name =
-      if Lux.dev?
-        '/assets/%s?%s' % [name, Digest::SHA1.hexdigest(File.read('./public/assets/%s' % name))[0,12]]
-      else
-        @json ||= JSON.load File.read('./public/manifestx.json')
-        opts[:integrity] = @json['integrity'][name]
-        file = @json['files'][name] || die('File not found')
-        '/assets/%s' % file
-      end
-    end
-
-    asset_tag name, opts
-  end
-
-  def asset_tag name, opts={}
-    opts[:crossorigin] = 'anonymous' if name.include?('http')
-
-    if name.include?('.js')
-      opts[:src] = name
-      opts.tag :script
-    elsif name.include?('.css')
-      opts[:media] = 'all'
-      opts[:rel]   = 'stylesheet'
-      opts[:href]  = name
-      opts.tag :link
-    else
-      raise 'Not supported asset extensio'
-    end
-  end
-
   def render
     ret   = []
 

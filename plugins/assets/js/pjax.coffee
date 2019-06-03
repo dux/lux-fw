@@ -65,6 +65,10 @@ window.Pjax =
   # reload, jump to top, no_cache http request forced
   reload: (func)    -> Pjax.refresh(func, { no_cache: true })
 
+  # set the no scroll list
+  no_scroll: ->
+    @no_scroll_list= arguments
+
   # refresh blok of data
   refresh_block: (node_id, url) ->
     $.get url, (data) ->
@@ -154,6 +158,12 @@ window.Pjax =
         header = @extract(ret.responseText, 'head')
         main   = @extract(ret.responseText, 'main').HTML || @info("<main> tag not defined in recieved page")
 
+        # manualy proces script data, to not do it with $ helper
+        for data, i in main.split(/<\/?script>/)
+          if i%2
+            f = new Function(data)
+            f()
+
         @replace title, main
 
         # check header change
@@ -213,6 +223,7 @@ window.Pjax =
 
     $(window).trigger('page:change')
 
+
 # handle back button gracefully
 window.onpopstate = (event) ->
   if event.state && event.state.data
@@ -220,3 +231,4 @@ window.onpopstate = (event) ->
     Pjax.replace event.state.title, event.state.data
   else
     Pjax.load Pjax.path(), no_history: true
+

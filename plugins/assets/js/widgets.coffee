@@ -54,144 +54,156 @@ window.Widget = (name, object) ->
   else
     Widget.bind name, object
 
-Widget.inst_id_name = 'widget_id'
-Widget.registered = {}
-Widget.count = 0
-Widget.ref = {}
+Object.assign Widget,
+  inst_id_name: 'widget_id'
+  namespace:    'w'
+  registered:   {}
+  ref:          {}
+  count:        0
 
-# #consent.w.toggle ...
-# w.get('#consent').activate()
-# w.get('#consent').set('foo','bar') -> set state and call @render()
-Widget.get = (node) ->
-  if typeof node == 'string'
-    node.split('#', 2)[1] if node[0] == '#'
-    node = document.getElementById(node)
+  # overload with custom on register fuction
+  on_register: (name) -> console.log("Widget #{name} registered")
 
-  return unless node
-  @bind node
+  # #consent.w.toggle ...
+  # w.get('#consent').activate()
+  # w.get('#consent').set('foo','bar') -> set state and call @render()
+  get: (node) ->
+    if typeof node == 'string'
+      node.split('#', 2)[1] if node[0] == '#'
+      node = document.getElementById(node)
 
-# clear all unbound nodes
-Widget.clear = ->
-  for i, w of @ref
-    delete @ref[i] unless document.body.contains(w.node)
+    return unless node
+    @bind node
 
-# register widget, trigger once method, insert css if present
-Widget.register = (name, widget) ->
-  return if @registered[name]
+  # clear all unbound nodes
+  clear: ->
+    for i, w of @ref
+      delete @ref[i] unless document.body.contains(w.node)
 
-  @registered[name] = widget
+  # register widget, trigger once method, insert css if present
+  register: (name, widget) ->
+    return if Widget.registered[name]
 
-  if widget.once
-    widget.once()
-    delete widget.once
+    @registered[name] = widget
 
-  if widget.css
-    data = if typeof(widget.css) == 'function' then widget.css() else widget.css
-    document.head.innerHTML += """<style id="widget_#{name}_css">#{data}</style>"""
-    delete widget.css
+    if widget.once
+      widget.once()
+      delete widget.once
 
-  widget.render ||= ->
-    false
+    if widget.css
+      data = if typeof(widget.css) == 'function' then widget.css() else widget.css
+      document.head.innerHTML += """<style id="widget_#{name}_css">#{data}</style>"""
+      delete widget.css
 
-  widget.attr ||= (name) ->
-    @node.getAttribute(name)
+    widget.attr ||= (name) ->
+      @node.getAttribute(name)
 
-  # create set method unless defined
-  widget.set ||= (name, value) ->
-    if typeof name == 'string'
-      @state[name] = value
+    # create set method unless defined
+    widget.set ||= (name, value) ->
+      if typeof name == 'string'
+        @state[name] = value
+      else
+        Object.assign @state, name
+
+    # set html to current node
+    widget.html ||= (data, root) ->
+      data = data.join('') if typeof data != 'string'
+      data = data.replace(/\$\$\./g, "#{@ref}.")
+      (root || @node).innerHTML = data
+
+    # create custom HTML element
+    CustomElement.define "#{@namespace}-#{name}", (node, opts) ->
+      Widget.bind(name, node, opts)
+
+  # runtime apply registered widget to dom node
+  bind: (widget_name, dom_node, state) ->
+    dom_node = document.getElementById(dom_node) if typeof(dom_node) == 'string'
+
+    return if dom_node.classList.contains('mounted')
+    dom_node.classList.add('mounted')
+
+    instance_id  = dom_node.getAttribute(@inst_id_name)
+
+    if instance_id
+      instance_id = parseInt instance_id
     else
-      Object.assign @state, name
+      instance_id = ++@count
+      dom_node.setAttribute(@inst_id_name, instance_id)
 
-  # set html to current node
-  widget.html ||= (data, root) ->
-    data = data.join('') if typeof data != 'string'
-    data = data.replace(/\$\$\./g, "#{@ref}.")
-    (root || @node).innerHTML = data
+    return @ref[instance_id] if @ref[instance_id]
 
-  widget._render = widget.render.bind(this)
-  widget.render = ->
-    data = widget._render()
-
-    if typeof data == 'string'
-      @html data
-    else
-      null
-
-  # create custom HTML element
-  DOMCustomElement.define "w-#{name}", (node) -> Widget.bind(name, node)
-
-# runtime apply registered widget to dom node
-Widget.bind = (widget_name, dom_node) ->
-  dom_node = document.getElementById(dom_node) if typeof(dom_node) == 'string'
-
-  return if dom_node.classList.contains('mounted')
-  dom_node.classList.add('mounted')
-
-  instance_id  = dom_node.getAttribute(@inst_id_name)
-
-  if instance_id
-    instance_id = parseInt instance_id
-  else
-    instance_id = ++@count
+    dom_node.setAttribute('id', "widget-#{instance_id}") unless dom_node.getAttribute('id')
     dom_node.setAttribute(@inst_id_name, instance_id)
 
-  return @ref[instance_id] if @ref[instance_id]
+    # return if widget is not defined
+    widget_opts = @registered[widget_name]
+    return alert("Widget #{widget_name} is not registred") unless widget_opts
 
-  dom_node.setAttribute('id', "widget-#{instance_id}") unless dom_node.getAttribute('id')
-  dom_node.setAttribute(@inst_id_name, instance_id)
+    # define widget instance
+    widget = {...widget_opts}
 
-  # return if widget is not defined
-  widget_opts = @registered[widget_name]
-  return alert("Widget #{widget_name} is not registred") unless widget_opts
+    # bind root to root
+    widget.id    = instance_id
+    widget.ref   = "Widget.ref[#{instance_id}]"
+    widget.node  = dom_node
 
-  # define widget instance
-  widget = {...widget_opts}
+    # set widget state, copy all date-attributes to state
+    if state
+      if state['data-json']
+        widget.state = JSON.parse state['data-json']
+      else
+        widget.state = state
+    else
+      json         = dom_node.getAttribute('data-json') || '{}'
+      json         = JSON.parse(json)
+      widget.state = {...json, ...dom_node.dataset}
 
-  # bind root to root
-  widget.id    = instance_id
-  widget.ref   = "Widget.ref[#{instance_id}]"
-  widget.node  = dom_node
+    delete widget.state.json
 
-  # set widget state, copy all date-attributes to state
-  json         = dom_node.getAttribute('data-json') || '{}'
-  json         = JSON.parse(json)
-  widget.state = {...json, ...dom_node.dataset}
-  delete widget.state.json
+    # store in global object
+    @ref[instance_id] = widget
 
-  # store in global object
-  @ref[instance_id] = widget
+    # redefine render method to insert html to widget if return is a string
+    widget.render ||= -> false
+    widget.$$render = widget.render
+    widget.render = ->
+      data = widget.$$render()
 
-  # init and render
-  widget.init() if widget.init
-  widget.render()
+      if typeof data == 'string'
+        @html data
+      else
+        null
 
-  # return widget instance
-  widget
+    # init and render
+    widget.init() if widget.init
+    widget.render()
 
-# is node a binded widget
-Widget.isWidget = (node) ->
-  !!node.getAttribute(@inst_id_name)
+    # return widget instance
+    widget
 
-# get dom node child nodes as a list of objects
-Widget.childNodes = (root, node_name) ->
-  list = []
-  i    = 0
+  # is node a binded widget
+  isWidget: (node) ->
+    !!node.getAttribute(@inst_id_name)
 
-  root.childNodes.forEach (node) ->
-    return unless node.attributes
-    return if node_name && node_name.toUpperCase() != node.nodeName
-    o = {}
-    o.HTML = node.innerHTML
-    o.NODE = node
-    o.ID   = i++
+  # get dom node child nodes as a list of objects
+  childNodes: (root, node_name) ->
+    list = []
+    i    = 0
 
-    for a in node.attributes
-      o[a.name] = a.value
+    root.childNodes.forEach (node) ->
+      return unless node.attributes
+      return if node_name && node_name.toUpperCase() != node.nodeName
+      o = {}
+      o.HTML = node.innerHTML
+      o.NODE = node
+      o.ID   = i++
 
-    list.push o
+      for a in node.attributes
+        o[a.name] = a.value
 
-  list
+      list.push o
+
+    list
 
 # clear unused widgets every minute
 setTimeout ->

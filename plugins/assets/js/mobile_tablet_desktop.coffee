@@ -33,5 +33,5 @@ for i in [0..(MediaBodyClass.sizes.length - 2)]
   window.matchMedia("(max-width: #{next_size}px)").addListener new Function 'e',
     "window.MediaBodyClass.set(e.matches ? '#{name}' : '#{next_name}');"
 
-
-$ -> window.MediaBodyClass.init()
+$ ->
+  MediaBodyClass.init()

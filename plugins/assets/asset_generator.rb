@@ -1,6 +1,41 @@
 module AssetGenerator
   extend self
 
+  # generic mask grep
+  def grep files
+    path = Pathname.new(@folder).join(files).to_s
+
+    Dir[path]
+      .map{ |it| it.split('/').last }
+      .reject { |it| it.include?('!') }
+      .map{ |it| yield(it) }
+      .join($/)
+  end
+
+  # relative path JS require from single a folder
+  def import path
+    mask_glob path, 'import "%s";'
+  end
+
+  # absolute file search for JS import
+  def import_find folder
+    import_by_mask 'JS require glob', 'import "%s/%s";', folder do |it|
+      it.ends_with?('js') || it.ends_with?('coffee')
+    end
+  end
+
+  # relative path CSS import from single a folder
+  def css_import path
+    mask_glob path, '@import "%s";'
+  end
+
+  # absolute file search for CSS import
+  def css_import_find folder
+    import_by_mask 'CSS import glob', '@import "%s/%s";', folder do |it|
+      it.ends_with?('css')
+    end
+  end
+
   def mask_glob path, mask
     path = path.to_s
     out  = nil
@@ -8,6 +43,7 @@ module AssetGenerator
     Dir.chdir(@folder) do
       out = Dir[path]
         .select { |it| File.file?(it) }
+        .reject { |it| it.include?('!') }
         .reject { |it| it.ends_with?('.template') }
         .sort
         .map do |it|
@@ -43,40 +79,9 @@ module AssetGenerator
     end
   end
 
-  # relative path JS require from single a folder
-  def require path
-    mask_glob path, 'require("%s");'
-  end
-
-  # relative path CSS import from single a folder
-  def import path
-    mask_glob path, '@import "%s";'
-  end
-
-  def grep mask
-    Dir[mask]
-      .map{ |it| it.split('/').last }
-      .map{ |it| yield(it) }
-      .join($/)
-  end
-
-  # absolute file search for CSS import
-  def import_find folder
-    import_require_find 'CSS import glob', '@import "%s/%s";', folder do |it|
-      it.ends_with?('css')
-    end
-  end
-
-  # absolute file search for JS import
-  def require_find folder
-    import_require_find 'JS require glob', 'require("%s/%s");', folder do |it|
-      it.ends_with?('js') || it.ends_with?('coffee')
-    end
-  end
-
   private
 
-  def import_require_find name, mask, folder, &test
+  def import_by_mask name, mask, folder, &test
     die "folder must start with / (we search from app root)" unless folder.starts_with?('/')
     die "glob * is not require" if folder.include?('*')
 
@@ -100,4 +105,5 @@ module AssetGenerator
 
     out.join($/)
   end
+
 end
