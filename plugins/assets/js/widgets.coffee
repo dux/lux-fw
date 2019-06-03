@@ -9,7 +9,6 @@
 # set(k,v)          - set @state[k]=v to v and call render() if render defined
 # html(data, node?) - set innerHTML to current node, auto call helpers. replaces $$ with current node reference
 # render()          - if it returns string, renders data to container
-# id                - instance_id
 # node              - dom_node
 # ref               - "Widget.ref[this.id]", dom instance reference as string
 # state             - data-json="{...}" -> @state all data-attributes are translated to state
@@ -34,11 +33,11 @@
 #   render_button: (name, state) ->
 #     $tag 'button.btn.btn-sm', name,
 #       class:   "btn-#{klass}"
-#       onclick: @ref+".update_state('"+state+"')"
+#       onclick: => { @update_state(state) }
 
 #   render: ->
 #     data = @render_button(@state.no, 0)
-#     @root.html $tag('div.btn-group', data)
+#     @root.html tag('div.btn-group', data)
 
 #   update_state: (state) ->
 #     @state.state = state
@@ -58,7 +57,6 @@ Object.assign Widget,
   inst_id_name: 'widget_id'
   namespace:    'w'
   registered:   {}
-  ref:          {}
   count:        0
 
   # overload with custom on register fuction
@@ -75,11 +73,6 @@ Object.assign Widget,
     return unless node
     @bind node
 
-  # clear all unbound nodes
-  clear: ->
-    for i, w of @ref
-      delete @ref[i] unless document.body.contains(w.node)
-
   # register widget, trigger once method, insert css if present
   register: (name, widget) ->
     return if Widget.registered[name]
@@ -95,22 +88,6 @@ Object.assign Widget,
       document.head.innerHTML += """<style id="widget_#{name}_css">#{data}</style>"""
       delete widget.css
 
-    widget.attr ||= (name) ->
-      @node.getAttribute(name)
-
-    # create set method unless defined
-    widget.set ||= (name, value) ->
-      if typeof name == 'string'
-        @state[name] = value
-      else
-        Object.assign @state, name
-
-    # set html to current node
-    widget.html ||= (data, root) ->
-      data = data.join('') if typeof data != 'string'
-      data = data.replace(/\$\$\./g, "#{@ref}.")
-      (root || @node).innerHTML = data
-
     # create custom HTML element
     CustomElement.define "#{@namespace}-#{name}", (node, opts) ->
       Widget.bind(name, node, opts)
@@ -122,30 +99,23 @@ Object.assign Widget,
     return if dom_node.classList.contains('mounted')
     dom_node.classList.add('mounted')
 
-    instance_id  = dom_node.getAttribute(@inst_id_name)
-
-    if instance_id
-      instance_id = parseInt instance_id
-    else
-      instance_id = ++@count
-      dom_node.setAttribute(@inst_id_name, instance_id)
-
-    return @ref[instance_id] if @ref[instance_id]
-
-    dom_node.setAttribute('id', "widget-#{instance_id}") unless dom_node.getAttribute('id')
-    dom_node.setAttribute(@inst_id_name, instance_id)
+    unless dom_node.getAttribute('id')
+      dom_node.setAttribute('id', "widget_#{++@count}")
 
     # return if widget is not defined
     widget_opts = @registered[widget_name]
-    return alert("Widget #{widget_name} is not registred") unless widget_opts
+    return console.error("Widget #{widget_name} is not registred") unless widget_opts
 
     # define widget instance
     widget = {...widget_opts}
 
+    # bind widget to node
+    dom_node.widget = widget
+
     # bind root to root
-    widget.id    = instance_id
-    widget.ref   = "Widget.ref[#{instance_id}]"
     widget.node  = dom_node
+    widget.id    = dom_node.id
+    widget.ref   = "document.getElementById('#{widget.node.id}').widget"
 
     # set widget state, copy all date-attributes to state
     if state
@@ -160,8 +130,22 @@ Object.assign Widget,
 
     delete widget.state.json
 
-    # store in global object
-    @ref[instance_id] = widget
+    # shortcut
+    widget.attr ||= (name) ->
+      @node.getAttribute(name)
+
+    # create set method unless defined
+    widget.set ||= (name, value) ->
+      if typeof name == 'string'
+        @state[name] = value
+      else
+        Object.assign @state, name
+
+    # set html to current node
+    widget.html ||= (data, root) ->
+      data = data.join('') if typeof data != 'string'
+      data = data.replace(/\$\$\./g, widget.ref+'.')
+      (root || @node).innerHTML = data
 
     # redefine render method to insert html to widget if return is a string
     widget.render ||= -> false
@@ -183,7 +167,7 @@ Object.assign Widget,
 
   # is node a binded widget
   isWidget: (node) ->
-    !!node.getAttribute(@inst_id_name)
+    !!node.widget
 
   # get dom node child nodes as a list of objects
   childNodes: (root, node_name) ->
@@ -204,8 +188,3 @@ Object.assign Widget,
       list.push o
 
     list
-
-# clear unused widgets every minute
-setTimeout ->
-  Widget.clear()
-, 60 * 1000
