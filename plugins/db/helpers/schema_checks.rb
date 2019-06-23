@@ -25,23 +25,23 @@ module Sequel::Plugins::LuxInitAndSaveSchemaCheck
     end
 
     # set right values on
-    def after_initialize
-      new_vals = {}
-      # DB.extension :connection_validator, :pg_array, :pg_json
-      db_schema.each do |field, schema|
-        type = schema[:db_type]
+    # def after_initialize
+    #   new_vals = {}
+    #   # DB.extension :connection_validator, :pg_array, :pg_json
+    #   db_schema.each do |field, schema|
+    #     type = schema[:db_type]
 
-        if type.include?('[]') && ![Array, Sequel::Postgres::PGArray].include?(self[field].class)
-          data = self[field].to_s.gsub(/^\{|\}$/, '').split(',')
-          data = data.map(&:to_i) if schema[:type] == :integer
-          self[field] = data
-        elsif type == 'jsonb' && self[field].class != Sequel::Postgres::JSONBHash
-          self[field] = HashWithIndifferentAccess.new(JSON.load(self[field]) || {})
-        end
-      end
+    #     if type.include?('[]') && ![Array, Sequel::Postgres::PGArray].include?(self[field].class)
+    #       data = self[field].to_s.gsub(/^\{|\}$/, '').split(',')
+    #       data = data.map(&:to_i) if schema[:type] == :integer
+    #       self[field] = data
+    #     elsif type == 'jsonb' && self[field].class != Sequel::Postgres::JSONBHash
+    #       self[field] = HashWithIndifferentAccess.new(JSON.load(self[field]) || {})
+    #     end
+    #   end
 
-      super
-    end
+    #   super
+    # end
 
     def before_save
       @_array_hash_cache_fields = {}
