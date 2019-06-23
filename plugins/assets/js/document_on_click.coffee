@@ -16,8 +16,8 @@ $(document).on 'click', (event) ->
   test_click = node.closest('*[onclick], *[click]')
   if test_click[0]
     if data = test_click.attr('click')
-      alert('Eval fix needed')
-      # eval "(function(){ #{data} }).call(test_click[0])"
+      func = new Function(data)
+      func.bind(test_click[0])()
     return
 
   # self or scoped href, as on %tr row element.
@@ -42,9 +42,6 @@ $(document).on 'click', (event) ->
       window.open node.attr('href')
       return false
 
-    # if Dialog.is_open()
-    #   Dialog.load href
-    # else
     Pjax.load href, node: node[0]
 
     false

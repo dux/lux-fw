@@ -47,11 +47,12 @@ Object.assign Svelte,
   bind:(name, klass) ->
     CustomElement.define name, (node, opts) ->
       if node.innerHTML
-        if node.innerHTML.indexOf('</slot>') > -1
+        if node.innerHTML.includes('</slot>')
           opts.slots = Svelte.nodesAsList node
         else
           opts.innerHTML = node.innerHTML
-          node.innerHTML = ''
+
+        node.innerHTML = ''
 
       global = null
       if opts.global
@@ -78,7 +79,7 @@ window.CustomElement =
 
   # define custom element
   define: (name, func) ->
-    if window.customElements
+    if window.customElements && !window.customElements.get(name)
       customElements.define name, class extends HTMLElement
         connectedCallback: ->
           if CustomElement.dom_loaded

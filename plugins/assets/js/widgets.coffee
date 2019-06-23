@@ -109,6 +109,9 @@ Object.assign Widget,
     # define widget instance
     widget = {...widget_opts}
 
+    # @h('b', { color: 'red' }, 'red') => <b color="red">red</b>
+    widget.h ||= tag if window.tag
+
     # bind widget to node
     dom_node.widget = widget
 

@@ -42,15 +42,17 @@ LuxCli.class_eval do
 
     # AwesomePrint.pry!
     # nice object dump in console
-    Pry.print = proc { |output, data|
+    Pry.config.print = Proc.new do |output, data|
+      puts data.class.to_s.gray
+
       out = if data.is_a?(Hash)
-        data.class.to_s+"\n"+JSON.pretty_generate(data).gsub(/"(\w+)":/) { '"%s":' % $1.yellow }
+        JSON.pretty_generate(data).gsub(/"(\w+)":/) { '"%s":' % $1.yellow }
       else
         data.ai
       end
 
       output.puts out
-    }
+    end
 
     # create mock session
     Lux::Current.new '/'

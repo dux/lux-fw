@@ -68,9 +68,9 @@ Lux.app do
   routes do |r|
     # we show on root method, that target can be multiple object types, 5 variants
     root [RootController, :index] # calls RootController#index
-    root 'root#call'              # calls RootController#call
+    root 'root#index'             # calls RootController#index
     root :call_root               # calls "call_root" method in current scope
-    root 'root'                   # calls RootController#index
+    root 'root'                   # calls RootController#call
     root 'root#foo'               # calls RootController#foo
 
     # we can route based on the user status

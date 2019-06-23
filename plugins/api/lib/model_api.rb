@@ -105,8 +105,6 @@ class ModelApi < ApplicationApi
 
         value = value.to_i if @object.db_schema[field.to_sym][:db_type].include?('int')
 
-        rr! value
-
         if @object[field.to_sym].class.to_s.include?('Array')
           # array field
           @object.send('%s=' % field, @object.send(field).to_a - [value])

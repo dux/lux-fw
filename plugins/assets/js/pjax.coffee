@@ -15,8 +15,7 @@
 # execute action before pjax load and do not proceed if return is false
 # Pjax.before (href, opts) ->
 #   if opts.node
-#     n = $(opts.node)
-#     if n.closest('.in-popup')[0]
+#     if opts.node.closest('.in-popup')
 #       Dialog.load href
 #       return false
 #   true
@@ -27,9 +26,14 @@
 #  Dialog.close()
 #  ga('send', 'pageview') if window.ga;
 
+# set meta[name=pjax_template_id] in header, and full reaload page on missmatch
+
+# Pjax.fresh == true if page has not been refreshed
+
 window.Pjax =
   abort_message:  'Pjax request aborted'
   silent:          false
+  fresh:           true
 
   no_scroll_list: []
   before_test:    []
@@ -67,13 +71,7 @@ window.Pjax =
 
   # set the no scroll list
   no_scroll: ->
-    @no_scroll_list= arguments
-
-  # refresh blok of data
-  refresh_block: (node_id, url) ->
-    $.get url, (data) ->
-      data = $("""<div>#{data}</div>""").find(node_id)
-      $(node_id).html data.html()
+    @no_scroll_list = arguments
 
   # paths to skips
   skip: ->
@@ -82,14 +80,26 @@ window.Pjax =
 
   # init Pjax with function that will run after every pjax request
   init: (func) ->
-    @init_ok = true
+    @init_ok   = true
+
 
     # if page change fuction provided, store it and run it
     if func
-      $(window).on 'page:change', func
-      $ -> func()
+      @init_func = func if func
+      document.addEventListener "DOMContentLoaded", -> func()
+
+  # get pjax template id
+  template_id: (data) ->
+    node = document.head
+
+    if data
+      node = document.createElement('div')
+      node.innerHTML = data
+
+    if meta = node.querySelector('meta[name=pjax_template_id]')
+      meta.content
     else
-      $(window).trigger 'page:change'
+      null
 
   # load a new page
   load: (href, opts={}) ->
@@ -129,59 +139,64 @@ window.Pjax =
     headers = {}
     headers['cache-control'] = 'no-cache' if opts.no_cache
 
-    @request = $.ajax
-      headers: headers,
-      method: 'GET'
-      url:  href,
-      data: {},
-      complete: (ret, message) =>
-        if message == 'abort'
-          @console(@abort_message) if @abort_message
-          return
+    pjax_template_id = @template_id()
 
-        # fix href because of redirects
-        if ret.responseURL
-          href = ret.responseURL.split('/')
-          href.splice(0,3)
-          href = '/' + href.join('/')
+    @request = req = new XMLHttpRequest()
+    req.open('GET', href)
+    req.send()
+    req.setRequestHeader k, v for k,v of headers
+    req.onload = (e) =>
+      @fresh = false
 
-        # log error
-        return @on_error(ret) if ret.status != 200 && ret.statusText != 'abort'
+      if req.status != 200
+        @console("Pjax status: #{@request.status}")
+        return
 
-        # console log
-        log_data  = "Pjax.load #{href}"
-        log_data += if opts.no_history then ' (back trigger)' else ''
-        @console "#{log_data} (app #{ret.getResponseHeader('x-lux-speed').replace(' ','')}, real #{((new Date()).getTime() - req_start_time)}ms)"
+      # fix href because of redirects
+      if rul = req.responseURL
+        href = rul.split('/')
+        href.splice(0,3)
+        href = '/' + href.join('/')
 
-        # extract data
-        title  = @extract(ret.responseText, 'title').HTML
-        header = @extract(ret.responseText, 'head')
-        main   = @extract(ret.responseText, 'main').HTML || @info("<main> tag not defined in recieved page")
+      # log error
+      return @on_error(ret) if req.status != 200 && req.statusText != 'abort'
 
-        # manualy proces script data, to not do it with $ helper
-        for data, i in main.split(/<\/?script>/)
-          if i%2
-            f = new Function(data)
-            f()
+      # console log
+      log_data  = "Pjax.load #{href}"
+      log_data += if opts.no_history then ' (back trigger)' else ''
+      @console "#{log_data} (app #{req.getResponseHeader('x-lux-speed').replace(' ','')}, real #{((new Date()).getTime() - req_start_time)}ms)"
 
+      # extract data
+      title  = @extract(req.responseText, 'title').HTML
+      header = @extract(req.responseText, 'head').HTML
+      main   = @extract(req.responseText, 'main').HTML || @info("<main> tag not defined in recieved page")
+
+      if pjax_template_id != @template_id(header)
+        @console 'Pjax: Template ID missmatch, full load'
+        document.head.innerHTML = header
+        document.body.innerHTML = @extract(req.responseText, 'body').HTML
+      else
+        # replace title and body
         @replace title, main
 
-        # check header change
-        # ret.getResponseHeader('location')
-        if String($('head').attr('id')) != String(header.id)
-          @console 'Head change'
-          location.href = href
-          return
+      # manualy proces script data, to not do it with $ helper
+      for data, i in main.split(/<\/?script>/)
+        if i%2
+          f = new Function(data)
+          f()
 
-        opts.done() if typeof(opts.done) == 'function'
+      # trigger init func if one provided on init
+      @init_func() if @init_func
 
-        # scroll to top of the page unless defined otherwise
-        unless @no_scroll_check(opts.node) || opts.no_scroll
-          window.scrollTo(0, 0)
+      opts.done() if typeof(opts.done) == 'function'
 
-        unless opts.no_history
-          # push new empty data state, just ot change url
-          window.history.pushState({ title: title, data: main}, title, href)
+      # scroll to top of the page unless defined otherwise
+      unless opts.no_scroll || @no_scroll_check(opts.node)
+        window.scrollTo(0, 0)
+
+      unless opts.no_history
+        # push new empty data state, just ot change url
+        window.history.pushState({ title: title, data: main}, title, href)
 
     false
 
@@ -201,13 +216,10 @@ window.Pjax =
     out
 
   no_scroll_check: (node) ->
-    return unless node
-    node = $(node)
-
-    @no_scroll_list ||= []
+    return unless node || node.closest
 
     for el in @no_scroll_list
-      return true if node.closest(el)[0]
+      return true if node.closest(el)
 
     false
 
@@ -221,8 +233,16 @@ window.Pjax =
     @info "%main tag not defined in document" unless main[0]
     main.html body
 
-    $(window).trigger('page:change')
+  # header_checksum: ->
+  #   links = []
 
+  #   for node in document.head.children
+  #     if node.nodeName == 'SCRIPT' && node.getAttribute('src')
+  #       links.push node.getAttribute('src')
+  #     if node.nodeName == 'LINK' && node.getAttribute('href')
+  #       links.push node.getAttribute('href')
+
+  #   console.log(links)
 
 # handle back button gracefully
 window.onpopstate = (event) ->
