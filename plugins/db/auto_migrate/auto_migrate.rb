@@ -16,45 +16,84 @@
 
 
 class ModelAutoMigrate
-  attr_reader :typero, :fields
-
-  def initialize
-    @typero = Typero.new
+  def initialize &block
     @fields = []
+
+    # execute block in local context
+    instance_exec &block
   end
 
+  # set the DB fields with default opts
   def method_missing type, *args
-    t_field = field = args[0]
-    t_opts  = args[1] || {}
-    f_opts  = t_opts.dup
+    field = args.shift
+    opts  = args.shift || {}
 
     if field.is_a?(Array)
-      field = t_field.first
-      f_opts[:array] = true
-      t_opts[:type]  = :array
-      t_opts[:array_type] = type
-      t_field = field
-    else
-      t_opts[:type] = type
-      t_opts[:type] = :string if [:text, :email].include?(type)
+      opts[:array] = true
+      field = field.first
     end
 
-    f_opts[:null]  = false if f_opts[:req]
-    f_opts[:limit] = f_opts[:max] if f_opts[:max] && type == :string
-
-    if t_opts[:label]
-      t_opts[:form] ||= {}
-      t_opts[:form][:label] = t_opts.delete :label
+    if opts[:label]
+      opts[:form] ||= {}
+      opts[:form][:label] = opts.delete :label
     end
 
-    t_field = nil if type == :polymorphic
+    @fields.push [field, type, opts]
+  end
 
-    @typero.set t_field, t_opts if t_field
-    @fields.push [field, type, f_opts]
+  # return database schema fields
+  def fields
+    @fields
+      .dup
+      .map do |field, type, opts|
+        type = :string if [:email, :url].include?(type)
+
+        field = nil if type == :polymorphic
+
+        opts[:limit] = opts.delete(:max) if opts[:max] && type == :string
+        opts[:null]  = false if opts.delete(:req)
+
+        opts.delete :form
+
+        type = :string  if [:url, :email, :label].include?(type.to_sym)
+
+        if type == :float
+          type = :decimal
+          opts[:precision] = 8
+          opts[:scale]     = 2
+        end
+
+        [field, type, opts]
+      end
+  end
+
+  # set typero style fields
+  def typero
+    return @typero if @typero
+
+    @typero = Typero.new
+
+    for field, type, opts in @fields.select { |it| it.first }
+      if opts[:array]
+        opts[:array_type] = type
+        type = :array
+      end
+
+      @typero.set field, opts
+    end
+
+    @typero
   end
 end
 
 class Sequel::Model
+  # auto create database table unless one found
+  def self.inherited(other)
+    AutoMigrate.table other.to_s.tableize.to_sym
+    super
+  end
+
+  # only schema define
   def self.schema &block
     return unless Lux.config.migrate
     AutoMigrate.table table_name, &block
@@ -67,8 +106,8 @@ class Sequel::Model
   #   text       :body
   # end
   def self.attrs &block
-    o = ModelAutoMigrate.new
-    o.instance_exec &block
+    o = ModelAutoMigrate.new &block
+
     # puts o.typero.rules.pretty_generate if self == Campaign
     self.instance_variable_set :@typero, o.typero
 
@@ -76,16 +115,6 @@ class Sequel::Model
       AutoMigrate.table(table_name) do |t|
         for field, type, opts in o.fields
           if field
-            opts.delete :form
-            type = :string  if [:url, :email, :label].include?(type.to_sym)
-
-            if type == :float
-              type = :decimal
-              opts[:precision] = 8
-              opts[:scale]     = 2
-            end
-
-            opts = opts.slice :null, :array, :limit
             t.send type, field.to_sym, opts
           else
             t.send(type) # timestamps
@@ -379,3 +408,4 @@ class AutoMigrate
     end
   end
 end
+
