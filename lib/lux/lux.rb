@@ -146,7 +146,7 @@ module ::Lux
     @rackup_start = true
 
     # Boot Lux
-    Object.class_callback :rack_boot, Lux::Application, rack_handler
+    Object.class_callback :boot, Lux::Application, rack_handler
     rack_handler.run self
   end
 

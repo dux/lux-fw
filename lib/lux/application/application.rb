@@ -4,13 +4,13 @@
 
 class Lux::Application
   class_callback :config    # pre boot app config
-  class_callback :rack_boot # rack_handler is passed as argument
+  class_callback :boot      # after rack app boot (web only)
   class_callback :info      # called by "lux config" cli
   class_callback :before    # before any page load
   class_callback :routes    # routes resolve
   class_callback :after     # after any page load
 
-  rack_boot do |rack_handler|
+  boot do |rack_handler|
     # deafult host is required
     unless Lux.config.host.to_s.include?('http')
       raise 'Invalid "Lux.config.host"'
@@ -241,7 +241,7 @@ class Lux::Application
     test?(route) ? call(klass) : nil
   end
 
-  # Calls target action in a controller, if no action is given, defaults to :index
+  # Calls target action in a controller, if no action is given, defaults to :call
   # ```
   # call :api_router
   # call proc { 'string' }
