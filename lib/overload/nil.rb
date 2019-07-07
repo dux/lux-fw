@@ -10,4 +10,8 @@ class NilClass
   def dup
     nil
   end
+
+  def is? value
+    true
+  end
 end

@@ -1,5 +1,3 @@
-require 'pry'
-
 class Object
   def cp data
     data = JSON.pretty_generate(data.to_hash) if data.respond_to?(:to_hash)
@@ -9,12 +7,17 @@ class Object
 
   # show method info
   # show User, :secure_hash
-  def show klass, m
-    klass = klass.class unless klass.respond_to?(:new)
-    el = klass.instance_method(m)
-    puts el.source_location.or([]).join(':').yellow
+  # show User
+  def show klass, m=nil
+    unless m
+      klass = klass.class unless klass.respond_to?(:new)
+      return klass.instance_methods false
+    end
+
+    info = klass.method(m)
+    puts info.source_location.or([]).join(':').yellow
     puts '-'
-    puts el.source
+    puts info.source
     nil
   end
 end
@@ -38,20 +41,6 @@ LuxCli.class_eval do
       require './config/console'
     else
       puts '* ./config/console.rb not found'
-    end
-
-    # AwesomePrint.pry!
-    # nice object dump in console
-    Pry.config.print = Proc.new do |output, data|
-      puts data.class.to_s.gray
-
-      out = if data.is_a?(Hash)
-        JSON.pretty_generate(data).gsub(/"(\w+)":/) { '"%s":' % $1.yellow }
-      else
-        data.ai
-      end
-
-      output.puts out
     end
 
     # create mock session

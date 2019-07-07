@@ -42,6 +42,53 @@ end
 
 ###
 
+require 'pry'
+
+# AwesomePrint.pry!
+# nice object dump in console
+Pry.config.print = Proc.new do |output, data|
+  puts data.class.to_s.gray
+
+  out =
+  if data.is_a?(Hash)
+    JSON.pretty_generate(data).gsub(/"(\w+)":/) { '"%s":' % $1.yellow }
+  elsif data.is_a?(String)
+    if data.downcase.starts_with?('select')
+      require 'niceql'
+      Niceql::Prettifier.prettify_sql data
+    elsif data.is_a?(String) && data.include?('</body>')
+      require 'nokogiri'
+      Nokogiri::XML(data, &:noblanks)
+    else
+      data
+    end
+  else
+    data.ai
+  end
+
+  output.puts out unless data.nil?
+end
+
+###
+
+# seed creator helper
+# lux e seed 'User.select(:name, :email, :cached_avatar).all'
+def seed list
+  ap list.is_a?(Array)
+  list = list.all if respond_to?(:all) && !list.is_a?(Array)
+  list = [list] unless list.is_a?(Array)
+  list = list.map do |el|
+    o = el.to_h
+    o = o.except(:id)
+    o = JSON.pretty_generate o
+    "#{el.class}.create(#{o})"
+  end
+
+  list.join($/)
+end
+
+###
+
 LuxCli = Class.new Thor
 
 # remove new in app, or allow only new while not in app
@@ -76,3 +123,4 @@ if !ARGV[0] && (Dir['./Rakefile*'] + Dir['./rakefile*'])[0]
     end
   end
 end
+

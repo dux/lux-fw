@@ -10,25 +10,16 @@ LuxCli.class_eval do
       load './config/console.rb'
     end
 
-    command = ARGV.drop(1).join('; ')
+    command = ARGV.drop(1).join(' ')
 
-    puts 'Command : %s' % command.light_blue
-
-    data = eval command
-
-    puts '-'
-    puts 'Class   : %s' % data.class
-    puts '-'
-
-    if data.is_a?(String) && data.include?('</body>')
-      require 'nokogiri'
-      puts Nokogiri::XML(data, &:noblanks)
+    if command.ends_with?('.rb')
+      puts 'Load : %s' % command.light_blue
+      load command
     else
-      if data.is_a?(String)
-        puts data
-      else
-        ap data
-      end
+      puts 'Command : %s' % command.light_blue
+      data = eval command
+      puts '-'
+      Pry.config.print.call $stdout, data
     end
 
     exit

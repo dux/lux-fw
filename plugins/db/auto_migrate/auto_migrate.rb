@@ -5,6 +5,14 @@
 #     t.string   'name', null: false
 #     t.string   'email'
 #   end
+#
+#   attrs do
+#     string     :name,        req:  'Campaign name is required', null: false, form: { label: 'Campaign name' }
+#     label      [:tags]
+#     integer    :actual_cost, form: { label: -> { 'Actual cost (%s)' % org.currency.upcase } }
+#     date       :date_end,    form: { label: 'Campaign END' }
+#     timestamps
+#   end
 # end
 
 # AutoMigrate.migrate do
@@ -13,7 +21,6 @@
 #     t.string   'email'
 #   end
 # end
-
 
 class ModelAutoMigrate
   def initialize &block
@@ -99,7 +106,7 @@ class Sequel::Model
     AutoMigrate.table table_name, &block
   end
 
-  # attributes + schema
+  # typero + schema
   # attrs do
   #   string     :name,        null: false
   #   string     :image_url

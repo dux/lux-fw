@@ -142,7 +142,7 @@ class Hash
 
   # Hash#except in place, modifying current hash
   def except!(*keys)
-    keys.each { |key| delete(key) }
+    keys.each { |key| delete(key.to_s); delete(key.to_sym)  }
     self
   end
 

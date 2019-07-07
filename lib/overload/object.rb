@@ -101,5 +101,11 @@ class Object
     Hash[instance_variables.map { |name| [name, instance_variable_get(name)] } ]
   end
 
+  # value can be nil but if defined should be Float
+  # value.is_a? Float, nil: true
+  def is! value
+    raise ArgumentError.new('Expected %s but got %s' % [value, self.class]) unless self.class == value
+    true
+  end
 end
 
