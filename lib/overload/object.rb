@@ -104,7 +104,7 @@ class Object
   # value can be nil but if defined should be Float
   # value.is_a? Float, nil: true
   def is! value
-    raise ArgumentError.new('Expected %s but got %s' % [value, self.class]) unless self.class == value
+    raise ArgumentError.new('Expected %s but got %s in %s' % [value, self.class, caller[0]]) unless self.class == value
     true
   end
 end

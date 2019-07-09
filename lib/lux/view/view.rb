@@ -15,7 +15,7 @@ class Lux::View
   end
 
   def initialize template, context={}
-    template = template.sub(/^\//, '')
+    # template = template.sub(/^\//, '')
     template = './app/views/' + template if template =~ /^\w/
 
     @helper = if context.class == Hash

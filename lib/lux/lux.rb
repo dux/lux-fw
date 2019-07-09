@@ -108,13 +108,15 @@ module ::Lux
       t = Thread.new do
         begin
           Thread.current[:lux] = lux_env
-          yield *args
+          Timeout::timeout(30) do
+            yield *args
+          end
         rescue => e
           Lux.logger(:delay_errors).error [e.message, e.backtrace]
         end
       end
 
-      BACKGROUND_THREADS.push t
+      # BACKGROUND_THREADS.push t
     elsif args[0]
       # Lux.delay(mail_object, :deliver)
       Lux::DelayedJob.push *args

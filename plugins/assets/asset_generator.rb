@@ -44,7 +44,7 @@ module AssetGenerator
       out = Dir[path]
         .select { |it| File.file?(it) }
         .reject { |it| it.include?('!') }
-        .reject { |it| it.ends_with?('.template') }
+        .reject { |it| it.ends_with?('.erb') }
         .sort
         .map do |it|
           it = it.sub(@folder, '.')
@@ -56,12 +56,13 @@ module AssetGenerator
     %[/* mask_glob "#{path}" */\n#{out}]
   end
 
-  # find .templates files and process them
+  # find .erbs files and process them
   def process_templates folder=nil
-    folder ||= './app'
-    folder += '/**/*.template' unless folder.include?('.template')
+    folder ||= './app/assets'
+    folder += '/**/*.erb' unless folder.include?('.erb')
 
     for file in Dir[folder]
+      puts 'Assets compile: %s' % file.green
       parse_template file
     end
   end
@@ -70,7 +71,7 @@ module AssetGenerator
   def parse_template template_location
     begin
       @folder = template_location.sub(%r{/[^/]+$}, '')
-      local   = template_location.sub('.template', '')
+      local   = template_location.sub('.erb', '')
       data    = ERB.new(File.read(template_location)).result
       data    = "/* Generated from #{template_location.split('/').last} */\n\n#{data}"
       File.write(local, data)

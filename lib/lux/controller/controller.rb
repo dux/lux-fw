@@ -11,6 +11,9 @@ class Lux::Controller
   # define helper contest, by defult derived from class name
   class_attribute :helper
 
+  # custom template root instead calcualted one
+  class_attribute :template_root
+
   # before and after any action filter, ignored in controllers, after is called just before render
   [:before, :before_action, :after_action, :before_render, :after].each { |filter| class_callback filter }
 
@@ -199,9 +202,13 @@ class Lux::Controller
   def render_body opts
     if opts.template
       template = opts.template.to_s
-      template = "#{@lux.template}/#{template}" if template =~ /^\w/
+      template = "/#{@lux.template}/#{template}" if template =~ /^\w/
     else
       template = "/#{@lux.template}/#{@lux.action}"
+    end
+
+    if self.class.template_root
+      template = template.sub(%r{/[^\/]+/}, "#{self.class.template_root}/")
     end
 
     Lux.current.var.root_template_path = template.sub(%r{/[\w]+$}, '')
