@@ -31,7 +31,7 @@ module Lux::Config::Plugin
     if base.exist?
       require base.to_s
     else
-      Lux::Config.require_all(opts.folder)
+      Lux.require_all(opts.folder)
     end
 
     @plugins[opts.name]

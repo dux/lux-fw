@@ -70,8 +70,9 @@ module Lux::Config
     `ps -o rss -p #{$$}`.chomp.split("\n").last.to_i / 1000
   end
 
-  def start!
+  def boot!
     Object.class_callback :config, Lux::Application
+    Lux.config.lux_config_loaded = true
     start_info $lux_start_time
   end
 
@@ -152,24 +153,6 @@ module Lux::Config
 
     # server static files
     Lux.config.serve_static_files = true
-
-    # Template to show when displaying unhandled server side errors
-    Lux.config.server_error_template = proc do |text|
-      text = text.to_s.gsub('<', '&lt;')
-      text = text.to_s.gsub($/,'<br />')
-
-      %[<html>
-          <head>
-            <title>Server error (#{Lux.current.response.status})</title>
-          </head>
-          <body style="background:#fff; font-size:12pt; font-family: Arial; padding: 20px;">
-            <h3>HTTP error #{Lux.current.response.status} in #{Lux.config.app.name}</h3>
-            <pre style="color:red; padding:10px; background-color: #eee; border: 1px solid #ccc; font-family:'Lucida console'; line-height: 15pt;">#{text}</pre>
-            <br>
-            <a href="https://httpstatuses.com/#{Lux.current.response.status}" target="http_error">more info on http error</a>
-          </body>
-        </html>]
-    end
 
     # Simpler log formatter
     Lux.config.logger_formater = proc do |severity, datetime, progname, msg|

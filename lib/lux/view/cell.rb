@@ -18,13 +18,6 @@ class Lux::View::Cell
   @@cache = {}
 
   class << self
-    # CityCell.folder -> "./app/cells/city"
-    def base_folder
-      name = instance_methods(false).first || dir('Can not find method')
-      file = instance_method(name).source_location
-      File.dirname file.first
-    end
-
     def get name, parent, vars={}
       w = ('%sCell' % name.to_s.classify).constantize
       w = w.new parent, vars
@@ -74,7 +67,7 @@ class Lux::View::Cell
     tpl = 'cell-tpl-%s-%s' % [self.class, name]
 
     tpl = Lux.ram_cache(tpl) do
-      file = '%s/%s.haml' % [self.class.base_folder, name]
+      file = '%s/%s.haml' % [self.class.source_location(true), name]
       file = file.sub(Lux.root.to_s+'/', '')
 
       Lux.log ' ' + file unless Lux.current.files_in_use(file)

@@ -28,9 +28,12 @@ task :env do
   require './config/environment'
 end
 
+task :app do
+  require './config/application'
+end
+
 task :default do
   require 'lux-fw'
-
   system Lux.fw_root.join('bin/lux').to_s
 end
 
@@ -46,8 +49,8 @@ tasks  = []
 tasks += Dir['%s/tasks/*.rake' % Lux.fw_root]
 tasks += Dir['./lib/**/*.rake']
 
-for dir in Lux.plugin.loaded.map(&:folder)
-  tasks += Dir['%s/**/*.rake' % dir]
+for dir in Lux.config.plugins
+  tasks += Dir['%s/**/*.rake' % Lux.fw_root.join("plugins/#{dir}")]
 end
 
 tasks.each { |file| eval File.read file }

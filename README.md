@@ -778,8 +778,8 @@ http 103
 
 #### redirect
 
-redirect '/foo'
-redirect :back, info: 'bar ...'
+redirect_to '/foo'
+redirect_to :back, info: 'bar ...'
 
 #### auth
 

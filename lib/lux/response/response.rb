@@ -63,7 +63,6 @@ class Lux::Response
   def halt status=nil, msg=nil
     @status = status || 400
     @body   = msg if msg
-
     throw :done
   end
 
@@ -71,6 +70,7 @@ class Lux::Response
     @status = status      if status
     @body   = body_data   if body_data
     @body   = yield @body if block_given?
+    throw :done if @body
     @body
   end
 
@@ -78,21 +78,14 @@ class Lux::Response
     !!@body
   end
 
-  def content_type type=nil
-    return @content_type unless type
+  def content_type in_type=nil
+    return @content_type unless in_type
 
-    if type.is_a?(Symbol)
-      type = case type
-      when :js         then 'application/javascript'
-      when :javascript then 'application/javascript'
-      when :json       then 'application/json'
-      when :svg        then 'image/svg+xml'
-      when :png        then 'image/png'
-      when :text       then 'text/plain'
-      when :html       then 'text/html'
-      else
-        raise ArgumentError.new('Bad content type')
-      end
+    if in_type.is_a?(Symbol)
+      type = Lux::Response::File::MIMME_TYPES[in_type]
+      raise ArgumentError.new('Bad content type: %s' % in_type) unless type
+    else
+      type = in_type
     end
 
     @content_type = type
@@ -112,9 +105,9 @@ class Lux::Response
     ::Lux::Response::File.new(file, opts).send
   end
 
-  # redirect '/foo'
-  # redirect :back, info: 'bar ...'
-  def redirect where, opts={}
+  # redirect_to '/foo'
+  # redirect_to :back, info: 'bar ...'
+  def redirect_to where, opts={}
     opts   = { info: opts } if opts.is_a?(String)
     where  = current.request.env['HTTP_REFERER'].or('/') if where == :back
     where  = "#{current.request.path}#{where}" if where[0,1] == '?'
@@ -148,7 +141,7 @@ class Lux::Response
   end
 
   def permanent_redirect where
-    redirect where, status:301
+    redirect_to where, status:301
   end
 
   # auth { |user, pass| [user, pass] == ['foo', 'bar'] }

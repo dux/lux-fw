@@ -3,7 +3,7 @@
 # base caller
 # Policy::User.new(model: @model, user: User.current).can?(:update) -> can current user update @model
 
-# block will capture error message and be triggered only if error is present
+# block will capture error message and will triggered only if error are present
 # User.can?(:login) { |msg| http_error 401, "Err: #{msg}".red; return 'no access' }
 
 class Policy

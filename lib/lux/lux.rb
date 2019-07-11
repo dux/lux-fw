@@ -18,7 +18,7 @@ module ::Lux
   BACKGROUND_THREADS ||= []
   # Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
 
-  define_method(:cli?)         { $0.end_with?('/rake') || !@rackup_start }
+  define_method(:rake?)        { $0.end_with?('/rake') }
   define_method(:test?)        { ENV['RACK_ENV'] == 'test' }
   define_method(:prod?)        { ENV_PROD }
   define_method(:production?)  { ENV_PROD }
@@ -137,10 +137,14 @@ module ::Lux
   end
 
   # initialize the Lux application
-  def start
-    Lux.config.lux_config_loaded = true
+  def boot &block
+    # load plugins
+    Lux.config.plugins.each do |name|
+      Lux.plugin name
+    end
 
-    Config.start!
+    Config.boot!
+    instance_exec &block
   end
 
   # must be called when serving web pages from rackup
@@ -174,6 +178,18 @@ module ::Lux
     puts command.gray
     logger(:system_run).info command
     system command
+  end
+
+  def die text
+    puts text.red
+    logger(:system_die).error text
+    exit
+  end
+
+  def cli?
+    return true if rake?
+    return true if Lux.config.lux_config_loaded && !@rackup_start
+    false
   end
 end
 

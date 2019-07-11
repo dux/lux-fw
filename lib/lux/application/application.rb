@@ -35,16 +35,15 @@ class Lux::Application
   end
 
   # simple one liners and delegates
-  define_method(:request)  { @current.request }
-  define_method(:session)  { @current.session }
-  define_method(:params)   { @current.request.params }
-  define_method(:nav)      { @current.nav }
-
-  define_method(:redirect) { |where, flash={}| @current.redirect where, flash }
-  define_method(:body?)    { response.body? }
+  define_method(:request)     { @current.request }
+  define_method(:session)     { @current.session }
+  define_method(:params)      { @current.request.params }
+  define_method(:nav)         { @current.nav }
+  define_method(:redirect_to) { |where, flash={}| @current.response.redirect_to where, flash }
+  define_method(:body?)       { response.body? }
 
   def initialize current
-    raise 'Config is not loaded (Lux.start not called), cant render page' unless Lux.config.lux_config_loaded
+    raise 'Config is not loaded (Lux.boot not called), cant render page' unless Lux.config.lux_config_loaded
 
     @current = current
   end
@@ -292,9 +291,7 @@ class Lux::Application
     throw :done if body?
 
     object = ('%s_controller' % object).classify.constantize if object.is_a?(String)
-    controller_name = "app/controllers/#{object.to_s.underscore}.rb"
-    Lux.log ' %s' % controller_name
-    current.files_in_use controller_name
+    current.files_in_use object.source_location
 
     # needed for
     # map 'main/root' do
@@ -309,12 +306,6 @@ class Lux::Application
     end
   end
 
-  # Action to do if there is an application error.
-  # You want to overload this in a production.
-  def on_error error
-    raise error
-  end
-
   def render
     Lux.log "\n#{current.request.request_method.white} #{current.request.url}"
 
@@ -327,25 +318,35 @@ class Lux::Application
 
   private
 
+  # Action to do if there is an application error.
+  # You want to overload this in a production.
+  def on_error error
+    if Lux.dev? && error.is_a?(Lux::Error)
+      Lux::Controller.action :on_error, error
+    else
+      raise error
+    end
+  end
+
   # internall call to resolve the routes
   def main
     return if deliver_static_assets
 
     magic = MagicRoutes.new self
 
-    catch(:done) do
-      class_callback :before, magic
-      class_callback :routes, magic unless body?
-    end
+    begin
+      catch(:done) do
+        class_callback :before, magic
+        class_callback :routes, magic unless body?
+      end
 
-    catch(:done) do
-      class_callback :after, magic
-    end
-  rescue => e
-    response.body { nil }
-
-    catch(:done) do
-      on_error(e)
+      catch(:done) do
+        class_callback :after, magic
+      end
+    rescue => e
+      catch(:done) do
+        on_error e
+      end
     end
   end
 
@@ -364,6 +365,5 @@ class Lux::Application
   def template name, opts={}
     # rr name
   end
-
 end
 

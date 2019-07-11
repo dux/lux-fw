@@ -110,12 +110,39 @@ class Lux::Error < StandardError
 
   class << self
     # template to show full error page
-    def render text, status=500
-      Lux.log text.red
-      Lux.current.response.status status
-      Lux.current.response.body Lux.config.server_error_template.call(text)
-      throw :done
-    end
+    def render *args
+      error =
+      if args.first.is_a?(String)
+        new args[1], args.first
+      else
+        args.first
+      end
+
+      Lux.current.response.status error.code
+
+      pre =
+      if Lux.dev?
+        parts = split_backtrace(error)
+        "#{parts[1].join("\n")}<hr />#{parts[2].join("\n")}"
+      else
+        ''
+      end
+
+      %{
+        <html>
+          <head>
+            <title>Lux error</title>
+            <style>body { font-size: 14pt; font-family: sans-serif;} </style>
+          </head>
+          <body style="margin: 20px 20px 20px 140px; background-color:#fdd;">
+            <img src="https://i.imgur.com/Zy7DLXU.png" style="width: 100px; position: absolute; margin-left: -120px;" />
+            <h4>HTPP Error &mdash; <a href="https://httpstatuses.com/#{error.code}" target="http_error">#{error.code}</a></h4>
+            <h3>#{error.class}</h3>
+            <h3>#{error.message}</h3>
+            <pre>#{pre}</pre>
+          </body>
+        </html>}
+      end
 
     # render error inline or break in production
     def inline name, error=nil
@@ -175,11 +202,13 @@ class Lux::Error < StandardError
 
   ###
 
+  attr_accessor :name
   attr_accessor :message
 
   def initialize code_num, message=nil
     self.code = code_num
-    @message = message || CODE_LIST[code_num][:name]
+    self.name = CODE_LIST[code_num][:name]
+    @message = message || self.name
   end
 
   def code

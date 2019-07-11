@@ -2,6 +2,7 @@
 
 class Lux::Response::File
   MIMME_TYPES = {
+    text:  'text/plain',
     txt:   'text/plain',
     html:  'text/html',
     gif:   'image/gif',
@@ -72,11 +73,13 @@ class Lux::Response::File
     response.headers['etag']          = '"%s"' % key
     response.headers['last-modified'] = file_mtime
 
-    # IF etags match, returnfrom cache
-    if request.env['HTTP_IF_NONE_MATCH'] == key
-      response.body('not-modified', 304)
-    else
-      response.body @opts.content || File.read(file)
+    catch :done do
+      # IF etags match, returnfrom cache
+      if request.env['HTTP_IF_NONE_MATCH'] == key
+        response.body('not-modified', 304)
+      else
+        response.body @opts.content || File.read(file)
+      end
     end
   end
 end

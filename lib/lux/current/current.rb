@@ -61,11 +61,6 @@ class Lux::Current
     @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache' ? true : false
   end
 
-  # Redirect from current page
-  def redirect *args
-    response.redirect *args
-  end
-
   # Execute action once per page
   def once id=nil, data=nil, &block
     id ||= Digest::SHA1.hexdigest caller[0] if block

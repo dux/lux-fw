@@ -46,7 +46,7 @@ class Lux::Api::Response
     @message
   end
 
-  def redirect url
+  def redirect_to url
     @meta['location'] = url
   end
 

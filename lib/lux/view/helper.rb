@@ -1,4 +1,4 @@
-# frozen_string_literal: true
+7# frozen_string_literal: true
 
 require_relative 'view'
 
@@ -69,7 +69,8 @@ class Lux::View::Helper
       name = "#{path}/#{table_name}/_#{table_name.singularize}"
     else
       name = name.to_s
-      name = [Lux.current.var.root_template_path, name].join('/') if name =~ /^\w/
+      name = Pathname.new(Lux.current.var.root_template_path).join(name).to_s
+      # name = [Lux.current.var.root_template_path, name].join('/') if name =~ /^\w/
       name = './app/views' + name if name.starts_with?('/')
     end
 

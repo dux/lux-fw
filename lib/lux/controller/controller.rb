@@ -43,10 +43,6 @@ class Lux::Controller
     @lux.template = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
   end
 
-  def cache *args, &block
-    Lux.cache.fetch *args, &block
-  end
-
   # action(:show)
   # action(:select', ['users'])
   def action method_name, *args
@@ -60,26 +56,25 @@ class Lux::Controller
     @lux.action = method_name.to_sym
 
     catch :done do
-      filter :before
-      filter :before_action
-      send method_name, *args
-      render
+      begin
+        filter :before
+        filter :before_action
+        send method_name, *args
+        render
+      rescue StandardError => error
+        @had_errros = true
+        Lux.current.response.status error.code if error.respond_to?(:code)
+        Lux::Error.log error
+        on_error error
+      end
     end
 
-    filter :after
+    filter :after unless @had_errros
 
     throw :done
-  rescue NoMethodError => error
-    # format error unless method found
-    if error.message.include?("`%s'" % method_name)
-      report_not_found_error error
-    else
-      on_error error
-    end
-  rescue => error
-    response.body { nil }
-    on_error error
   end
+
+  private
 
   # send file to browser
   def send_file file, opts={}
@@ -124,7 +119,6 @@ class Lux::Controller
       page
     else
       response.body { page }
-      throw :done
     end
   end
 
@@ -146,20 +140,18 @@ class Lux::Controller
     action nav.root
   end
 
-  private
-
   # delegated to current
-  define_method(:current)  { Lux.current }
-  define_method(:request)  { current.request }
-  define_method(:response) { current.response }
-  define_method(:params)   { current.request.params }
-  define_method(:nav)      { current.nav }
-  define_method(:session)  { current.session }
-  define_method(:get?)     { request.request_method == 'GET' }
-  define_method(:post?)    { request.request_method == 'POST' }
-  define_method(:redirect) { |where, flash={}| current.redirect where, flash }
-  define_method(:etag)     { |*args| current.response.etag *args }
-  define_method(:layout)   { |arg| @lux.layout = arg }
+  define_method(:current)     { Lux.current }
+  define_method(:request)     { current.request }
+  define_method(:response)    { current.response }
+  define_method(:params)      { current.request.params }
+  define_method(:nav)         { current.nav }
+  define_method(:session)     { current.session }
+  define_method(:get?)        { request.request_method == 'GET' }
+  define_method(:post?)       { request.request_method == 'POST' }
+  define_method(:redirect_to) { |where, flash={}| current.response.redirect_to where, flash }
+  define_method(:etag)        { |*args| current.response.etag *args }
+  define_method(:layout)      { |arg| @lux.layout = arg }
 
   # called be render
   def render_resolve opts
@@ -207,8 +199,8 @@ class Lux::Controller
       template = "/#{@lux.template}/#{@lux.action}"
     end
 
-    if self.class.template_root
-      template = template.sub(%r{/[^\/]+/}, "#{self.class.template_root}/")
+    if self.class.template_root && !template.starts_with?('./')
+      template = self.class.template_root + template
     end
 
     Lux.current.var.root_template_path = template.sub(%r{/[\w]+$}, '')
@@ -219,8 +211,6 @@ class Lux::Controller
   def halt status, desc=nil
     response.status = status
     response.body   = desc || "Hatlt code #{status}"
-
-    throw :done
   end
 
   def namespace
@@ -246,10 +236,6 @@ class Lux::Controller
     args.first.nil? ? Lux::Error::AutoRaise : Lux::Error.report(*args)
   end
 
-  def on_error error
-    raise error
-  end
-
   def respond_to ext=nil
     current.once(:format_handled) do
       if ext
@@ -273,4 +259,13 @@ class Lux::Controller
 
     Object.class_callback fiter_name, self, @lux.action
   end
+
+  def on_error error
+    render html: Lux::Error.render(error)
+  end
+
+  def cache *args, &block
+    Lux.cache.fetch *args, &block
+  end
+
 end
