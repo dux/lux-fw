@@ -2,7 +2,8 @@
 %html{ lang: 'en' }
   %head
     %title= @title || 'Lux'
-    = assets :main
+    %style
+      body { font-family: Helvetica; }
   %body
     %div{ style: 'margin: auto; max-width: 800px;' }
       %h2= @title
