@@ -19,6 +19,10 @@ class Lux::Application::Nav
     sub_nav ? ('%s/%s' % [@path.first, sub_nav]) : @path.first
   end
 
+  def root= value
+    @path[0] = value
+  end
+
   # shift element of the path
   # or eval block on path index and slice if true
   def shift index=0
@@ -26,8 +30,13 @@ class Lux::Application::Nav
 
     if block_given?
       result = yield(@path[index]) || return
-      @path.slice!(index,1)
-      active_shift if index == 0
+
+      if index == 0
+        active_shift
+      else
+        @path.slice!(index, 1)
+      end
+
       result
     else
       active_shift

@@ -118,7 +118,8 @@ class Lux::Error < StandardError
         args.first
       end
 
-      Lux.current.response.status error.code
+      code = error.respond_to?(:code) ? error.code : 500
+      Lux.current.response.status code
 
       %{
         <html>
@@ -128,10 +129,10 @@ class Lux::Error < StandardError
           </head>
           <body style="margin: 20px 20px 20px 140px; background-color:#fdd;">
             <img src="https://i.imgur.com/Zy7DLXU.png" style="width: 100px; position: absolute; margin-left: -120px;" />
-            <h4>HTPP Error &mdash; <a href="https://httpstatuses.com/#{error.code}" target="http_error">#{error.code}</a></h4>
+            <h4>HTPP Error &mdash; <a href="https://httpstatuses.com/#{code}" target="http_error">#{code}</a></h4>
             <h3>#{error.class}</h3>
             <h3>#{error.message}</h3>
-            #{error.description}
+            #{error.respond_to?(:description) ? error.description : ''}
           </body>
         </html>}
       end

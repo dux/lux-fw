@@ -14,7 +14,7 @@
 #   body: '<html> ...'
 # }.h
 
-Lux::Application.class_eval do
+Lux.app do
   def self.render path='/mock', in_opts={}, &block
     allowed_opts = [:qs, :post, :method, :session, :cookies]
     in_opts.keys.each { |k| die "#{k} is not allowed as opts param. allowed are #{allowed_opts}" unless allowed_opts.index(k) }

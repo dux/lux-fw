@@ -76,6 +76,11 @@ class Lux::Controller
 
   private
 
+  # template root sensitve root
+  def root
+    Pathname.new(self.class.template_root || './app/views')
+  end
+
   # send file to browser
   def send_file file, opts={}
     response.send_file(file, opts)

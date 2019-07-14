@@ -136,7 +136,7 @@ module Lux::Config
 
     # Default error logging
     Lux.config.error_logger = proc do |error|
-      ap Lux.error.split_backtrace(error)
+      ap Lux.error.split_backtrace(error) if Lux.config(:dump_errors)
 
       'no-key'
     end
