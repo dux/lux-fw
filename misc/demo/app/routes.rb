@@ -33,7 +33,9 @@ Lux.app do
 
   # after routing
   after do
-    response 'Error: document not found', 404 unless body?
+    # not found route
+    call 'main/base#not_found' unless body?
+    # response 'Error: document not found', 404 unless body?
   end
 
 end

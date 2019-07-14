@@ -9,6 +9,7 @@ class Lux::Application
   class_callback :before    # before any page load
   class_callback :routes    # routes resolve
   class_callback :after     # after any page load
+  class_callback :on_error  # after any page load
 
   boot do |rack_handler|
     # deafult host is required
@@ -36,11 +37,12 @@ class Lux::Application
 
   # simple one liners and delegates
   define_method(:request)     { @current.request }
+  define_method(:response)    { @current.response }
   define_method(:session)     { @current.session }
   define_method(:params)      { @current.request.params }
   define_method(:nav)         { @current.nav }
+  define_method(:body?)       { @current.response.body? }
   define_method(:redirect_to) { |where, flash={}| @current.response.redirect_to where, flash }
-  define_method(:body?)       { response.body? }
 
   def initialize current
     raise 'Config is not loaded (Lux.boot not called), cant render page' unless Lux.config.lux_config_loaded
@@ -63,18 +65,6 @@ class Lux::Application
     else
       Lux::Error::AutoRaise
     end
-  end
-
-  # Quick response to page body
-  # ```
-  # response 'ok' if nav.root == 'healthcheck'
-  # ```
-  def response body=nil, status=nil
-    return @current.response unless body
-
-    response.status status || 200
-    response.body body
-    throw :done
   end
 
   # Tests current root against the string to get a mach.
@@ -157,7 +147,7 @@ class Lux::Application
 
     yield
 
-    raise Lux::Error.not_found("Namespace <b>:#{name}</b> matched but nothing is called")
+    error.not_found("Namespace <b>:#{name}</b> matched but nothing is called")
   end
 
   # Matches given subdomain name
@@ -243,7 +233,7 @@ class Lux::Application
   # Calls target action in a controller, if no action is given, defaults to :call
   # ```
   # call :api_router
-  # call proc { 'string' }
+  # call { 'string' }
   # call proc { [400, {}, 'error: ...'] }
   # call [200, {}, ['ok']]
   # call Main::UsersController
@@ -251,11 +241,12 @@ class Lux::Application
   # call [Main::UsersController, :index]
   # call 'main/orgs#show'
   # ```
-  def call object=nil, action=nil
+  def call object=nil, action=nil, &block
     # log original app caller
     root    = Lux.root.join('app/').to_s
     sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
     action  = action.gsub('-', '_').to_sym if action && action.is_a?(String)
+    object  ||= block if block_given?
 
     Lux.log ' Routed from: %s' % sources.join(' ') if sources.first
 
@@ -287,8 +278,6 @@ class Lux::Application
             response.body data
         end
     end
-
-    throw :done if body?
 
     object = ('%s_controller' % object).classify.constantize if object.is_a?(String)
     current.files_in_use object.source_location
@@ -334,18 +323,14 @@ class Lux::Application
 
     magic = MagicRoutes.new self
 
-    begin
-      catch(:done) do
+    catch(:done) do
+      begin
         class_callback :before, magic
-        class_callback :routes, magic unless body?
-      end
-
-      catch(:done) do
+        class_callback :routes, magic
         class_callback :after, magic
-      end
-    rescue => e
-      catch(:done) do
-        on_error e
+      rescue => error
+        class_callback :on_error, error
+        on_error error
       end
     end
   end

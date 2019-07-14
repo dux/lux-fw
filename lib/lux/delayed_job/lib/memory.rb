@@ -3,14 +3,15 @@ module Lux::DelayedJob::Memory
 
   @jobs = []
 
-  def push data
+  def push *args
     @jobs.push data
 
     # delayed jobs in memory are resolved asap
     Thread.new { true while pop }
   end
 
-  def pop
-    @jobs.shift
+  def process
+    puts 'Lux::DelayedJob::Memory executes jobs as they are added. No nedd to process'
+    sleep 1_000_000_000
   end
 end

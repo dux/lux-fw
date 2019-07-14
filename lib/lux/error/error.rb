@@ -120,14 +120,6 @@ class Lux::Error < StandardError
 
       Lux.current.response.status error.code
 
-      pre =
-      if Lux.dev?
-        parts = split_backtrace(error)
-        "#{parts[1].join("\n")}<hr />#{parts[2].join("\n")}"
-      else
-        ''
-      end
-
       %{
         <html>
           <head>
@@ -139,7 +131,7 @@ class Lux::Error < StandardError
             <h4>HTPP Error &mdash; <a href="https://httpstatuses.com/#{error.code}" target="http_error">#{error.code}</a></h4>
             <h3>#{error.class}</h3>
             <h3>#{error.message}</h3>
-            <pre>#{pre}</pre>
+            #{error.description}
           </body>
         </html>}
       end
@@ -204,10 +196,18 @@ class Lux::Error < StandardError
 
   attr_accessor :name
   attr_accessor :message
+  attr_accessor :description
 
-  def initialize code_num, message=nil
+  def initialize code_num, message=nil, description=nil
     self.code = code_num
     self.name = CODE_LIST[code_num][:name]
+    self.description = description
+
+    if Lux.config(:dump_errors) && !self.description
+      parts = self.class.split_backtrace(self)
+      self.description = "<hr /><h4>Lux.config.dump_errors = true</h4><pre>#{parts[1].join("\n")}</pre><pre>#{parts[2].join("\n")}</pre>"
+    end
+
     @message = message || self.name
   end
 

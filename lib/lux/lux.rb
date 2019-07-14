@@ -191,6 +191,17 @@ module ::Lux
     return true if Lux.config.lux_config_loaded && !@rackup_start
     false
   end
+
+  def job *args
+    if block_given?
+      @job_server = yield
+      @job_server = "Lux::DelayedJob::#{name.to_s.capitalize}".constantize if @job_server.is_a?(Symbol)
+    elsif args[0]
+      @job_server.push *args
+    else
+      @job_server
+    end
+  end
 end
 
 require_relative 'config/config'

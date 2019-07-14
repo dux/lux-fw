@@ -44,7 +44,7 @@ end
 
 require 'pry'
 
-# AwesomePrint.pry!
+AwesomePrint.pry!
 # nice object dump in console
 Pry.config.print = Proc.new do |output, data|
   puts data.class.to_s.gray

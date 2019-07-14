@@ -85,8 +85,6 @@ class Lux::Controller
   # render 'main/root/index'
   # render text: 'ok'
   def render name=nil, opts={}
-    return if response.body?
-
     filter :after_action
     filter :before_render
 
@@ -136,8 +134,17 @@ class Lux::Controller
   end
 
   def call
-    nav.root ||= @id ? :show : :index
-    action nav.root
+    desc = <<~TXT
+      <h4>Suggested default</h4>
+      <pre>
+        def call
+            nav.root ||= @id ? :show : :index
+            action nav.root
+        end
+      </pre>
+    TXT
+
+    raise Lux::Error.new(500, 'Lux::Controller call method not set', desc)
   end
 
   # delegated to current

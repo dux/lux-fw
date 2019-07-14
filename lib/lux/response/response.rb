@@ -73,6 +73,7 @@ class Lux::Response
     throw :done if @body
     @body
   end
+  alias :body= :body
 
   def body?
     !!@body

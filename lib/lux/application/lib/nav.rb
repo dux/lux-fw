@@ -13,12 +13,21 @@ class Lux::Application::Nav
     set_format
   end
 
-  def shift
-    return unless @path[0].present?
+  # if block given, eval and shift or return nil
+  def root sub_nav=nil
+    raise 'Does not accept blocks' if block_given?
+    sub_nav ? ('%s/%s' % [@path.first, sub_nav]) : @path.first
+  end
+
+  # shift element of the path
+  # or eval block on path index and slice if true
+  def shift index=0
+    return unless @path[index].present?
 
     if block_given?
-      result = yield(@path[0]) || return
-
+      result = yield(@path[index]) || return
+      @path.slice!(index,1)
+      active_shift if index == 0
       result
     else
       active_shift
@@ -28,35 +37,6 @@ class Lux::Application::Nav
   # used to make admin.lvm.me/users to lvh.me/admin/users
   def unshift name
     @path.unshift name
-  end
-
-  def root sub_nav=nil
-    if block_given?
-      return unless @path[0]
-
-      # shift root in place if yields not nil
-      result = yield(@path[0]) || return
-      active_shift
-      result
-    else
-      sub_nav ? ('%s/%s' % [@path.first, sub_nav]) : @path.first
-    end
-  end
-
-  def root= value
-    @path[0] = value
-  end
-
-  def first
-    if block_given?
-      # shift first in place if yields not nil
-      return unless @path[1].present?
-      result = yield(@path[1]) || return
-      @path.slice!(1,1)
-      result
-    else
-      @path[1]
-    end
   end
 
   def last
@@ -69,10 +49,6 @@ class Lux::Application::Nav
     else
       @path.last
     end
-  end
-
-  def second
-    @path[2]
   end
 
   def active
