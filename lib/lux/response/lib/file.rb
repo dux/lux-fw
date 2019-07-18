@@ -73,13 +73,11 @@ class Lux::Response::File
     response.headers['etag']          = '"%s"' % key
     response.headers['last-modified'] = file_mtime
 
-    catch :done do
-      # IF etags match, returnfrom cache
-      if request.env['HTTP_IF_NONE_MATCH'] == key
-        response.body('not-modified', 304)
-      else
-        response.body @opts.content || File.read(file)
-      end
+    # IF etags match, returnfrom cache
+    if request.env['HTTP_IF_NONE_MATCH'] == key
+      response.body('not-modified', 304)
+    else
+      response.body @opts.content || File.read(file)
     end
   end
 end

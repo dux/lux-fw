@@ -11,6 +11,8 @@
 # Mailer.email_login('foo@bar.baz').body
 
 class Lux::Mailer
+  class_attribute :template_root, './app/views/mailer'
+
   class_callback :before
   class_callback :after
 
@@ -50,20 +52,14 @@ class Lux::Mailer
   end
 
   def deliver
-    raise "From in mailer not defined"    unless @mail.from
-    raise "To in mailer not defined"      unless @mail.to
-    raise "Subject in mailer not defined" unless @mail.subject
+    m = build_mail_object
+    self.delay.deliver_now
+    # Lux.delay(m) { |mail| mail.deliver! }
+  end
 
-    m = Mail.new
-    m[:from]         = @mail.from
-    m[:to]           = @mail.to
-    m[:subject]      = @mail.subject
-    m[:body]         = body
-    m[:content_type] = 'text/html; charset=UTF-8'
-
-    Lux.delay { m.deliver! }
-
-    instance_exec m, &Lux.config.on_mail
+  def deliver_now
+    m = build_mail_object
+    m.deliver!
   end
 
   def body
@@ -71,7 +67,7 @@ class Lux::Mailer
 
     unless data
       helper = Lux::View::Helper.new self, self.class.helper
-      data = Lux::View.render_with_layout "layouts/#{self.class.layout}", "mailer/#{@_template}", helper
+      data = Lux::View.render_with_layout "layouts/#{self.class.layout}", "#{self.class.template_root}/mailer/#{@_template}", helper
     end
 
     data.gsub(%r{\shref=(['"])/}) { %[ href=#{$1}#{Lux.config.host}/] }
@@ -83,6 +79,25 @@ class Lux::Mailer
 
   def to
     @mail.to
+  end
+
+  private
+
+  def build_mail_object
+    raise "From in mailer not defined"    unless @mail.from
+    raise "To in mailer not defined"      unless @mail.to
+    raise "Subject in mailer not defined" unless @mail.subject
+
+    m = Mail.new
+    m[:from]         = @mail.from
+    m[:to]           = @mail.to
+    m[:subject]      = @mail.subject
+    m[:body]         = body
+    m[:content_type] = 'text/html; charset=UTF-8'
+
+    instance_exec m, &Lux.config.on_mail
+
+    m
   end
 
 end

@@ -1,84 +1,57 @@
 # how to use
-# Lux.job.server = :nsq
-# Lux.job.define :cli { |data|  Lux.run data }
-# Lux.job.cli 'curl ...'
-# Lux.job.add 'cli', 'curl ...'
-# Lux.job.add 'cli#not/defined', 'curl ...' # error
-# Lux.job.process
+# Lux.delay.server = :nsq
+# Lux.delay.define :cli { |data| Lux.run data }
+# Lux.delay :cli, 'curl ...'
+# Lux.delay.push 'cli#not/defined', 'curl ...' # error
+# Lux.delay.process
+# run command on cli
 
 module Lux::DelayedJob
   extend self
 
-  WORKER = {}
+  METHODS = {}
 
   def server= name
     @server = name.is_a?(Symbol) ? "Lux::DelayedJob::#{name.to_s.capitalize}".constantize : name
+    [:write, :read, :process].each { |m| Lux.die(':%s method not found in %s task server' % [m, @server]) unless @server.respond_to?(m) }
   end
 
   def server
+    raise ArgumentError.new('server not defined') unless @server
     @server
   end
 
   def define name, &block
-    METHODS[name] = block
+    METHODS[name.to_s] = block
   end
 
-  def call name, *args
-    m = METHODS[name]
-    raise ArgumentError.new('Method %s not defined' % name) unless m
-    METHODS[name].call *args
+  def process
+    @server.process
   end
 
-  def push name, *args
-    args.first ||= nil
-    @server.push name, args.to_json
+  def write func, data=nil
+    Lux.logger(:background_job_write).info [func, data].join(': ')
+    @server.write func.to_s, data
   end
 
-  # attr_reader :server
+  def call func, msg
+    Lux.log { 'Bacrground job "%s": %s' % [func, msg] }
 
-  # @server = :memory
-
-  # def server= name
-  #   adapter =
-  #   @server = adapter.constantize
-  # rescue NameError
-  #   die 'No adapter %s not found' % adapter
-  # end
-
-  # def add object, method_to_call=nil
-  #   die "No DelayedJob server defined" unless @server
-  #   @server.push [object, method_to_call]
-  # end
-
-  # def process
-  #   obj, method_to_call = @server.pop
-
-  #   return unless obj
-
-  #   puts "JOB POP> #{obj.to_s}.#{method_to_call}".yellow
-
-  #   if method_to_call
-  #     begin
-  #       obj.send(method_to_call)
-  #     rescue
-  #       puts("Lux::DelayedJob.pop FAIL for :#{method_to_call} (#{$!.message})".red)
-  #     end
-  #   else
-  #     eval(obj)
-  #   end
-
-  #   true
-  # end
-
-  # def run! seconds=1
-  #   puts "JOB QUE> is running for #{@server}".green
-
-  #   Thread.new do
-  #     while true
-  #       print '.'
-  #       true while Lux::DelayedJob.pop
-  #       sleep seconds
-  #     end
-  #   end.join
-  # end
+    if m = METHODS[func]
+      Thread.new do
+        begin
+          Timeout::timeout(10) do
+            msg = msg.h if msg.is_a?(Hash)
+            m.call msg
+          end
+        rescue => e
+          error = "#{e.class}: #{e.message} (:#{func}, #{msg})"
+          Lux.log "background job error: #{error}"
+          Lux.logger('background-job-errors').error error
+        end
+      end
+    else
+      Lux.log 'Error: nsq method "%s" not defined'.red % func
+    end
+  end
 end

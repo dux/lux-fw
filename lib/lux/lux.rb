@@ -99,32 +99,6 @@ module ::Lux
     args.first ? Lux::Config::Plugin.load(*args) : Lux::Config::Plugin
   end
 
-  # if block given, simple new thread bg job
-  # if string given, eval it in bg
-  # if object given, instance it and run it
-  def delay *args
-    if block_given?
-      lux_env = Thread.current[:lux]
-      t = Thread.new do
-        begin
-          Thread.current[:lux] = lux_env
-          Timeout::timeout(30) do
-            yield *args
-          end
-        rescue => e
-          Lux.logger(:delay_errors).error [e.message, e.backtrace]
-        end
-      end
-
-      # BACKGROUND_THREADS.push t
-    elsif args[0]
-      # Lux.delay(mail_object, :deliver)
-      Lux::DelayedJob.push *args
-    else
-      Lux::DelayedJob
-    end
-  end
-
   # load rake tasks + including ones in plugins
   def load_tasks
     require_relative '../../tasks/loader.rb'
@@ -192,14 +166,32 @@ module ::Lux
     false
   end
 
-  def job *args
+  # if block given, simple new thread bg job
+  #   Lux.delay(self) { |object| ... }
+  # if string given, write it to a job server
+  #   Lux.delay(mail_object, :deliver)
+  # without params return module
+  #   Lux.delay
+  def delay *args
     if block_given?
-      @job_server = yield
-      @job_server = "Lux::DelayedJob::#{name.to_s.capitalize}".constantize if @job_server.is_a?(Symbol)
+      lux_env = Thread.current[:lux]
+      t = Thread.new do
+        begin
+          Thread.current[:lux] = lux_env
+          Timeout::timeout(30) do
+            yield *args
+          end
+        rescue => e
+          Lux.logger(:delay_errors).error [e.message, e.backtrace]
+        end
+      end
+
+      # BACKGROUND_THREADS.push t
     elsif args[0]
-      @job_server.push *args
+      # Lux.delay(mail_object, :deliver)
+      Lux::DelayedJob.write *args
     else
-      @job_server
+      Lux::DelayedJob
     end
   end
 end

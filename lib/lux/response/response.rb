@@ -219,4 +219,19 @@ class Lux::Response
     [@status, @headers.to_h, [@body]]
   end
 
+  def render_inline body:, title: nil
+    self.body %{<html>
+        <head>
+          <title>#{title || 'Lux info page'}</title>
+          <style>
+            body { font-size: 14pt; font-family: sans-serif;}
+            div.box { border: 1px solid #ddd; padding: 10px 10px 1px 10px; background-color: #fff; margin-bottom: 10px; }
+          </style>
+        </head>
+        <body style="margin: 20px 20px 20px 140px; background-color:#eee;">
+          <img src="https://i.imgur.com/Zy7DLXU.png" style="width: 100px; position: absolute; margin-left: -120px;" />
+          #{body}
+        </body>
+      </html>}
+  end
 end
