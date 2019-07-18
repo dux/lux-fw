@@ -121,8 +121,7 @@ class Lux::Error < StandardError
       code = error.respond_to?(:code) ? error.code : 500
       Lux.current.response.status code
 
-      %{
-        <html>
+      %{<html>
           <head>
             <title>Lux error</title>
             <style>body { font-size: 14pt; font-family: sans-serif;} </style>

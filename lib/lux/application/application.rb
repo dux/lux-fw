@@ -319,26 +319,27 @@ class Lux::Application
 
   # internall call to resolve the routes
   def main
-    return if deliver_static_assets
-
     magic = MagicRoutes.new self
 
     catch(:done) do
       begin
+        deliver_static_assets if Lux.config(:serve_static_files)
+
         class_callback :before, magic
         class_callback :routes, magic
-        class_callback :after, magic
       rescue => error
         class_callback :on_error, error
         on_error error
       end
     end
+
+    catch(:done) do
+      class_callback :after, magic
+    end
   end
 
   # Deliver static assets if `Lux.config.serve_static_files == true`
   def deliver_static_assets
-    return if body? || !Lux.config(:serve_static_files)
-
     ext = request.path.split('.').last
 
     return unless ext.length > 1 && ext.length < 5
