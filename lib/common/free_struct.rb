@@ -12,32 +12,37 @@
 
 class FreeStruct
   def initialize *hash
-    hash = hash.first unless hash.first.is_a?(Symbol)
-
-    hash.each do |key, value|
-      ivar = "@#{key}"
-
-      instance_variable_set ivar, value
-
-      define_singleton_method(key) do
-        instance_variable_get ivar
-      end
-
-      define_singleton_method "#{key}=" do |val|
-        instance_variable_set ivar, val
-      end
+    if hash.first.class == Hash
+      @hash = hash.first
+    else
+      @hash = hash.inject({}) { |h, el| h[el.to_sym] = nil; h }
     end
   end
 
   def [] key
-    send key
+    method_missing key
+  end
+
+  def []= key, value
+    method_missing '%s=' % key, value
+  end
+
+  def method_missing name, value=nil
+    name   = name.to_s
+    is_set = !!name.sub!('=', '')
+    name   = name.to_sym
+
+    raise ArgumentError.new('Key %s not found' % name) unless @hash.has_key?(name)
+
+    if is_set
+      @hash[name] = value
+    else
+      @hash[name]
+    end
   end
 
   def to_h
-    @keys.inject({}) do |out, key|
-      out[key] = send(key)
-      out
-    end
+    @hash.dup
   end
 end
 
