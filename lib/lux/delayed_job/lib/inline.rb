@@ -9,7 +9,12 @@ module Lux::DelayedJob::Inline
   end
 
   def process
-    puts 'Lux::DelayedJob::Memory executes jobs as they are added. No nedd to process'
+    puts "#{self} executes jobs as they are added. No nedd to process"
+    sleep 1_000_000_000
+  end
+
+  def start
+    puts "#{self} executes jobs as they are added. No nedd to start"
     sleep 1_000_000_000
   end
 end

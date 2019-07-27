@@ -45,8 +45,23 @@ module Lux::DelayedJob::Nsq
 
   # process messages defined by define
   def process
+    puts 'Bacground processor - %s' % self
+
     read do |func, data|
       Lux::DelayedJob.call func, data
     end
+  end
+
+  def start
+    apps = [
+      'cd tmp',
+      'nsqlookupd &> nsqlookupd.log',
+      'nsqd --lookupd-tcp-address=127.0.0.1:4160 --broadcast-address=localhost',
+      'nsqadmin --lookupd-http-address=127.0.0.1:4161'
+    ]
+
+    command = "(trap 'kill 0' SIGINT; #{apps.join(' & ')})"
+
+    Lux.run command
   end
 end

@@ -13,7 +13,10 @@ module Lux::DelayedJob
 
   def server= name
     @server = name.is_a?(Symbol) ? "Lux::DelayedJob::#{name.to_s.capitalize}".constantize : name
-    [:write, :read, :process].each { |m| Lux.die(':%s method not found in %s task server' % [m, @server]) unless @server.respond_to?(m) }
+
+    [:write, :read, :process].each do |m|
+      # Lux.die(':%s method not found in %s task server' % [m, @server]) unless @server.respond_to?(m)
+    end
   end
 
   def server
@@ -29,13 +32,17 @@ module Lux::DelayedJob
     @server.process
   end
 
+  def start
+    @server.start
+  end
+
   def write func, data=nil
     Lux.logger(:background_job_write).info [func, data].join(': ')
     @server.write func.to_s, data
   end
 
   def call func, msg
-    Lux.log { 'Bacrground job "%s": %s' % [func, msg] }
+    Lux.log { 'Bacrground job "%s": %s' % [func, msg.to_s[0, 50]] }
 
     if m = METHODS[func]
       Thread.new do

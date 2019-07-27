@@ -51,7 +51,7 @@ Pry.config.print = Proc.new do |output, data|
 
   out =
   if data.is_a?(Hash)
-    JSON.pretty_generate(data).gsub(/"(\w+)":/) { '"%s":' % $1.yellow }
+    JSON.pretty_generate(data).gsub(/"([\w\-]+)":/) { '"%s":' % $1.yellow }
   elsif data.is_a?(String)
     if data.downcase.starts_with?('select')
       require 'niceql'
