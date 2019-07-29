@@ -1,6 +1,11 @@
 class Object
   LUX_AUTO_LOAD = {}
 
+  # ApplicationModel.descendants -> get all DB models
+  def self.descendants
+    ObjectSpace.each_object(Class).select { |klass| klass < self }
+  end
+
   def self.const_missing klass, path=nil
     if path
       LUX_AUTO_LOAD[klass.to_s] = path

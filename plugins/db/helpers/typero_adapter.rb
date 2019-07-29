@@ -4,8 +4,11 @@ require 'typero'
 
 module Sequel::Plugins::TyperoAttributes
   module ClassMethods
-    def attributes(&block)
+    def attributes opts={}, &block
       self.instance_variable_set :@typero, Typero.new(&block)
+
+      # attributes migrate: true do ...
+      AutoMigrate.typero to_s.tableize.to_sym if opts[:migrate]
     end
 
     def typero

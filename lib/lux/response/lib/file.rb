@@ -13,6 +13,7 @@ class Lux::Response::File
     css:   'text/css',
     map:   'application/json',
     js:    'application/javascript',
+    json:  'application/json',
     gz:    'application/x-gzip',
     zip:   'application/x-gzip',
     svg:   'image/svg+xml',

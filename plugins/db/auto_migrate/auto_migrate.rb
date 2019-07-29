@@ -96,7 +96,10 @@ end
 class Sequel::Model
   # auto create database table unless one found
   def self.inherited(other)
-    AutoMigrate.table other.to_s.tableize.to_sym
+    if other.ancestors[1].to_s == 'ApplicationModel'
+      AutoMigrate.table other.to_s.tableize.to_sym
+    end
+
     super
   end
 
@@ -172,6 +175,16 @@ class AutoMigrate
         puts caller[1].red
         puts text.yellow
         raise $!
+      end
+    end
+
+    def typero name
+      schema = name.to_s.classify.constantize.typero.db_schema
+
+      table name do |f|
+        for args in schema
+          f.send *args
+        end
       end
     end
 
@@ -377,8 +390,11 @@ class AutoMigrate
     name = args[0]
     opts = args[1] || {}
 
-    if [:string, :integer, :text, :boolean, :datetime, :date, :jsonb, :geography].index(type)
+    if [:string, :integer, :text, :boolean, :datetime, :date, :geography].index(type)
       @fields[name.to_sym] = [type, opts]
+    elsif type == :jsonb
+      opts[:default] = {}
+      @fields[name.to_sym] = [:jsonb, opts]
     elsif type == :decimal
       opts[:precision] ||= 8
       opts[:scale] ||= 2
