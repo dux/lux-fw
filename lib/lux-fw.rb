@@ -17,13 +17,13 @@ Sequel::Model.plugin :after_initialize
 Sequel::Model.plugin :def_dataset_method
 
 Sequel.database_timezone = :utc
-Sequel.default_timezone  = +2
+# Sequel.default_timezone  = +2
 
 # load basic lux libs
 require_relative './lux/lux'
 
 # load all lux libs
-[:overload, :common, :vendor, :lux].each do |f|
+[:overload, :common, :lux].each do |f|
   Lux::Config.require_all Lux.fw_root.join('./lib/%s' % f)
 end
 

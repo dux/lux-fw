@@ -30,9 +30,15 @@ class Lux::Application
 
   attr_reader :route_target, :current
 
-  # define common http methods as get? methods
   [:get, :head, :post, :delete, :put, :patch].map(&:to_s).each do |m|
+    # define common http methods as get? methods
     define_method('%s?' % m) { @current.request.request_method == m.upcase }
+
+    # get { ... } or post api: 'api#call'
+    define_method(m) do |*args|
+      return unless @current.request.request_method == m.upcase
+      block_given? ? yield : map(*args)
+    end
   end
 
   # simple one liners and delegates
@@ -282,10 +288,24 @@ class Lux::Application
     object = ('%s_controller' % object).classify.constantize if object.is_a?(String)
     current.files_in_use object.source_location
 
-    # needed for
-    # map 'main/root' do
-    #  r.login
-    action ||= :call
+    unless action
+      if nav.path[1]
+        # /1/foo
+        action = action_name nav.path[1]
+        params[:id] = nav.path[0]
+      elsif nav.path[0]
+        # /1
+        # /foo
+        action = action_name nav.path[0]
+        unless object.instance_methods(false).include?(action)
+          params[:id] = nav.path[0]
+          action      = :show
+        end
+      else
+        action = :index
+      end
+    end
+
     action = action.first if action.is_a?(Array)
 
     object.action action.to_sym
@@ -350,6 +370,10 @@ class Lux::Application
   # direct template render, bypass controller
   def template name, opts={}
     # rr name
+  end
+
+  def action_name name
+    name.gsub('-', '_').gsub(/[^\w]/, '')[0, 30].to_sym
   end
 end
 

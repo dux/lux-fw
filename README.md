@@ -98,9 +98,9 @@ Lux.app do
   routes do |r|
     # we show on root method, that target can be multiple object types, 5 variants
     root [RootController, :index] # calls RootController#index
-    root 'root#call'              # calls RootController#call
+    root 'root#index'             # calls RootController#index
     root :call_root               # calls "call_root" method in current scope
-    root 'root'                   # calls RootController#index
+    root 'root'                   # calls RootController#call
     root 'root#foo'               # calls RootController#foo
 
     # we can route based on the user status
@@ -193,13 +193,6 @@ error(404)
 error(404, 'Doc not fount')
 ```
 
-#### response
-
-Quick response to page body
-```ruby
-response 'ok' if nav.root == 'healthcheck'
-```
-
 #### test?
 
 Tests current root against the string to get a mach.
@@ -256,10 +249,10 @@ end
 
 #### call
 
-Calls target action in a controller, if no action is given, defaults to :index
+Calls target action in a controller, if no action is given, defaults to :call
 ```ruby
 call :api_router
-call proc { 'string' }
+call { 'string' }
 call proc { [400, {}, 'error: ...'] }
 call [200, {}, ['ok']]
 call Main::UsersController
@@ -280,6 +273,10 @@ internall call to resolve the routes
 #### deliver_static_assets
 
 Deliver static assets if `Lux.config.serve_static_files == true`
+
+#### template
+
+direct template render, bypass controller
 
 ## Lux::Controller - Simplified Rails like view controllers
 Controllers are Lux view models
@@ -341,6 +338,10 @@ action(:select', ['users'])
 
 create mock function, to enable template rendering
 mock :index, :login
+
+#### root
+
+template root sensitve root
 
 #### send_file
 
@@ -481,15 +482,11 @@ Current scope variables hash
 
 #### cache
 
-Cache data in current page
+Cache data in current request
 
 #### no_cache?
 
 Set current.can_clear_cache = true in production for admins
-
-#### redirect
-
-Redirect from current page
 
 #### once
 
@@ -776,7 +773,7 @@ render error inline or break in production
 
 http 103
 
-#### redirect
+#### redirect_to
 
 redirect_to '/foo'
 redirect_to :back, info: 'bar ...'

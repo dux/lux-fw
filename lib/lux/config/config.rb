@@ -35,9 +35,9 @@ module Lux::Config
     list.select{ |o| o.index('.rb') }.each do |ruby_file|
       begin
         require ruby_file
-      rescue => e
-        ap 'Tried to load: %s' % ruby_file
-        ap Lux::Error.split_backtrace e
+      rescue => error
+        puts 'ERROR: Tried to load: %s'.red % ruby_file
+        Lux::Error.screen error
         exit
       end
     end

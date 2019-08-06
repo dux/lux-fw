@@ -10,6 +10,9 @@
 #   o.name -> nil
 #   o.title -> raises error
 
+# IMPORTANT
+# we cant create static methods for keys because resulting object cant be marshaled
+
 class FreeStruct
   def initialize *hash
     if hash.first.class == Hash

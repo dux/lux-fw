@@ -134,7 +134,7 @@ class Lux::Error < StandardError
             #{error.respond_to?(:description) ? error.description : ''}
           </body>
         </html>}
-      end
+    end
 
     # render error inline or break in production
     def inline name, error=nil
@@ -189,6 +189,10 @@ class Lux::Error < StandardError
       end
 
       dmp
+    end
+
+    def screen error
+      ap split_backtrace(error)[0..1]
     end
   end
 

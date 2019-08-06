@@ -44,6 +44,10 @@ end
 
 class String
   def string_id
-    StringBase.decode self
+    begin
+      StringBase.decode self
+    rescue
+      raise ArgumentError.new('Bad ID')
+    end
   end
 end

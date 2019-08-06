@@ -22,11 +22,13 @@ class Sequel::Model
     end
 
     def first_or_new filter
-      where(filter).first || new(filter)
+      object = where(filter).first || new(filter)
+      yield object if block_given? && !object.id
+      object
     end
 
-    def first_or_create filter
-      where(filter).first || create(filter)
+    def first_or_create filter, &block
+      first_or_new(filter, &block).save
     end
   end
 

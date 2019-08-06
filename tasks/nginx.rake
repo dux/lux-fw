@@ -17,7 +17,7 @@ namespace :nginx do
   task :edit do
     folder = Dir.pwd.split('/').last
 
-    run 'sudo vim /etc/sites-enabled/%s.conf' % folder
+    run 'sudo vim /etc/nginx/sites-enabled/%s.conf' % folder
   end
 end
 

@@ -6,9 +6,9 @@ class ViewCell < Lux::View::Cell
 end
 
 HtmlHelper.class_eval do
-  def cell name=nil, vars={}
+  def cell name=nil, *args
     if name
-      ViewCell.get(name, self, vars)
+      ViewCell.get(name, self, *args)
     else
       return @cell_base ||= ViewCell::Loader.new(self)
     end

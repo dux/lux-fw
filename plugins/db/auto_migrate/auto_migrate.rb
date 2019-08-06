@@ -1,17 +1,16 @@
 # https://github.com/jeremyevans/sequel/blob/master/doc/schema_modification.rdoc
 
-# class User < ApplicationModel
-#   schema do |t|
-#     t.string   'name', null: false
-#     t.string   'email'
-#   end
-#
-#   attrs do
-#     string     :name,        req:  'Campaign name is required', null: false, form: { label: 'Campaign name' }
-#     label      [:tags]
-#     integer    :actual_cost, form: { label: -> { 'Actual cost (%s)' % org.currency.upcase } }
-#     date       :date_end,    form: { label: 'Campaign END' }
-#     timestamps
+# class City < ApplicationModel
+#   link :country
+
+#   attributes migrate: true do
+#     string    :name, req: 'City name is required'
+#     point     :lon_lat
+#     string    :image
+#     integer   :country_id, req: true
+#     boolean   :is_active
+
+#     db :timestamps
 #   end
 # end
 
@@ -22,77 +21,6 @@
 #   end
 # end
 
-class ModelAutoMigrate
-  def initialize &block
-    @fields = []
-
-    # execute block in local context
-    instance_exec &block
-  end
-
-  # set the DB fields with default opts
-  def method_missing type, *args
-    field = args.shift
-    opts  = args.shift || {}
-
-    if field.is_a?(Array)
-      opts[:array] = true
-      field = field.first
-    end
-
-    if opts[:label]
-      opts[:form] ||= {}
-      opts[:form][:label] = opts.delete :label
-    end
-
-    @fields.push [field, type, opts]
-  end
-
-  # return database schema fields
-  def fields
-    @fields
-      .dup
-      .map do |field, type, opts|
-        type = :string if [:email, :url].include?(type)
-
-        field = nil if type == :polymorphic
-
-        opts[:limit] = opts.delete(:max) if opts[:max] && type == :string
-        opts[:null]  = false if opts.delete(:req)
-
-        opts.delete :form
-
-        type = :string  if [:url, :email, :label].include?(type.to_sym)
-
-        if type == :float
-          type = :decimal
-          opts[:precision] = 8
-          opts[:scale]     = 2
-        end
-
-        [field, type, opts]
-      end
-  end
-
-  # set typero style fields
-  def typero
-    return @typero if @typero
-
-    @typero = Typero.new
-
-    for field, type, opts in @fields.select { |it| it.first }
-      if opts[:array]
-        opts[:array_type] = type
-        type = :array
-      end
-
-      @typero.set field, opts
-    end
-
-    @typero
-  end
-end
-
 class Sequel::Model
   # auto create database table unless one found
   def self.inherited(other)
@@ -102,37 +30,6 @@ class Sequel::Model
 
     super
   end
-
-  # only schema define
-  def self.schema &block
-    return unless Lux.config.migrate
-    AutoMigrate.table table_name, &block
-  end
-
-  # typero + schema
-  # attrs do
-  #   string     :name,        null: false
-  #   string     :image_url
-  #   text       :body
-  # end
-  def self.attrs &block
-    o = ModelAutoMigrate.new &block
-
-    # puts o.typero.rules.pretty_generate if self == Campaign
-    self.instance_variable_set :@typero, o.typero
-
-    if Lux.config.migrate
-      AutoMigrate.table(table_name) do |t|
-        for field, type, opts in o.fields
-          if field
-            t.send type, field.to_sym, opts
-          else
-            t.send(type) # timestamps
-          end
-        end
-      end
-    end
-  end
 end
 
 class AutoMigrate
@@ -140,6 +37,8 @@ class AutoMigrate
 
   class << self
     def table table_name, opts={}
+      return unless Lux.config.migrate
+
       die "Table [#{table_name}] not in plural -> expected [#{table_name.to_s.pluralize}]" unless table_name.to_s.pluralize == table_name.to_s
 
       die 'Table name "%s" is not permited' % table_name if [:categories].include?(table_name)
@@ -179,6 +78,7 @@ class AutoMigrate
     end
 
     def typero name
+      return unless Lux.config.migrate
       schema = name.to_s.classify.constantize.typero.db_schema
 
       table name do |f|
@@ -304,7 +204,7 @@ class AutoMigrate
           end
         end
 
-        # if we have array but scema says no array
+        # if we have array but schema says no array
         if !opts[:array] && current[:db_type].include?('[]')
           m = current[:type] == :integer ? "#{field}[0]" : "array_to_string(#{field}, ',')"
 

@@ -47,6 +47,7 @@ class Lux::Controller
   # action(:select', ['users'])
   def action method_name, *args
     raise ArgumentError.new('Controller action called with blank action name argument') if method_name.blank?
+    raise ArgumentError.new('Forbiden action name :%s' % method_name) if [:action].include?(method_name)
 
     method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
@@ -140,11 +141,18 @@ class Lux::Controller
 
   def call
     desc = <<~TXT
-      <h4>Suggested default</h4>
+      <h4>Possible (suggested) default</h4>
       <pre>
+        before do
+          # you can decrypt complex IDs and not use simple numeric IDs
+          # it will shift nav only if return is true
+          @id = nav.shift { |id| id.is_numeric? ? id.to_i : nil }
+          layout false if request.path.ends_with?('_dialog')
+        end
+
         def call
-            nav.root ||= @id ? :show : :index
-            action nav.root
+          nav.root ||= @id ? :show : :index
+          action nav.root
         end
       </pre>
     TXT
