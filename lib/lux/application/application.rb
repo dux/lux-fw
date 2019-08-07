@@ -288,25 +288,12 @@ class Lux::Application
     object = ('%s_controller' % object).classify.constantize if object.is_a?(String)
     current.files_in_use object.source_location
 
-    unless action
-      if nav.path[1]
-        # /1/foo
-        action = action_name nav.path[1]
-        params[:id] = nav.path[0]
-      elsif nav.path[0]
-        # /1
-        # /foo
-        action = action_name nav.path[0]
-        unless object.instance_methods(false).include?(action)
-          params[:id] = nav.path[0]
-          action      = :show
-        end
-      else
-        action = :index
-      end
-    end
+    action ||= resolve_action object
+    # action = action.first if action.is_a?(Array)
 
-    action = action.first if action.is_a?(Array)
+    unless object.instance_methods(false).include?(action.to_sym)
+      error.not_found Lux.dev? ? "Action :#{action} not found in #{object}" : nil
+    end
 
     object.action action.to_sym
 
@@ -374,6 +361,25 @@ class Lux::Application
 
   def action_name name
     name.gsub('-', '_').gsub(/[^\w]/, '')[0, 30].to_sym
+  end
+
+  def resolve_action object
+    # /
+    return :index unless nav.root
+
+    if nav.path[1]
+      # /1/foo
+      params[:id] = nav.path[0]
+      action_name nav.path[1]
+    else
+      # /foo
+      action = action_name nav.path[0]
+      return action if object.instance_methods(false).include?(action)
+
+      # /1
+      params[:id] = nav.path[0]
+      :show
+    end
   end
 end
 
