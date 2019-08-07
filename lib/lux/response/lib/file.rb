@@ -1,6 +1,17 @@
 # frozen_string_literal: true
 
 class Lux::Response::File
+  class << self
+    def deliver_asset request
+      ext = request.path.split('.').last
+      return unless ext.length > 1 && ext.length < 5
+      file = new request.path.sub('/', ''), inline: true
+      file.send if file.is_static_file?
+    end
+  end
+
+  #
+
   MIMME_TYPES = {
     text:  'text/plain',
     txt:   'text/plain',

@@ -6,6 +6,7 @@ LuxCli.class_eval do
     # overload route methods to print routes
     ::Lux::Application.class_eval do
       def error *args
+        {}.h
       end
 
       def indent value=nil
@@ -76,7 +77,7 @@ LuxCli.class_eval do
       def namespace name
         name = ':%s' % name if name.is_a?(Symbol)
         @prefix = '%s/%s' % [@prefix, name]
-        puts '%s (namespace)' % name.yellow
+        puts '%s ->(namespace block)' % name.yellow
         indent 1
         yield
         indent -1
@@ -85,7 +86,7 @@ LuxCli.class_eval do
     end
 
     begin
-      Lux::Application.render '/route-mock'
+      Lux.app.render '/route-mock'
     rescue => e
       "#{e.class} - #{e.message}"
     end

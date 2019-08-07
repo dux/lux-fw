@@ -7,6 +7,6 @@ LuxCli.class_eval do
     data = Lux.app.render(path)
     data[:body] = 'BODY lenght: %s kB' % (data[:body].length.to_f/1024).round(1) if options[:hide]
     ap data
-    puts '-h true if you want to hide body' unless options[:hide]
+    puts '-h if you want to hide body' unless options[:hide]
   end
 end

@@ -51,7 +51,7 @@ module Lux::Config
     end
   end
 
-  def live_require_check!
+  def reload_modified_files
     $live_require_check ||= Time.now
 
     watched_files = $LOADED_FEATURES
@@ -174,7 +174,7 @@ end
 if Lux.cli?
   class Object
     def reload!
-      Lux::Config.live_require_check!
+      Lux::Config.reload_modified_files
     end
   end
 end

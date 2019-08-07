@@ -1,4 +1,6 @@
 class LuxStat
+  attr_accessor :dir
+
   def call name, title=nil
     puts (title || name.to_s.capitalize).yellow
     send name
@@ -49,22 +51,22 @@ class LuxStat
 
   def total
     dirs = Dir
-      .entries('./app')
+      .entries(@dir)
       .drop(2)
-      .select { |it| File.directory?('./app/%s' % it) }
+      .select { |it| File.directory?([@dir, it].join('/')) }
 
     max_len = dirs.max_by(&:length).length + 1
 
     for el in dirs
-      files = `find ./app/#{el}/ -type f`.count($/)
-      lines = `find ./app/#{el}/ -type f  | xargs wc -l`.split($/).last.to_i
+      files = `find #{@dir}/#{el}/ -type f`.count($/)
+      lines = `find #{@dir}/#{el}/ -type f  | xargs wc -l`.split($/).last.to_i
       puts " #{files.pluralize(:files).rjust(9).white} and #{lines.pluralize(:lines).rjust(12).white} in #{el.blue}"
     end
   end
 
   def total_ext
     for ext in [:js, :coffee, :scss, :css, :rb, :haml, :html]
-      lines = `find ./app -type f -name '*.#{ext}' | xargs wc -l`.split($/)
+      lines = `find #{@dir} -type f -name '*.#{ext}' | xargs wc -l`.split($/)
       cnt = lines.pop.to_i
       puts "#{ext.to_s.rjust(8).white} #{cnt.pluralize(:line).rjust(14)} in #{lines.length.pluralize(:files)}"
     end
@@ -127,7 +129,12 @@ LuxCli.class_eval do
     stat.call :cells if defined?(ViewCell)
     stat.call :models
     stat.call :views
-    stat.call :total, 'Totals per folder in ./app'
-    stat.call :total_ext, 'Totals per file type in ./app'
+
+    for dir in %w[./app ./apps]
+      next unless Dir.exist?(dir)
+      stat.dir = dir
+      stat.call :total, 'Totals per folder in %s' % dir
+      stat.call :total_ext, 'Totals per file type in %s' % dir
+    end
   end
 end

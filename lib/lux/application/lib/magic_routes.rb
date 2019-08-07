@@ -9,7 +9,7 @@ class Lux::Application::MagicRoutes
   end
 
   def method_missing route, *args, &block
-    @app.map [route, args.first || block]
+    @app.map [route, *args, block]
   end
 
 end

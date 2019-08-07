@@ -17,12 +17,15 @@ class Policy
   # pass block if you want to handle errors yourself
   # return true if false if block is passed
   def can? action, &block
-    @action = action.to_s.sub('?','') + '?'
-    @action = @action.to_sym
+    @action = action
+      .to_s
+      .gsub(/[^\w+]/, '')
+      .concat('?')
+      .to_sym
 
     # pre check
-    raise RuntimeError, 'Method name not allowed' if %w(can).index(@action)
-    raise NoMethodError, %[Policy check "#{action}" not found in #{self.class}] unless respond_to?(@action)
+    raise RuntimeError, 'Method name not allowed' if %i(can).index(@action)
+    raise NoMethodError, %[Policy check "#{@action}" not found in #{self.class}] unless respond_to?(@action)
 
     call &block
   end
@@ -42,6 +45,10 @@ class Policy
     else
       raise Lux::Error.unauthorized(error)
     end
+  end
+
+  def proxy
+    Proxy.new self
   end
 
   ###

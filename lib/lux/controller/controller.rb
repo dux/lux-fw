@@ -139,27 +139,6 @@ class Lux::Controller
     render name, opts
   end
 
-  def call
-    desc = <<~TXT
-      <h4>Possible (suggested) default</h4>
-      <pre>
-        before do
-          # you can decrypt complex IDs and not use simple numeric IDs
-          # it will shift nav only if return is true
-          @id = nav.shift { |id| id.is_numeric? ? id.to_i : nil }
-          layout false if request.path.ends_with?('_dialog')
-        end
-
-        def call
-          nav.root ||= @id ? :show : :index
-          action nav.root
-        end
-      </pre>
-    TXT
-
-    raise Lux::Error.new(500, 'Lux::Controller call method not set', desc)
-  end
-
   # delegated to current
   define_method(:current)     { Lux.current }
   define_method(:request)     { current.request }

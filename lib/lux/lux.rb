@@ -34,8 +34,8 @@ module ::Lux
 
   # main rack response
   def call env=nil
-    state  = Lux::Current.new env
-    app    = Lux::Application.new state
+    current = Lux::Current.new env
+    app     = Lux::Application.new current
     app.render
   rescue => error
     if Lux.config(:dump_errors)
@@ -68,10 +68,6 @@ module ::Lux
 
   def current
     Thread.current[:lux][:page] ||= Lux::Current.new('/mock')
-  end
-
-  def current=(what)
-    Thread.current[:lux][:page] = what
   end
 
   def app &block
@@ -149,7 +145,7 @@ module ::Lux
   end
 
   def run command
-    puts command.gray
+    puts command.light_black
     logger(:system_run).info command
     system command
   end

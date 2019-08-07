@@ -70,13 +70,13 @@ Lux.app do
     root [RootController, :index] # calls RootController#index
     root 'root#index'             # calls RootController#index
     root :call_root               # calls "call_root" method in current scope
-    root 'root'                   # calls RootController#call
+    root 'root'                   # calls RootController#index
     root 'root#foo'               # calls RootController#foo
 
     # we can route based on the user status
     root User.current ? 'main/root' : 'guest'
 
-    # simple route
+    # simple route that will call StaticController#about
     r.about 'static#about'
 
     # map "/api" to "api_router" method
@@ -84,15 +84,11 @@ Lux.app do
     # or
     map api: :api_router
 
-    # with MainController
-    # map MainController do
-    map 'main' do
-      map :search      # map "/search" to MainController#search
-      map '/login'     # map "/login" to MainController#login
+    # ignore requests that are not POST
+    post do
+      # map "/foo/dux/baz" route to MainController#foo with params[:bar] == 'dux'
+      map '/foo/:bar/baz'  => 'main#foo'
     end
-
-    # map "/foo/dux/baz" route to MainController#foo with params[:bar] == 'dux'
-    map '/foo/:bar/baz'  => 'main#foo'
 
     # if method "city" in current scope returns true
     namespace :city do
@@ -102,6 +98,12 @@ Lux.app do
 
     # if we match '/foo' route
     namespace 'foo' do
+      # call Main::FooController resorces for '/foo/bar' but only :show and :index
+      r.bar 'main/foo', only:[:show, :index]
+
+      # call Main::BazController resorces for '/foo/baz' but except :show and :index
+      r.baz 'main/baz', except:[:show, :index]
+
       # call MainController#foo with params[:bar] == '...'
       map '/baz/:bar' => 'main#foo'
     end

@@ -8,19 +8,26 @@ end
 LuxCli.class_eval do
   desc :server, 'Start web server'
   method_option :port,  aliases: '-p', default: 3000,  desc: 'Port to run app on', type: :numeric
-  method_option :mode,  aliases: '-m', default: 'dev', desc: 'One of the server modes(dev, log, production)'
+  method_option :mode,  aliases: '-m', default: nil,   desc: 'Special mode(log)'
   method_option :env,   aliases: '-e', default: 'd',   desc: 'Environemnt, only first chart counts'
   method_option :rerun, aliases: '-r', default: false, desc: 'rerun app on every file chenge', type: :boolean
   def server
     trap("SIGINT") { Cli.die 'ctrl+c exit' }
 
-    mode  = 'LUX_MODE=%s' % options[:mode]
-    env   = options[:env][0,1] == 'p' ? 'production' : 'development'
+    environemnt = options[:env]
+
+    if environemnt.length == 1
+      environemnts  = %w[production development test]
+      environemnt = environemnts.find { |el| el[0] == environemnt[0] }
+    end
+
+    command = "puma -p #{options[:port]} -e #{environemnt}"
+    command = 'LUX_MODE=%s %s' % [options[:mode], command] if options[:mode]
 
     if options[:rerun]
-      Cli.run "find #{LUX_ROOT} . -name *.rb | entr -r lux s -p #{options[:port]}"
+      Cli.run "find #{LUX_ROOT} . -name *.rb | entr -r #{command}"
     else
-      Cli.run "#{mode} puma -e #{env} -p #{options[:port]}"
+      Cli.run command
     end
   end
 end

@@ -31,14 +31,23 @@ class Lux::Application
   attr_reader :route_target, :current
 
   [:get, :head, :post, :delete, :put, :patch].map(&:to_s).each do |m|
-    # define common http methods as get? methods
-    define_method('%s?' % m) { @current.request.request_method == m.upcase }
+    define_method(m) do |*args, &block|
+      @_is_type_cache[m] = @current.request.request_method == m.upcase if @_is_type_cache[m].nil?
+      return unless @_is_type_cache[m]
 
-    # get { ... } or post api: 'api#call'
-    define_method(m) do |*args|
-      return unless @current.request.request_method == m.upcase
-      block_given? ? yield : map(*args)
+      if block
+        # get { ... }
+        block.call
+      elsif args.first
+        # post api: 'api#call'
+        map *args
+      else
+        # get
+        true
+      end
     end
+
+    eval "alias :#{m}? :#{m}"
   end
 
   # simple one liners and delegates
@@ -52,7 +61,7 @@ class Lux::Application
 
   def initialize current
     raise 'Config is not loaded (Lux.boot not called), cant render page' unless Lux.config.lux_config_loaded
-
+    @_is_type_cache = {}
     @current = current
   end
 
@@ -179,31 +188,32 @@ class Lux::Application
     klass  = nil
     route  = nil
     action = nil
+    opts   = {}
 
     # map 'root' do
     #   ...
-    if block_given?
-      @lux_action_target = route_object
-      yield
-      @lux_action_target = nil
-      return
-    elsif @lux_action_target
-      klass  = @lux_action_target
-      route  = route_object
-      action = route_object
+    # if block_given?
+    #   @lux_action_target = route_object
+    #   yield
+    #   @lux_action_target = nil
+    #   return
+    # elsif @lux_action_target
+    #   klass  = @lux_action_target
+    #   route  = route_object
+    #   action = route_object
 
-      # map :foo => :some_action
-      if route_object.is_a?(Hash)
-        route  = route_object.keys.first
-        action = route_object.values.first
-      end
+    #   # map :foo => :some_action
+    #   if route_object.is_a?(Hash)
+    #     route  = route_object.keys.first
+    #     action = route_object.values.first
+    #   end
 
-      if test?(route)
-        call klass, action
-      else
-        return
-      end
-    end
+    #   if test?(route)
+    #     call klass, action, opts
+    #   else
+    #     return
+    #   end
+    # end
 
     case route_object
     when String
@@ -212,6 +222,11 @@ class Lux::Application
     when Hash
       route  = route_object.keys.first
       klass  = route_object.values.first
+
+      if route_object.keys.length > 1
+        opts = route_object.dup
+        opts.delete route
+      end
 
       if route.class == Array
         # map [:foo, :bar] => 'root'
@@ -228,12 +243,12 @@ class Lux::Application
       end
     when Array
       # map [:foo, 'main/root']
-      route, klass = *route_object
+      route, klass, opts = *route_object
     else
       Lux.error 'Unsupported route type "%s"' % route_object.class
     end
 
-    test?(route) ? call(klass) : nil
+    test?(route) ? call(klass, nil, opts) : nil
   end
 
   # Calls target action in a controller, if no action is given, defaults to :call
@@ -247,7 +262,7 @@ class Lux::Application
   # call [Main::UsersController, :index]
   # call 'main/orgs#show'
   # ```
-  def call object=nil, action=nil, &block
+  def call object=nil, action=nil, opts=nil, &block
     # log original app caller
     root    = Lux.root.join('app/').to_s
     sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
@@ -285,14 +300,24 @@ class Lux::Application
         end
     end
 
+
     object = ('%s_controller' % object).classify.constantize if object.is_a?(String)
     current.files_in_use object.source_location
 
+    opts   ||= {}
     action ||= resolve_action object
     # action = action.first if action.is_a?(Array)
 
     unless object.instance_methods(false).include?(action.to_sym)
       error.not_found Lux.dev? ? "Action :#{action} not found in #{object}" : nil
+    end
+
+    if opts[:only] && !opts[:only].include?(action.to_sym)
+      error.not_found Lux.dev? ? "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" : nil
+    end
+
+    if opts[:except] && opts[:except].include?(action.to_sym)
+      error.not_found Lux.dev? ? "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" : nil
     end
 
     object.action action.to_sym
@@ -303,12 +328,18 @@ class Lux::Application
   end
 
   def render
-    Lux.log "\n#{current.request.request_method.white} #{current.request.url}"
+    Lux.log { "\n#{request.request_method.white} #{request.url}" }
 
-    Lux::Config.live_require_check! if Lux.config(:auto_code_reload)
+    if Lux.config(:auto_code_reload)
+      Lux::Config.reload_modified_files
+    end
 
-    main
+    if Lux.config(:serve_static_files)
+      catch(:done) { Lux::Response::File.deliver_asset(request) }
+      return if response.body?
+    end
 
+    resolve_routes
     response.render
   end
 
@@ -322,36 +353,6 @@ class Lux::Application
     else
       raise error
     end
-  end
-
-  # internall call to resolve the routes
-  def main
-    magic = MagicRoutes.new self
-
-    catch(:done) do
-      begin
-        deliver_static_assets if Lux.config(:serve_static_files)
-
-        class_callback :before, magic
-        class_callback :routes, magic
-      rescue => error
-        class_callback :on_error, error
-        on_error error
-      end
-    end
-
-    catch(:done) do
-      class_callback :after, magic
-    end
-  end
-
-  # Deliver static assets if `Lux.config.serve_static_files == true`
-  def deliver_static_assets
-    ext = request.path.split('.').last
-
-    return unless ext.length > 1 && ext.length < 5
-    file = Lux::Response::File.new request.path.sub('/', ''), inline: true
-    file.send if file.is_static_file?
   end
 
   # direct template render, bypass controller
@@ -373,7 +374,7 @@ class Lux::Application
       action_name nav.path[1]
     else
       # /foo
-      action = action_name nav.path[0]
+      action  = action_name nav.path[0]
       return action if object.instance_methods(false).include?(action)
 
       # /1
@@ -381,5 +382,25 @@ class Lux::Application
       :show
     end
   end
+
+  # internall call to resolve the routes
+  def resolve_routes
+    magic = MagicRoutes.new self
+
+    catch(:done) do
+      begin
+        class_callback :before, magic
+        class_callback :routes, magic
+      rescue => error
+        class_callback :on_error, error
+        on_error error
+      end
+    end
+
+    catch(:done) do
+      class_callback :after, magic
+    end
+  end
 end
+
 
