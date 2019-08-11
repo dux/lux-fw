@@ -37,7 +37,7 @@ module Lux::Config
         require ruby_file
       rescue => error
         puts 'ERROR: Tried to load: %s'.red % ruby_file
-        Lux::Error.screen error
+        defined?(Lux::Error) ? Lux::Error.screen(error) : ap(error)
         exit
       end
     end

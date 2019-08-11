@@ -1,10 +1,16 @@
 class Class
 
-  # OrgsController.source_location -> ../controllers/orgs.rb
+  # OrgsController.source_location -> ./apps/controllers/orgs_controller.rb
   def source_location as_folder=false
-    name = instance_methods(false).first || dir('Can not find method')
-    name = instance_method(name).source_location.first
-    as_folder ? File.dirname(name) : name
+    root = Lux.root.to_s
+
+    for name in instance_methods(false)
+      src = instance_method(name).source_location.first.split(root)[1] || next
+      src = '.%s' % src
+      return as_folder ? File.dirname(src) : src
+    end
+
+    nil
   end
 
 end

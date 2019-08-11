@@ -4,6 +4,8 @@
 # before, before_action, :action, after
 
 class Lux::Controller
+  include ::Lux::Application::Shared
+
   # define maser layout
   # string is template, symbol is metod pointer and lambda is lambda
   class_attribute :layout
@@ -52,7 +54,8 @@ class Lux::Controller
     method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
     # dev console log
-    Lux.log " #{self.class.to_s}##{method_name}".light_blue
+    Lux.log { ' %s#%s'.light_blue % [self.class, method_name] }
+    Lux.log { ' %s' % self.class.source_location }
 
     @lux.action = method_name.to_sym
 
@@ -140,15 +143,8 @@ class Lux::Controller
   end
 
   # delegated to current
-  define_method(:current)     { Lux.current }
-  define_method(:request)     { current.request }
-  define_method(:response)    { current.response }
-  define_method(:params)      { current.request.params }
-  define_method(:nav)         { current.nav }
-  define_method(:session)     { current.session }
   define_method(:get?)        { request.request_method == 'GET' }
   define_method(:post?)       { request.request_method == 'POST' }
-  define_method(:redirect_to) { |where, flash={}| current.response.redirect_to where, flash }
   define_method(:etag)        { |*args| current.response.etag *args }
   define_method(:layout)      { |arg| @lux.layout = arg }
 
@@ -231,10 +227,8 @@ class Lux::Controller
     return Lux.error err.join("\n\n")
   end
 
-  def error *args
-    args.first.nil? ? Lux::Error::AutoRaise : Lux::Error.report(*args)
-  end
-
+  # respond_to :js do ...
+  # respond_to do |format| ...
   def respond_to ext=nil
     current.once(:format_handled) do
       if ext

@@ -103,7 +103,9 @@ class Object
   end
 
   def instance_variables_hash
-    Hash[instance_variables.map { |name| [name, instance_variable_get(name)] } ]
+    vars = instance_variables - [:@current]
+    vars = vars.reject { |var| var[0,2] == '@_' }
+    Hash[vars.map { |name| [name, instance_variable_get(name)] }]
   end
 
   # value can be nil but if defined should be Float

@@ -63,16 +63,16 @@ class Lux::View::Cell
   end
 
   # if block is passed, template render will be passed as an argument
-  def template name=:cellm, &block
-    tpl = 'cell-tpl-%s-%s' % [self.class, name]
+  def template name, &block
+    tpl  = 'cell-tpl-%s-%s' % [self.class, name]
 
     tpl = Lux.ram_cache(tpl) do
-      file = '%s/%s.haml' % [self.class.source_location(true), name]
-      file = file.sub(Lux.root.to_s+'/', '')
+      @_template = '%s/%s.haml' % [self.class.source_location(true), name]
+      @_template = @_template.sub(Lux.root.to_s+'/', '')
 
-      Lux.log ' ' + file unless Lux.current.files_in_use(file)
+      Lux.log ' ' + @_template unless Lux.current.files_in_use(@_template)
 
-      Tilt[:haml].new { File.read(file) }
+      Tilt[:haml].new { File.read(@_template) }
     end
 
     data = tpl.render(self)

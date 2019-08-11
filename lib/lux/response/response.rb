@@ -141,7 +141,7 @@ class Lux::Response
     throw :done
   end
 
-  def permanent_redirect where
+  def permanent_redirect_to where
     redirect_to where, status:301
   end
 
