@@ -23,7 +23,7 @@ class HtmlMenu
   end
 
   # item 'Links', '/link'
-  # item('Links', '/link') { ... }
+  # item('Links', '/link', { default: true }) {  }
   def add name, path, opts={}, &block
     opts = { active: opts } unless opts.is_a?(Hash)
 
@@ -32,7 +32,6 @@ class HtmlMenu
     test ||= @path == path
 
     active = @is_activated ? false : item_active(test, path)
-    active = false unless @data.first
     @is_activated ||= active
 
     @data.push [name, path, opts, active]
@@ -66,7 +65,7 @@ class HtmlMenu
 
   # return result as a list
   def to_a
-    @data[0][3] = true unless @is_activated
+    @data[0][3] = true if !@is_activated && data[0][2][:default].class == TrueClass
     @data
   end
 

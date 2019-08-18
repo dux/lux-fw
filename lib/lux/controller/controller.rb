@@ -49,7 +49,12 @@ class Lux::Controller
   # action(:select', ['users'])
   def action method_name, *args
     raise ArgumentError.new('Controller action called with blank action name argument') if method_name.blank?
-    raise ArgumentError.new('Forbiden action name :%s' % method_name) if [:action].include?(method_name)
+
+    if method_name.is_a?(Symbol)
+      raise ArgumentError.new('Forbiden action name :%s' % method_name) if [:action].include?(method_name)
+    else
+      return controller_action_call(method_name)
+    end
 
     method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
@@ -182,7 +187,7 @@ class Lux::Controller
           'layouts/%s' % @lux.template.split('/')[0]
       end
 
-      Lux::View.new(layout, helper).render_part { page_part }
+      Lux::View.new(layout, helper, self).render_part { page_part }
     end
   end
 
@@ -259,6 +264,21 @@ class Lux::Controller
 
   def cache *args, &block
     Lux.cache.fetch *args, &block
+  end
+
+  def controller_action_call controller_action
+    object, action = nil
+
+    if controller_action.is_a?(String)
+      object, action = controller_action.split('#') if controller_action.include?('#')
+      object = ('%s_controller' % object).classify.constantize
+    elsif object.is_a?(Array)
+      object, action = controller_action
+    else
+      raise ArgumentError.new('Not supported')
+    end
+
+    object.action action.to_sym
   end
 
 end

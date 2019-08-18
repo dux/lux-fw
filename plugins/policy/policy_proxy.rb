@@ -13,12 +13,12 @@ class Policy
       @object = object
     end
 
-    def method_missing name
+    def method_missing name, &block
       name   = name.to_s.sub(/(.)$/, '')
       action = $1
 
       if action == '!'
-        @object.can?(name)
+        @object.can?(name, &block)
         true
       elsif action == '?'
         raise 'Block given, not allowed in boolean policy' if block_given?

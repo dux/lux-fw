@@ -45,5 +45,13 @@ class Main::RootController < Lux::Controller
     render json: { data: 'Bar text' }
   end
 
+  def transfer
+    # transfer to :baz
+    action :baz
+
+    # transfer to Main::Foo#bar
+    action 'main/foo#bar'
+  end
+
 end
 ```

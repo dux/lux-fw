@@ -81,7 +81,7 @@ class ModelApi < ApplicationApi
     return if report_errros_if_any @object
 
     if @object.id
-      message '%s created' % @class_name.capitalize
+      message '%s created' % display_name
     else
       error 'object not created, error unknown'
     end
@@ -129,7 +129,7 @@ class ModelApi < ApplicationApi
 
     report_errros_if_any @object
 
-    response.message '%s updated' % @class_name
+    response.message '%s updated' % display_name
 
     add_response_object_path
 
@@ -147,7 +147,7 @@ class ModelApi < ApplicationApi
       message 'Object deleted (exists in trashcan)'
     else
       @object.destroy
-      message '%s deleted' % @object.class.name
+      message '%s deleted' % display_name
     end
 
     report_errros_if_any @object
@@ -182,7 +182,7 @@ class ModelApi < ApplicationApi
 
   def can? action, object=nil
     object ||= @object
-    object.can?(action) do |err|
+    object.can!(action) do |err|
       msg  = 'No %s permission for %s (%s)' % [action.to_s.sub('?',''), Lux.current.var.user ? Lux.current.var.user.email : :guests, err.split(' - ').first]
       msg += ' on %s' % object.class.name if object
       error msg
@@ -202,6 +202,10 @@ class ModelApi < ApplicationApi
 
   def attributes
     @object.attributes.pluck(:id, :name, :email)
+  end
+
+  def display_name
+    @object.class.display_name
   end
 
 end

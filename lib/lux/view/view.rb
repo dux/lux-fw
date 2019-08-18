@@ -10,24 +10,12 @@ class Lux::View
     def render_part template, helper={}
       new(template, helper).render_part
     end
-
-    def wrap_with_debug_info files, data
-      return data unless Lux.current.request.params[:debug] == 'render'
-
-      files = [files] unless files.is_a?(Array)
-      files = files.map do |file|
-        %[<a href="subl://open?url=file:/%s" style="color: #fff;">%s</a>] % [Url.escape(Lux.root.join(file).to_s), file]
-      end.join(' &bull; ')
-
-      %[<div style="margin: 10px; border: 1px solid #800;">
-        <span style="background-color: #800; color: #fff; padding: 3px; font-size:14px; position: relative; top: -3px;">#{files}</span>
-        <br />
-        #{data}
-      </div>]
-    end
   end
 
-  def initialize template, context={}
+  def initialize template, context={}, caller_object=nil
+    # we need this to extract caller_object.source_location for DebugPlugin
+    @caller_object = caller_object if caller_object
+
     # template = template.sub(/^\//, '')
     template = './app/views/' + template if template =~ /^\w/
 

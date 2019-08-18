@@ -68,7 +68,11 @@ Sequel::Model.dataset_module do
         str = "%#{str}%".downcase
 
         for el in args
-          if model.db_schema[el][:db_type] == 'jsonb'
+          schema = model.db_schema[el]
+
+          raise ArgumentError.new('Database field "%s" not found (xlike)' % el) unless schema
+
+          if schema[:db_type] == 'jsonb'
             like_sql = "lower(CAST(#{el} -> '#{Locale.current}' as text)) ilike '#{str}'"
 
             if Locale::DEFAULT != Locale.current

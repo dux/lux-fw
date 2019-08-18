@@ -1,3 +1,20 @@
+class Lux::View
+  def self.wrap_with_debug_info files, data
+    return data unless Lux.current.request.params[:debug] == 'render'
+
+    files = [files] unless files.is_a?(Array)
+    files = files.compact.map do |file|
+      %[<a href="subl://open?url=file:/%s" style="color: #fff;">%s</a>] % [Url.escape(Lux.root.join(file).to_s), file]
+    end.join(' &bull; ')
+
+    %[<div style="margin: 10px; border: 1px solid #800;">
+      <span style="background-color: #800; color: #fff; padding: 3px; font-size:14px; position: relative; top: -3px;">#{files}</span>
+      <br />
+      #{data}
+    </div>]
+  end
+end
+
 # HTML helpers
 module ApplicationHelper
   def debug_toggle
@@ -37,33 +54,23 @@ module ApplicationHelper
   end
 end
 
-module Lux::View::DebugPLugin
-  def incuded base
-    def base.wrap_with_debug_info files, data
-      return data unless Lux.current.request.params[:debug] == 'render'
-
-      files = [files] unless files.is_a?(Array)
-      files = files.map do |file|
-        %[<a href="subl://open?url=file:/%s" style="color: #fff;">%s</a>] % [Url.escape(Lux.root.join(file).to_s), file]
-      end.join(' &bull; ')
-
-      %[<div style="margin: 10px; border: 1px solid #800;">
-        <span style="background-color: #800; color: #fff; padding: 3px; font-size:14px; position: relative; top: -3px;">#{files}</span>
-        <br />
-        #{data}
-      </div>]
-    end
-  end
-
+module Lux::View::DebugPlugin
   def render_part
+
     data = super
-    data = Lux::View.wrap_with_debug_info @template, data if Lux.dev?
+
+    if Lux.dev?
+      files = [@template]
+      files.unshift @caller_object.class.source_location if @caller_object
+      data = Lux::View.wrap_with_debug_info files, data
+    end
+
     data
   end
 end
 
 # add info to cell templates
-module Lux::View::Cell::DebugPLugin
+module Lux::View::Cell::DebugPlugin
   def template name, &block
     data = super name, &block
     data = Lux::View.wrap_with_debug_info [self.class.source_location, @_template], data if Lux.dev?
@@ -72,6 +79,6 @@ module Lux::View::Cell::DebugPLugin
 end
 
 if Lux.dev?
-  Lux::View.prepend Lux::View::DebugPLugin
-  Lux::View::Cell.prepend Lux::View::Cell::DebugPLugin
+  Lux::View.prepend Lux::View::DebugPlugin
+  Lux::View::Cell.prepend Lux::View::Cell::DebugPlugin
 end
