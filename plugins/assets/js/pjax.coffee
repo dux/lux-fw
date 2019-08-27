@@ -152,6 +152,11 @@ window.Pjax =
         @console("Pjax status: #{@request.status}")
         return
 
+      # this has to happen before body change
+      unless opts.no_history
+        # push new empty data state, just ot change url
+        window.history.pushState({ title: title, data: main}, title, href)
+
       # fix href because of redirects
       if rul = req.responseURL
         href = rul.split('/')
@@ -194,10 +199,6 @@ window.Pjax =
       unless opts.no_scroll || @no_scroll_check(opts.node)
         window.scrollTo(0, 0)
 
-      unless opts.no_history
-        # push new empty data state, just ot change url
-        window.history.pushState({ title: title, data: main}, title, href)
-
     false
 
   # private methods
@@ -216,7 +217,7 @@ window.Pjax =
     out
 
   no_scroll_check: (node) ->
-    return unless node || node.closest
+    return unless node && node.closest
 
     for el in @no_scroll_list
       return true if node.closest(el)

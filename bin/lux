@@ -71,24 +71,6 @@ end
 
 ###
 
-# seed creator helper
-# lux e seed 'User.select(:name, :email, :cached_avatar).all'
-def seed list
-  ap list.is_a?(Array)
-  list = list.all if respond_to?(:all) && !list.is_a?(Array)
-  list = [list] unless list.is_a?(Array)
-  list = list.map do |el|
-    o = el.to_h
-    o = o.except(:id)
-    o = JSON.pretty_generate o
-    "#{el.class}.create(#{o})"
-  end
-
-  list.join($/)
-end
-
-###
-
 LuxCli = Class.new Thor
 
 # remove new in app, or allow only new while not in app

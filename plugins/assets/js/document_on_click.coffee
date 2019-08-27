@@ -3,6 +3,7 @@ $(document).on 'click', (event) ->
   return if event.which == 2
 
   event.stopPropagation()
+  # event.preventDefault()
 
   node = $(event.target)
   node_nested = node.closest('*[href]')

@@ -1,27 +1,23 @@
-# Svelte('dialog', function(){
-#   this.close()
-#   window.$.delay(()=>{ window.scrollTo(0, 0) })
-# })
+# get all <s-filter ...> components and run close() on them
+# window.Svelte('filter', function(){ this.close() })
+#
+# get single dialog component
+# el = Svelte('dialog')
+# el.close()
 window.Svelte = (name, func) ->
-  if name.includes('*')
-    console.error("""Svelte component glob "#{name}*", func not defined""") unless func
-
-    # if giver * glob all execute function
-    # Svelte 'filter*', (el) -> el.close()
-    name = name.replace '*', ''
+  if func
     Array.prototype.slice
       .call document.getElementsByTagName("s-#{name}")
       .forEach (el) ->
         func.bind(el.svelte)()
-
-  if el = document.getElementsByTagName("s-#{name}")[0]
-    if func
-      func.bind(el.svelte)()
-    else
-      el.svelte
   else
-    unless func
-      console.error("""Svelte component "#{name}" not found""")
+    elements = document.getElementsByTagName("s-#{name}")
+    alert("""Globed more then one svelte "#{name}" component""") if elements[1]
+
+    if el = elements[0]
+      el.svelte
+    else
+      null
 
 # bind Svelte elements
 Object.assign Svelte,

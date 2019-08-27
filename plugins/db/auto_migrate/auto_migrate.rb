@@ -21,17 +21,6 @@
 #   end
 # end
 
-class Sequel::Model
-  # auto create database table unless one found
-  def self.inherited(other)
-    if other.ancestors[1].to_s == 'ApplicationModel'
-      AutoMigrate.table other.to_s.tableize.to_sym
-    end
-
-    super
-  end
-end
-
 class AutoMigrate
   attr_accessor :fields
 
@@ -77,12 +66,9 @@ class AutoMigrate
       end
     end
 
-    def typero name
-      return unless Lux.config.migrate
-      schema = name.to_s.classify.constantize.typero.db_schema
-
+    def typero name, schema
       table name do |f|
-        for args in schema
+        for args in schema.db_schema
           f.send *args
         end
       end
@@ -167,15 +153,18 @@ class AutoMigrate
 
       # create missing columns
       unless @object.columns.index(field.to_sym)
-        DB.add_column @table_name, field, db_type, opts
+        if db_type == :jsonb
+          transaction_do "ALTER TABLE #{@table_name} ADD COLUMN #{field} jsonb DEFAULT '{}';"
+        else
+          DB.add_column @table_name, field, db_type, opts
 
-        if opts[:array]
-          default = type == :string ? "ARRAY[]::character varying[]" : "ARRAY[]::integer[]"
-          transaction_do "ALTER TABLE #{@table_name} ALTER COLUMN #{field} SET DEFAULT #{default};"
+          if opts[:array]
+            default = type == :string ? "ARRAY[]::character varying[]" : "ARRAY[]::#{db_type}[]"
+            transaction_do "ALTER TABLE #{@table_name} ALTER COLUMN #{field} SET DEFAULT #{default};"
+          end
         end
 
         puts " add_column #{field}, #{db_type}, #{opts.to_json}".green
-        next
       end
 
       if current = @object.db_schema[field]
@@ -230,6 +219,10 @@ class AutoMigrate
 
         # null true or false
         if current[:allow_null] != opts[:null]
+          if !opts[:null] && opts[:default]
+            log_run "UPDATE #{@table_name} SET #{field}='#{opts[:default]}' where #{field} IS NULL"
+          end
+
           to_run = " #{field} #{opts[:null] ? 'DROP' : 'SET'} NOT NULL"
           log_run "ALTER TABLE #{@table_name} ALTER COLUMN #{to_run}"
         end

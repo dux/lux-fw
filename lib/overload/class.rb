@@ -1,5 +1,10 @@
 class Class
 
+  # ApplicationModel.descendants -> get all DB models
+  def descendants
+    ObjectSpace.each_object(Class).select { |klass| klass < self }
+  end
+
   # OrgsController.source_location -> ./apps/controllers/orgs_controller.rb
   def source_location as_folder=false
     root = Lux.root.to_s

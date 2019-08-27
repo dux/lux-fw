@@ -36,7 +36,7 @@ class Array
 
     last_word = self.pop
 
-    self.join(opts[:words_connector]) + opts[:last_word_connector] + last_word
+    self.join(opts[:words_connector]) + opts[:last_word_connector].to_s + last_word.to_s
   end
 
   # toggle existance of an element in array and return true when one added

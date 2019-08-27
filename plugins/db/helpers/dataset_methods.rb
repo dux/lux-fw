@@ -136,8 +136,10 @@ Sequel::Model.dataset_module do
     select_map field
   end
 
-  def ids
-    select(:id).map(&:id)
+  # Job.active.ids(:org_id) -> distinct array of org_id
+  # Job.active.ids          -> array of id
+  def ids field=:id
+    db[select(field).distinct(field).sql].to_a.map { |it| it[field] }
   end
 end
 

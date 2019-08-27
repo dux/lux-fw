@@ -40,9 +40,10 @@ class Lux::Controller
 
   def initialize
     # before and after should be exected only once
-    @lux = FreeStruct.new :executed_filters, :template, :action, :layout
+    @lux = FreeStruct.new :executed_filters, :template_sufix, :action, :layout
     @lux.executed_filters = {}
-    @lux.template = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
+
+    @lux.template_sufix = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
   end
 
   # action(:show)
@@ -174,7 +175,7 @@ class Lux::Controller
     if layout.class == FalseClass
       page_part
     else
-      layout_define = layout || self.class.layout
+      layout_define = @lux.layout || layout || self.class.layout
 
       layout = case layout_define
         when String
@@ -182,9 +183,9 @@ class Lux::Controller
         when Symbol
           'layouts/%s' % layout_define
         when Proc
-          layout_define.call
+          instance_execute &layout_define
         else
-          'layouts/%s' % @lux.template.split('/')[0]
+          'layouts/%s' % namespace
       end
 
       Lux::View.new(layout, helper, self).render_part { page_part }
@@ -192,15 +193,24 @@ class Lux::Controller
   end
 
   def render_body opts
-    if opts.template
-      template = opts.template.to_s
-      template = "/#{@lux.template}/#{template}" if template =~ /^\w/
-    else
-      template = "/#{@lux.template}/#{@lux.action}"
-    end
+    template      = (opts.template || @lux.action).to_s
+    template_root = self.class.template_root || './app/views'
 
-    if self.class.template_root && !template.starts_with?('./')
-      template = self.class.template_root + template
+    template =
+    if template.start_with?('./')
+      # full path
+      # render './apps/main/root/index'
+      template
+    elsif template.start_with?('/')
+      # relative template root
+      [template_root, template].join('')
+    else
+      # join with sufix but use Pathname to enable ../ joins
+      Pathname
+        .new(template_root)
+        .join(@lux.template_sufix)
+        .join(template)
+        .to_s
     end
 
     Lux.current.var.root_template_path = template.sub(%r{/[\w]+$}, '')
@@ -214,7 +224,7 @@ class Lux::Controller
   end
 
   def namespace
-    @lux.template.split('/')[0].to_sym
+    self.class.to_s.split('::').first.underscore.to_sym
   end
 
   def helper ns=nil

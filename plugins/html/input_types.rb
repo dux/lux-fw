@@ -24,6 +24,11 @@ class HtmlInput
     @opts.tag(:input)
   end
 
+  def as_email
+    @opts[:type] = 'email'
+    @opts.tag(:input)
+  end
+
   def as_hidden
     @opts[:type] = 'hidden'
     @opts.tag(:input)

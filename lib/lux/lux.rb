@@ -97,6 +97,11 @@ module ::Lux
 
   # load rake tasks + including ones in plugins
   def load_tasks
+    if ARGV.first.end_with?(':')
+      run 'rake -T | grep %s' % ARGV.first
+      exit
+    end
+
     require_relative '../../tasks/loader.rb'
   end
 

@@ -1,5 +1,5 @@
 # menu = HtmlMenu.new request.path
-# menu.add 'Home', '/'
+# menu.add 'Home', '/', default: false
 # menu.add 'People', '/people', lambda { |path| path.index('peor') }
 # menu.add 'Jobs', '/jobs', { icon: true }
 #
@@ -23,35 +23,38 @@ class HtmlMenu
   end
 
   # item 'Links', '/link'
-  # item('Links', '/link', { default: true }) {  }
+  # item('Links', '/link', { default: true }) { ... }
   def add name, path, opts={}, &block
     opts = { active: opts } unless opts.is_a?(Hash)
+
+    # set first element to default: false (no default activate first)
+    # if there is defined rule for activation
+    opts[:default] = false if !@data.first && opts[:active]
 
     test   = opts.delete(:active)
     test   = block if block
     test ||= @path == path
 
+    # ap [@path, path, @path == path] if name == 'Info'
+
     active = @is_activated ? false : item_active(test, path)
+
     @is_activated ||= active
 
     @data.push [name, path, opts, active]
   end
 
   # is menu item active?
-  def item_active data, path
-    case data
+  def item_active test, path
+    case test
       when Symbol
-        if data == :path
-          @path == path
-        else
-          @path.include?(data.to_s)
-        end
+        @path.end_with?(test.to_s)
       when String
-        @path.starts_with? data
+        @path.end_with?(test)
       when Regexp
-        @path =~ data
+        !!(@path =~ test)
       when Proc
-        !! data.call(@path)
+        !! test.call(@path)
       when Integer
         true
       when TrueClass
@@ -65,7 +68,7 @@ class HtmlMenu
 
   # return result as a list
   def to_a
-    @data[0][3] = true if !@is_activated && data[0][2][:default].class == TrueClass
+    @data[0][3] = true if !@is_activated && data[0][2][:default].class != FalseClass
     @data
   end
 
