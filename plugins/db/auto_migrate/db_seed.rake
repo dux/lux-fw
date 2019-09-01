@@ -24,54 +24,57 @@ def seed list, klass=nil
     o = JSON.pretty_generate o
     o = o.gsub(/"(\w+)":/) { "#{$1}:" }
 
-    "#{el.class}.create(#{o})\n"
+    "DR.run 'delete from #{klass.table_name}';\n\n#{el.class}.create(#{o})\n"
   end
 
-  "# db:seed #{klass} > db/seeds/#{klass.to_s.tableize}.rb\n\n" + list.join($/)
+  "# rake db:seed:gen #{klass} > db/seeds/#{klass.to_s.tableize}.rb\n\n" + list.join($/)
 end
 
 namespace :db do
-  desc "create seeds for models"
-  task seed: :app do
-    ARGV.shift
+  namespace :seed do
+    desc "Create seeds from models"
+    task gen: :app do
+      ARGV.shift
 
-    @all = ARGV.shift if ARGV.first == 'all'
+      @all = ARGV.shift if ARGV.first == 'all'
 
-    unless ARGV.first
-      list = Sequel::Model
-        .descendants
-        .sort_by(&:to_s)
+      unless ARGV.first
+        list = Sequel::Model
+          .descendants
+          .sort_by(&:to_s)
 
-      for klass in list
-        count    = (klass.count rescue '-').to_s.ljust(10)
-        location = "db/seeds/#{klass.to_s.tableize}.rb"
-        location = location.sub('.rb', '_.rb') if File.exist?(location)
-        command  = "rake db:seed #{klass} > #{location}"
-        line     = '%s: %s # %s' % [klass.to_s.ljust(20), count, command]
-        line     = line.green if line.include?('_.rb')
+        for klass in list
+          count    = (klass.count rescue '-').to_s.ljust(10)
+          location = "db/seeds/#{klass.to_s.tableize}.rb"
+          location = location.sub('.rb', '_.rb') if File.exist?(location)
+          command  = "rake db:seed #{klass} > #{location}"
+          line     = '%s: %s # %s' % [klass.to_s.ljust(20), count, command]
+          line     = line.green if line.include?('_.rb')
 
-        if @all
-          if count.to_i > 0
+          if @all
+            if count.to_i > 0
+              puts line
+              File.write(location, seed(klass))
+            end
+          else
             puts line
-            File.write(location, seed(klass))
           end
-        else
-          puts line
         end
+
+        exit
       end
+
+      puts seed ARGV.shift.constantize
 
       exit
     end
 
-    puts seed ARGV.shift.constantize
-
-    exit
-  end
-
-  namespace :seed do
-    desc 'Generate seeeds from DB data'
-    task generate: :app do
-      ap 123
+    desc "Load seeds from db/seeds"
+    task load: :app do
+      for file in Dir['db/seeds/*'].sort
+        puts file.green
+        load file
+      end
     end
   end
 end

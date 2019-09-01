@@ -64,10 +64,10 @@ window.Pjax =
   keep_scrool: -> @no_scroll_list = arguments
 
   # refresh page, keep scrool
-  refresh: (func)   -> Pjax.load(Pjax.path(), { keep_scrool: true })
+  refresh: (func)   -> Pjax.load(Pjax.path(), { no_scroll: true, done: func })
 
   # reload, jump to top, no_cache http request forced
-  reload: (func)    -> Pjax.refresh(func, { no_cache: true })
+  reload: (func)    -> Pjax.load(Pjax.path(), { no_cache: true, done: func })
 
   # set the no scroll list
   no_scroll: ->

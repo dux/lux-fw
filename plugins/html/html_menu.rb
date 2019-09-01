@@ -68,7 +68,7 @@ class HtmlMenu
 
   # return result as a list
   def to_a
-    @data[0][3] = true if !@is_activated && data[0][2][:default].class != FalseClass
+    #@data[0][3] = true if !@is_activated && data[0][2][:default].class != FalseClass
     @data
   end
 

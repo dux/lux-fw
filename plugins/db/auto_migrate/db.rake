@@ -52,7 +52,7 @@ namespace :db do
     die('"DB.extension :pg_array" not loaded') unless LuxTest.first.int_array.class == Sequel::Postgres::PGArray
     DB.run %[DROP TABLE IF EXISTS lux_tests;]
 
-    Lux.require_all 'db/schema'
+    require './db/schema'
   end
 
   desc 'Dump database backup'

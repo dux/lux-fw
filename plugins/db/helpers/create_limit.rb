@@ -19,6 +19,9 @@ module Sequel::Plugins::LuxCreateLimit
 
   module InstanceMethods
     def validate
+      super
+
+      return if Lux.cli?
       return unless defined?(User)
 
       name = self.class.to_s.tableize.humanize.downcase
@@ -32,8 +35,6 @@ module Sequel::Plugins::LuxCreateLimit
 
         errors.add(:base, "You are allowed to create max of #{count} #{name} in #{(seconds/60).to_i} minutes (Spam protection).") if cnt >= count
       end
-
-      super
     end
   end
 end

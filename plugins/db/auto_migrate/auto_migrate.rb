@@ -74,6 +74,12 @@ class AutoMigrate
       end
     end
 
+    def extension name
+      unless DB["SELECT extname FROM pg_extension where extname='#{name}'"].to_a.first
+        DB.execute 'CREATE EXTENSION %s' % name
+      end
+    end
+
   end
 
   ###
