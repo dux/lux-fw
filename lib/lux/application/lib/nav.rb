@@ -2,13 +2,14 @@
 
 class Lux::Application::Nav
   attr_accessor :path, :id, :format
-  attr_reader :original, :domain, :subdomain
+  attr_reader :original, :domain, :subdomain, :namespace
 
   # acepts path as a string
   def initialize request
     @path         = request.path.split('/').slice(1, 100) || []
     @original     = @path.dup
 
+    set_variables
     set_domain request
     set_format
   end
@@ -69,6 +70,13 @@ class Lux::Application::Nav
   end
 
   private
+
+  def set_variables
+    # convert /foo/bar:baz to /foo/bar?namespace=baz
+    if @path.last && @path.last.include?(':')
+      @path.last, Lux.current.request.params[:namespace] = @path.last.split(':', )
+    end
+  end
 
   def set_domain request
     # localtest.me
