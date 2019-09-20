@@ -7,11 +7,11 @@
 # User.can?(:login) { |msg| http_error 401, "Err: #{msg}".red; return 'no access' }
 
 class Policy
+  attr_reader :model, :user, :action
 
-  def initialize hash
-    for k, v in hash
-      instance_variable_set "@#{k}", v
-    end
+  def initialize model:, user:
+    @model = model
+    @user  = user
   end
 
   # pass block if you want to handle errors yourself
@@ -32,10 +32,12 @@ class Policy
 
   # call has to be isolated because specific of error handling
   def call &block
+    raise Error.new 'User is not defined' unless @user
+
     return true if before(@action)
     return true if send(@action)
-    raise Lux::Error.unauthorized('Access disabled in policy')
-   rescue Lux::Error => e
+    raise Error.new('Access disabled in policy')
+   rescue Policy::Error => e
     error = e.message
     error += " - #{self.class}.#{@action}" if Lux.config(:dump_errors)
 
@@ -43,7 +45,7 @@ class Policy
       block.call(error)
       false
     else
-      raise Lux::Error.unauthorized(error)
+      raise Policy::Error.new(error)
     end
   end
 
@@ -58,7 +60,7 @@ class Policy
   end
 
   def error message
-    raise Lux::Error.unauthorized(message)
+    raise Policy::Error.new(message)
   end
 
 end

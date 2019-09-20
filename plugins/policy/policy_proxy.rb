@@ -1,7 +1,7 @@
-# true / false
+# @object / nil
 # @model.can.write?
 #
-# raise error or return true
+# raise error or return @model
 # @model.can.write!
 #
 # redirect on error or return true
@@ -9,8 +9,8 @@
 
 class Policy
   class Proxy
-    def initialize object
-      @object = object
+    def initialize policy
+      @policy = policy
     end
 
     def method_missing name, &block
@@ -18,17 +18,17 @@ class Policy
       action = $1
 
       if action == '!'
-        @object.can?(name, &block)
-        true
+        @policy.can?(name, &block)
+        @policy.model
       elsif action == '?'
-        raise 'Block given, not allowed in boolean policy' if block_given?
+        raise "Block given, not allowed in boolean (?) policy, use bang .#{name}! { .. }" if block_given?
 
         begin
-          @object.can?(name)
-          true
-        rescue Lux::Error
+          @policy.can?(name)
+          @policy.model
+        rescue Policy::Error
           yield if block_given?
-          false
+          nil
         end
       else
         raise ArgumentError.new('Bad policy method name')

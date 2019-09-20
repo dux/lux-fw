@@ -4,7 +4,7 @@ class Lux::View
 
     files = [files] unless files.is_a?(Array)
     files = files.compact.map do |file|
-      %[<a href="subl://open?url=file:/%s" style="color: #fff;">%s</a>] % [Url.escape(Lux.root.join(file).to_s), file]
+      %[<a href="subl://open?url=file:/%s" style="color: #fff;" onmousedown="setTimeout(function() { $('#debug-toggle').click() }, 300)">%s</a>] % [Url.escape(Lux.root.join(file).to_s), file]
     end.join(' &bull; ')
 
     %[<div style="margin: 10px; border: 1px solid #800;">
@@ -21,17 +21,22 @@ module ApplicationHelper
     button =
     if params[:debug] == 'render'
       {
+        id: 'debug-toggle',
         class: 'direct btn btn-xs btn-primary',
         href: Url.qs(:debug, nil)
       }.tag(:a, '-')
     else
       {
+        id: 'debug-toggle',
         class: 'direct btn btn-xs',
-        href: Url.qs(:debug, :render)
+        href: Url.qs(:debug, :render),
       }.tag(:a, '+')
     end
 
-    %[<div style="position: fixed; right: 6px; top: 5px; text-align: right; z-index: 100;">#{button}</div>]
+    out = %[
+      <script>$.keyPress('KeyD', function(){ $('#debug-toggle').click() })</script>
+      <div style="position: fixed; right: 6px; top: 5px; text-align: right; z-index: 100;">#{button}</div>
+    ]
   end
 
   def files_in_use

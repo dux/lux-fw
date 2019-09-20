@@ -69,6 +69,18 @@ window.Pjax =
   # reload, jump to top, no_cache http request forced
   reload: (func)    -> Pjax.load(Pjax.path(), { no_cache: true, done: func })
 
+  last_path: (path) ->
+    if path
+      @_last_path = path
+      return
+
+    return @_last_path if @_last_path
+
+    if location.search
+      location.pathname + location.search
+    else
+      location.pathname
+
   # set the no scroll list
   no_scroll: ->
     @no_scroll_list = arguments
@@ -152,6 +164,8 @@ window.Pjax =
         @console("Pjax status: #{@request.status}")
         return
 
+      @_last_path = href
+
       # this has to happen before body change
       unless opts.no_history
         # push new empty data state, just ot change url
@@ -184,11 +198,7 @@ window.Pjax =
         # replace title and body
         @replace title, main
 
-      # manualy proces script data, to not do it with $ helper
-      for data, i in main.split(/<\/?script>/)
-        if i%2
-          f = new Function(data)
-          f()
+      Pjax.parse_scripts(main)
 
       # trigger init func if one provided on init
       @init_func() if @init_func
@@ -202,6 +212,13 @@ window.Pjax =
     false
 
   # private methods
+
+  # manualy proces script data, to not do it with $ helper
+  parse_scripts: (html) ->
+    for data, i in html.split(/<\/?script>/)
+      if i%2
+        f = new Function(data)
+        f()
 
   # extract node as object from html data
   extract: (data, node_name) ->

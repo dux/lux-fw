@@ -54,13 +54,13 @@ class Lux::Controller
     if method_name.is_a?(Symbol)
       raise ArgumentError.new('Forbiden action name :%s' % method_name) if [:action].include?(method_name)
     else
-      return controller_action_call(method_name)
+      return controller_action_call(method_name, *args)
     end
 
     method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
     # dev console log
-    Lux.log { ' %s#%s'.light_blue % [self.class, method_name] }
+    Lux.log { ' %s#%s (action)'.light_blue % [self.class, method_name] }
     Lux.log { ' %s' % self.class.source_location }
 
     @lux.action = method_name.to_sym
@@ -276,7 +276,7 @@ class Lux::Controller
     Lux.cache.fetch *args, &block
   end
 
-  def controller_action_call controller_action
+  def controller_action_call controller_action, *args
     object, action = nil
 
     if controller_action.is_a?(String)
@@ -288,7 +288,7 @@ class Lux::Controller
       raise ArgumentError.new('Not supported')
     end
 
-    object.action action.to_sym
+    object.action action.to_sym, *args
   end
 
 end

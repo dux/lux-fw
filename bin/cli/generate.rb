@@ -55,7 +55,7 @@ module LuxGenerate
     end
 
     # # puts  "Lux::Views : #{templates.keys.sort.map{ |el| tpl_desc[el.to_sym] ? tpl_desc[el.to_sym].sub(el, el.upcase.yellow) : el.yellow }.join(', ')}"
-    puts  "Lux::Views : #{templates.keys.map{ |el| "#{tpl_desc[el.to_sym]}(#{el.yellow})" }.join(', ')}"
+    puts  "Templates : #{templates.keys.map{ |el| "#{tpl_desc[el.to_sym]}(#{el.yellow})" }.join(', ')}"
     print "Execute   : "
 
     parse_templates = STDIN.gets.chomp
@@ -71,7 +71,7 @@ module LuxGenerate
           File.open(file, 'w') { |f| f.write(data) }
           print 'created'.green.rjust(20)
         end
-        puts ": #{file}"
+        puts "  #{file}"
       end
     end
   end

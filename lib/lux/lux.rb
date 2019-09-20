@@ -183,7 +183,11 @@ module ::Lux
             yield *args
           end
         rescue => e
-          Lux.logger(:delay_errors).error [e.message, e.backtrace]
+          if Lux.config(:log_to_stdout)
+            ap ['Lux.delay error', e.message, e.backtrace]
+          else
+            Lux.logger(:delay_errors).error [e.message, e.backtrace]
+          end
         end
       end
 

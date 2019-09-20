@@ -89,7 +89,8 @@ module Lux
 
       # Matches given subdomain name
       def subdomain name
-        return unless nav.subdomain == name
+        return unless nav.subdomain == name.to_s
+        yield
         error.not_found 'Subdomain "%s" matched but nothing called' % name
       end
 
@@ -166,7 +167,7 @@ module Lux
         action  = action.gsub('-', '_').to_sym if action && action.is_a?(String)
         object  ||= block if block_given?
 
-        Lux.log { 'Routed from: %s' % sources.join(' ') } if sources.first
+        Lux.log { ' Routed from: %s' % sources.join(' ') } if sources.first
 
         case object
           when Symbol
@@ -202,10 +203,9 @@ module Lux
 
         opts   ||= {}
         action ||= resolve_action object
-        # action = action.first if action.is_a?(Array)
 
         unless object.instance_methods(false).include?(action.to_sym)
-          error.not_found Lux.dev? ? "Action :#{action} not found in #{object}" : nil
+          error.not_found Lux.dev? ? "Action :#{action} not found in #{object} (nav: #{nav})" : nil
         end
 
         if opts[:only] && !opts[:only].include?(action.to_sym)

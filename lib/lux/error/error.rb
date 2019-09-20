@@ -209,7 +209,13 @@ class Lux::Error < StandardError
 
     if Lux.config(:dump_errors) && !self.description
       parts = self.class.split_backtrace(self)
-      self.description = "<hr /><h4>Lux.config.dump_errors = true</h4><pre>#{parts[1].join("\n")}</pre><pre>#{parts[2].join("\n")}</pre>"
+      self.description = %[
+        <hr />
+        <h4>Lux.config.dump_errors = true</h4>
+        <pre>Lux.current.nav.path: <b>#{Lux.current.nav.path.join(' / ')}</b></pre>
+        <pre>#{parts[1].join("\n")}</pre>
+        <pre>#{parts[2].join("\n")}</pre>
+      ]
     end
 
     @message = message || self.name

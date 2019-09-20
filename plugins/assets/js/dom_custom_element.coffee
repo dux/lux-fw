@@ -1,16 +1,24 @@
 # get all <s-filter ...> components and run close() on them
 # window.Svelte('filter', function(){ this.close() })
 #
-# get single dialog component
+# get singleton dialog component
 # el = Svelte('dialog')
 # el.close()
+#
+# get closest ajax svelte node
+# Svelte('ajax', this)
 window.Svelte = (name, func) ->
   if func
-    Array.prototype.slice
-      .call document.getElementsByTagName("s-#{name}")
-      .forEach (el) ->
-        func.bind(el.svelte)()
-  else
+    if typeof func == 'object'
+      target = func.closest("s-#{name}")
+      target = target[0] if target[0]
+      target.svelte
+    else
+      Array.prototype.slice
+        .call document.getElementsByTagName("s-#{name}")
+        .forEach (el) ->
+          func.bind(el.svelte)()
+  else if typeof(name) == 'string'
     elements = document.getElementsByTagName("s-#{name}")
     alert("""Globed more then one svelte "#{name}" component""") if elements[1]
 
@@ -18,6 +26,8 @@ window.Svelte = (name, func) ->
       el.svelte
     else
       null
+  else
+    alert('Svelte error: not supported')
 
 # bind Svelte elements
 Object.assign Svelte,
@@ -43,22 +53,16 @@ Object.assign Svelte,
   bind:(name, klass) ->
     CustomElement.define name, (node, opts) ->
       if node.innerHTML
-        if node.innerHTML.includes('</slot>')
-          opts.slots = Svelte.nodesAsList node
-        else
-          opts.innerHTML = node.innerHTML
-
-        node.innerHTML = ''
-
-      global = null
-      if opts.global
-        global  = opts.global
-        delete opts.global
+        opts.svelte_node = node.cloneNode(true)
+        node.innerHTML   = ''
 
       element = new klass({ target: node, props: opts })
-      window[global] = element if global
       node.svelte = element
 
+      # define singleton
+      # export function singleton() { return 'Dialog' }
+      if element.singleton
+        window[element.singleton()] = element
 
 # create DOM custom element or polyfil for older browsers
 window.CustomElement =

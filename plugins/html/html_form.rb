@@ -70,11 +70,9 @@ class HtmlForm
   # standard input linked to HtmlInput class
   def input name, opts={}
     if @object && name.is_a?(Symbol)
-      rules = @object.class.typero.rules[name] || {}
-      rules[:form] ||= {}
-      rules[:form][:label] = rules[:label] if rules[:label]
+      rules = @object.class.typero.rules[name][:meta] || {}
 
-      for k, v in rules[:form]
+      for k, v in rules.slice(:label, :hint, :as)
         v = @object.instance_exec &v if v.is_a?(Proc)
         opts[k] = v unless opts.key?(k)
       end

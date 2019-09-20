@@ -1,3 +1,18 @@
+# class TableBuilder
+#   def callback *fields
+#     onclick { |o| 'Dialog.callback(%s)' % o.slice(*fields).to_json }
+#   end
+
+#   def search_on *fields
+#     # find all text fields in a object and search on all of them
+#     filter(:q, :text) do |scope, value, qs|
+#       info 'Searched on: %s' % fields.map{ |el| el.to_s.wrap(:b) }.to_sentence
+#       scope.xlike(value, *fields) if value
+#       s_widget :search, name: qs
+#     end
+#   end
+# end
+
 # = table City.order(:name).xlike(params[:q], :name, :code) do |t|
 #   - t.col :image, as: :image
 #   - t.col :is_active, as: :boolean
@@ -13,15 +28,20 @@
 # tb.filter :q, :text
 
 class TableBuilder
+  FilterOpts ||= Class.new Struct.new(:qs, :type, :opts, :value, :render)
+
   attr_accessor :scope
   attr_reader   :filters
 
-  def initialize opts={}
-    @opts    = opts
-    @cols    = []
-    @info    = []
-    @as      = {}
-    @filters = {}
+  def initialize scope, opts={}
+    @scope    = scope
+    @opts     = opts
+    @cols     = []
+    @info     = []
+    @as       = {}
+    @searches = []
+    @filter   = {}
+    @filters  = []
   end
 
   # t.col :is_active, as: :boolean
@@ -38,51 +58,65 @@ class TableBuilder
     @cols.push opts
   end
 
+  # push info text on stack, manual render
   def info text=nil
     @info.push text if text
     @info
   end
 
+  # define row level href path
   # t.href { |object| object.path }
   def href &block
     @href = block
   end
 
+  # define row level onclick event
   # t.onclick { |object| "window.open('%s')" % object.dashboard_path }
   def onclick &block
     @onclick = block
   end
 
-  # t.as(:image) do |opts|
+  # t.as(:image) do |o, opts|
   #   opts[:width] ||= 120
-  #   proc do |o|
-  #     src = o.send(opts[:field])
-  #     src.present? ? %[<img src="#{src}" style="width:100%; margin: -5px 0;" />] : ''
-  #   end
+  #   src = o.send(opts[:field])
+  #   src.present? ? %[<img src="#{src}" style="width:100%; margin: -5px 0;" />] : ''
   # end
   def as name, &block
     @as[name] = block
   end
 
-  def filter querystring, type=:text, opts={}, &block
-    if type
-      @filters[querystring] = [type, opts, block]
-    else
-      # set type to nil to delete it
-      # useful to set common query as a default and be able to remove it unless you need it
-      @filters.delete querystring
-    end
+  # how  will the filter be rendred
+  # tb.filter :text do |qs, value|
+  #   s _widget :search, name: qs
+  # end
+  def filter type, &block
+    @filter[type] = block
+  end
+
+  # how will the filter be searched, usually overriten
+  # def filter type, &block
+  #   @searches[type] = block
+  # end
+
+  # on page defiend search
+  # - t.search :q do |scope, value|
+  #   scope.xlike(value, :name)
+  def search qs, type=nil, opts={}, &block
+    @searches.push [qs, type || :text, opts, block]
   end
 
   ###
 
-  def render scope=nil
-    @scope = scope if scope
+  # block adds paging to scope at the end functions as a last filter to scope
+  # tb.render { |scope| scope.page }
+  def render &block
     body   = []
     header = []
 
     render_prepare_as
     render_apply_filters
+
+    @scope = block.call(@scope) if block
 
     HtmlTagBuilder.table(class: @opts[:class], 'data-fields': @cols.map{ |o| }) do |n|
       n.thead do |n|
@@ -99,7 +133,7 @@ class TableBuilder
       end
 
       n.tbody do |n|
-        for object in @scope
+        for object in @scope.all
           tr_opts = {}
 
           if @onclick
@@ -110,7 +144,7 @@ class TableBuilder
 
           n.tr(tr_opts) do |n|
             for opts in @cols
-              content, opts = render_row object, opts
+              content = render_row object, opts
               n.td(opts) { content }
             end
           end
@@ -131,21 +165,29 @@ class TableBuilder
   end
 
   def render_apply_filters
-    for name, data in @filters
-      value = Lux.current.request.params[name]
-      if value.present?
-        @scope = data[2].call @scope, value
+    for qs, type, opts, block in @searches
+      opts = FilterOpts.new(qs, type, opts)
+
+      opts.value = Lux.current.request.params[qs]
+
+      if opts.value.present?
+        @scope = block.call(scope, opts.value)
+        #  @scope = data[2].call @scope, value
       end
+
+      opts.render = @filter[type].call(opts)
+      @filters.push opts
     end
 
-     @scope =  @scope.page size: @opts[:size] || 30
+    #  @scope =  @scope.page size: @opts[:size] || 30
   end
 
   def render_row object, opts
-    row_opts = {}
-
     content =
-    if opts[:block]
+    if as = opts[:as]
+      raise ArgumentError.new('Table as block "%s" not defined' % as) unless opts[:block]
+      opts[:block].call(object)
+    elsif opts[:block]
       opts[:block].call object
     elsif opts[:field]
       object.send(opts[:field])
@@ -153,6 +195,6 @@ class TableBuilder
       'no block or field'
     end
 
-    [content, row_opts]
+    content
   end
 end

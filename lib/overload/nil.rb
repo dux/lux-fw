@@ -11,7 +11,7 @@ class NilClass
     nil
   end
 
-  def is? value
+  def is? klass
     true
   end
 end
