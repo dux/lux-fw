@@ -276,14 +276,18 @@ module Lux
         end
       end
 
+      def route
+        @magic
+      end
+
       # internall call to resolve the routes
       def resolve_routes
-        magic = MagicRoutes.new self
+        @magic = MagicRoutes.new self
 
         catch(:done) do
           begin
-            class_callback :before, magic
-            class_callback :routes, magic
+            class_callback :before, @magic
+            class_callback :routes, @magic
           rescue => error
             class_callback :on_error, error
             on_error error
@@ -291,7 +295,7 @@ module Lux
         end
 
         catch(:done) do
-          class_callback :after, magic
+          class_callback :after, @magic
         end
       end
     end

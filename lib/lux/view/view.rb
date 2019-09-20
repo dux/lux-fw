@@ -50,7 +50,7 @@ class Lux::View
       msg  = %[Lux::View "#{template}.{erb,haml}" not found]
       msg += %[\n\n#{err}] if Lux.config(:dump_errors)
 
-      Lux.error msg
+      raise msg
     end
 
     begin
@@ -60,7 +60,7 @@ class Lux::View
         @@template_cache[template] = [@tilt, @template]
       end
     rescue
-      Lux.error("#{$!.message}\n\nTemplate: #{@template}")
+      Lux.error "#{$!.message}\n\nTemplate: #{@template}"
     end
   end
 

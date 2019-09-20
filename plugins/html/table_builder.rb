@@ -123,7 +123,12 @@ class TableBuilder
         n.tr do |n|
           for opts in @cols
             th_opts = {}
-            th_opts[:style] = 'width: %dpx;' % opts[:width] if opts[:width]
+
+            style = []
+            style.push 'width: %dpx' % opts[:width] if opts[:width]
+            style.push 'text-align: %s' % opts[:align] if opts[:align]
+            th_opts[:style] = style.join('; ') if style.first
+
             title   = opts[:title]
             title ||= opts[:field].to_s.humanize if opts[:field]
 
