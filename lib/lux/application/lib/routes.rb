@@ -107,7 +107,9 @@ module Lux
       #   map '/verified-user'
       # end
       # ```
-      def map route_object
+      def map route_object=nil
+        return @magic unless route_object
+
         klass  = nil
         route  = nil
         action = nil
@@ -276,18 +278,14 @@ module Lux
         end
       end
 
-      def route
-        @magic
-      end
-
       # internall call to resolve the routes
       def resolve_routes
         @magic = MagicRoutes.new self
 
         catch(:done) do
           begin
-            class_callback :before, @magic
-            class_callback :routes, @magic
+            class_callback :before
+            class_callback :routes
           rescue => error
             class_callback :on_error, error
             on_error error
@@ -295,7 +293,7 @@ module Lux
         end
 
         catch(:done) do
-          class_callback :after, @magic
+          class_callback :after
         end
       end
     end

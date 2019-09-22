@@ -59,7 +59,9 @@ LuxCli.class_eval do
         end
       end
 
-      def map obj, &block
+      def map obj=nil, &block
+        return (@magic ||= MagicRoutes.new self) unless obj
+
         if @target
           target = @target.is_a?(String) && !@target.include?('#') ? @target + "##{obj}" : @target
           show_route obj, target
@@ -72,6 +74,10 @@ LuxCli.class_eval do
           yield
           @target = nil
         end
+      end
+
+      def call target
+        show_route nil, target
       end
 
       def namespace name
