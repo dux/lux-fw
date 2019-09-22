@@ -1,53 +1,50 @@
-# class TableBuilder
-#   def callback *fields
-#     onclick { |o| 'Dialog.callback(%s)' % o.slice(*fields).to_json }
-#   end
-
-#   def search_on *fields
-#     # find all text fields in a object and search on all of them
-#     filter(:q, :text) do |scope, value, qs|
-#       info 'Searched on: %s' % fields.map{ |el| el.to_s.wrap(:b) }.to_sentence
-#       scope.xlike(value, *fields) if value
-#       s_widget :search, name: qs
-#     end
-#   end
-# end
-
-# = table City.order(:name).xlike(params[:q], :name, :code) do |t|
-#   - t.col :image, as: :image
-#   - t.col :is_active, as: :boolean
-#   - t.col :name
-#   - t.col :country, as: :admin_link
-#
-# tb = TableBuilder.new class: 'table hover'
-# tb.as(:boolean) do |opts|
-#   opts[:width] ||= 100
-#   opts[:align] ||= :center
-#   proc { |o| o.send(opts[:field]) ? 'Yes'.wrap(:span, style:'color:#080') : '-' }
-# end
-# tb.filter :q, :text
-
 class TableBuilder
+  DEFINES    ||= {}
   FilterOpts ||= Class.new Struct.new(:qs, :type, :opts, :value, :render)
 
-  attr_accessor :scope
-  attr_reader   :filters
+  attr_reader :filters, :scope
 
   class << self
-    def define name
+    # TableBuilder.define(:admin, ApplicationHelper) do ...
+    def define name, helper_klass=nil, &block
+      # just store the func
+      DEFINES[name] = block
 
+      if helper_klass
+        # if giver helper class, inject helper method to view
+        helper_klass.define_method('%s_table' % name) do |sql_scope, &block|
+          TableBuilder.call(name, self, sql_scope, &block)
+        end
+      end
+    end
+
+    # call and render table
+    def call name, helper_scope, sql_scope, &block
+      raise ArgumentError.new('Table named "%s" not defined' % name) unless DEFINES[name]
+
+      tb = new sql_scope               # create instance
+      tb.instance_exec &DEFINES[name]  # init
+      block.call tb                    # fill
+      tb.render_prepare_as
+      tb.render_apply_filters helper_scope
+      tb.draw_exec                     # draw table
     end
   end
 
-  def initialize scope, opts={}
-    @scope    = scope
-    @opts     = opts
-    @cols     = []
-    @info     = []
-    @as       = {}
-    @searches = []
-    @filter   = {}
-    @filters  = []
+  ###
+
+  def initialize scope
+    @scope        = scope
+    @cols         = []
+    @info         = []
+    @as           = {}
+    @searches     = []
+    @filter       = {}
+    @filters      = []
+  end
+
+  def tag
+    HtmlTagBuilder
   end
 
   # t.col :is_active, as: :boolean
@@ -84,8 +81,10 @@ class TableBuilder
 
   # t.as(:image) do |o, opts|
   #   opts[:width] ||= 120
-  #   src = o.send(opts[:field])
-  #   src.present? ? %[<img src="#{src}" style="width:100%; margin: -5px 0;" />] : ''
+  #   proc do |o|
+  #     src = o.send(opts[:field])
+  #     src.present? ? %[<img src="#{src}" style="width:100%; margin-top: -3px; vertical-align: middle;" />] : ''
+  #   end
   # end
   def as name, &block
     @as[name] = block
@@ -111,20 +110,46 @@ class TableBuilder
     @searches.push [qs, type || :text, opts, block]
   end
 
+  # define a scope as a param to add post query filters and pagination
+  def after &block
+    @scope_filter = block
+  end
+
+  # just store the block, used in define
+  def draw &block
+    @draw = block
+  end
+
+  # set default order
+  def order &block
+    @default_order = block
+  end
+
+  # draws table in helper scope
+  def draw_exec
+    @helper_scope.instance_exec(self, &@draw)
+  end
+
   ###
 
   # block adds paging to scope at the end functions as a last filter to scope
-  # tb.render { |scope| scope.page }
-  def render &block
+  # tb.render
+  def render render_opts={}
     body   = []
     header = []
 
-    render_prepare_as
-    render_apply_filters
+    if sort = Lux.current.request.params[:sort]
+      direction, field = sort.split('-', 2)
+      @scope = @scope.order(direction == 'a' ? Sequel.asc(field.to_sym) : Sequel.desc(field.to_sym))
+    else
+      @scope = @default_order.call(@scope) if @default_order
+    end
 
-    @scope = block.call(@scope) if block
+    @scope = @scope_filter.call(@scope) if @scope_filter
 
-    HtmlTagBuilder.table(class: @opts[:class], 'data-fields': @cols.map{ |o| }) do |n|
+    render_opts[:class] = 'table-builder %s' % render_opts[:class]
+
+    HtmlTagBuilder.table(class: render_opts[:class], 'data-fields': @cols.map{ |o| }) do |n|
       n.thead do |n|
         n.tr do |n|
           for opts in @cols
@@ -134,7 +159,7 @@ class TableBuilder
             style.push 'width: %dpx' % opts[:width] if opts[:width]
 
             if align = opts[:align]
-              case algin
+              case align
               when :r
                 align = :right
               when :c
@@ -150,6 +175,14 @@ class TableBuilder
 
             title   = opts[:title]
             title ||= opts[:field].to_s.humanize if opts[:field]
+
+            if sort = opts[:sort]
+              field = sort.is_a?(Symbol) ? field : opts[:field]
+              title = tag.span(class: 'table-sort') do |n|
+                direction = Lux.current.request.params[:sort].to_s[0, 2] == 'd-' ? 'a-' : 'd-'
+                n.a(href: Url.qs(:sort, direction + field.to_s) ) { title }
+              end
+            end
 
             n.th(th_opts) { title }
           end
@@ -177,8 +210,6 @@ class TableBuilder
     end
   end
 
-  private
-
   def render_prepare_as
     for opts in @cols
       if as = opts[:as]
@@ -188,7 +219,9 @@ class TableBuilder
     end
   end
 
-  def render_apply_filters
+  def render_apply_filters helper_scope
+    @helper_scope = helper_scope
+
     for qs, type, opts, block in @searches
       opts = FilterOpts.new(qs, type, opts)
 
@@ -196,15 +229,15 @@ class TableBuilder
 
       if opts.value.present?
         @scope = block.call(scope, opts.value)
-        #  @scope = data[2].call @scope, value
       end
 
-      opts.render = @filter[type].call(opts)
+      opts.render = @helper_scope.instance_exec opts, &@filter[type]
+
       @filters.push opts
     end
-
-    #  @scope =  @scope.page size: @opts[:size] || 30
   end
+
+  private
 
   def render_row object, opts
     content =
