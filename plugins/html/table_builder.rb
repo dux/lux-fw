@@ -33,6 +33,12 @@ class TableBuilder
   attr_accessor :scope
   attr_reader   :filters
 
+  class << self
+    def define name
+
+    end
+  end
+
   def initialize scope, opts={}
     @scope    = scope
     @opts     = opts
@@ -126,7 +132,20 @@ class TableBuilder
 
             style = []
             style.push 'width: %dpx' % opts[:width] if opts[:width]
-            style.push 'text-align: %s' % opts[:align] if opts[:align]
+
+            if align = opts[:align]
+              case algin
+              when :r
+                align = :right
+              when :c
+                align = :center
+              when :l
+                align = :left
+              end
+
+              style.push 'text-align: %s' % align
+            end
+
             th_opts[:style] = style.join('; ') if style.first
 
             title   = opts[:title]
