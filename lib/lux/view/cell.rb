@@ -80,14 +80,6 @@ class Lux::View::Cell
     data
   end
 
-  # tag :div, { 'class'=>'iform' } do
-  def tag name=nil, opts={}, data=nil
-    return HtmlTagBuilder unless name
-
-    data = yield(opts) if block_given?
-    HtmlTagBuilder.tag name, opts, data
-  end
-
   # execute block only once per page
   def once id=nil
     id ||= self.class

@@ -98,14 +98,6 @@ class Lux::View::Helper
     %[<pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:14pt; font-size:10pt;">#{msg}</pre>]
   end
 
-  # tag :div, { 'class'=>'iform' } do
-  def tag name=nil, opts={}, data=nil
-    return HtmlTagBuilder unless name
-
-    data = yield(opts) if block_given?
-    HtmlTagBuilder.tag name, opts, data
-  end
-
   # helper(:main).method
   def helper *names
     Lux::View::Helper.new(self, *names)
