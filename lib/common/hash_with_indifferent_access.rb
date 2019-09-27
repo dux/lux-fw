@@ -54,4 +54,10 @@ class HashWithIndifferentAccess < Hash
   def check_fix value
     value.class == Hash ? self.class.new(value) : value
   end
+
+  def method_missing name
+    self[name].tap do |out|
+      raise ArgumentError.new('Method or hash value "%s" not found' % name) if out.nil?
+    end
+  end
 end
