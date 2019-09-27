@@ -1,5 +1,5 @@
 # menu = HtmlMenu.new request.path
-# menu.add 'Home', '/', default: false
+# menu.add 'Home', '/', default: true
 # menu.add 'People', '/people', lambda { |path| path.index('peor') }
 # menu.add 'Jobs', '/jobs', { icon: true }
 #
@@ -27,15 +27,9 @@ class HtmlMenu
   def add name, path, opts={}, &block
     opts = { active: opts } unless opts.is_a?(Hash)
 
-    # set first element to default: false (no default activate first)
-    # if there is defined rule for activation
-    opts[:default] = false if !@data.first && opts[:active]
-
     test   = opts.delete(:active)
     test   = block if block
     test ||= @path == path
-
-    # ap [@path, path, @path == path] if name == 'Info'
 
     active = @is_activated ? false : item_active(test, path)
 
@@ -68,7 +62,8 @@ class HtmlMenu
 
   # return result as a list
   def to_a
-    #@data[0][3] = true if !@is_activated && data[0][2][:default].class != FalseClass
+    # activate default element if one set and it is not acrivated
+    @data.map { |el| el[3] = true if el[2][:default] } unless @is_activated
     @data
   end
 

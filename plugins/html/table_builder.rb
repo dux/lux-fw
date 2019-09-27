@@ -121,7 +121,7 @@ class TableBuilder
   end
 
   # set default order
-  def order &block
+  def default_order &block
     @default_order = block
   end
 
@@ -177,9 +177,10 @@ class TableBuilder
             title ||= opts[:field].to_s.humanize if opts[:field]
 
             if sort = opts[:sort]
-              field = sort.is_a?(Symbol) ? field : opts[:field]
-              title = tag.span(class: 'table-sort') do |n|
-                direction = Lux.current.request.params[:sort].to_s[0, 2] == 'd-' ? 'a-' : 'd-'
+              field     = sort.is_a?(Symbol) ? field : opts[:field]
+              direction = Lux.current.request.params[:sort].to_s[0, 2] == 'a-' ? 'd-' : 'a-'
+
+              title = tag.span(class: 'table-sort table-sort-%ssort' % direction) do |n|
                 n.a(href: Url.qs(:sort, direction + field.to_s) ) { title }
               end
             end

@@ -18,7 +18,7 @@ class String
     value
   end
 
-  def to_html_safe
+  def html_escape once=true
     self
       .sub(/^\s+/, '')
       .sub(/\s+$/, '')
@@ -29,6 +29,9 @@ class String
       .gsub('>', '&gt;')
   end
 
+  # result = ActiveSupport::Multibyte::Unicode.tidy_bytes(s.to_s).gsub(HTML_ESCAPE_ONCE_REGEXP, HTML_ESCAPE)
+  #     s.html_safe? ? result.html_safe : result
+
   def trim(len)
     return self if self.length<len
     data = self.dup[0,len]+'&hellip;'
@@ -37,6 +40,11 @@ class String
 
   def first
     self[0,1]
+  end
+
+  def last(num=1)
+    len = self.length
+    self[len-num, len]
   end
 
   def sanitize
@@ -53,7 +61,7 @@ class String
   end
 
   def parse_erb
-    self.gsub(/<%=([^%]+)%>/) { eval $1; }
+    self.gsub(/<%=([^🤬]+)%>/) { eval $1; }
   end
 
   def parameterize
@@ -87,11 +95,6 @@ class String
   def ends_with? suffix
     return true if suffix == self
     suffix.is_a?(String) && self[-suffix.length, suffix.length] == suffix && self != suffix
-   end
-
-  def last(num=1)
-    len = self.length
-    self[len-num, len]
   end
 
   def span_green

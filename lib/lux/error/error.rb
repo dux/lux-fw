@@ -157,9 +157,7 @@ class Lux::Error < StandardError
       <<~TEXT
         <pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;">
         <b style="font-size:110%;">#{name}</b>
-
-        <b>#{dmp[0][0]}: #{dmp[0][1]}</b>
-
+        <xmp style="font-family:'Lucida Console'; line-height:15pt; font-size:12pt; font-weight: bold; margin-bottom: -5px;">#{dmp[0][0]}: #{dmp[0][1]}</xmp>
         #{dmp[1].join("\n")}
 
         #{dmp[2].join("\n")}

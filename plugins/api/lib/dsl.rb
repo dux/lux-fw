@@ -7,6 +7,12 @@ class ApplicationApi
   #   @user.slice(:id, :name, :avatar, :email)
   # end
 
+  # helper for standard definition of name
+  method_attr :name
+
+  # helper for standard definition of description
+  method_attr :data
+
   # helper for standard definition of parametars
   # param :o_id
   # param :o_id, Integer
@@ -19,12 +25,6 @@ class ApplicationApi
     opts[:type] ||= String
     opts
   end
-
-  # helper for standard definition of name
-  method_attr :name
-
-  # helper for standard definition of description
-  method_attr :data
 
   ###
 

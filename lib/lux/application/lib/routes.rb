@@ -13,7 +13,7 @@ module Lux
       # get {}
       # get foo: 'main/bar', only: [:show], except: [:index]
       [:get, :head, :post, :delete, :put, :patch].map(&:to_s).each do |m|
-        define_method(m) do |*args, &block|
+        define_method('%s?' % m) do |*args, &block|
           @_is_type_cache[m] = current.request.request_method == m.upcase if @_is_type_cache[m].nil?
           return unless @_is_type_cache[m]
 
@@ -29,7 +29,7 @@ module Lux
           end
         end
 
-        eval "alias :#{m}? :#{m}"
+        #eval "alias :#{m}? :#{m}"
       end
 
       # Matches if there is not root in nav
