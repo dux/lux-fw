@@ -202,7 +202,7 @@ class Lux::Response
 
     etag(@body) if current.request.request_method == 'GET'
 
-    @headers['x-lux-speed']     = "#{((Time.monotonic - @render_start)*1000).round(1)} ms"
+    @headers['x-lux-speed']     = "#{((Time.monotonic - @render_start)*1000).round(1)}ms"
     @headers['content-type']  ||= "#{@content_type}; charset=utf-8"
     @headers['content-length']  = @body.bytesize.to_s
 

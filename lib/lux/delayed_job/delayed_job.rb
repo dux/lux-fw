@@ -46,15 +46,16 @@ module Lux::DelayedJob
 
     if m = METHODS[func]
       Thread.new do
-        begin
-          Timeout::timeout(10) do
+        Timeout::timeout(Lux.config(:delay_timeout)) do
+          begin
             msg = msg.h if msg.is_a?(Hash)
             m.call msg
+          rescue => e
+            error = "#{e.class}: #{e.message} (:#{func}, #{msg})"
+            Lux.log "background job error: #{error}"
+            Lux.logger('background-job-errors').error error
+            Lux::Error.screen e
           end
-        rescue => e
-          error = "#{e.class}: #{e.message} (:#{func}, #{msg})"
-          Lux.log "background job error: #{error}"
-          Lux.logger('background-job-errors').error error
         end
       end
     else

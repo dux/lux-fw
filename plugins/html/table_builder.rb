@@ -177,7 +177,7 @@ class TableBuilder
             title ||= opts[:field].to_s.humanize if opts[:field]
 
             if sort = opts[:sort]
-              field     = sort.is_a?(Symbol) ? field : opts[:field]
+              field     = sort.is_a?(Symbol) ? sort : opts[:field]
               direction = Lux.current.request.params[:sort].to_s[0, 2] == 'a-' ? 'd-' : 'a-'
 
               title = tag.span(class: 'table-sort table-sort-%ssort' % direction) do |n|
@@ -198,12 +198,15 @@ class TableBuilder
             tr_opts[:onclick] = @onclick.call object
           elsif @href
             tr_opts[:href] = @href.call object
+            tr_opts.delete :href unless tr_opts[:href]
           end
 
-          n.tr(tr_opts) do |n|
+          allowed = [:id, :class, :href, :style, :width, :align]
+
+          n.tr(tr_opts.slice(*allowed)) do |n|
             for opts in @cols
               content = render_row object, opts
-              n.td(opts) { content }
+              n.td(opts.slice(*allowed)) { content }
             end
           end
         end

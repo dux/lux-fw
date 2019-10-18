@@ -1,3 +1,6 @@
+# in layout view add "debug_toggle"
+# adds button to view all render sources + root controller
+
 class Lux::View
   def self.wrap_with_debug_info files, data
     return data unless Lux.current.request.params[:debug] == 'render'

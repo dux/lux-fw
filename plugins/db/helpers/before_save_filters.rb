@@ -5,7 +5,7 @@ module Sequel::Plugins::LuxBeforeSave
 
       # timestamps
       self[:created_at] = Time.now.utc if !self[:id] && respond_to?(:created_at)
-      self[:updated_at] ||= Time.now.utc if respond_to?(:updated_at)
+      self[:updated_at] = Time.now.utc if respond_to?(:updated_at)
 
       # return error if user needed and not defined
       if !User.current && (respond_to?(:created_by) || respond_to?(:updated_by))

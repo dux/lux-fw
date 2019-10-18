@@ -29,8 +29,8 @@ class Lux::View
     mutex = Mutex.new
 
     # if auto_code_reload is on then clear only once per request
-    if Lux.config(:auto_code_reload) && !Thread.current[:lux][:template_cache]
-      Thread.current[:lux][:template_cache] = true
+    if Lux.config(:auto_code_reload) && !Lux.thread[:template_cache]
+      Lux.thread[:template_cache] = true
       mutex.synchronize { @@template_cache = {} }
     end
 

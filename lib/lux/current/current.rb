@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # we need this for command line
-Thread.current[:lux] ||= { cache: {} }
+Thread.current[:lux] ||= {}
 
 class Lux::Current
   # set to true if user is admin and you want him to be able to clear caches in production
@@ -16,7 +16,7 @@ class Lux::Current
     request = ::Rack::Request.new env
 
     # reset page cache
-    Thread.current[:lux] = { cache:{}, page: self }
+    Thread.current[:lux] = { page: self }
 
     @files_in_use = []
     @response     = Lux::Response.new
@@ -50,15 +50,21 @@ class Lux::Current
   end
 
   # Cache data in current request
-  def cache key
-    data = Thread.current[:lux][:cache][key]
-    return data if data
-    Thread.current[:lux][:cache][key] = yield
+  def cache key, opts = {}
+    if opts[:ttl]
+      # cache globaly if ttl provided
+      Lux.cache.fetch(key, opts) { yield }
+    else
+      data = Thread.current[:lux][:cache] ||= {}
+      data = Thread.current[:lux][:cache][key]
+      return data if data
+      Thread.current[:lux][:cache][key] = yield
+    end
   end
 
-  # Set current.can_clear_cache = true in production for admins
+  # Set Lux.current.can_clear_cache = true in production for admins
   def no_cache?
-    @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache' ? true : false
+    @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache' && can_clear_cache ? true : false
   end
 
   # Execute action once per page

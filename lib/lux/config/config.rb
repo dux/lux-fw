@@ -124,6 +124,9 @@ module Lux::Config
     Lux.config.session_cookie_domain = false
     Lux.config.asset_root            = false
 
+    # Delay
+    Lux.config.delay_timeout = 30
+
     ###
 
     if ENV['LUX_MODE'].to_s.downcase == 'log'

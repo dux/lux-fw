@@ -1,3 +1,4 @@
+# in scope
 # @foo = :bar
 # ivar.foo -> :bar
 # ivar.baz -> ArgumentError

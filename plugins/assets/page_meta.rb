@@ -8,7 +8,7 @@ class PageMeta
   end
 
   def meta name, desc
-    @meta[name.to_s] =desc
+    @meta[name.to_s] = desc.to_s
   end
 
   # preload fonts
@@ -46,10 +46,10 @@ class PageMeta
   end
   alias_method :image=, :image
 
-  def render
+  def render header_id
     ret   = []
 
-    meta 'pjax_template_id', Crypt.sha1(caller[0])[0,10]
+    meta 'pjax_template_id', header_id
 
     ret.push %[<meta name="viewport" content="width=device-width" initial-scale="1.0" maximum-scale="1.0" minimum-scale="1.0" user-scalable="no" />]
 

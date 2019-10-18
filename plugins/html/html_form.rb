@@ -29,16 +29,17 @@ class HtmlForm
   # render full form, accepts block
   def render
     data  = []
-    data.push yield(self)
 
     # add hidden fields (ending with _id) for new objects
     if @object && !@object.id
       for k, v in @object.attributes
         if v.present?
-          data.unshift  hidden(k.to_sym, v)
+          data.push hidden(k.to_sym, v)
         end
       end
     end
+
+    data.push yield(self) if block_given?
 
     data = wrap data.join($/)
 

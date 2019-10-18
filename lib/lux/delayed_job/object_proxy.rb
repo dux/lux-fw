@@ -26,8 +26,14 @@ Lux.delay.define :__object_message do |data|
   unpacked = Base64.urlsafe_decode64 data
   unpacked = Marshal.load unpacked
   object, m, args = *unpacked
-  Lux.log { ' Delayed job object proxy: @%s.%s(*%s)' % [object.class.to_s.tableize.singularize, m, args.to_json] }
+
+  Lux.log do
+    arguments = args.present? ? args.to_json : ''
+    ' Delayed job execute: @%s.%s(%s)'.cyan % [object.class.to_s.tableize.singularize, m, arguments]
+  end
+
   object.send(m, *args)
+
   true
 end
 

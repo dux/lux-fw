@@ -52,7 +52,7 @@ ApplicationHelper.class_eval do
 
   # public asset from manifest
   def asset name, opts={}
-    return asset_tag(name, opts) if name.include?('://')
+    return asset_tag(name, opts) if name.include?('//')
 
     if name[0,1] == '/'
       name += '?%s' % Digest::SHA1.hexdigest(File.read('./public%s' % name))[0,12]

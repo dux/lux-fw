@@ -6,7 +6,7 @@
 class HtmlInput
   attr_accessor :type
 
-  def self.register name, &block
+  def self.as name, &block
     define_method "as_#{name}", &block
   end
 

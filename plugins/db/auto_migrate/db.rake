@@ -5,25 +5,36 @@ def db_backup_file_location args
   "%s/%s.sql" % [folder, name]
 end
 
+db_name = Lux.config(:db_url).split('/').last
+
+###
+
 namespace :db do
   desc 'Reset database (drop, create, auto migrate, seed)'
   task :reset do
-    Rake::Task['db:drop'].invoke
-    Rake::Task['db:create'].invoke
-    Lux.run "rake db:am; rake db:am"
+    invoke  'db:drop'
+    invoke  'db:create'
+    invoke  'db:am'
+    Lux.run 'rake db:am'
+
+    reset_db = 'db/backups/reset.sql'
+    FileUtils.mkdir_p('db/backups')
+
+    Lux.run "pg_dump --no-privileges --no-owner --no-reconnect #{db_name} > '#{reset_db}'"
+    Lux.run "psql #{db_name}_test < #{reset_db}"
   end
 
   desc 'Create database'
   task :create do
-    db_name = Lux.config(:db_url).split('/').last
     Lux.run "createdb #{db_name}"
+    Lux.run "createdb #{db_name}_test"
   end
 
   desc 'Drop database'
   task :drop do
     DB.disconnect
-    db_name = Lux.config(:db_url).split('/').last
     Lux.run "dropdb #{db_name}"
+    Lux.run "dropdb #{db_name}_test"
   end
 
   desc 'Run PSQL console'
@@ -66,10 +77,9 @@ namespace :db do
   desc 'Restore database backup'
   task :restore, [:name] => :env do |_, args|
     sql_file = db_backup_file_location args
-    db_name  = Lux.config(:db_url).split('/').last
 
-    Rake::Task['db:drop'].invoke
-    Rake::Task['db:create'].invoke
+    invoke 'db:drop'
+    invoke 'db:create'
     Lux.run 'psql %s < %s' % [db_name, sql_file]
   end
 end

@@ -66,8 +66,12 @@ module ::Lux
     end
   end
 
+  def thread
+    Thread.current[:lux] ||= {}
+  end
+
   def current
-    Thread.current[:lux][:page] ||= Lux::Current.new('/mock')
+    thread[:page] ||= Lux::Current.new('/mock')
   end
 
   def app &block
@@ -97,7 +101,7 @@ module ::Lux
 
   # load rake tasks + including ones in plugins
   def load_tasks
-    if ARGV.first.end_with?(':')
+    if ARGV.first.to_s.end_with?(':')
       run 'rake -T | grep %s' % ARGV.first
       exit
     end
@@ -175,11 +179,11 @@ module ::Lux
   #   Lux.delay
   def delay *args
     if block_given?
-      lux_env = Thread.current[:lux]
+      lux_env = thread
       t = Thread.new do
         begin
           Thread.current[:lux] = lux_env
-          Timeout::timeout(30) do
+          Timeout::timeout(Lux.config(:delay_timeout)) do
             yield *args
           end
         rescue => e

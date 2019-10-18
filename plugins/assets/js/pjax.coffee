@@ -39,7 +39,11 @@ window.Pjax =
   before_test:    []
   paths_to_skip:  []
 
+  # overload to display custom message
+  error: (message) ->
+    alert message
   # helpers
+
   path: ->
     location.pathname+location.search
   redirect: (href) ->
@@ -154,15 +158,19 @@ window.Pjax =
     pjax_template_id = @template_id()
 
     @request = req = new XMLHttpRequest()
+    req.onerror = (e) ->
+      Pjax.error 'Net error: Server response not received (Pjax)'
     req.open('GET', href)
-    req.send()
     req.setRequestHeader k, v for k,v of headers
+    req.send()
     req.onload = (e) =>
       @fresh = false
 
+      # if not 200, redirect to page to show the error
       if req.status != 200
         @console("Pjax status: #{@request.status}")
-        return
+        location.href = href
+        return false
 
       @_last_path = href
 
@@ -177,13 +185,10 @@ window.Pjax =
         href.splice(0,3)
         href = '/' + href.join('/')
 
-      # log error
-      return @on_error(ret) if req.status != 200 && req.statusText != 'abort'
-
       # console log
       log_data  = "Pjax.load #{href}"
       log_data += if opts.no_history then ' (back trigger)' else ''
-      @console "#{log_data} (app #{req.getResponseHeader('x-lux-speed').replace(' ','')}, real #{((new Date()).getTime() - req_start_time)}ms)"
+      @console "#{log_data} (app #{req.getResponseHeader('x-lux-speed')}, real #{((new Date()).getTime() - req_start_time)}ms)"
 
       # extract data
       title  = @extract(req.responseText, 'title').HTML
@@ -191,6 +196,9 @@ window.Pjax =
       main   = @extract(req.responseText, 'main').HTML || @info("<main> tag not defined in recieved page")
 
       if pjax_template_id != @template_id(header)
+        console.log(pjax_template_id)
+        console.log(@template_id(header))
+
         @console 'Pjax: Template ID missmatch, full load'
         document.head.innerHTML = header
         document.body.innerHTML = @extract(req.responseText, 'body').HTML
@@ -250,17 +258,6 @@ window.Pjax =
     main = $('main')
     @info "%main tag not defined in document" unless main[0]
     main.html body
-
-  # header_checksum: ->
-  #   links = []
-
-  #   for node in document.head.children
-  #     if node.nodeName == 'SCRIPT' && node.getAttribute('src')
-  #       links.push node.getAttribute('src')
-  #     if node.nodeName == 'LINK' && node.getAttribute('href')
-  #       links.push node.getAttribute('href')
-
-  #   console.log(links)
 
 # handle back button gracefully
 window.onpopstate = (event) ->

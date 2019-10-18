@@ -185,13 +185,9 @@ class HtmlInput
     ret += %[ <a target="new" href="http://maps.google.com/maps?q=loc:#{@opts[:value]}" style="display:block; margin-top:7px;">&nbsp;Show on map</a>]
   end
 
-  def as_html_trix
-    %[
-      <div class="hide-for-popup" style="width: 100%;">
-        <textarea id="trix_#{@name}" name="#{@opts[:name]}" style="display: none;">#{@opts[:value]}</textarea>
-        <trix-editor input="trix_#{@name}"></trix-editor>
-      </div>
-    ]
+  def as_html
+    # consider http://prosemirror.net
+    %[<s-pell name="#{@opts[:name]}">#{@opts[:value].to_s.to_html}</s-pell>]
   end
 
   def as_address

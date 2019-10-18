@@ -51,17 +51,6 @@ class Lux::Mailer
     @mail = FreeStruct.new subject: nil, body: nil, to: nil, cc: nil, from: nil
   end
 
-  def deliver
-    m = build_mail_object
-    self.delay.deliver_now
-    # Lux.delay(m) { |mail| mail.deliver! }
-  end
-
-  def deliver_now
-    m = build_mail_object
-    m.deliver!
-  end
-
   def body
     data = @mail.body
 
@@ -79,6 +68,11 @@ class Lux::Mailer
 
   def to
     @mail.to
+  end
+
+  def deliver
+    m = build_mail_object
+    Lux.delay(m) { |mail| mail.deliver! }
   end
 
   private

@@ -284,8 +284,8 @@ module Lux
 
         catch(:done) do
           begin
-            class_callback :before
-            class_callback :routes
+            class_callback :before, nav.path
+            class_callback :routes, nav.path
           rescue => error
             class_callback :on_error, error
             on_error error
@@ -293,7 +293,7 @@ module Lux
         end
 
         catch(:done) do
-          class_callback :after
+          class_callback :after, nav.path
         end
       end
     end

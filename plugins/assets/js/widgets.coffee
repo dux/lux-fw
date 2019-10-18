@@ -83,11 +83,6 @@ Object.assign Widget,
       widget.once()
       delete widget.once
 
-    if widget.css
-      data = if typeof(widget.css) == 'function' then widget.css() else widget.css
-      document.head.innerHTML += """<style id="widget_#{name}_css">#{data}</style>"""
-      delete widget.css
-
     # create custom HTML element
     CustomElement.define "#{@namespace}-#{name}", (node, opts) ->
       Widget.bind(name, node, opts)
@@ -108,6 +103,15 @@ Object.assign Widget,
 
     # define widget instance
     widget = {...widget_opts}
+
+    if widget.css
+      id = "widget_#{widget_name}_css"
+      unless document.getElementById id
+        style = document.createElement 'style'
+        style.setAttribute 'id', id
+        style.innerHTML = widget.css
+        document.head.append style
+
 
     # @h('b', { color: 'red' }, 'red') => <b color="red">red</b>
     widget.h ||= tag if window.tag
