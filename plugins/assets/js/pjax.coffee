@@ -117,6 +117,21 @@ window.Pjax =
     else
       null
 
+  filter: (query_string, query_value) ->
+    qs = []
+    location.search.replace('?', '').split('&').forEach (el) ->
+      [name, value] = el.split '=', 2
+      qs.push name + '=' + (if name == query_string then query_value else value)
+
+    qs = '?' + qs.join('&')
+
+    unless RegExp("[^\\w]#{query_string}=").test(qs)
+      qs += "&#{query_string}=#{query_value}"
+
+    path = location.pathname + qs.replace('?&', '?')
+
+    @load path
+
   # load a new page
   load: (href, opts={}) ->
     @info 'You did not use Pjax.init()' unless @init_ok
