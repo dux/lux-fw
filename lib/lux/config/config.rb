@@ -101,7 +101,7 @@ module Lux::Config
 
     info = []
     info.push '* Config: %s' % opts.join(', ')
-    info.push "* Lux loaded #{mode} mode#{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
+    info.push "* Lux loaded #{mode} mode#{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec and Lux #{Lux.config.plugins.length.pluralize('plugin')}"
 
     @load_info = info.join($/)
     puts @load_info if start
@@ -121,11 +121,13 @@ module Lux::Config
     # Runtime compile js and css assets
     Lux.config.compile_assets = Lux.dev?
 
-    Lux.config.session_cookie_domain = false
-    Lux.config.asset_root            = false
-
     # Delay
     Lux.config.delay_timeout = 30
+
+    # Other
+    Lux.config.session_cookie_domain = false
+    Lux.config.asset_root            = false
+    Lux.config.plugins             ||= []
 
     ###
 
