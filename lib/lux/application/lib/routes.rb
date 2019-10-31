@@ -2,13 +2,6 @@ module Lux
   class Application
     module Routes
 
-      def self.included parent
-        @@namespaces ||= {}
-        def parent.namespace name, &block
-          @@namespaces[name] = block
-        end
-      end
-
       # generate get, get?, post, post? ...
       # get {}
       # get foo: 'main/bar', only: [:show], except: [:index]
@@ -74,12 +67,9 @@ module Lux
         if String === name
           return unless test?(name.to_s)
         else
-          if @@namespaces[name]
-            return unless instance_exec &@@namespaces[name]
-            nav.shift
-          else
-            raise ArgumentError.new('Namespace block :%s is not defined' % name)
-          end
+          to_send = '%s_namespace' % name
+          return unless send to_send
+          nav.shift
         end
 
         yield

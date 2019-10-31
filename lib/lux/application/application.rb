@@ -16,7 +16,7 @@ module Lux
     class_callback :before    # before any page load
     class_callback :routes    # routes resolve
     class_callback :after     # after any page load
-    class_callback :on_error  # after any page load
+    class_callback :on_error  # on routing error
 
     boot do |rack_handler|
       # deafult host is required

@@ -2,50 +2,43 @@
 
 * can capture errors with `on_error` instance method
 * calls `before`, `routes` and `after` class filters on every request
-* routes requests to controllers via `map`, `root` and `call` methods
 
 ### Instance methods
 
-#### root
+* routes requests to controllers via `map`, `root` and `call` methods
+* taget can be 3 object variants, look at the `call` example
+* `map` maps requests to controller actions
+  * `map.about => 'main#about' if get?` -> map '/about' to `MainControler#about` if request is `GET`
+  * `map about: 'main#about'` -> map '/about' to `MainControler#about`
+* `root` will call only for root
+  * `map.about => 'main#about' if get?` -> map '/about' to `MainControler#about` if request is `GET`
+  * `map about: 'main#about'` -> map '/about' to `MainControler#about`
+* `call` calls specific controller action inside call - stops routing parsing
+  * `call 'main/links#index'` - call `Main::LinksController#index`
+  * `call [Main::LinksController, :index]` - call `Main::LinksController#index`
+  * `call -> { [200, {}, ['OK']]}` - return HTTP 200 - OK
 
-executes if nav.root is empty
 
-#### map
+### Class filters
 
-map specific nav root to Controller and calls if root mathes
+There are a few route filtes
+* `config`    # pre boot app config
+* `boot`      # after rack app boot (web only)
+* `info`      # called by "lux config" cli
+* `before`    # before any page load
+* `routes`    # routes resolve
+* `after`     # after any page load
+* `on_error`  # on routing error
 
-for example if path is /blogs
-
-`map blogs: Main::BlogController`
-
-will call instance method call with @path expanded
-
-`Main::BlogController.new.call(*@path)`
-
-more examples
-
-* `map blog: BlogController` will call `BlogController.action(:blog)`
-* `map blog: 'blog#single'` will call `BlogController.action(:single)`
-* `map blog: -> { BlogController.custom(:whatever) }`
-
-### call
-
-Calls specific controller action inside call.
-
-```ruby
-  call 'main/links#index'
-  call [Main::LinksController, :index]
-  call -> { [200, {}, ['OK']]}
-```
 
 ### Router example
 
 For Lux routing you need to know only few things
 
-* taget can be 5 object variants, look at root example
-* "root" method calls object if nav.root is blank?
-* "map" method calls object if nav.first == match
+* `get?`, `post?`, `delete?`, ... will be true of false based HTTP_REQUEST type
 * "namespace" method accepts block that wraps map calls.
+  * `namespace :city do ...` will call `city_namespace` method. it has to return falsey if no match
+  * `namespace 'city' do ...` will check if we are under `/city/*` nav namespace
 
 ```ruby
 Lux.app do
@@ -65,45 +58,37 @@ Lux.app do
 
   ###
 
-  routes do |r|
+  routes do |nav_path_array|
     # we show on root method, that target can be multiple object types, 5 variants
+    # this target is valid target for any of the follwing methods: get, post, map, call, root
     root [RootController, :index] # calls RootController#index
     root 'root#index'             # calls RootController#index
-    root :call_root               # calls "call_root" method in current scope
-    root 'root'                   # calls RootController#index
-    root 'root#foo'               # calls RootController#foo
+    root 'root'                   # calls RootController#call
 
-    # we can route based on the user status
-    root User.current ? 'main/root' : 'guest'
+    root 'main/root'
 
-    # simple route that will call StaticController#about
-    r.about 'static#about'
+    # simple route, only for GET
+    map.about 'static#about' if get?
 
-    # map "/api" to "api_router" method
-    r.api :api_router
-    # or
-    map api: :api_router
-
-    # ignore requests that are not POST
-    post do
-      # map "/foo/dux/baz" route to MainController#foo with params[:bar] == 'dux'
-      map '/foo/:bar/baz'  => 'main#foo'
+    # execute blok if POST
+    post? do
+      # map "/api" to "api_router" method
+      map.api :api_router
+      # or
+      map api: :api_router
     end
 
-    # if method "city" in current scope returns true
+    # map "/foo/dux/baz" route to MainController#foo with params[:bar] == 'dux'
+    map '/foo/:bar/baz'  => 'main#foo'
+
+    # call method "city", if it returns true, proceed
     namespace :city do
       # call MainController#city if request.method == 'GET'
-      map 'main#city' if get?
+      map 'main#city'
     end
 
     # if we match '/foo' route
     namespace 'foo' do
-      # call Main::FooController resorces for '/foo/bar' but only :show and :index
-      r.bar 'main/foo', only:[:show, :index]
-
-      # call Main::BazController resorces for '/foo/baz' but except :show and :index
-      r.baz 'main/baz', except:[:show, :index]
-
       # call MainController#foo with params[:bar] == '...'
       map '/baz/:bar' => 'main#foo'
     end
