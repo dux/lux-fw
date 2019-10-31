@@ -53,6 +53,8 @@ module AssetGenerator
         .join($/)
     end
 
+    raise 'No files found in "%s"' % path if out.blank?
+
     %[/* mask_glob "#{path}" */\n#{out}]
   end
 
@@ -65,6 +67,8 @@ module AssetGenerator
       puts 'Assets compile: %s' % file.green
       parse_template file
     end
+
+    true
   end
 
   # process single template

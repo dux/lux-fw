@@ -1,9 +1,9 @@
 ## Page render flow
 
 ### Example config.ru
-```
+```ruby
 $lux_start_time = Time.now
-require './config/application'
+require_relative 'config/application'
 Lux.serve self
 ```
 

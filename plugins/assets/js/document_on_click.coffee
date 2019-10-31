@@ -5,8 +5,8 @@ $(document).on 'click', (event) ->
   event.stopPropagation()
   # event.preventDefault()
 
-  node = $(event.target)
-  node_nested = node.closest('*[href]')
+  node = $(event.target).closest('*[href], *[click], *[onclick]')
+  return unless node[0]
 
   # scoped confirmatoon box
   conf = node.closest('*[confirm]')
@@ -14,37 +14,34 @@ $(document).on 'click', (event) ->
     return false unless confirm(conf.attr('confirm'))
 
   # nested click or oncllick events
-  test_click = node.closest('*[onclick], *[click]')
-  if test_click[0]
-    if data = test_click.attr('click')
+  if node.attr('onclick') || node.attr('click')
+    if data = node.attr('click')
       func = new Function(data)
-      func.bind(test_click[0])()
+      func.bind(node[0])()
     return
 
   # self or scoped href, as on %tr row element.
-  if node_nested[0]
-    node = node_nested
-    href = node.attr('href')
+  href = node.attr('href')
 
-    if /^#/.test(href)
-      location.hash = href
-      return false
+  if /^#/.test(href)
+    location.hash = href
+    return false
 
-    return if /^(mailto|subl):/.test(href)
-    return if node.prop('target')
-    return if node.hasClass('no-pjax') || node.hasClass('direct')
+  return if /^(mailto|subl):/.test(href)
+  return if node.prop('target')
+  return if node.hasClass('no-pjax') || node.hasClass('direct')
 
-    if js = href.split('javascript:')[1]
-      func = new Function(js)
-      func.bind(node[0])()
-      return false
+  if js = href.split('javascript:')[1]
+    func = new Function(js)
+    func.bind(node[0])()
+    return false
 
-    if event.metaKey || /^\w+:/.test(href)
-      window.open node.attr('href')
-      return false
+  if event.metaKey || /^\w+:/.test(href)
+    window.open node.attr('href')
+    return false
 
-    Pjax.load href, node: node[0]
+  Pjax.load href, node: node[0]
 
-    false
+  false
 
 

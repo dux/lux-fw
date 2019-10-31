@@ -10,7 +10,7 @@ module ::Lux
   CACHE_SERVER ||= Lux::Cache.new
   VERSION      ||= File.read File.expand_path('../../../.version', __FILE__).chomp
   CONFIG       ||= Hashie::Mash.new
-  APP_ROOT     ||= Pathname.new(Dir.pwd).freeze
+  APP_ROOT     ||= Pathname.new(ENV.fetch('APP_ROOT') { Dir.pwd }).freeze
   FW_ROOT      ||= Pathname.new(File.expand_path('../../', File.dirname(__FILE__))).freeze
   EVENTS       ||= {}
   MCACHE       ||= {}

@@ -13,7 +13,8 @@ class Lux::View::Cell
 
   ###
 
-  class_callback :before
+  class_attribute :template_root, './app/cells/%s'
+  class_callback  :before
 
   @@cache = {}
 
@@ -67,8 +68,8 @@ class Lux::View::Cell
     tpl  = 'cell-tpl-%s-%s' % [self.class, name]
 
     tpl = Lux.ram_cache(tpl) do
-      @_template = '%s/%s.haml' % [self.class.source_location(true), name]
-      @_template = @_template.sub(Lux.root.to_s+'/', '')
+      @_template = '%s/%s.haml' % [self.class.template_root, name]
+      @_template = @_template.sub('%s', self.class.to_s.sub('Cell', '').underscore)
 
       Lux.log ' ' + @_template unless Lux.current.files_in_use(@_template)
 

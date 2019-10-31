@@ -36,7 +36,7 @@ class Time
       end_time ||= Time.now
       time_diff = end_time.to_i - start_time.to_i
 
-      in_past = time_diff > 0 ? true : false
+      in_past = time_diff >= 0 ? true : false
       time_diff = time_diff.abs
 
       d_minutes = (time_diff / 60).round rescue 0

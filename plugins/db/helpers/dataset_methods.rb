@@ -125,11 +125,11 @@ Sequel::Model.dataset_module do
   end
 
   def desc
-    reverse :id
+    xorder('%s.id desc' % model.to_s.tableize)
   end
 
   def asc
-    order :id
+    xorder('%s.id asc' % model.to_s.tableize)
   end
 
   def pluck field

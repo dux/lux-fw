@@ -42,7 +42,6 @@ class Lux::Controller
     # before and after should be exected only once
     @lux = FreeStruct.new :executed_filters, :template_sufix, :action, :layout
     @lux.executed_filters = {}
-
     @lux.template_sufix = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
   end
 
@@ -72,6 +71,10 @@ class Lux::Controller
         send method_name, *args
         render
       rescue StandardError => error
+        # if error.message.include?('not found')
+        #   raise error
+        # end
+
         @had_errros = true
         Lux.current.response.status error.code if error.respond_to?(:code)
         Lux::Error.log error

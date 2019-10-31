@@ -2,7 +2,7 @@ class TableBuilder
   DEFINES    ||= {}
   FilterOpts ||= Class.new Struct.new(:qs, :type, :opts, :value, :render)
 
-  attr_reader :filters, :scope
+  attr_reader :filters, :scope, :opts
 
   class << self
     # TableBuilder.define(:admin, ApplicationHelper) do ...
@@ -12,17 +12,17 @@ class TableBuilder
 
       if helper_klass
         # if giver helper class, inject helper method to view
-        helper_klass.define_method('%s_table' % name) do |sql_scope, &block|
-          TableBuilder.call(name, self, sql_scope, &block)
+        helper_klass.define_method('%s_table' % name) do |sql_scope, opts={}, &block|
+          TableBuilder.call(name, self, sql_scope, opts, &block)
         end
       end
     end
 
     # call and render table
-    def call name, helper_scope, sql_scope, &block
+    def call name, helper_scope, sql_scope, opts={}, &block
       raise ArgumentError.new('Table named "%s" not defined' % name) unless DEFINES[name]
 
-      tb = new sql_scope               # create instance
+      tb = new sql_scope, opts         # create instance
       tb.instance_exec &DEFINES[name]  # init
       block.call tb                    # fill
       tb.render_prepare_as
@@ -33,8 +33,9 @@ class TableBuilder
 
   ###
 
-  def initialize scope
+  def initialize scope, opts
     @scope        = scope
+    @opts         = opts
     @cols         = []
     @info         = []
     @as           = {}
@@ -201,7 +202,7 @@ class TableBuilder
             tr_opts.delete :href unless tr_opts[:href]
           end
 
-          allowed = [:id, :class, :href, :style, :width, :align]
+          allowed = [:id, :class, :href, :style, :width, :align, :onclick]
 
           n.tr(tr_opts.slice(*allowed)) do |n|
             for opts in @cols
@@ -234,6 +235,8 @@ class TableBuilder
       if opts.value.present?
         @scope = block.call(scope, opts.value)
       end
+
+      raise 'Table fitler type "%s" not defined' % type unless @filter[type]
 
       opts.render = @helper_scope.instance_exec opts, &@filter[type]
 

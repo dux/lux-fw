@@ -32,50 +32,43 @@ Look at the generated code and play with it.
 ## Lux::Application - main application controller and router
 * can capture errors with `on_error` instance method
 * calls `before`, `routes` and `after` class filters on every request
-* routes requests to controllers via `map`, `root` and `call` methods
 
 ### Instance methods
 
-#### root
+* routes requests to controllers via `map`, `root` and `call` methods
+* taget can be 3 object variants, look at the `call` example
+* `map` maps requests to controller actions
+  * `map.about => 'main#about' if get?` -> map '/about' to `MainControler#about` if request is `GET`
+  * `map about: 'main#about'` -> map '/about' to `MainControler#about`
+* `root` will call only for root
+  * `map.about => 'main#about' if get?` -> map '/about' to `MainControler#about` if request is `GET`
+  * `map about: 'main#about'` -> map '/about' to `MainControler#about`
+* `call` calls specific controller action inside call - stops routing parsing
+  * `call 'main/links#index'` - call `Main::LinksController#index`
+  * `call [Main::LinksController, :index]` - call `Main::LinksController#index`
+  * `call -> { [200, {}, ['OK']]}` - return HTTP 200 - OK
 
-executes if nav.root is empty
 
-#### map
+### Class filters
 
-map specific nav root to Controller and calls if root mathes
+There are a few route filtes
+* `config`    # pre boot app config
+* `boot`      # after rack app boot (web only)
+* `info`      # called by "lux config" cli
+* `before`    # before any page load
+* `routes`    # routes resolve
+* `after`     # after any page load
+* `on_error`  # on routing error
 
-for example if path is /blogs
-
-`map blogs: Main::BlogController`
-
-will call instance method call with @path expanded
-
-`Main::BlogController.new.call(*@path)`
-
-more examples
-
-* `map blog: BlogController` will call `BlogController.action(:blog)`
-* `map blog: 'blog#single'` will call `BlogController.action(:single)`
-* `map blog: -> { BlogController.custom(:whatever) }`
-
-### call
-
-Calls specific controller action inside call.
-
-```ruby
-  call 'main/links#index'
-  call [Main::LinksController, :index]
-  call -> { [200, {}, ['OK']]}
-```
 
 ### Router example
 
 For Lux routing you need to know only few things
 
-* taget can be 5 object variants, look at root example
-* "root" method calls object if nav.root is blank?
-* "map" method calls object if nav.first == match
+* `get?`, `post?`, `delete?`, ... will be true of false based HTTP_REQUEST type
 * "namespace" method accepts block that wraps map calls.
+  * `namespace :city do ...` will call `city_namespace` method. it has to return falsey if no match
+  * `namespace 'city' do ...` will check if we are under `/city/*` nav namespace
 
 ```ruby
 Lux.app do
@@ -95,39 +88,33 @@ Lux.app do
 
   ###
 
-  routes do |r|
+  routes do |nav_path_array|
     # we show on root method, that target can be multiple object types, 5 variants
+    # this target is valid target for any of the follwing methods: get, post, map, call, root
     root [RootController, :index] # calls RootController#index
     root 'root#index'             # calls RootController#index
-    root :call_root               # calls "call_root" method in current scope
     root 'root'                   # calls RootController#call
-    root 'root#foo'               # calls RootController#foo
 
-    # we can route based on the user status
-    root User.current ? 'main/root' : 'guest'
+    root 'main/root'
 
-    # simple route
-    r.about 'static#about'
+    # simple route, only for GET
+    map.about 'static#about' if get?
 
-    # map "/api" to "api_router" method
-    r.api :api_router
-    # or
-    map api: :api_router
-
-    # with MainController
-    # map MainController do
-    map 'main' do
-      map :search      # map "/search" to MainController#search
-      map '/login'     # map "/login" to MainController#login
+    # execute blok if POST
+    post? do
+      # map "/api" to "api_router" method
+      map.api :api_router
+      # or
+      map api: :api_router
     end
 
     # map "/foo/dux/baz" route to MainController#foo with params[:bar] == 'dux'
     map '/foo/:bar/baz'  => 'main#foo'
 
-    # if method "city" in current scope returns true
+    # call method "city", if it returns true, proceed
     namespace :city do
       # call MainController#city if request.method == 'GET'
-      map 'main#city' if get?
+      map 'main#city'
     end
 
     # if we match '/foo' route
@@ -183,100 +170,10 @@ end
 
 ### Lux::Application methods
 
-#### error
-
-Triggers HTTP page error
-```ruby
-error.not_found
-error.not_found 'Doc not fount'
-error(404)
-error(404, 'Doc not fount')
-```
-
-#### test?
-
-Tests current root against the string to get a mach.
-Used by map function
-
-#### root
-
-Matches if there is not root in nav
-Example calls MainController.action(:index) if in root
-```ruby
-root 'main#index'
-```
-
-#### match
-
-standard route match
-match '/:city/people', Main::PeopleController
-
-#### namespace
-
-Matches namespace block in a path
-if returns true value, match is positive and nav is shifted
-if given `Symbol`, it will call the function to do a match
-if given `String`, it will match the string value
-```ruby
-self.namespace :city do
-  @city = City.first slug: nav.root
-  !!@city
-end
-namespace 'dashboard' do
-  map orgs: 'dashboard/orgs'
-end
-```
-
-#### subdomain
-
-Matches given subdomain name
-
-#### map
-
-Main routing object, maps path part to target
-if path part is positively matched with `test?` method, target is called with `call` method
-```ruby
-map api: ApiController
-map api: 'api'
-map [:api, ApiController]
-map 'main/root' do
-map [:login, :signup] => 'main/root'
-map Main::RootController do
-  map :about
-  map '/verified-user'
-end
-```
-
-#### call
-
-Calls target action in a controller, if no action is given, defaults to :call
-```ruby
-call :api_router
-call { 'string' }
-call proc { [400, {}, 'error: ...'] }
-call [200, {}, ['ok']]
-call Main::UsersController
-call Main::UsersController, :index
-call [Main::UsersController, :index]
-call 'main/orgs#show'
-```
-
 #### on_error
 
 Action to do if there is an application error.
 You want to overload this in a production.
-
-#### main
-
-internall call to resolve the routes
-
-#### deliver_static_assets
-
-Deliver static assets if `Lux.config.serve_static_files == true`
-
-#### template
-
-direct template render, bypass controller
 
 ## Lux::Controller - Simplified Rails like view controllers
 Controllers are Lux view models
@@ -324,6 +221,14 @@ class Main::RootController < Lux::Controller
     render json: { data: 'Bar text' }
   end
 
+  def transfer
+    # transfer to :baz
+    action :baz
+
+    # transfer to Main::Foo#bar
+    action 'main/foo#bar'
+  end
+
 end
 ```
 
@@ -364,6 +269,11 @@ shortcut to render javascript
 #### render_resolve
 
 called be render
+
+#### respond_to
+
+respond_to :js do ...
+respond_to do |format| ...
 
 #### filter
 
@@ -486,7 +396,7 @@ Cache data in current request
 
 #### no_cache?
 
-Set current.can_clear_cache = true in production for admins
+Set Lux.current.can_clear_cache = true in production for admins
 
 #### once
 

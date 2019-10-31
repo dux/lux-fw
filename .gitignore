@@ -1,5 +1,6 @@
-.yardoc
+/tmp
+/log
 
+.yardoc
 *.gem
 tmp.rb
-Gemfile.lock
