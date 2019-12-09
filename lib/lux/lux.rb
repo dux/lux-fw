@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require_relative '../common/class_callbacks'
+require 'clean-annotations'
+
 require_relative 'cache/cache'
 
 module ::Lux
