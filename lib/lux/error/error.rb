@@ -190,7 +190,9 @@ class Lux::Error < StandardError
     end
 
     def screen error
-      ap split_backtrace(error)[0..1]
+      data = split_backtrace(error)
+      data[2] = data[2][0,5]
+      ap data
     end
   end
 

@@ -36,8 +36,20 @@ class HtmlInput
 
   def as_date
     @opts[:type]  = 'date'
-    @opts[:value] = @opts[:value].short(true) if @opts[:value].respond_to?(:short)
-    @opts.tag(:input)
+
+    if @opts[:value].respond_to?(:short)
+      @opts[:value]   = @opts[:value].short(true)
+      @opts[:hint]  ||= 'xx'
+    end
+
+    tag.div do |n|
+      n.push @opts.tag(:input)
+
+      if @opts[:hint]
+        n.push ' &nbsp; '
+        n.span(class: 'gray') { Time.ago(@opts[:value]) }
+      end
+    end
   end
 
   def as_datetime

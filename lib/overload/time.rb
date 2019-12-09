@@ -31,7 +31,8 @@ class Time
     end
 
     def ago start_time, end_time=nil
-      start_time = Time.new(start_time.year, start_time.month, start_time.day) if start_time.class == Date
+      start_time = Time.parse(start_time) if start_time.is_a?(String)
+      start_time = Time.new(start_time.year, start_time.month, start_time.day) if start_time.is_a?(Date)
 
       end_time ||= Time.now
       time_diff = end_time.to_i - start_time.to_i

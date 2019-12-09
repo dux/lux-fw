@@ -69,7 +69,11 @@ class Hash
   end
 
   def to_query namespace=nil
-    self.keys.sort.map do |k|
+    keys = self.keys.sort
+
+    return unless keys.first
+
+    '?' + keys.sort.map do |k|
       name = namespace ? "#{namespace}[#{k}]" : k
       "#{name}=#{CGI::escape(self[k].to_s)}"
     end.join('&')

@@ -12,7 +12,7 @@ class TableBuilder
 
       if helper_klass
         # if giver helper class, inject helper method to view
-        helper_klass.define_method('%s_table' % name) do |sql_scope, opts={}, &block|
+        helper_klass.define_method(name) do |sql_scope, opts={}, &block|
           TableBuilder.call(name, self, sql_scope, opts, &block)
         end
       end
@@ -34,6 +34,9 @@ class TableBuilder
   ###
 
   def initialize scope, opts
+    opts[:id] ||= Crypt.sha1(caller.to_s)[0, 4]
+
+    @sort_param   = '%s-sort' % opts[:id]
     @scope        = scope
     @opts         = opts
     @cols         = []
@@ -112,7 +115,7 @@ class TableBuilder
   end
 
   # define a scope as a param to add post query filters and pagination
-  def after &block
+  def before &block
     @scope_filter = block
   end
 
@@ -139,7 +142,7 @@ class TableBuilder
     body   = []
     header = []
 
-    if sort = Lux.current.request.params[:sort]
+    if sort = Lux.current.request.params[@sort_param]
       direction, field = sort.split('-', 2)
       @scope = @scope.order(direction == 'a' ? Sequel.asc(field.to_sym) : Sequel.desc(field.to_sym))
     else
@@ -174,15 +177,15 @@ class TableBuilder
 
             th_opts[:style] = style.join('; ') if style.first
 
-            title   = opts[:title]
-            title ||= opts[:field].to_s.humanize if opts[:field]
+            title  = opts[:title]
+            title = opts[:field].to_s.humanize if title.nil? && opts[:field]
 
             if sort = opts[:sort]
               field     = sort.is_a?(Symbol) ? sort : opts[:field]
-              direction = Lux.current.request.params[:sort].to_s[0, 2] == 'a-' ? 'd-' : 'a-'
+              direction = Lux.current.request.params[@sort_param].to_s[0, 2] == 'a-' ? 'd-' : 'a-'
 
               title = tag.span(class: 'table-sort table-sort-%ssort' % direction) do |n|
-                n.a(href: Url.qs(:sort, direction + field.to_s) ) { title }
+                n.a(href: Url.qs(@sort_param, direction + field.to_s) ) { title }
               end
             end
 

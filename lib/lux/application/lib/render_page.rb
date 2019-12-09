@@ -33,7 +33,7 @@ class Lux::Application::RenderPage
 
   def render &block
     @opts[:request_method] = @opts[:request_method].to_s.upcase
-    @opts[:query_string]   = @opts[:query_string].to_query if @opts[:query_string].is_a?(Hash)
+    @opts[:query_string]   = @opts[:query_string].to_query.to_s.sub('?', '') if @opts[:query_string].is_a?(Hash)
 
     if @path[0, 4] == 'http'
       parsed = URI.parse(path)

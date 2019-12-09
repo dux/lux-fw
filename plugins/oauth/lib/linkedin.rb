@@ -4,24 +4,14 @@
 class LuxOauth::Linkedin < LuxOauth
   def scope
     [
-      'r_basicprofile',
+      # 'r_basicprofile',
+      'r_liteprofile',
       'r_emailaddress'
     ]
   end
 
   def login
     "https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=#{@opts.key}&redirect_uri=#{redirect_url}&state=987654321&scope=#{scope.join('%20')}"
-  end
-
-  def format_response opts
-    {
-      email:       opts['emailAddress'],
-      linkedin:    opts['publicProfileUrl'],
-      description: opts['specialties'],
-      location:    opts['location'],
-      avatar:      opts['pictureUrl'],
-      name:        "#{opts['firstName']} #{opts['lastName']}"
-    }
   end
 
   def callback session_code
@@ -33,9 +23,28 @@ class LuxOauth::Linkedin < LuxOauth
       redirect_uri:  redirect_url
     })
 
-    access_token = JSON.parse(result)['access_token']
-    opts = JSON.parse RestClient::Request.execute(:method=>:get, :url=>'https://api.linkedin.com/v1/people/~:(id,picture-url,first-name,last-name,email-address,public-profile-url,specialties,location)?format=json', :headers => {'Authorization'=>"Bearer #{access_token}"})
+    out = {}
 
-    format_response opts
+    @access_token = JSON.parse(result)['access_token']
+
+    # basic data
+    opts = api_call 'https://api.linkedin.com/v2/me'
+    out[:name] = "#{opts['localizedFirstName']} #{opts['localizedLastName']}"
+
+    # email
+    opts = api_call 'https://api.linkedin.com/v2/clientAwareMemberHandles?q=members&projection=(elements*(primary,type,handle~))'
+    out[:email] = opts['elements'][0]['handle~']['emailAddress']
+
+    # image
+    opts = api_call 'https://api.linkedin.com/v2/me?projection=(id,profilePicture(displayImage~:playableStreams))'
+    out[:avatar] = opts['profilePicture']['displayImage~']['elements'][2]['identifiers'][0]['identifier'] rescue nil
+
+    out
+  end
+
+  private
+
+  def api_call url
+    JSON.parse RestClient::Request.execute(:method=>:get, :url=>url, :headers => {'Authorization'=>"Bearer #{@access_token}"})
   end
 end

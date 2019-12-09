@@ -67,7 +67,7 @@ class Lux::View::Helper
       locals[table_name.singularize.to_sym] = name
       eval "@_#{table_name.singularize} = name"
       name = "#{path}/#{table_name}/_#{table_name.singularize}"
-    else
+    elsif !name.to_s.start_with?('./')
       name = name.to_s
       name = Pathname.new(Lux.current.var.root_template_path).join(name).to_s
       # name = [Lux.current.var.root_template_path, name].join('/') if name =~ /^\w/

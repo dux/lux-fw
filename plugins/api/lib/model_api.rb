@@ -9,7 +9,7 @@ class Sequel::Model
 
       if respond_to?(:created_at)
         diff = (Time.now.to_i - @last.created_at.to_i)
-        return diff < 5
+        return diff < 2
       end
 
       if respond_to?(:name)
@@ -72,7 +72,7 @@ class ModelApi < ApplicationApi
       @object.send("#{k}=", v) if @object.respond_to?("#{k}=")
     end
 
-    error('Object is same as last') if @object.same_as_last?
+    error('Object is same as last or added too soon') if @object.same_as_last?
 
     can? :create, @object
 
@@ -205,7 +205,13 @@ class ModelApi < ApplicationApi
   end
 
   def display_name
-    @object.class.display_name
+    klass = @object.class
+
+    if klass.respond_to?(:display_name)
+      klass.display_name
+    else
+      klass.to_s.humanize
+    end
   end
 
 end

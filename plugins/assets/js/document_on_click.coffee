@@ -18,7 +18,8 @@ $(document).on 'click', (event) ->
     if data = node.attr('click')
       func = new Function(data)
       func.bind(node[0])()
-    return
+
+    return false
 
   # self or scoped href, as on %tr row element.
   href = node.attr('href')

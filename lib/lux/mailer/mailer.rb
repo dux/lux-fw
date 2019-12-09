@@ -10,6 +10,8 @@
 # Mailer.email_login('foo@bar.baz').deliver
 # Mailer.email_login('foo@bar.baz').body
 
+# if you want to cancel mail delivery - mail.to = false
+
 class Lux::Mailer
   class_attribute :template_root, './app/views/mailer'
 
@@ -71,13 +73,16 @@ class Lux::Mailer
   end
 
   def deliver
-    m = build_mail_object
-    Lux.delay(m) { |mail| mail.deliver! }
+    if m = build_mail_object
+      Lux.delay(m) { |mail| mail.deliver! }
+    end
   end
 
   private
 
   def build_mail_object
+    return if @mail.to.class == FalseClass
+
     raise "From in mailer not defined"    unless @mail.from
     raise "To in mailer not defined"      unless @mail.to
     raise "Subject in mailer not defined" unless @mail.subject

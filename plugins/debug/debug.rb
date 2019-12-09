@@ -21,6 +21,8 @@ end
 # HTML helpers
 module ApplicationHelper
   def debug_toggle
+    return if Lux.production?
+
     button =
     if params[:debug] == 'render'
       {

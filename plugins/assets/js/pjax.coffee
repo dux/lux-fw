@@ -189,16 +189,16 @@ window.Pjax =
 
       @_last_path = href
 
-      # this has to happen before body change
-      unless opts.no_history
-        # push new empty data state, just ot change url
-        window.history.pushState({ title: title, data: main}, title, href)
-
       # fix href because of redirects
       if rul = req.responseURL
         href = rul.split('/')
         href.splice(0,3)
         href = '/' + href.join('/')
+
+      # this has to happen before body change
+      unless opts.no_history
+        # push new empty data state, just ot change url
+        window.history.pushState({ title: title, data: main}, title, href)
 
       # console log
       log_data  = "Pjax.load #{href}"

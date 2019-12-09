@@ -119,10 +119,11 @@ class Lux::Controller
       opts[:template] = name
     end
 
-    opts = opts.to_opts :text, :html, :json, :javascript, :cache, :template, :layout, :render_to_string, :data, :status, :ttl, :content_type
+    opts = opts.to_opts :text, :plain, :html, :json, :javascript, :cache, :template, :layout, :render_to_string, :data, :status, :ttl, :content_type
 
     response.status opts.status               if opts.status
     response.content_type = opts.content_type if opts.content_type
+    opts.text             = opts.plain        if opts.plain         # match rails nameing
 
     page =
     if opts.cache

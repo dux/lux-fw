@@ -20,7 +20,8 @@ class HtmlForm
 
     if opts[:action].to_s.start_with?('/api/')
       opts[:onsubmit]   = 'ApiForm.bind(this); return false;'
-      opts['data-done'] = opts.delete(:done) || :refresh
+      opts['data-done'] = opts.delete(:done)
+      opts['data-done'] = :refresh if opts['data-done'].nil?
     end
 
     @opts = opts
@@ -73,7 +74,7 @@ class HtmlForm
     if @object && name.is_a?(Symbol)
       rules = @object.class.typero.rules[name][:meta] || {}
 
-      for k, v in rules.slice(:label, :hint, :as)
+      for k, v in rules
         v = @object.instance_exec &v if v.is_a?(Proc)
         opts[k] = v unless opts.key?(k)
       end

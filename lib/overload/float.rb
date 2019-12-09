@@ -25,4 +25,8 @@ class Float
     out
   end
 
+  def dotted round_to=2
+    main, sufix = sprintf("%.#{round_to}f", self).to_s.split('.').map(&:to_i)
+    [main.dotted, sufix].join(',')
+  end
 end

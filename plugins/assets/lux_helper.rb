@@ -59,7 +59,9 @@ ApplicationHelper.class_eval do
     else
       name =
       if Lux.dev?
-        '/assets/%s?%s' % [name, Digest::SHA1.hexdigest(File.read('./public/assets/%s' % name))[0,12]]
+        # do not require asset file to exist if in cli env (console, testing)
+        hash_data = Lux.cli? ? name : File.read('./public/assets/%s' % name)
+        '/assets/%s?%s' % [name, Digest::SHA1.hexdigest(hash_data)[0,12]]
       else
         @json ||= JSON.load File.read('./public/manifestx.json')
         opts[:integrity] = @json['integrity'][name]

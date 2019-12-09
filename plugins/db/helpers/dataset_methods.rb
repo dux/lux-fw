@@ -139,7 +139,8 @@ Sequel::Model.dataset_module do
   # Job.active.ids(:org_id) -> distinct array of org_id
   # Job.active.ids          -> array of id
   def ids field=:id
-    db[select(field).distinct(field).sql].to_a.map { |it| it[field] }
+    sql = select(field).order(nil).distinct(field).sql
+    db[sql].to_a.map { |it| it[field] }
   end
 end
 

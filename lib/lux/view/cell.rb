@@ -57,7 +57,7 @@ class Lux::View::Cell
 
   def parent &block
     if block_given?
-      @_parent.instance_exec &block
+      @_parent.instance_exec self, &block
     else
       @_parent
     end

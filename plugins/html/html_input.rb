@@ -94,4 +94,7 @@ class HtmlInput
     ret
   end
 
+  def tag
+    HtmlTagBuilder
+  end
 end

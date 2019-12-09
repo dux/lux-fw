@@ -7,6 +7,7 @@ require 'hamlit/block'
 require 'hashie'
 require 'rack'
 require 'sequel'
+require 'pry'
 
 require_relative './overload/object'
 require_relative './loader'

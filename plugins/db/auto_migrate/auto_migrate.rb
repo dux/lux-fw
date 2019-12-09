@@ -294,7 +294,7 @@ class AutoMigrate
     elsif type == :jsonb
       opts[:default] = {}
       @fields[name.to_sym] = [:jsonb, opts]
-    elsif type == :decimal
+    elsif [:decimal, :float].index(type)
       opts[:precision] ||= 8
       opts[:scale] ||= 2
       @fields[name.to_sym] = [:decimal, opts]

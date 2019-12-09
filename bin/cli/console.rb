@@ -8,18 +8,18 @@ class Object
   # show method info
   # show User, :secure_hash
   # show User
-  def show klass, m=nil
-    unless m
-      klass = klass.class unless klass.respond_to?(:new)
-      return klass.instance_methods false
-    end
+  # def show klass, m=nil
+  #   unless m
+  #     klass = klass.class unless klass.respond_to?(:new)
+  #     return klass.instance_methods false
+  #   end
 
-    info = klass.method(m)
-    puts info.source_location.or([]).join(':').yellow
-    puts '-'
-    puts info.source
-    nil
-  end
+  #   info = klass.method(m)
+  #   puts info.source_location.or([]).join(':').yellow
+  #   puts '-'
+  #   puts info.source
+  #   nil
+  # end
 end
 
 ARGV[0] = 'console' if ARGV[0] == 'c'

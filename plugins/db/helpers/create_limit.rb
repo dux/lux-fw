@@ -4,8 +4,8 @@ ApplicationModel.class_eval do
 
   class_attribute :create_limit_data
 
-  def self.create_limit number, in_time
-    create_limit_data [number, in_time.to_i]
+  def self.create_limit number, in_time, desc=nil
+    create_limit_data [number, in_time.to_i, desc]
   end
 
 end
