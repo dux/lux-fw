@@ -22,7 +22,7 @@ end
 
 describe Lux::Api do
   before do
-    Lux.current = nil
+    # Lux.current = nil
   end
 
   it 'renders foo' do

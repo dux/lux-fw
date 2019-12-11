@@ -3,7 +3,7 @@ require 'spec_helper'
 describe Crypt do
   it 'simple string' do
     encrypted = Crypt.encrypt('abc')
-    expect(encrypted.length).to eq(143)
+    expect(encrypted.length).to eq(127)
     decrypted = Crypt.decrypt(encrypted)
     expect(decrypted).to eq('abc')
   end

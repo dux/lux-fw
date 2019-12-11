@@ -67,12 +67,8 @@ module ::Lux
     end
   end
 
-  def thread
-    Thread.current[:lux] ||= {}
-  end
-
   def current
-    thread[:page] ||= Lux::Current.new('/mock')
+    Thread.current[:lux] ||= Lux::Current.new('/mock')
   end
 
   def app &block
@@ -132,7 +128,7 @@ module ::Lux
     @rackup_start = true
 
     # Boot Lux
-    Object.class_callback :boot, Lux::Application, rack_handler
+    Lux::Application.run_callback :boot, rack_handler
     rack_handler.run self
   end
 
@@ -180,7 +176,7 @@ module ::Lux
   #   Lux.delay
   def delay *args
     if block_given?
-      lux_env = thread
+      lux_env = current
       t = Thread.new do
         begin
           Thread.current[:lux] = lux_env

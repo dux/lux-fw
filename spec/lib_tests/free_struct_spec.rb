@@ -15,8 +15,8 @@ describe FreeStruct do
     expect(data.foo).to eq('baz')
     expect(data[:foo]).to eq('baz')
 
-    expect{ data.naat }.to raise_error(NoMethodError)
-    expect{ data[:naat] }.to raise_error(NoMethodError)
+    expect{ data.naat }.to raise_error(ArgumentError)
+    expect{ data[:naat] }.to raise_error(ArgumentError)
   end
 
   it 'should create from hash' do

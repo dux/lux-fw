@@ -10,13 +10,13 @@ module Lux
     include Routes
     include Shared
 
-    class_callback :config    # pre boot app config
-    class_callback :boot      # after rack app boot (web only)
-    class_callback :info      # called by "lux config" cli
-    class_callback :before    # before any page load
-    class_callback :routes    # routes resolve
-    class_callback :after     # after any page load
-    class_callback :on_error  # on routing error
+    define_callback :config    # pre boot app config
+    define_callback :boot      # after rack app boot (web only)
+    define_callback :info      # called by "lux config" cli
+    define_callback :before    # before any page load
+    define_callback :routes    # routes resolve
+    define_callback :after     # after any page load
+    define_callback :on_error  # on routing error
 
     boot do |rack_handler|
       # deafult host is required

@@ -8,20 +8,37 @@ class Lux::Current
   attr_accessor :can_clear_cache
 
   attr_accessor :session, :locale
-  attr_reader   :request, :response, :nav
+  attr_reader   :request, :response, :nav, :var
 
-  def initialize env=nil
+  def initialize env=nil, opts={}
     env   ||= '/mock'
     env     = ::Rack::MockRequest.env_for(env) if env.is_a?(String)
     request = ::Rack::Request.new env
 
-    # reset page cache
-    Thread.current[:lux] = { page: self }
+    # fix params if defined
+    if opts.keys.length > 0
+      opts = opts.to_opts :qs, :query_string, :post, :request_method, :method, :session, :cookies
 
-    @files_in_use = []
-    @response     = Lux::Response.new
-    @request      = request
-    @session      = Lux::Current::Session.new request
+      if opts[:post]
+        opts[:method] = 'POST'
+        opts[:qs]     = opts[:post]
+      end
+
+      opts[:query_string]   ||= opts[:qs]
+      opts[:request_method] ||= opts[:method]
+    end
+
+    # reset page cache
+    Thread.current[:lux] = self
+
+    # overload request method
+    request.env['REQUEST_METHOD'] = opts[:request_method].to_s.upcase if opts[:request_method]
+
+    # set cookies
+    request.cookies = opts[:cookies] if opts[:cookies]
+
+    # merge qs if present
+    request.params.merge! opts[:query_string] if opts[:query_string]
 
     # remove empty paramsters in GET request
     if request.request_method == 'GET'
@@ -30,23 +47,32 @@ class Lux::Current
       end
     end
 
-    # indiferent access
+    # patch parans to support indiferent access 😈
     request.instance_variable_set(:@params, request.params.h_wia) if request.params.keys.length > 0
 
     Lux::Current::EncryptParams.decrypt request.params
     ap request.params if request.post? && Lux.config(:log_to_stdout)
 
-    @nav = Lux::Application::Nav.new request
+    # base vars
+    @files_in_use = []
+    @response     = Lux::Response.new
+    @request      = request
+    @session      = Lux::Current::Session.new request
+    @var          = Hashie::Mash.new
+    @nav          = Lux::Application::Nav.new request
+  end
+
+  def [] name
+    @var[name]
+  end
+
+  def []= name, val
+    @var[name] = val
   end
 
   # Full host with port
   def host
     "#{request.env['rack.url_scheme']}://#{request.host}:#{request.port}".sub(':80','')# rescue 'http://locahost:3000'
-  end
-
-  # Current scope variables hash
-  def var
-    Thread.current[:lux][:var] ||= Hashie::Mash.new
   end
 
   # Cache data in current request
@@ -55,10 +81,10 @@ class Lux::Current
       # cache globaly if ttl provided
       Lux.cache.fetch(key, opts) { yield }
     else
-      data = Thread.current[:lux][:cache] ||= {}
-      data = Thread.current[:lux][:cache][key]
+      data = @var[:cache] ||= {}
+      data = @var[:cache][key]
       return data if data
-      Thread.current[:lux][:cache][key] = yield
+      @var[:cache][key] = yield
     end
   end
 
@@ -109,12 +135,6 @@ class Lux::Current
       @files_in_use.push file
       false
     end
-  end
-
-  def request_body
-    body = @request.body.read
-    return unless body.present?
-    body[0,1] == '{' ? JSON.load(body) : body
   end
 end
 

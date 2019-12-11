@@ -17,7 +17,11 @@ class Lux::Controller
   class_attribute :template_root
 
   # before and after any action filter, ignored in controllers, after is called just before render
-  [:before, :before_action, :after_action, :before_render, :after].each { |filter| class_callback filter }
+  define_callback :before
+  define_callback :before_action
+  define_callback :after_action
+  define_callback :before_render
+  define_callback :after
 
   class << self
     # simple shortcut allows direct call to action, bypasing call
@@ -71,10 +75,6 @@ class Lux::Controller
         send method_name, *args
         render
       rescue StandardError => error
-        # if error.message.include?('not found')
-        #   raise error
-        # end
-
         @had_errros = true
         Lux.current.response.status error.code if error.respond_to?(:code)
         Lux::Error.log error
@@ -269,7 +269,7 @@ class Lux::Controller
     return if @lux.executed_filters[fiter_name]
     @lux.executed_filters[fiter_name] = true
 
-    Object.class_callback fiter_name, self, @lux.action
+    run_callback fiter_name, @lux.action
   end
 
   def on_error error

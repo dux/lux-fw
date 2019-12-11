@@ -12,8 +12,8 @@
 class Lux::Api
   attr_accessor :message, :response
 
-  class_callback :before
-  class_callback :after
+  define_callback :before
+  define_callback :after
 
   class << self
     # public mount method for router
@@ -112,9 +112,9 @@ class Lux::Api
     return if response.errors?
 
     # execte api call and verify params if possible
-    Object.class_callback :before, self
+    run_callback :before
     response.data = send(action) unless response.errors?
-    Object.class_callback :after, self unless response.errors?
+    run_callback :after unless response.errors?
   end
 
   def params

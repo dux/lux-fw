@@ -14,7 +14,8 @@ class Lux::View::Cell
   ###
 
   class_attribute :template_root, './app/cells/%s'
-  class_callback  :before
+
+  define_callback  :before
 
   @@cache = {}
 
@@ -42,7 +43,7 @@ class Lux::View::Cell
   def initialize parent, vars={}
     @_parent = parent
 
-    Object.class_callback :before, self
+    run_callback :before
 
     vars.each { |k,v| instance_variable_set "@#{k}", v}
 
@@ -73,7 +74,7 @@ class Lux::View::Cell
 
       Lux.log ' ' + @_template unless Lux.current.files_in_use(@_template)
 
-      Tilt[:haml].new { File.read(@_template) }
+      Tilt[@_template].new { File.read(@_template) }
     end
 
     data = tpl.render(self)

@@ -15,8 +15,8 @@
 class Lux::Mailer
   class_attribute :template_root, './app/views/mailer'
 
-  class_callback :before
-  class_callback :after
+  define_callback :before
+  define_callback :after
 
   class_attribute :helper
   class_attribute :layout, 'mailer'
@@ -28,9 +28,9 @@ class Lux::Mailer
     def prepare template, *args
       obj = new
       obj.instance_variable_set :@_template, template
-      Object.class_callback :before, obj
+      obj.run_callback :before
       obj.send template, *args
-      Object.class_callback :after, obj
+      obj.run_callback :after
       obj
     end
 

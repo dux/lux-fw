@@ -71,7 +71,7 @@ module Lux::Config
   end
 
   def boot!
-    Object.class_callback :config, Lux::Application
+    Lux::Application.run_callback :config
     Lux.config.lux_config_loaded = true
     start_info $lux_start_time
   end
