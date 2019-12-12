@@ -192,7 +192,7 @@ class Lux::Controller
           'layouts/%s' % namespace
       end
 
-      Lux::View.new(layout, helper, self).render_part { page_part }
+      Lux::View.render(helper, layout) { page_part }
     end
   end
 
@@ -219,7 +219,7 @@ class Lux::Controller
 
     Lux.current.var.root_template_path = template.sub(%r{/[\w]+$}, '')
 
-    Lux::View.render_part(template, helper)
+    Lux::View.render(helper, template)
   end
 
   def halt status, desc=nil

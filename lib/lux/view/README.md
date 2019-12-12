@@ -2,21 +2,14 @@
 
 Template based rendering helpers
 
-### Tempalte render flow
+### Template render flow
 
-* Lux::View.render_with_layout('main/users/show', { :@user=>User.find(1) })
-* Lux::View.render_part('main/users/show', { :@user=>User.find(1) })
-* helper runtime context is prepared by Lux::View::Helper.for('main')
-* templte 'main/users/show' is renderd with options
-* layout template 'main/layout' is renderd and previous render result is injected via yield
-
-
-### Lux::View - Calling templates
-
-* all templates are in app/views folder
-* you can call template with Lux::View.render_with_layout(template, opts={}) or Lux::View.render_part(template, opts={})
-* Lux::View.render_with_layput renders template with layout
-* Lux::View.render_part renders without layout
+* Lux::View.render(context, 'main/users/template')
+* Lux::View.render(context, 'main/users/template', 'views/layouts/main')
+* Lux::View.render(context, 'views/layouts/main') { @template_data }
+* context is self or any other object (Hash)
+  * methods called in templates will be called from context
+  * context = Lux::View::Helper.new self, :main (prepare Rails style helper)
 
 
 ### Inline render

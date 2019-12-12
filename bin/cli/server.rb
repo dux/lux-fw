@@ -8,7 +8,7 @@ end
 LuxCli.class_eval do
   desc :server, 'Start web server'
   method_option :port,  aliases: '-p', default: 3000,  desc: 'Port to run app on', type: :numeric
-  method_option :mode,  aliases: '-m', default: nil,   desc: 'Special mode(log)'
+  method_option :mode,  aliases: '-m', default: nil,   desc: 'Mode: log (production mode with logging)'
   method_option :env,   aliases: '-e', default: 'd',   desc: 'Environemnt, only first chart counts'
   method_option :rerun, aliases: '-r', default: false, desc: 'rerun app on every file chenge', type: :boolean
   def server

@@ -2,20 +2,23 @@ class Lux::View
   @@template_cache = {}
 
   class << self
-    def render_with_layout layout, template, helper={}
-      part_data = new(template, helper).render_part
-      new(layout, helper).render_part { part_data }
-    end
-
-    def render_part template, helper={}
-      new(template, helper).render_part
+    # context is self or any other object
+    # * methods called in templates will be called from context
+    # * context = Lux::View::Helper.new self, :main (prepare Rails style helper)
+    # Lux::View.render(context, template)
+    # Lux::View.render(context, template, layout_file)
+    # Lux::View.render(context, layout) { layout_data }
+    def render context, template, layout=nil, &block
+      if layout
+        part_data = render(context, template)
+        new(layout, context).render { part_data }
+      else
+        new(template, context).render &block
+      end
     end
   end
 
-  def initialize template, context={}, caller_object=nil
-    # we need this to extract caller_object.source_location for DebugPlugin
-    @caller_object = caller_object if caller_object
-
+  def initialize template, context={}
     # template = template.sub(/^\//, '')
     template = './app/views/' + template if template =~ /^\w/
 
@@ -26,45 +29,10 @@ class Lux::View
       context
     end
 
-    mutex = Mutex.new
-
-    # if auto_code_reload is on then clear only once per request
-    if Lux.config(:auto_code_reload) && !Lux.current[:template_cache]
-      Lux.current[:template_cache] = true
-      mutex.synchronize { @@template_cache = {} }
-    end
-
-    if ref = @@template_cache[template]
-      @tilt, @template = *ref
-      return
-    end
-
-    for ext in Tilt.default_mapping.template_map.keys
-      next if @template
-      test = [template, ext].join('.')
-      @template = test if File.exists?(test)
-    end
-
-    unless @template
-      err  = caller.reject{ |l| l =~ %r{(/lux/|/gems/)} }.map{ |l| el=l.to_s.split(Lux.root.to_s); el[1] || l }.join("\n")
-      msg  = %[Lux::View "#{template}.{erb,haml}" not found]
-      msg += %[\n\n#{err}] if Lux.config(:dump_errors)
-
-      raise msg
-    end
-
-    begin
-      mutex.synchronize do
-        # @tilt = Tilt.new(@template, ugly:true, escape_html: false)
-        @tilt = Tilt.new(@template, escape_html: false)
-        @@template_cache[template] = [@tilt, @template]
-      end
-    rescue
-      Lux.error "#{$!.message}\n\nTemplate: #{@template}"
-    end
+    compile_template template
   end
 
-  def render_part
+  def render
     # global thread safe reference pointer to last temaplte rendered
     # we nned this for inline template render
 
@@ -99,6 +67,46 @@ class Lux::View
     end
 
     data
+  end
+
+  private
+
+  def compile_template template
+    pointer =
+    if Lux.config(:auto_code_reload)
+      Lux.current.var[:cached_templates] ||= {}
+    else
+      Lux.var.cached_templates
+    end
+
+    if ref = pointer[template]
+      @tilt, @template = *ref
+      return
+    end
+
+    Tilt.default_mapping.template_map.keys.each do |ext|
+      test = [template, ext].join('.')
+
+      if File.exists?(test)
+        @template = test
+        break
+      end
+    end
+
+    unless @template
+      err  = caller.reject{ |l| l =~ %r{(/lux/|/gems/)} }.map{ |l| el=l.to_s.split(Lux.root.to_s); el[1] || l }.join("\n")
+      msg  = %[Lux::View "#{template}.{erb,haml}" not found]
+      msg += %[\n\n#{err}] if Lux.config(:dump_errors)
+
+      raise msg
+    end
+
+    begin
+      @tilt = Tilt.new(@template, escape_html: false)
+      pointer[template] = [@tilt, @template]
+    rescue
+      Lux.error "#{$!.message}\n\nTemplate: #{@template}"
+    end
   end
 
 end

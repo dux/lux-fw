@@ -58,7 +58,7 @@ class Lux::Mailer
 
     unless data
       helper = Lux::View::Helper.new self, self.class.helper
-      data = Lux::View.render_with_layout "layouts/#{self.class.layout}", "#{self.class.template_root}/mailer/#{@_template}", helper
+      data = Lux::View.render helper, "#{self.class.template_root}/mailer/#{@_template}", "layouts/#{self.class.layout}"
     end
 
     data.gsub(%r{\shref=(['"])/}) { %[ href=#{$1}#{Lux.config.host}/] }

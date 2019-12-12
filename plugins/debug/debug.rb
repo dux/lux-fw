@@ -71,7 +71,7 @@ module Lux::View::DebugPlugin
 
     if Lux.dev?
       files = [@template]
-      files.unshift @caller_object.class.source_location if @caller_object
+      files.unshift @helper._source_object.class.source_location if @helper._source_object
       data = Lux::View.wrap_with_debug_info files, data
     end
 

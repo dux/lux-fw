@@ -3,6 +3,7 @@
 require 'clean-annotations'
 
 require_relative 'cache/cache'
+require_relative '../common/mutex_hash'
 
 module ::Lux
   extend self
@@ -15,6 +16,7 @@ module ::Lux
   FW_ROOT      ||= Pathname.new(File.expand_path('../../', File.dirname(__FILE__))).freeze
   EVENTS       ||= {}
   MCACHE       ||= {}
+  MUTEX_HASH   ||= MutexHash.new
 
   BACKGROUND_THREADS ||= []
   # Kernel.at_exit { BACKGROUND_THREADS.each { |t| t.join } }
@@ -198,6 +200,10 @@ module ::Lux
     else
       Lux::DelayedJob
     end
+  end
+
+  def var
+    MUTEX_HASH
   end
 end
 
