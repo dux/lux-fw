@@ -173,6 +173,8 @@ class ModelApi < ApplicationApi
   def report_errros_if_any obj
     return if obj.errors.count == 0
 
+    ap ['MODEL API ERROR, params ->', @params]
+
     for k, v in obj.errors
       desc = v.join(', ')
 

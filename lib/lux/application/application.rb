@@ -33,10 +33,9 @@ module Lux
       end
     end
 
-    def initialize current
+    def initialize env, opts={}
+      Lux::Current.new env, opts if env
       raise 'Config is not loaded (Lux.boot not called), cant render page' unless Lux.config.lux_config_loaded
-      @_is_type_cache = {}
-      @current = current
     end
 
     def render
@@ -54,7 +53,21 @@ module Lux
         resolve_routes
       end
 
-      response.render
+      @response_render ||= response.render
+    end
+
+    def info
+      out  = @response_render || render
+      body = out[2].join('')
+      body = JSON.parse body if out[1]['content-type'].index('/json')
+
+      {
+        body:    body,
+        time:    out[1]['x-lux-speed'],
+        status:  out[0],
+        session: current.session.hash,
+        headers: out[1]
+      }.h
     end
 
     private

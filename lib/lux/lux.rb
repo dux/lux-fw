@@ -35,8 +35,7 @@ module ::Lux
 
   # main rack response
   def call env=nil
-    current = Lux::Current.new env
-    app     = Lux::Application.new current
+    app = Lux::Application.new env
     app.render
   rescue => error
     if Lux.config(:dump_errors)

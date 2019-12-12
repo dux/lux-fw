@@ -1,8 +1,5 @@
 # frozen_string_literal: true
 
-# we need this for command line
-Thread.current[:lux] ||= {}
-
 class Lux::Current
   # set to true if user is admin and you want him to be able to clear caches in production
   attr_accessor :can_clear_cache
@@ -35,7 +32,7 @@ class Lux::Current
     request.env['REQUEST_METHOD'] = opts[:request_method].to_s.upcase if opts[:request_method]
 
     # set cookies
-    request.cookies = opts[:cookies] if opts[:cookies]
+    request.cookies.merge opts[:cookies] if opts[:cookies]
 
     # merge qs if present
     request.params.merge! opts[:query_string] if opts[:query_string]
@@ -60,6 +57,8 @@ class Lux::Current
     @session      = Lux::Current::Session.new request
     @var          = Hashie::Mash.new
     @nav          = Lux::Application::Nav.new request
+
+    @session.merge! opts[:session] if opts[:session]
   end
 
   def [] name
