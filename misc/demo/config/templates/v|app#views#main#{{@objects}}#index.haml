@@ -1,0 +1,8 @@
+- if @{{@objects}}.blank?
+  .tip
+    No {{@objects}} in list.
+
+- for @{{@object}} in @{{@objects}}
+  = render @{{@object}}
+
+= paginate @{{@objects}}

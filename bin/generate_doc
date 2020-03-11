@@ -1,0 +1,168 @@
+#!/usr/bin/env ruby
+
+require 'pathname'
+require 'awesome_print'
+require 'pry'
+
+require_relative '../lib/overload/dir'
+Dir.require_all './lib/overload/'
+
+class Doc
+  def initialize
+    @d = []
+  end
+
+  def h1 text
+    @d.push '# %s' % text
+    br
+  end
+
+  def h2 text
+    @d.push '## %s' % text
+    br
+  end
+
+  def h3 text
+    @d.push '### %s' % text
+  end
+
+  def h4 text
+    @d.push '#### %s' % text
+    br
+  end
+
+  def push text
+    text = text.join($/) if text.is_a?(Array)
+    @d.push text
+    br
+  end
+
+  def ruby text
+    @d.push "```ruby\n#{text}\n```\n"
+  end
+
+  def li text
+    @d.push '* %s' % text
+  end
+
+  def br
+    @d.push ''
+  end
+
+  def big_br
+    @d.push "\n\n&nbsp;"
+  end
+
+  def p text
+    @d.push "%s\n" % text
+  end
+
+  def name name
+    @d.push %[<a name="#{name}"></a>]
+  end
+
+  def render
+    @d.join($/)
+  end
+
+  def class_add klass, *args
+    h3 klass
+
+    for m in args
+      h4 '%s.%s' % [klass, m]
+      p comment_fix klass.method(m).comment
+    end
+  end
+
+  def instance_add klass, *args
+    h3 klass
+
+    for m in args
+      h4 '@%s.%s' % [klass.to_s.downcase, m]
+      p comment_fix klass.instance_method(m).comment
+    end
+  end
+
+  private
+
+   def comment_fix data
+    data.split($/).map do |line|
+      line.sub '# ', ''
+    end.join("\n\n")
+  end
+end
+
+doc = Doc.new
+
+components = Dir
+  .folders('./lib/lux')
+  .select { |f| File.exist?('lib/lux/%s/README.md' % f) }
+
+doc.push File.read('lib/README.md')
+
+doc.h2 'Components'
+
+doc.push "Automaticly loaded\n\n"
+
+for c in components
+  lines = File.read('lib/lux/%s/README.md' % c).split($/)
+  name = lines.first.sub('## ', '')
+  doc.li "[#{name}](##{c}) &sdot; [&rarr;](./lib/lux/#{c})"
+end
+
+doc.br
+
+plugins = Dir
+  .folders('./plugins')
+  .select { |f| File.exist?('./plugins/%s/README.md' % f) }
+
+doc.br
+
+doc.h3 'Plugins'
+doc.p 'You manualy load this'
+doc.push plugins
+  .map { |el| "* [Lux.plugin :#{el}](./plugins/#{el})" }
+  .join($/)
+
+doc.big_br
+
+for c in components
+  klass  = 'Lux::%s' % c.capitalize
+  readme = Pathname.new 'lib/lux/%s/README.md' % c
+  config = Pathname.new 'lib/lux/%s/lux_config.rb' % c
+
+  next unless readme.exist?
+
+  doc.name c
+  doc.push readme.read
+
+  if config.exist?
+    doc.h4 'Config for %s' % c
+    doc.ruby config.read
+  end
+
+  doc.big_br
+end
+
+doc.h2 'Methods added to base Ruby classes'
+
+doc.class_add Dir, :folders, :files, :all_files, :require_all
+doc.instance_add Array, :to_csv, :last=, :to_sentence, :toggle, :random_by_string, :to_ul
+doc.instance_add Class, :descendants
+doc.instance_add Float, :as_currency
+
+doc.push File.read('./bin/README.md')
+
+out = doc.render
+
+File.write './README.md', out
+
+`rm -rf misc/demo/public/assets`
+`rm -rf misc/demo/node_modules`
+`rm -rf misc/demo/tmp`
+`rm -rf misc/demo/Gemfile.lock`
+`rm -rf misc/demo/package.json`
+
+File.write('misc/demo/Gemfile', "gem 'lux-fw'\n")
+
+puts 'lux-fw Readme, demo build'
