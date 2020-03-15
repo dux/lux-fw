@@ -134,7 +134,7 @@ Lux.plugin 'api'
 class ApplicationApi
   before do
     for key in params.keys
-      next unless key.start_with?('__enc__')
+      next unless key.to_s.start_with?('__enc__')
       key, value  = Crypt.short_decrypt params.delete(key)
       params[key] = value
     end

@@ -11,11 +11,6 @@ require 'clean-hash'
 require 'clean-annotations'
 require 'clean-hash/pollute'
 
-if File.exist?('./.env')
-  require 'dotenv'
-  Dotenv.load
-end
-
 require_relative './overload/object'
 require_relative './loader'
 

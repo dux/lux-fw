@@ -25,7 +25,7 @@ namespace :assets do
       json[:integrity][file] = '%s-%s' % [integrity, `openssl dgst -#{integrity} -binary #{local} | openssl base64 -A`.chomp]
       json[:files][file] = sha1_path
 
-      Lux.run "mv #{local} ./public/assets/#{sha1_path}"
+      Lux.run "cp #{local} ./public/assets/#{sha1_path}"
     end
 
     manifest.write JSON.pretty_generate(json)
