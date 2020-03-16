@@ -72,6 +72,10 @@ module Lux
       # Delay
       Lux.config.delay_timeout = 30
 
+      # Logger
+      Lux.config.loger_files_to_keep = 3
+      Lux.config.loger_file_max_size = 1_024_000
+
       # Other
       Lux.config.session_cookie_domain = false
       Lux.config.asset_root            = false
