@@ -31,7 +31,7 @@ module ::Lux
   # initialize the Lux application
   def boot &block
     # load plugins
-    Lux.config.plugins.each do |name|
+    (Lux.config.plugins || []).each do |name|
       Lux.plugin name
     end
 

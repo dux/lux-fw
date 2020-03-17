@@ -47,8 +47,8 @@ tasks  = []
 tasks += Dir['%s/tasks/*.rake' % Lux.fw_root]
 tasks += Dir['./lib/**/*.rake']
 
-for dir in Lux.config.plugins
-  tasks += Dir['%s/**/*.rake' % Lux.fw_root.join("plugins/#{dir}")]
+for dir in Lux.plugin.folders
+  tasks += Dir['%s/**/*.rake' % dir]
 end
 
 tasks.each { |file| eval File.read file }

@@ -57,14 +57,9 @@ module Lux
 
     # get all folders in a namespace
     def folders namespace=:main
-      name = name.to_sym
-
       list = PLUGIN.values
       list.select { |it| it.namespace.include?(namespace) }
       list.map { |it| it.folder }
-    end
-
-    def folder name
     end
   end
 end

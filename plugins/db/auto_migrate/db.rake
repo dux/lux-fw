@@ -10,18 +10,32 @@ db_name = Lux.config(:db_url).split('/').last
 ###
 
 namespace :db do
-  desc 'Reset database (drop, create, auto migrate, seed)'
+  desc 'Dump/backup database backup'
+  task :dump, [:name] => :env do |_, args|
+    sql_file = db_backup_file_location args
+
+    Lux.run "pg_dump --no-privileges --no-owner --no-reconnect #{Lux.config(:db_url)} > #{sql_file}"
+    system 'ls -lh %s' % sql_file
+  end
+
+  desc 'Restore database backup'
+  task :restore, [:name] => :env do |_, args|
+    sql_file = db_backup_file_location args
+
+    invoke 'db:drop'
+    invoke 'db:create'
+    Lux.run 'psql %s < %s' % [db_name, sql_file]
+  end
+
+  desc 'Reset database from db/seed.sql'
   task :reset do
+    seed = Pathname.new './tmp/db_dump/seed.sql'
+    Lux.die '%s not found' % seed unless seed.exist?
+
     invoke  'db:drop'
     invoke  'db:create'
-    invoke  'db:am'
-    Lux.run 'rake db:am'
-
-    reset_db = 'db/backups/reset.sql'
-    FileUtils.mkdir_p('db/backups')
-
-    Lux.run "pg_dump --no-privileges --no-owner --no-reconnect #{db_name} > '#{reset_db}'"
-    Lux.run "psql #{db_name}_test < #{reset_db}"
+    Lux.run "psql #{db_name} < #{seed}"
+    Lux.run "psql #{db_name}_test < #{seed}"
   end
 
   desc 'Create database'
@@ -68,22 +82,5 @@ namespace :db do
     for klass in Typero.list
       AutoMigrate.typero klass
     end
-  end
-
-  desc 'Dump database backup'
-  task :dump, [:name] => :env do |_, args|
-    sql_file = db_backup_file_location args
-
-    Lux.run "pg_dump --no-privileges --no-owner --no-reconnect #{Lux.config(:db_url)} > #{sql_file}"
-    system 'ls -lh %s' % sql_file
-  end
-
-  desc 'Restore database backup'
-  task :restore, [:name] => :env do |_, args|
-    sql_file = db_backup_file_location args
-
-    invoke 'db:drop'
-    invoke 'db:create'
-    Lux.run 'psql %s < %s' % [db_name, sql_file]
   end
 end
