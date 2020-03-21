@@ -22,7 +22,7 @@ Lux.cache.get_multi(*args)
 Lux.cache.write(key, data, ttl=nil)
 Lux.cache.set(key, data, ttl=nil)
 
-# deelte
+# delete
 Lux.cache.delete(key, data=nil)
 
 # fetch or set

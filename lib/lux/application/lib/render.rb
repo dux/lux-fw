@@ -29,6 +29,11 @@ module Lux
 
         Lux.current.response
       end
+
+      # Lux.render.controller('main/cities#bar') { @city = City.last_updated }.body
+      def template *args
+        Lux::Template.render *args
+      end
     end
   end
 end

@@ -47,6 +47,8 @@ module Lux
     def render
       Lux.log { "\n#{request.request_method.white} #{request.url}" }
 
+      Lux.log { JSON.pretty_generate(request.params.to_h) } if request.post?
+
       if Lux.config(:auto_code_reload)
         Lux.config(:on_code_reload)
       end

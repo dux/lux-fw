@@ -60,8 +60,8 @@ class String
     self.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '?')
   end
 
-  def parse_erb
-    self.gsub(/<%=([^🤬]+)%>/) { eval $1; }
+  def parse_erb scope=nil
+    ERB.new(self.gsub(/\n<%/, '<%')).result(scope ? scope.send(:binding) : binding)
   end
 
   def parameterize

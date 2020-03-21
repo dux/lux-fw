@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 class Hash
-  def tag node=nil, text=nil
-    HtmlTagBuilder.build self, node, text
-  end
-
   def blank?
     self.keys.count == 0
   end

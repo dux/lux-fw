@@ -19,6 +19,9 @@ Gem::Specification.new 'lux-fw' do |gem|
   # added by analogy
   gem.add_dependency 'rack'
 
+  # we need json from gem
+  gem.add_dependency 'json'
+
   # session encryption
   gem.add_dependency 'jwt'
 

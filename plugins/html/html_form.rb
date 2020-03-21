@@ -49,7 +49,7 @@ class HtmlForm
 
   # hidden filed
   def hidden object, value=nil
-    value   = value[:value] if value.is_a?(Hash)
+    value = value[:value] if value.is_a?(Hash)
 
     if object.is_a?(ApplicationModel)
       name = '%s_id' % object.class.to_s.tableize.singularize
@@ -135,6 +135,7 @@ class ApplicationApi
   before do
     for key in params.keys
       next unless key.to_s.start_with?('__enc__')
+      ap [params.class]
       key, value  = Crypt.short_decrypt params.delete(key)
       params[key] = value
     end

@@ -1,6 +1,7 @@
 require 'awesome_print'
 require 'as-duration'
 require 'colorize'
+require 'json'
 require 'jwt'
 require 'hamlit'
 require 'hamlit/block'

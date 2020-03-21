@@ -23,14 +23,23 @@ class Dir
       .sort
   end
 
-  # Gobs files search into child folders.
+  # Find files in child folders.
   # All lists are allways sorted with idempotent function response.
   # Example: get all js and coffee in ./app/assets and remove ./app
-  # `Dir.all_files('./app/assets', ext: [:js, :coffee], root: './app')`
-  def self.all_files dir_path, opts={}
+  # `Dir.find('./app/assets', ext: [:js, :coffee], root: './app')`
+  # shortuct to remove ./app
+  # `Dir.find('./app#assets', ext: [:js, :coffee])`
+  def self.find dir_path, opts={}
     opts[:ext] ||= []
     opts[:ext] = [opts[:ext]] unless opts[:ext].is_a?(Array)
     opts[:ext] = opts[:ext].map(&:to_s)
+
+    parts = dir_path.to_s.split('#')
+
+    if parts[1]
+      opts[:root] = parts[0] + '/'
+      dir_path = dir_path.to_s.sub('#', '/')
+    end
 
     glob = []
     glob.push 'echo'
@@ -54,7 +63,7 @@ class Dir
   # Requires all found ruby files in a folder, deep search into child folders
   # `Dir.require_all('./app')`
   def self.require_all list
-    list = Dir.all_files(list, ext: :rb) unless list.is_a?(Array)
+    list = Dir.find(list, ext: :rb) unless list.is_a?(Array)
     list
       .select{ |o| o.index('.rb') }
       .each { |ruby_file| require ruby_file }

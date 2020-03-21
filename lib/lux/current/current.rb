@@ -49,7 +49,6 @@ module Lux
       request.instance_variable_set(:@params, request.params.to_ch) if request.params.keys.length > 0
 
       Lux::Current::EncryptParams.decrypt request.params
-      ap request.params if request.post? && Lux.config(:log_to_stdout)
 
       # base vars
       @files_in_use = []

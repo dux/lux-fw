@@ -35,6 +35,10 @@ class ModelApi < ApplicationApi
     end
   end
 
+  def object_params
+    @params[@object.class.to_s.underscore] || @params
+  end
+
   # toggles value in postgre array field
   def toggle! object, field, value
     object[field] ||= []
@@ -69,7 +73,7 @@ class ModelApi < ApplicationApi
   def create
     @object = @class_name.constantize.new
 
-    for k, v in @params
+    for k, v in object_params
       v = nil if v.blank?
       @object.send("#{k}=", v) if @object.respond_to?("#{k}=")
     end
@@ -99,8 +103,8 @@ class ModelApi < ApplicationApi
 
     # toggle array or hash field presence
     # toggle__field__value = 0 | 1
-    for k, v in @params
-
+    for k, v in object_params
+      k = k.to_s
       v = v.xuniq if v.is_a?(Array)
 
       if k.starts_with?('toggle__')
@@ -122,6 +126,7 @@ class ModelApi < ApplicationApi
 
       v = nil if v.blank?
       m = "#{k}=".to_sym
+
       @object.send(m, v) if @object.respond_to?(m)
     end
 

@@ -6,7 +6,8 @@ LuxCli.class_eval do
     require './config/application'
 
     if file
-      puts AssetGenerator.parse_template file
+      out = File.read(file).parse_erb
+      puts out
     else
       commmand = "find . -type file | grep --color=never \\.erb$"
       puts commmand.gray
@@ -15,7 +16,14 @@ LuxCli.class_eval do
       Cli.die 'No erb templates found' unless files.first
 
       for file in files
-        AssetGenerator.parse_template file
+        target = file.sub(/\.erb$/, '')
+
+        puts 'Assets compile: %s -> %s' % [file.green, target]
+        out = []
+        out.push "/* Generated from #{file} */"
+        out.push File.read(file).parse_erb
+
+        File.write(target, out.join("\n\n"))
       end
     end
   end

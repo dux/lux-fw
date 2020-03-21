@@ -52,8 +52,8 @@ class Lux::Api
         end
       end
 
-      for k,v in params
-        params[k] = params[k].gsub('<','&lt;').gsub('>','&gt;').gsub(/\A^\s+|\s+\z/,'') if v.kind_of?(String)
+      for k in params.keys
+        params[k] = params[k].gsub('<','&lt;').gsub('>','&gt;').gsub(/\A^\s+|\s+\z/,'') if params[k].kind_of?(String)
       end
 
       begin

@@ -5,43 +5,6 @@ Main application controller and router
 * can capture errors with `rescue_from` class method
 * calls `before`, `routes` and `after` class filters on every request
 
-#### Instance methods
-
-* routes requests to controllers via `map`, `root` and `call` methods
-* taget can be 3 object variants, look at the `call` example
-* `map` maps requests to controller actions
-  * `map.about => 'main#about' if get?` -> map '/about' to `MainControler#about` if request is `GET`
-  * `map about: 'main#about'` -> map '/about' to `MainControler#about`
-* `root` will call only for root
-  * `map.about => 'main#about' if get?` -> map '/about' to `MainControler#about` if request is `GET`
-  * `map about: 'main#about'` -> map '/about' to `MainControler#about`
-* `call` calls specific controller action inside call - stops routing parsing
-  * `call 'main/links#index'` - call `Main::LinksController#index`
-  * `call [Main::LinksController, :index]` - call `Main::LinksController#index`
-  * `call -> { [200, {}, ['OK']]}` - return HTTP 200 - OK
-
-#### Class filters
-
-There are a few route filtes
-* `config`      # pre boot app config
-* `boot`        # after rack app boot (web only)
-* `info`        # called by "lux config" cli
-* `before`      # before any page load
-* `routes`      # routes resolve
-* `after`       # after any page load
-* `rescue_from` # on routing error
-
-
-#### Router example
-
-For Lux routing you need to know only few things
-
-* `get?`, `post?`, `delete?`, ... will be true of false based HTTP_REQUEST type
-  * `get? { @exec_if_true }` works as well
-* `map"`method accepts block that wraps map calls.
-  * `map :city do ...` will call `city_map` method. it has to return falsey if no match
-  * `map 'city' do ...` will check if we are under `/city/*` nav namespace
-
 ```ruby
 Lux.app do
 
@@ -106,3 +69,41 @@ Lux.app do
   end
 end
 ```
+
+#### Instance methods
+
+* routes requests to controllers via `map`, `root` and `call` methods
+* taget can be 3 object variants, look at the `call` example
+* `map` maps requests to controller actions
+  * `map.about => 'main#about' if get?` -> map '/about' to `MainControler#about` if request is `GET`
+  * `map about: 'main#about'` -> map '/about' to `MainControler#about`
+* `root` will call only for root
+  * `map.about => 'main#about' if get?` -> map '/about' to `MainControler#about` if request is `GET`
+  * `map about: 'main#about'` -> map '/about' to `MainControler#about`
+* `call` calls specific controller action inside call - stops routing parsing
+  * `call 'main/links#index'` - call `Main::LinksController#index`
+  * `call [Main::LinksController, :index]` - call `Main::LinksController#index`
+  * `call -> { [200, {}, ['OK']]}` - return HTTP 200 - OK
+
+#### Class filters
+
+There are a few route filtes
+* `config`      # pre boot app config
+* `boot`        # after rack app boot (web only)
+* `info`        # called by "lux config" cli
+* `before`      # before any page load
+* `routes`      # routes resolve
+* `after`       # after any page load
+* `rescue_from` # on routing error
+
+
+#### Router example
+
+For Lux routing you need to know only few things
+
+* `get?`, `post?`, `delete?`, ... will be true of false based HTTP_REQUEST type
+  * `get? { @exec_if_true }` works as well
+* `map"`method accepts block that wraps map calls.
+  * `map :city do ...` will call `city_map` method. it has to return falsey if no match
+  * `map 'city' do ...` will check if we are under `/city/*` nav namespace
+
