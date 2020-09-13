@@ -73,7 +73,7 @@ Scope is any object in which context tmplate will be rendered.
 Tip: If you want to access helper mehods while in controller, just use `helper`.
 
 
-### Render controllers
+### Render controllers - [Lux::Controller](https://github.com/dux/lux-fw/tree/master/lib/lux/controller)
 
 Render controller action without routes, pass a block to yield before action call
 if you need to set up params or instance variables.
@@ -82,4 +82,19 @@ if you need to set up params or instance variables.
 Lux.render.controller('main/cities#foo').body
 Lux.render.controller('main/cities#bar') { @city = City.last_updated }.body
 ```
+
+### Render cells - [Lux::ViewCells](https://github.com/dux/lux-fw/tree/master/lib/lux/view_cell)
+
+Convenience helper is available to render cells, but preffered way is to call cell directly.
+
+```ruby
+# UserCell.new.in_a_box @user
+Lux.render.cell(:user).in_a_box @user
+
+# UserCell.new(self).in_a_box
+Lux.render.cell(:user, self).in_a_box
+
+# UserCell.new(self, user: @user).in_a_box
+Lux.render.cell(:user, user: @user).in_a_box
+````
 

@@ -34,6 +34,14 @@ module Crypt
     Digest::MD5.hexdigest(str.to_s + secret)
   end
 
+  def random length=32
+    chars = 'abcdefghjkmnpqrstuvwxyz0123456789'
+    length
+      .times
+      .inject([]) { |t, _| t.push chars[rand(chars.size)] }
+      .join('')
+  end
+
   def bcrypt plain, check=nil
     if check
       BCrypt::Password.new(check) == [plain, secret].join('')
@@ -45,7 +53,7 @@ module Crypt
   # Crypt.encrypt('secret')
   # Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
   def encrypt data, opts={}
-    opts          = opts.to_ch [:ttl, :password]
+    opts          = opts.to_hwia :ttl, :password
     payload       = { data:data }
     payload[:ttl] = Time.now.to_i + opts.ttl.to_i if opts.ttl
 
@@ -55,7 +63,7 @@ module Crypt
   # Crypt.decrypt('secret')
   # Crypt.decrypt('secret', password:'pa$$w0rd')
   def decrypt token, opts={}
-    opts = opts.to_ch [:password, :ttl]
+    opts = opts.to_hwia :password, :ttl
 
     token_data = JWT.decode token, secret+opts.password.to_s, true, { :algorithm => ALGORITHM }
     data = token_data[0]

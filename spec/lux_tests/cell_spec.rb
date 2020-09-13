@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-class ControllerTestController < Lux::Controller
+class TestController < Lux::Controller
   before do
     @before = 'before'
   end
@@ -53,7 +53,7 @@ describe Lux::Controller do
 
   it 'renders text' do
     catch(:done) do
-      ControllerTestController.action(:render_text)
+      TestController.action(:render_text)
     end
 
     expect(Lux.current.response.body).to eq('foo')
@@ -61,19 +61,19 @@ describe Lux::Controller do
 
   it 'renders json' do
     catch(:done) do
-      ControllerTestController.action(:render_json)
+      TestController.action(:render_json)
     end
 
     expect(Lux.current.response.body).to eq({ foo: 'bar' })
   end
 
   it 'renders fails' do
-    expect{ ControllerTestController.action(:render_fail) }.to raise_error RuntimeError
+    expect{ TestController.action(:render_fail) }.to raise_error NoMethodError
   end
 
   it 'executes before filter' do
     catch(:done) do
-      ControllerTestController.action(:test_before)
+      TestController.action(:test_before)
     end
 
     expect(Lux.current.response.body).to eq('beforebefore_action')
@@ -81,7 +81,7 @@ describe Lux::Controller do
 
   it 'executes before_render filter' do
     catch(:done) do
-      ControllerTestController.action(:test_before)
+      TestController.action(:test_before)
     end
 
     expect(Lux.current.response.body).to eq('beforebefore_action')

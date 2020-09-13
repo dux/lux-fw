@@ -12,4 +12,32 @@ class Integer
   def dotted
     self.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1.').reverse
   end
+
+  def to_filesize
+    out = lambda do
+      {
+        'B'  => 1024,
+        'KB' => 1024 * 1024,
+        'MB' => 1024 * 1024 * 1024,
+        'GB' => 1024 * 1024 * 1024 * 1024,
+        'TB' => 1024 * 1024 * 1024 * 1024 * 1024
+      }.each_pair { |e, s| return "#{(self.to_f / (s / 1024)).round(1)} #{e}" if self < s }
+    end.call
+
+    out
+      .sub('.0 B', ' B')
+      .sub(/\.\d KB/, ' KB')
+  end
+
+  def to_filesize
+    {
+      'B'  => 1024,
+      'KB' => 1024 * 1024,
+      'MB' => 1024 * 1024 * 1024,
+      'GB' => 1024 * 1024 * 1024 * 1024,
+      'TB' => 1024 * 1024 * 1024 * 1024 * 1024
+    }.each_pair do |e, s|
+      return "#{(self.to_f / (s / 1024)).round(['B', 'KB'].include?(e) ? 0 : 1)} #{e}" if self < s
+    end
+  end
 end

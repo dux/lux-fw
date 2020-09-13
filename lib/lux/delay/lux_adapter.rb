@@ -14,11 +14,11 @@ module Lux
       t = Thread.new do
         begin
           Thread.current[:lux] = lux_env
-          Timeout::timeout(Lux.config(:delay_timeout)) do
+          Timeout::timeout(Lux.config.delay_timeout) do
             yield *args
           end
         rescue => e
-          if Lux.config(:log_to_stdout)
+          if Lux.config.log_to_stdout
             ap ['Lux.delay error', e.message, e.backtrace]
           else
             Lux.logger(:delay_errors).error [e.message, e.backtrace]

@@ -1,9 +1,7 @@
+# Main application router
+
 require_relative './lib/shared'
 require_relative './lib/routes'
-
-# frozen_string_literal: true
-
-# Main application router
 
 module Lux
   class Application
@@ -18,10 +16,9 @@ module Lux
     define_callback :routes    # routes resolve
     define_callback :after     # after any page load
 
-    rescue_from :all do |error|
-      out = "Server error (500)\n\n#{error.message} (#{error.class})"
-      out += "\n\n---\n\nDevelopment info\n\n---\nYou need to redefine Lux.app { rescue_from(:all) {} }\n---\n\nBacktrace:\n#{error.backtrace.join($/)}" if Lux.env.dev?
-      response.body = out
+    rescue_from :all do |err|
+      error.screen err
+      call [400, {}, Lux::Error.render(err)]
     end
 
     boot do |rack_handler|
@@ -30,7 +27,7 @@ module Lux
         raise 'Invalid "Lux.config.host"'
       end
 
-      if Lux.config(:dump_errors)
+      if Lux.config.dump_errors
         # require 'binding_of_caller'
         require 'better_errors'
 
@@ -41,26 +38,36 @@ module Lux
 
     def initialize env, opts={}
       Lux::Current.new env, opts if env
-      raise 'Config is not loaded (Lux.boot not called), cant render page' unless Lux.config.lux_config_loaded
+      raise 'Config is not loaded (Lux.boot not called), cant render page' unless Lux.config[:lux_config_loaded]
     end
 
     def render
-      Lux.log { "\n#{request.request_method.white} #{request.url}" }
+      # screen log request header unless is static file
+      unless nav.format
+        if current.no_cache?
+          error.clear_screen
+        else
+          puts $/
+        end
+
+        Lux.log { [request.request_method.white, request.url].join(' ') }
+      end
 
       Lux.log { JSON.pretty_generate(request.params.to_h) } if request.post?
 
-      if Lux.config(:auto_code_reload)
-        Lux.config(:on_code_reload)
+      if Lux.config.auto_code_reload
+        Lux.config.on_code_reload.call
       end
 
       catch :done do
         resolve_rescue_from do
-          if Lux.config(:serve_static_files)
-            Lux::Response::File.deliver_asset(request)
+          if Lux.config.serve_static_files
+            return if Lux::Response::File.deliver_asset(request)
           end
 
           resolve_routes unless response.body?
-          error.not_found unless response.body?
+
+          error.not_found('Document %s not found' % request.path) unless response.body?
         end
       end
 
@@ -78,7 +85,16 @@ module Lux
         status:  out[0],
         session: current.session.hash,
         headers: out[1]
-      }.to_ch
+      }.to_hwia
+    end
+
+    def mount opts
+      target = opts.keys.first
+      value  = opts.values.first
+
+      return unless request.path.starts_with?(value)
+
+      call target.call current.env
     end
   end
 end

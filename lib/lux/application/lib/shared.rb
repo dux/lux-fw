@@ -17,7 +17,13 @@ module Lux
         Lux.current.session
       end
 
-      def params
+      def params opts=nil, &block
+        if block_given?
+          Typero.schema(&block).validate Lux.current.request.params, opts do |field, error|
+            error 'Parameter "%s" error: %s' % [field, error]
+          end
+        end
+
         Lux.current.request.params
       end
 
@@ -39,11 +45,18 @@ module Lux
       # error.not_found 'Doc not fount'
       # error(404)
       # error(404, 'Doc not fount')
+      # error('Doc not fount') # status 400
       # ```
       def error code=nil, message=nil
         if code
-          error = Lux::Error.new code
-          error.message = message if message
+          if code.is_a?(String)
+            error = Lux::Error.new 400
+            error.message = code
+          else
+            error = Lux::Error.new code
+            error.message = message if message
+          end
+
           raise error
         else
           Lux::Error::AutoRaise

@@ -1,12 +1,14 @@
 module Lux
   class ViewCell
-    class Loader
+    # proxy loader class
+    # cell.user.foo -> cell(:user).foo
+    class Proxy
       def initialize parent
         @parent = parent
       end
 
-      def method_missing m, vars={}
-        ViewCell.get(m, @parent, vars)
+      def method_missing cell_name, vars={}
+        ViewCell.get(cell_name, @parent, vars)
       end
     end
 
@@ -19,6 +21,8 @@ module Lux
     @@cache = {}
 
     class << self
+      # load cell based on a name, pass context and optional vars
+      # Lux::ViewCell.get(:user, self) -> UserCell.new(self)
       def get name, parent, vars={}
         w = ('%sCell' % name.to_s.classify).constantize
         w = w.new parent, vars
@@ -30,6 +34,23 @@ module Lux
         list.each do |el|
           define_method(el) { |*args, &block| parent.send(el, *args, &block) }
         end
+      end
+
+      # UserCell.foo :bar -> UserCell.new(nil).foo :bar
+      # note that parent context is nil
+      def method_missing name, *args, &block
+        new(nil).send name, *args, &block
+      end
+
+      def css *args
+        data, path  = args.reverse
+
+        unless path
+          path = caller[0].split('.rb').first.split('/').last
+          path = './app/assets/css/cells/%s.scss' % path
+        end
+
+        r path
       end
     end
 

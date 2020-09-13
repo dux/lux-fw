@@ -67,10 +67,11 @@ class AutoMigrate
     end
 
     def typero klass
-      name = klass.tableize
+      name   = klass.tableize
+      schema = Typero.schema(klass) || raise('Schema "%s" not found' % name)
 
       table name do |f|
-        for args in Typero.new(klass).db_schema
+        for args in schema.db_schema
           f.send *args
         end
       end
@@ -78,7 +79,7 @@ class AutoMigrate
 
     def extension name
       unless DB["SELECT extname FROM pg_extension where extname='#{name}'"].to_a.first
-        DB.execute 'CREATE EXTENSION %s' % name
+        log_run 'CREATE EXTENSION %s' % name
       end
     end
 
@@ -152,7 +153,7 @@ class AutoMigrate
       end
     end
 
-    # loop trough defined fileds in schema
+    # loop trough defined fields in schema
     for field, opts_in in @fields
       type = opts_in[0]
       opts = opts_in[1]
@@ -250,6 +251,10 @@ class AutoMigrate
           if opts[:default].to_s.blank?
             log_run "ALTER TABLE #{@table_name} ALTER COLUMN #{field} drop default"
           else
+            # '2019-12-31 23:00:00'::timestamp without time zone",
+            # 2019-12-31 23:00:00 UTC
+            next if current[:db_type].include?('timestamp') && current[:default].to_s.include?(opts[:default].to_s.split(' ').first)
+
             log_run "ALTER TABLE #{@table_name} ALTER COLUMN #{field} SET DEFAULT '#{opts[:default]}'; update #{@table_name} set #{field}='#{opts[:default]}' where #{field} is null;"
           end
         end
@@ -259,7 +264,6 @@ class AutoMigrate
         end
       end
     end
-
   end
 
   def add_index field
@@ -328,7 +332,7 @@ class AutoMigrate
       t.fix_fields
       t.update
     else
-      puts "Unknown #{type.to_s.red}"
+      puts "Unknown DB filed type: #{type.to_s.red} (in #{@table_name})"
     end
   end
 end

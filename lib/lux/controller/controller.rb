@@ -1,12 +1,9 @@
-# frozen_string_literal: true
-
 # filters stack for call
 # before, before_action, :action, after
 
 module Lux
   class Controller
     include ::Lux::Application::Shared
-    include RescueFromError
 
     # define master layout
     # string is template, symbol is method pointer and lambda is lambda
@@ -24,10 +21,6 @@ module Lux
     define_callback :after_action
     define_callback :before_render
     define_callback :after
-
-    rescue_from :all do |error|
-      render html: Lux.error.new('Server error happend')
-    end
 
     class << self
       # simple shortcut allows direct call to action, bypasing call
@@ -50,7 +43,7 @@ module Lux
 
     def initialize
       # before and after should be exected only once
-      @lux = {}.to_ch [:executed_filters, :template_sufix, :action, :layout, :helper]
+      @lux = {}.to_hwia :executed_filters, :template_sufix, :action, :layout, :helper
       @lux.executed_filters = {}
       @lux.template_sufix = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
     end
@@ -74,39 +67,21 @@ module Lux
 
       @lux.action = method_name.to_sym
 
-      begin
-        # if action not found
-        unless respond_to?(method_name)
-          raise Lux::Error.new 500,
-            'Method "%s" not found found in %s' % [@lux.action, self.class],
-            'You have defined %s' % (methods - Lux::Controller.instance_methods).sort.to_ul
-        end
-
-        catch :done do
-          filter :before
-          filter :before_action
-          send method_name, *args
-          render
-        end
-
-        filter :after
+      # if action not found
+      unless respond_to?(method_name)
+        action_missing method_name
       end
+
+      catch :done do
+        filter :before, @lux.action
+        filter :before_action, @lux.action
+        send method_name, *args
+        render
+      end
+
+      filter :after, @lux.action
 
       throw :done
-    rescue => error
-      Lux.config.error_logger error unless error.is_a?(Lux::Error)
-
-      if Lux.config(:dump_errors)
-        Lux.error.screen error
-
-        catch :done do
-          render html: Lux.error.render(error)
-        end
-      else
-        resolve_rescue_from do
-          raise error
-        end
-      end
     end
 
     private
@@ -120,15 +95,13 @@ module Lux
     # render 'main/root/index'
     # render text: 'ok'
     def render name=nil, opts={}
-      filter :after_action
-      filter :before_render
+      filter :after_action, @lux.action
+      filter :before_render, @lux.action
 
-      if nav.format
-        current.once(:format_handled) do
-          current.var.format_handled = true
-          error.not_found('%s document Not Found' % nav.format.to_s.upcase)
-        end
-      end
+      # respond with not found
+      # * if format provided /foo.png
+      # * and error not triggered
+      error.not_found('%s document Not Found' % nav.format.to_s.upcase) if nav.format && !$!
 
       if name.class == Hash
         opts.merge! name
@@ -136,7 +109,7 @@ module Lux
         opts[:template] = name
       end
 
-      opts = opts.to_ch [:text, :plain, :html, :json, :javascript, :cache, :template, :layout, :render_to_string, :data, :status, :ttl, :content_type]
+      opts = opts.to_hwia :text, :plain, :html, :json, :javascript, :cache, :template, :layout, :render_to_string, :data, :status, :ttl, :content_type
 
       response.status opts.status               if opts.status
       response.content_type = opts.content_type if opts.content_type
@@ -187,7 +160,13 @@ module Lux
       end
 
       # resolve page data, without template
-      page_part = opts.data || render_body(opts)
+      page_part =
+        if opts.data
+          Lux.current.var.root_template_path = './views'
+          opts.data
+        else
+          render_body(opts)
+        end
 
       # resolve data with layout
       layout = opts.layout
@@ -256,17 +235,15 @@ module Lux
     # respond_to :js do ...
     # respond_to do |format| ...
     def respond_to ext=nil
-      current.once(:format_handled) do
-        if ext
-          if ext == nav.format
-            yield if block_given?
-            true
-          elsif nav.format
-            error.not_found '%s document Not Found' % nav.format.to_s.upcase
-          end
-        else
-          yield nav.format
+      if ext
+        if ext == nav.format
+          yield if block_given?
+          true
+        elsif nav.format
+          error.not_found '%s document Not Found' % nav.format.to_s.upcase
         end
+      else
+        yield nav.format
       end
     end
 
@@ -276,7 +253,7 @@ module Lux
       return if @lux.executed_filters[fiter_name]
       @lux.executed_filters[fiter_name] = true
 
-      run_callback fiter_name, @lux.action
+      run_callback fiter_name, arg
     end
 
     def cache *args, &block
@@ -296,6 +273,12 @@ module Lux
       end
 
       object.action action.to_sym, *args
+    end
+
+    def action_missing name
+      raise Lux::Error.new 500,
+        'Method "%s" not found found in "%s" (nav: %s)' % [name, self.class, nav],
+        'You have defined %s' % (methods - Lux::Controller.instance_methods).sort.to_ul
     end
   end
 end

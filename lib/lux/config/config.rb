@@ -36,7 +36,7 @@ module Lux
       ]
 
       opts = production_opts.map do |key, production_value|
-        config_test     = Lux.config(key)
+        config_test     = Lux.config[key]
         config_ok       = production_value == config_test
         production_mode = false unless config_ok
 
@@ -49,7 +49,7 @@ module Lux
 
       info = []
       info.push '* Config: %s' % opts.join(', ')
-      info.push "* Lux loaded #{mode} mode#{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec and Lux #{Lux.config.plugins.length.pluralize('plugin')}"
+      info.push "* Lux loaded #{mode} mode#{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec}"
 
       @load_info = info.join($/)
       puts @load_info if start
@@ -79,8 +79,10 @@ module Lux
       # Other
       Lux.config.session_cookie_domain = false
       Lux.config.asset_root            = false
-      Lux.config.plugins             ||= []
-      Lux.config.error_logger        ||= proc {}
+      Lux.config[:plugins]           ||= []
+      Lux.config[:error_logger]      ||= Proc.new do |error|
+        ap Lux::Error.split_backtrace(error)
+      end
 
       ###
 

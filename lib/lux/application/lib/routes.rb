@@ -180,7 +180,7 @@ module Lux
               end
 
               response.status object[0]
-              response.body object[2]
+              response.body object[2].is_a?(Array) ? object[2].first : object[2]
             else
               object, action = object
             end
@@ -200,10 +200,6 @@ module Lux
         opts   ||= {}
         action ||= resolve_action object
 
-        unless object.instance_methods(false).include?(action.to_sym)
-          error.not_found Lux.env.dev? ? "Action :#{action} not found in #{object} (nav: #{nav})" : nil
-        end
-
         if opts[:only] && !opts[:only].include?(action.to_sym)
           error.not_found Lux.env.dev? ? "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" : nil
         end
@@ -215,7 +211,7 @@ module Lux
         object.action action.to_sym
 
         unless response.body
-          Lux.error 'Lux cell "%s" called via route "%s" but page body is not set' % [object, nav.root]
+          Lux.error 'Lux action "%s" called via route "%s" but page body is not set' % [object, nav.root]
         end
       end
 

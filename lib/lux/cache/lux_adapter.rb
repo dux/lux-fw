@@ -1,6 +1,6 @@
 module Lux
   CACHE_SERVER ||= Lux::Cache.new
-  CACHE        ||= {}.to_ch(:mutex)
+  CACHE        ||= {}.to_hwia
 
   def var
     CACHE

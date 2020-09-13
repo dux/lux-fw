@@ -66,7 +66,7 @@ Lux.app do
 
   describe Lux::Application do
     it 'should get right routes' do
-      expect(Lux.app.new('/').info.body).to      eq 'root'
+      expect(Lux.app.new('/').info.body).to  eq 'root'
       expect(Lux.app.new('/plain').info.body).to eq 'plain'
       expect(Lux.app.new('/@dux').info.body).to  eq 'user'
       expect(Lux.app.new('/~dux').info.body).to  eq 'tilda'

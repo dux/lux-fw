@@ -16,7 +16,7 @@ module Lux
         arg = arg.include?('/') ? { folder: arg } : { name: arg }
       end
 
-      opts           = arg.to_ch [:name, :folder, :namespace]
+      opts           = arg.to_hwia :name, :folder, :namespace
       opts.name    ||= opts.folder.split('/').last
       opts.name      = opts.name.to_s
       opts.folder  ||= Lux.fw_root.join('plugins', opts.name).to_s

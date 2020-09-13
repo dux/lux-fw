@@ -5,7 +5,17 @@ def db_backup_file_location args
   "%s/%s.sql" % [folder, name]
 end
 
-db_name = Lux.config(:db_url).split('/').last
+def run_all_in_folder in_dir
+  in_dir.tap do |dir|
+    if Dir.exist?(dir)
+      Dir.require_all dir
+    else
+      Lux.info 'Dir %s not defined.' % dir
+    end
+  end
+end
+
+db_name = Lux.config.db_url.split('/').last
 
 ###
 
@@ -14,7 +24,7 @@ namespace :db do
   task :dump, [:name] => :env do |_, args|
     sql_file = db_backup_file_location args
 
-    Lux.run "pg_dump --no-privileges --no-owner --no-reconnect #{Lux.config(:db_url)} > #{sql_file}"
+    Lux.run "pg_dump --no-privileges --no-owner --no-reconnect #{Lux.config.db_url} > #{sql_file}"
     system 'ls -lh %s' % sql_file
   end
 
@@ -53,7 +63,7 @@ namespace :db do
 
   desc 'Run PSQL console'
   task :console do
-    system "psql '%s'" % Lux.config(:db_url)
+    system "psql '%s'" % Lux.config.db_url
   end
 
   desc 'Automigrate schema'
@@ -79,8 +89,12 @@ namespace :db do
 
     require './db/schema'
 
-    for klass in Typero.list
+    run_all_in_folder './db/before'
+
+    for klass in Typero.schema(type: :model)
       AutoMigrate.typero klass
     end
+
+    run_all_in_folder './db/after'
   end
 end

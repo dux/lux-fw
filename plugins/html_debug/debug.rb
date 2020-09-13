@@ -1,6 +1,6 @@
 class Lux::Template
   def self.wrap_with_debug_info files, data
-    return data unless Lux.current.request.params[:debug] == 'render'
+    return data unless Lux.current.request.env['QUERY_STRING'].include?('debug=render')
 
     files = [files] unless files.is_a?(Array)
     files = files.compact.map do |file|
@@ -24,7 +24,7 @@ module ApplicationHelper
     return if Lux.env.production?
 
     button =
-    if params[:debug] == 'render'
+    if current.request.env['QUERY_STRING'].include?('debug=render')
       {
         id: 'debug-toggle',
         class: 'direct btn btn-xs btn-primary',
@@ -45,7 +45,7 @@ module ApplicationHelper
   end
 
   def files_in_use
-    return unless Lux.config(:compile_assets)
+    return unless Lux.config.compile_assets
 
     files = Lux.current.files_in_use.map do |file|
       if file[0,1] == '/'

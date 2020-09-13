@@ -34,6 +34,16 @@ module Lux
       def template *args
         Lux::Template.render *args
       end
+
+      # Lux.render.cell(:user, self, { product: @bar }).foo
+      # Lux.render.cell(:user, self).foo
+      # Lux.render.cell(:user, { product: @bar }).foo
+      # Lux.render.cell(:user).foo @arg
+      def cell name, *args
+        opts    = args.last.is_a?(Hash) ? args.pop : {}
+        context = args.shift
+        Lux::ViewCell.get(name, context, opts)
+      end
     end
   end
 end

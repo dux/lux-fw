@@ -107,10 +107,12 @@ class ModelApi < ApplicationApi
       k = k.to_s
       v = v.xuniq if v.is_a?(Array)
 
+      db_type = @object.db_schema.dig(k.to_sym, :db_type)
+
       if k.starts_with?('toggle__')
         field, value = k.split('__').drop(1)
 
-        value = value.to_i if @object.db_schema[field.to_sym][:db_type].include?('int')
+        value = value.to_i if db_type.include?('int')
 
         if @object[field.to_sym].class.to_s.include?('Array')
           # array field
@@ -127,7 +129,11 @@ class ModelApi < ApplicationApi
       v = nil if v.blank?
       m = "#{k}=".to_sym
 
-      @object.send(m, v) if @object.respond_to?(m)
+      if db_type.to_s.include?('json')
+        @object[k.to_sym] = @object[k.to_sym].merge(v)
+      else
+        @object.send(m, v) if @object.respond_to?(m)
+      end
     end
 
     can? :update, @object

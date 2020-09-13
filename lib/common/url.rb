@@ -51,7 +51,7 @@ class Url
   ###
 
   def initialize url
-    @opt = {}.to_ch %i(proto port subdomain domain locale path qs qs_hash)
+    @opt = {}.to_hwia %i(proto port subdomain domain locale path qs qs_hash)
 
     url, qs_part = url.split('?', 2)
 

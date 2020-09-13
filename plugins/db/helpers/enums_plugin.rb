@@ -20,8 +20,8 @@ class Sequel::Model
 
       opts[:default] ||= opts.first if opts[:values].class == Array
 
-      values = opts[:values] || {}.tap { |_| block.call(_) }
-      values = values.inject({}) { |h, (k,v)| h[k.to_s] = v; h }
+      values = opts[:values] || {}.to_hwia.tap { |_| block.call(_) }
+      values = values.inject({}.to_hwia) { |h, (k,v)| h[k.to_s] = v; h }
 
       opts[:method]  ||= name.to_s.singularize
       opts[:default]   = values.keys.first unless opts.key?(:default)
@@ -29,8 +29,8 @@ class Sequel::Model
 
       unless opts[:field].class == FalseClass
         unless opts[:field]
-          opts[:field] = opts[:method] + '_id'
-          opts[:field] = opts[:method] + '_sid' unless db_schema[opts[:field].to_sym]
+          opts[:field] = opts[:method].to_s + '_id'
+          opts[:field] = opts[:method].to_s + '_sid' unless db_schema[opts[:field].to_sym]
         end
 
         raise NameError.new('Field %s or %s not found for enums %s' % [opts[:field].sub('_sid', '_id'), opts[:field], name]) unless db_schema[opts[:field].to_sym]

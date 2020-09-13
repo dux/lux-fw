@@ -18,6 +18,7 @@ Sequel::Model.dataset_module do
   end
 
   def xwhere hash_or_string, *args
+    return self if hash_or_string.nil?
     return where(Sequel.lit("coalesce(%s,'')!=''" % hash_or_string)) if hash_or_string.is_a?(Symbol)
     return where(Sequel.lit(hash_or_string, *args))                  if hash_or_string.is_a?(String)
 
@@ -53,7 +54,6 @@ Sequel::Model.dataset_module do
         end
       end
     end
-
     q = hash_or_string.select{ |k,v| v.present? && v != 0 }
     q.keys.blank? ? self : where(q)
   end
@@ -93,9 +93,12 @@ Sequel::Model.dataset_module do
     self
   end
 
-  def last_updated
+  # Card.last_updated
+  # Card.last_updated epic_ids: @epic.id
+  def last_updated rules=nil
     field = model.db_schema[:updated_at] ? :updated_at : :id
-    order(Sequel.desc(field)).first
+    base = rules ? xwhere(rules) : self
+    base.order(Sequel.desc(field)).first
   end
 
   def for obj

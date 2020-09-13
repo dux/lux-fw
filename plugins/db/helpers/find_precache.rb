@@ -14,8 +14,10 @@ end
 
 class Sequel::Model
   module InstanceMethods
-    def cache_id
-      "#{self.class}/#{id}"
+    def cache_id full=false
+      keys = [self.class, id]
+      keys.push self[:updated_at].to_i if full
+      keys.join('/')
     end
   end
 

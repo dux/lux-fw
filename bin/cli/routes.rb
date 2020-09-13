@@ -40,7 +40,7 @@ LuxCli.class_eval do
     # overload route methods to print routes
     ::Lux::Application.class_eval do
       def error *args
-        {}.to_ch
+        {}.to_hwia
       end
 
       def call what

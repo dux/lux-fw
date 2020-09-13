@@ -11,7 +11,7 @@ end
 require 'thor'
 require 'colorize'
 require 'optparse'
-require 'awesome_print'
+require 'amazing_print'
 require 'dotenv'
 require 'whirly'
 require_relative '../lib/overload/thread'
@@ -46,7 +46,7 @@ end
 
 require 'pry'
 
-AwesomePrint.pry!
+AmazingPrint.pry!
 # nice object dump in console
 Pry.config.print = Proc.new do |output, data|
   puts data.class.to_s.gray

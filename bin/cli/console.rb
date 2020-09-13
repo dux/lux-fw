@@ -5,8 +5,15 @@ class Object
     'copied'
   end
 
+  # reload code changes
   def reload!
     Lux.config.on_code_reload.call
+  end
+
+  # prettify last sql command
+  def sql! sql=nil
+    require 'niceql'
+    puts Niceql::Prettifier.prettify_sql sql || $last_sql_command
   end
 
   # show method info
@@ -30,10 +37,10 @@ ARGV[0] = 'console' if ARGV[0] == 'c'
 
 LuxCli.class_eval do
   desc :console, 'Start console'
-  def console
+  def console *args
     $lux_start_time = Time.now
 
-    require 'awesome_print'
+    require 'amazing_print'
     require './config/application'
 
     Lux.config.dump_errors   = true
@@ -49,6 +56,21 @@ LuxCli.class_eval do
     # create mock session
     Lux::Current.new '/'
 
-    Pry.start
+    if args.first
+      command = args.join(' ')
+
+      if command.ends_with?('.rb')
+        puts 'Load : %s' % command.light_blue
+        load command
+      else
+        puts 'Command : %s' % command.light_blue
+        data = eval command
+        puts '-'
+        ap [:method_source_location, data.source_location] if data.is_a?(Method)
+        Pry.config.print.call $stdout, data
+      end
+    else
+      Pry.start
+    end
   end
 end

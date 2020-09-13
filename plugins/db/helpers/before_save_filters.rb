@@ -1,6 +1,6 @@
 module Sequel::Plugins::LuxBeforeSave
   module InstanceMethods
-    def before_save
+    def validate
       return unless defined?(User)
 
       # timestamps
@@ -25,7 +25,6 @@ module Sequel::Plugins::LuxBeforeSave
 
     def before_destroy
       Lux.cache.delete(cache_key)
-
       super
     end
   end

@@ -37,6 +37,6 @@ class LuxOauth
   end
 
   def host
-    Lux.config(:host)
+    Lux.config.host
   end
 end

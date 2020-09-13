@@ -8,6 +8,8 @@ $(document).on 'click', (event) ->
   node = $(event.target).closest('*[href], *[click], *[onclick]')
   return unless node[0]
 
+  return if node[0].nodeName == 'INPUT'
+
   # scoped confirmatoon box
   conf = node.closest('*[confirm]')
   if conf[0]

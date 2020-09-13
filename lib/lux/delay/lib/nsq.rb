@@ -15,9 +15,9 @@ module Lux
     module Nsq
       extend self
 
-      TOPIC          ||= Lux.config.que_topic    || 'webapp'
-      PRODUCER_SERVE ||= Lux.config.nsq_producer || '127.0.0.1:4150'
-      CONSUMER_SERVE ||= Lux.config.nsq_consumer || '127.0.0.1:4161'
+      TOPIC          ||= Lux.config[:que_topic]    || 'webapp'
+      PRODUCER_SERVE ||= Lux.config[:nsq_producer] || '127.0.0.1:4150'
+      CONSUMER_SERVE ||= Lux.config[:nsq_consumer] || '127.0.0.1:4161'
 
       def producer
         @producer ||= ::Nsq::Producer.new nsqd: PRODUCER_SERVE, topic: TOPIC

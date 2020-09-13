@@ -54,12 +54,12 @@ module Lux
       key = generate_key key
 
       opts = { ttl: opts } unless opts.is_a?(Hash)
-      opts = opts.to_ch [:ttl, :force, :log, :if]
+      opts = opts.to_hwia :ttl, :force, :log, :if
 
       return yield if opts.if.is_a?(FalseClass)
 
       opts.ttl     = opts.ttl.to_i if opts.ttl
-      opts.log   ||= Lux.config(:log_to_stdout)  unless opts.log.class   == FalseClass
+      opts.log   ||= Lux.config.log_to_stdout    unless opts.log.class   == FalseClass
       opts.force ||= Lux.current.try(:no_cache?) unless opts.force.class == FalseClass
 
       @server.delete key if opts.force

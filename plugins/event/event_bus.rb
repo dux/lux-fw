@@ -9,11 +9,11 @@ module Lux
 
     EVENTS = {}
 
-    def on name, key=nil, &proc
+    def on name, key=nil, &block
       key ||= caller[0].split(':in ').first.gsub(/[^\w]/,'')
 
-      EVENTS[name] ||= {}
-      EVENTS[name][key] ||= proc
+      EVENTS[name]      ||= {}
+      EVENTS[name][key] ||= block
     end
 
     def call name, opts=nil

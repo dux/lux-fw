@@ -47,7 +47,7 @@ module Lux
 
       if m = METHODS[func]
         Thread.new do
-          Timeout::timeout(Lux.config(:delay_timeout)) do
+          Timeout::timeout(Lux.config.delay_timeout) do
             begin
               msg = msg.h if msg.is_a?(Hash)
               m.call msg

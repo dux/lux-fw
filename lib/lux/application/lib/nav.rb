@@ -84,9 +84,10 @@ module Lux
       private
 
       def set_variables
-        # convert /foo/bar:baz to /foo/bar?namespace=baz
-        if @path.last && @path.last.include?(':')
-          @path.last, Lux.current.request.params[:namespace] = @path.last.split(':', )
+        # convert /foo/bar:baz to /foo?bar=baz
+        while @path.last&.include?(':')
+          key, val = @path.pop.split(':')
+          Lux.current.request.params[key.to_sym] ||= val
         end
       end
 

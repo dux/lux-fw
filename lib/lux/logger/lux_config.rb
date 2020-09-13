@@ -12,7 +12,7 @@ end
 
 # Log to scren in development, ignore in production
 Lux.config.logger_stdout do |what|
-  if Lux.env.dev?
+  if Lux.config.log_to_stdout
     out = what.is_a?(Proc) ? what.call : what
     puts out
   end

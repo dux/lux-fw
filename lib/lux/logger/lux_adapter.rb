@@ -5,7 +5,7 @@ module Lux
     output_location = Lux.config.logger_output_location.call(name)
 
     CACHE['lux-logger-%s' % name] ||=
-    Logger.new(output_location,  Lux.config.loger_files_to_keep, Lux.config.loger_file_max_size).tap do |it|
+    Logger.new(output_location,  Lux.config[:loger_files_to_keep], Lux.config[:loger_file_max_size]).tap do |it|
       it.formatter = Lux.config.logger_formater
     end
   end

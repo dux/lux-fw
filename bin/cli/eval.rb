@@ -3,27 +3,10 @@ ARGV[0] = 'eval' if ARGV[0] == 'e'
 LuxCli.class_eval do
   desc :evaluate, 'Eval ruby string in context of Lux::Application'
   def evaluate *args
+    require 'amazing_print'
     require './config/application'
 
-    # Lux.start
-
-    if File.exist?('./config/console.rb')
-      puts '* loading ./config/console.rb'
-      load './config/console.rb'
-    end
-
-    command = ARGV.drop(1).join(' ')
-
-    if command.ends_with?('.rb')
-      puts 'Load : %s' % command.light_blue
-      load command
-    else
-      puts 'Command : %s' % command.light_blue
-      data = eval command
-      puts '-'
-      Pry.config.print.call $stdout, data
-    end
-
-    exit
+    Lux.info 'Warning: Use lux c *args'
+    console *args
   end
 end

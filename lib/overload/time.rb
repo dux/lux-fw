@@ -1,15 +1,30 @@
 module TimeOptions
   def short use_default=false
     # lang = Lux.current.request.env['HTTP_ACCEPT_LANGUAGE'] rescue 'en'
-    default = '%Y-%m-%d'
-    fmt     = Lux.current.var.date_format.or(Lux.config.date_format || default)
-    fmt     = default if use_default
+    default_format = '%Y-%m-%d'
+    date_format    = Lux.current.var[:date_format].or(Lux.config[:date_format] || default_format)
+    date_format    = default_format if use_default
+    date_format    = date_format.sub('yyyy', '%Y').sub('mm', '%m').sub('dd', '%d')
 
-    strftime fmt.sub('yyyy', '%Y').sub('mm', '%m').sub('dd', '%d')
+    current.strftime date_format
   end
 
   def long use_default=false
-    strftime("#{short(use_default)} %H:%M")
+    current.strftime("#{short(use_default)} %H:%M")
+  end
+
+  def current
+    if respond_to?(:utc) && time_zone = Lux.current.var[:time_zone]
+      begin
+        tz = TZInfo::Timezone.get(time_zone)
+        tz.utc_to_local utc
+      rescue TZInfo::InvalidTimezoneIdentifier => e
+        Lux.logger(:time_zone).error '%s (%s)' % [e.message, time_zone]
+        self
+      end
+    else
+      self
+    end
   end
 end
 
@@ -33,6 +48,7 @@ class Time
 
     # How long ago?
     def ago start_time, end_time=nil
+      start_time = Time.parse start_time.to_s if [String, Date].include?(start_time.class)
       TimeDifference.new(start_time, end_time).humanize
     end
 
@@ -63,5 +79,9 @@ end
 
 class Date
   include TimeOptions
+
+  def to_i
+    Time.parse(to_s).to_i
+  end
 end
 

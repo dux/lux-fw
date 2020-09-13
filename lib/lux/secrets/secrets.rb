@@ -10,7 +10,7 @@ module Lux
       @tmp_file    = Pathname.new './tmp/secrets.yaml'
       @secret_file = Pathname.new './config/secrets.enc'
       @common_file = Pathname.new './config/secrets.yaml'
-      @secret      = Lux.config.secret_key_base || Lux.config.secret || ENV['SECRET'] || die('ENV SECRET not found')
+      @secret      = Lux.config[:secret_key_base] || Lux.config[:secret] || ENV['SECRET'] || die('ENV SECRET not found')
       @strength    = 'HS512'
     end
 
@@ -70,7 +70,7 @@ module Lux
     end
 
     def load
-      to_h.to_ch :strict
+      to_h.to_hwia
     end
   end
 end

@@ -119,9 +119,20 @@ module Lux
         end
 
         code = error.respond_to?(:code) ? error.code : 500
+
         Lux.current.response.status code
 
-        lines = split_backtrace(error)
+        description = error.respond_to?(:description) ? error.description : ''
+
+        unless description.include?(':in `')
+          lines     = split_backtrace(error)
+          backtrace = %[
+            <h4>Backtrace</h4>
+            <code style="font-size: 14px; position: relative; left: -10px; line-height: 18px;">
+              #{lines[1].to_ul}
+              #{lines[2].to_ul}
+            </code>]
+        end
 
         %{<html>
             <head>
@@ -132,11 +143,9 @@ module Lux
               <img src="https://i.imgur.com/Zy7DLXU.png" style="width: 100px; position: absolute; margin-left: -120px;" />
               <h4>HTPP Error &mdash; <a href="https://httpstatuses.com/#{code}" target="http_error">#{code}</a></h4>
               <h3>#{error.class}</h3>
-              <h3>#{error.message}</h3>
-              #{error.respond_to?(:description) ? error.description : ''}
-              <h4>Backtrace</h4>
-              #{lines[1].to_ul}
-              #{lines[2].to_ul}
+              <h3>#{error.message.html_escape}</h3>
+              #{description}
+              #{backtrace}
             </body>
           </html>}
       end
@@ -145,7 +154,7 @@ module Lux
       def inline name, error=nil
         error ||= $!
 
-        unless Lux.config(:dump_errors)
+        unless Lux.config.dump_errors
           key = log error
           render "Lux inline error: %s\n\nkey: %s" % [error.message, key]
         end
@@ -164,10 +173,13 @@ module Lux
           <b style="font-size:110%;">#{name}</b>
           <xmp style="font-family:'Lucida Console'; line-height:15pt; font-size:12pt; font-weight: bold; margin-bottom: -5px;">#{dmp[0][0]}: #{dmp[0][1]}</xmp>
           #{dmp[1].join("\n")}
-
           #{dmp[2].join("\n")}
           </pre>
         TEXT
+      end
+
+      def clear_screen
+        print "\e[H\e[2J\e[3J" # clear osx screen :)
       end
 
       def report code, msg=nil
@@ -213,10 +225,11 @@ module Lux
       self.name = CODE_LIST[code_num][:name]
       self.description = description
 
-      if Lux.config(:dump_errors) && !self.description
+      if Lux.config.dump_errors && !self.description
         parts = self.class.split_backtrace(self)
         self.description = %[
           <hr />
+          <style>pre { font-size: 14px; }</style>
           <h4>Lux.config.dump_errors = true</h4>
           <pre>Lux.current.nav.path: <b>#{Lux.current.nav.path.join(' / ')}</b></pre>
           <pre>#{parts[1].join("\n")}</pre>

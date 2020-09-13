@@ -1,3 +1,6 @@
+# React to do
+# ReactDOM.render(React.createElement(SomeReactComponent, { foo: 'bar' }), dom_node);
+
 # get all <s-filter ...> components and run close() on them
 # window.Svelte('filter', function(){ this.close() })
 #
@@ -33,41 +36,29 @@ window.Svelte = (name, func) ->
 Object.assign Svelte,
   cnt: 0
 
-  nodesAsList: (root) ->
-    list = []
-
-    root.childNodes.forEach (node, i) ->
-      if node.attributes
-        o = {}
-        o.HTML = node.innerHTML
-        o.ID = i + 1
-
-        for a in node.attributes
-          o[a.name] = a.value
-
-        list.push o
-
-    list
-
   # bind custom node to class
-  bind:(name, klass) ->
+  bind:(name, svelte_klass) ->
     CustomElement.define name, (node, opts) ->
-      if node.innerHTML
-        opts.svelte_node = node.cloneNode(true)
-        node.innerHTML   = ''
+      in_opts = {
+        props: {
+          ...opts,
+          node: node,
+          html: node.innerHTML
+        }
+      }
 
-      element = new klass({ target: node, props: opts })
+      node.innerHTML = ''
+
+      element = new svelte_klass({ target: node, props: in_opts })
       node.svelte = element
 
-      # define singleton
-      # export function singleton() { return 'Dialog' }
-      if element.singleton
-        window[element.singleton()] = element
+      if element.windowGlobal
+        window[element.windowGlobal] = element
 
 # create DOM custom element or polyfil for older browsers
 window.CustomElement =
-  data: {}
-  dom_loaded: false
+  registred: {}
+  un_registred: {}
 
   attributes: (node) ->
     Array.prototype.slice
@@ -79,32 +70,25 @@ window.CustomElement =
 
   # define custom element
   define: (name, func) ->
-    if window.customElements && !window.customElements.get(name)
+    @registred[name] = func
+
+    if window.customElements
       customElements.define name, class extends HTMLElement
         connectedCallback: ->
-          if CustomElement.dom_loaded
+          window.requestAnimationFrame =>
             func @, CustomElement.attributes(@)
-          else
-            # we need to delay bind if DOM is not loaded
-            window.requestAnimationFrame =>
-              func @, CustomElement.attributes(@)
-
     else
-      @data[name] = func
+      @un_registred[name] = func
 
 
-# pollyfill for old browsers
+# pollyfill for old browsers (this should never trigger)
 unless window.customElements
   setInterval =>
-    for name, func of CustomElement.data
+    for name, func of CustomElement.un_registred
       for node in Array.from(document.querySelectorAll("#{name}:not(.mounted)"))
         node.classList.add('mounted')
         func node, CustomElement.attributes(node)
-  , 100
-
-# when document is loaded we can render nodes without animation frame
-document.addEventListener "DOMContentLoaded", ->
-  CustomElement.dom_loaded = true
+  , 300
 
 # # bind react elements
 # bind_react: (name, klass) ->

@@ -8,7 +8,13 @@ module Lux
           ext = request.path.split('.').last
           return unless ext.length > 1 && ext.length < 5
           file = new request.path.sub('/', ''), inline: true
-          file.send if file.is_static_file?
+
+          if file.is_static_file?
+            file.send
+            true
+          else
+            false
+          end
         end
       end
 
@@ -48,7 +54,7 @@ module Lux
       # :disposition   - inline or attachment
       # :content       - raw file data
       def initialize file, in_opts={}
-        opts = in_opts.to_ch [:name, :cache, :content_type, :inline, :disposition, :content]
+        opts = in_opts.to_hwia :name, :cache, :content_type, :inline, :disposition, :content
         opts.disposition ||= opts.inline.class == TrueClass ? 'inline' : 'attachment'
         opts.cache         = true if opts.cache.nil?
 

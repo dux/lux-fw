@@ -6,10 +6,11 @@
 class Lux::Current::Session
   def initialize request
     # how long will session last if BROWSER or IP change
-    Lux.config.session_forced_validity ||= 10.minutes.to_i
+    Lux.config[:session_forced_validity] ||= 10.minutes.to_i
+    Lux.config[:session_cookie_max_age]  ||= 1.week.to_i
 
     # name of the session cookie
-    @cookie_name = Lux.config.session_cookie_name ||= 'lux_' + Crypt.sha1(Lux.config.secret)[0,4].downcase
+    @cookie_name = Lux.config[:session_cookie_name] ||= 'lux_' + Crypt.sha1(Lux.config.secret)[0,4].downcase
     @request     = request
     @session     = JSON.parse(Crypt.decrypt(request.cookies[@cookie_name] || '{}')) rescue {}
 
@@ -34,10 +35,10 @@ class Lux::Current::Session
     if @request.cookies[@cookie_name] != encrypted
       cookie = []
       cookie.push [@cookie_name, encrypted].join('=')
-      cookie.push 'Max-Age=%s' % (Lux.config.session_cookie_max_age || 1.week.to_i)
+      cookie.push 'Max-Age=%s' % (Lux.config.session_cookie_max_age)
       cookie.push "Path=/"
-      cookie.push "Domain=#{Lux.config.session_cookie_domain}" if Lux.config.session_cookie_domain
-      cookie.push "secure" if Lux.config.host.include?('https:')
+      cookie.push "Domain=#{Lux.config.session_cookie_domain}" if Lux.config[:session_cookie_domain]
+      cookie.push "secure" if Lux.current.request.url.start_with?('https:')
       cookie.push "HttpOnly"
 
       cookie.join('; ')

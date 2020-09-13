@@ -68,10 +68,13 @@ class MainController
     helper.link_to # MainHelper.link_to
     helper(:bar)   # BarHelper.link_to
 
+    # respond to formats
     respond_to :js do ...
     respond_to do |format|
       case format
-      when :js
+      when nil # /foo
+        # ...
+      when :js # /foo.js
         # ...
       end
   end

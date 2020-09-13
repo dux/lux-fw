@@ -4,11 +4,15 @@ end
 class Object
   # raise object
   def r what
-    opath = what.class.ancestors
-    out   = opath.join("\n> ")
+    if what.is_a?(Method)
+      out = what.source_location
+    else
+      opath = what.class.ancestors
+      out   = opath.join("\n> ")
 
-    data = what.is_a?(Hash) ? JSON.pretty_generate(what) : what.ai(plain:true)
-    out = [data, out, ''].join("\n\n-\n\n")
+      data = what.is_a?(Hash) ? JSON.pretty_generate(what) : what.ai(plain:true)
+      out = [data, out, ''].join("\n\n-\n\n")
+    end
 
     raise LocalRaiseError.new out
   end

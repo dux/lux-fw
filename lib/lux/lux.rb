@@ -20,7 +20,7 @@ module ::Lux
     app = Lux::Application.new env
     app.render
   rescue => error
-    if Lux.config(:dump_errors)
+    if Lux.config.dump_errors
       raise error
     else
       log error.backtrace

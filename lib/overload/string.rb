@@ -18,11 +18,9 @@ class String
     value
   end
 
-  def html_escape once=true
+  def html_escape
     self
-      .sub(/^\s+/, '')
-      .sub(/\s+$/, '')
-      .gsub(/\s+/, ' ')
+      .gsub(/[ ]+/, ' ') # match only multiple spaces
       .gsub("'", '&#39')
       .gsub('"', '&#34')
       .gsub('<', '&lt;')

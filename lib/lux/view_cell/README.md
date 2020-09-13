@@ -33,9 +33,13 @@ class CityCell < ViewCell
 end
 ```
 
-And call them in templates like this
+And call them in templates and controllers like this
 
 ```ruby
+cell(:city).skills
+cell(:city).render @city
+
+# or via proxy class
 cell.city.skills
 cell.city.render @city
 ```

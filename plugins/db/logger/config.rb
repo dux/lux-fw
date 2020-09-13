@@ -1,6 +1,6 @@
 # Logs DB queries in console
 # to active just load the file
-if Lux.config(:log_to_stdout)
+if Lux.config.log_to_stdout
   logger = Logger.new(STDOUT)
 
   logger.formatter = proc { |severity, datetime, progname, msg|
@@ -22,10 +22,11 @@ if Lux.config(:log_to_stdout)
         else
           Lux.log " #{c[:cnt].to_s.rjust(2)}. #{time} : #{elms[2].to_s.cyan}\n"
         end
-
-        # code = Crypt.sha1 elms[2].to_s
-        # c[:list][code] ||= { sql: elms[2], cnt: 0, caller: caller.find { |el| el.start_with?(Lux.root.to_s) } }
-        # c[:list][code][:cnt] += 1
+      end
+    else
+      if ENV['DB_LOG'] || (!Lux.env.rake? && !msg.include?('SELECT "pg_attribute"."attname"') && !msg.end_with?('SELECT NULL'))
+        $last_sql_command = msg
+        Lux.log ('DB: %s' % msg).cyan
       end
     end
   }

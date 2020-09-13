@@ -11,7 +11,7 @@ module Lux
       # Lux::Template.render(scope, layout_template) { layout_data }
       def render scope, opts, &block
         opts = { template: opts } if opts.is_a?(String)
-        opts = opts.to_ch [:layout, :template]
+        opts = opts.to_hwia :layout, :template
 
         if opts.layout
           part_data = render(scope, opts.template)
@@ -55,7 +55,7 @@ module Lux
             yield if block_given?
           end
         rescue => e
-          if Lux.config(:dump_errors)
+          if Lux.config.dump_errors
             data = Lux::Error.inline %[Lux::Template #{@template} render error], e
           else
             raise e
@@ -82,13 +82,13 @@ module Lux
 
     def compile_template template
       pointer =
-      if Lux.config(:auto_code_reload)
+      if Lux.config.auto_code_reload
         Lux.current.var
       else
         Lux.var
       end
 
-      pointer.cached_templates ||= {}
+      pointer[:cached_templates] ||= {}
 
       if ref = pointer[template]
         @tilt, @template = *ref
@@ -107,7 +107,7 @@ module Lux
       unless @template
         err  = caller.reject{ |l| l =~ %r{(/lux/|/gems/)} }.map{ |l| el=l.to_s.split(Lux.root.to_s); el[1] || l }.join("\n")
         msg  = %[Lux::Template "#{template}.{erb,haml}" not found]
-        msg += %[\n\n#{err}] if Lux.config(:dump_errors)
+        msg += %[\n\n#{err}] if Lux.config.dump_errors
 
         raise msg
       end

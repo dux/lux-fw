@@ -11,7 +11,7 @@ class Lux::Api::Response
   attr_accessor :message
 
   def initialize
-    @meta = {}.to_ch
+    @meta = {}.to_hwia
   end
 
   def status num=nil

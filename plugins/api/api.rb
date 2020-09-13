@@ -85,7 +85,7 @@ class Lux::Api
       on_error(e)
     end
 
-    puts response.render.pretty_generate if Lux.config(:log_to_stdout)
+    puts response.render.pretty_generate if Lux.config.log_to_stdout
 
     response.render
   end

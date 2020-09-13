@@ -169,6 +169,7 @@ window.Pjax =
 
     headers = {}
     headers['cache-control'] = 'no-cache' if opts.no_cache
+    headers['x-requested-with'] = 'XMLHttpRequest'
 
     pjax_template_id = @template_id()
 
@@ -211,9 +212,6 @@ window.Pjax =
       main   = @extract(req.responseText, 'main').HTML || @info("<main> tag not defined in recieved page")
 
       if pjax_template_id != @template_id(header)
-        console.log(pjax_template_id)
-        console.log(@template_id(header))
-
         @console 'Pjax: Template ID missmatch, full load'
         document.head.innerHTML = header
         document.body.innerHTML = @extract(req.responseText, 'body').HTML
@@ -238,9 +236,13 @@ window.Pjax =
 
   # manualy proces script data, to not do it with $ helper
   parse_scripts: (html) ->
-    for data, i in html.split(/<\/?script>/)
-      if i%2
-        f = new Function(data)
+    tmp = document.createElement 'DIV'
+    tmp.innerHTML = html
+    for script in tmp.getElementsByTagName('script')
+      next if script.getAttribute('src') || !script.innerText
+      type = script.getAttribute('type') || 'javascript'
+      if type.indexOf('javascript') > -1
+        f = new Function script.innerText
         f()
 
   # extract node as object from html data

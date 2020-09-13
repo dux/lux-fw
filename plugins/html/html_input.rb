@@ -1,73 +1,106 @@
-# frozen_string_literal: true
-
 # input = HtmlInput.new(User.first)
-# input.render :email
+# input.render :email, value: 'foo@bar.baz'
 
 class HtmlInput
   attr_accessor :type
 
-  def self.as name, &block
-    define_method "as_#{name}", &block
-  end
-
-  ###
-
-  def initialize obj=nil, opts={}
-    @object  = obj
-    @globals = opts.dup
-  end
-
-  # if type is written in parameter :as=> use this helper function
-  def render name, opts={}
-    if name.is_hash?
-      opts = name
-      name  = :null
+  def initialize object=nil, opts={}
+    if object.is_a?(Hash)
+      opts   = object
+      object = nil
     end
 
-    opts  = opts_prepare name, opts.dup
-    @type = opts.delete(:as) || :text
-    send("as_#{@type}") rescue Lux::Error.inline("as_#{@type} (HtmlInput)")
+    @object = object
+    @opts   = opts.dup
+  end
+
+  def tag
+    HtmlTagBuilder
+  end
+
+  # .render :name          # @object.name
+  # .render settings: :key # @object.settings[key]
+  def render name, opts={}
+    @opts.merge! opts
+
+    @name =
+    if name.is_a?(Array)
+      @opts[:value] = (@object.send(name.first) || {})[name[1].to_s] if @object
+      @opts[:name]  = '%s[%s]' % name
+    else
+      @opts[:name] = name
+    end
+
+    opts_prepare
+
+    @type = @opts.delete(:as) || :text
+
+    send("as_#{@type}")
+  end
+
+  # hidden filed
+  def hidden object, value=nil
+    if value
+      value = value[:value] if value.is_a?(Hash)
+      name = object
+    else
+      if object.is_a?(Symbol)
+        # .hidden :user_id -> .hidden :user_id, @object.send(:user_id_
+        name  = object
+        value = @object.send(name)
+      elsif object.is_a?(ApplicationModel)
+        # .hidden @user -> .hidden :user_id, @user.id
+        name  = '%s_id' % object.class.to_s.tableize.singularize
+
+        if @object.respond_to?(name)
+          value ||= @object.send(name)
+        else
+          return [
+            hidden(:model_id, object.id),
+            hidden(:model_type, object.class.name)
+          ].join('')
+        end
+      end
+    end
+
+    render name, as: :hidden, value: value
   end
 
   private
 
-  # exports @name and @opts globals
-  def opts_prepare name, opts={}
-    opts[:as] ||= lambda do
-      return :select if opts[:collection]
+  # figure out default type (:as) for input elements
+  def calculate_type
+    return :select if @opts[:collection]
 
-      data_type = @object[name].class.name rescue 'String'
+    data_type = @object && @object[@name] ? @object[@name].class : String
 
-      if ['TrueClass','FalseClass'].index(data_type)
-        :checkbox
-      else
-        :string
-      end
-    end.call
-
-    # experimental, figure out collection unless defined
-    if name =~ /_id$/ && opts[:as] == :select && !opts[:collection]
-      class_name = name.to_s.split('_id')[0].capitalize
-      opts[:collection] = eval "#{class_name}.order('name').all"
+    if [TrueClass, FalseClass].include?(data_type)
+      return :checkbox
+    else
+      return :string
     end
-
-    opts[:as]    ||= :select if opts[:collection]
-    opts[:id]    ||= Lux.current.uid
-    opts[:value] ||= @object.send(name) if @object && name.is_a?(Symbol)
-    opts[:value]   = opts[:default] if opts[:value].blank?
-    opts[:name]    = name.kind_of?(Symbol) && @object ? "#{@object.class.name.underscore}[#{name}]" : name
-
-    # convert decimal numbers to float
-    opts[:value] = opts[:value].to_f if opts[:value].class == BigDecimal
-
-    @label = opts.delete :label
-    @wrap  = opts.delete(:wrap) || @globals[:wrap]
-    @name  = name
-    @opts  = opts
   end
 
+  # exports @name and @opts globals
+  def opts_prepare
+    # default value for as
+    @opts[:as]    ||= calculate_type
+    @opts[:id]    ||= Lux.current.uid
+    @opts[:value] ||= @object.send(@name) if @object && @name.is_a?(Symbol)
+    @opts[:value]   = @opts[:default] if @opts[:value].blank?
+
+    @opts[:name] = @object ? '%s[%s]' % [@object.class.name.underscore, @name] : @name
+
+    # convert decimal numbers to float
+    @opts[:value] = @opts[:value].to_f if @opts[:value].class == BigDecimal
+  end
+
+  # prepare collection for radios and selects
   def prepare_collection data
     ret = []
+
+    # collection: :kinds -> @object.class.kinds
+    data = @object.class.send data if @object && data.is_a?(Symbol)
 
     if data.is_hash?
       # { id: {name:'Foo'} } : { id: 'Foo' }
@@ -92,9 +125,5 @@ class HtmlInput
     end
 
     ret
-  end
-
-  def tag
-    HtmlTagBuilder
   end
 end

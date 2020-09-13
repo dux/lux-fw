@@ -4,11 +4,23 @@ class ViewCell < Lux::ViewCell
 end
 
 module HtmlHelper
-  def cell name=nil, *args
+  extend self
+
+  def cell name=nil, args={}
     if name
-      ViewCell.get(name, self, *args)
+      if name.is_a?(Array)
+        # cell @boards.cards.all
+        name.map { |el| cell el }.join(' ')
+      elsif name.is_a?(Symbol)
+        # cell(:card).render @card
+        ViewCell.get(name, self, args)
+      else
+        # cell @card -> cell.card.render @card
+        cell.send(name.class.to_s.tableize.singularize.to_sym).render name
+      end
     else
-      return @cell_base ||= ViewCell::Loader.new(self)
+      # cell.card.render @card
+      ViewCell::Proxy.new(self)
     end
   end
 end
@@ -16,14 +28,8 @@ end
 # make cell available in controllers
 module Lux
   class Controller
-    def cell name=nil
-      name = if name
-        name.to_s.classify
-      else
-        self.class.to_s.split('::').last.sub('Controller')
-      end
-
-      name.constantize.new(self, vars)
+    def cell *args
+      HtmlHelper.cell *args
     end
   end
 end

@@ -38,7 +38,7 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_dependency 'clean-annotations'
 
   # hash inifferent access, hash to struct
-  gem.add_dependency 'clean-hash'
+  gem.add_dependency 'hash_wia'
 
   # mail sending ruby gold
   gem.add_dependency 'mail'
@@ -76,7 +76,7 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_dependency 'colorize'
 
   # because it is awesome
-  gem.add_dependency 'awesome_print'
+  gem.add_dependency 'amazing_print'
 
   # best server side templateing
   gem.add_dependency 'hamlit'

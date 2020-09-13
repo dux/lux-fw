@@ -5,7 +5,7 @@ Sequel::Model.dataset_module do
     sqlq = sql.split(' FROM ')[1]
     sqlq = "select lower(unnest(#{field})) as tag FROM " + sqlq
     sqlq = "select tag as name, count(tag) as cnt from (#{sqlq}) as tags group by tag order by cnt desc"
-    DB.fetch(sqlq).map(&:to_ch).or([])
+    DB.fetch(sqlq).map(&:to_hwia).or([])
   end
 
   # were users.id in (select unnest(user_ids) from doors)

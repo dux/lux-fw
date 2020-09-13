@@ -20,9 +20,13 @@ module Lux
       Lux.current
     end
 
-    def header name, value=:_
-      @headers[name] = value if value != :_
-      @headers[name]
+    def header *args
+      if args.first
+        @headers[args.first] = args[1] if args[1] != :_
+        @headers[args.first]
+      else
+        @headers
+      end
     end
 
     def max_age= age
@@ -64,9 +68,10 @@ module Lux
     end
 
     def body body_data=nil, status=nil
+      @body = yield(@body) if block_given?
       return @body if @body
-      @status = status      if status
-      @body   = block_given? ? yield : body_data
+      @status = status if status
+      @body = body_data
       throw :done
     end
     alias :body= :body
@@ -105,6 +110,16 @@ module Lux
     # redirect_to '/foo'
     # redirect_to :back, info: 'bar ...'
     def redirect_to where, opts={}
+      Lux.log do
+        app_line = caller
+          .find { |line| !line.include?('/lux-fw/') }
+          .split(':in ')
+          .first
+          .sub(Lux.root.to_s+'/', '')
+
+        ' Redirected from: %s' % app_line
+      end
+
       opts   = { info: opts } if opts.is_a?(String)
       where  = current.request.env['HTTP_REFERER'].or('/') if where == :back
       where  = "#{current.request.path}#{where}" if where[0,1] == '?'
@@ -112,7 +127,7 @@ module Lux
 
       # local redirect
       if where.include?(current.host)
-        redirect_var = Lux.config.redirect_var || :_r
+        redirect_var = Lux.config[:redirect_var] || :_r
 
         url = Url.new where
         url[redirect_var] = current.request.params[redirect_var].to_i + 1
@@ -150,7 +165,7 @@ module Lux
 
       status 401
       header('WWW-Authenticate', 'Basic realm="%s"' % relam.or('default'))
-      body 'HTTP 401 Authorization needed'
+      body 'HTTP 401 Authorization needed (Lux HTTP auth)'
       throw :done
     end
 
@@ -160,7 +175,11 @@ module Lux
 
       @status ||= 200
 
-      Lux.log " #{@status}, #{@headers['x-lux-speed']}"
+      Lux.log do
+        log_data  = " #{@status}, #{@data.to_s.length}, #{(@body.bytesize.to_f/1024).round(1)}kb, #{@headers['x-lux-speed']}"
+        log_data += " (#{current.request.url})" if current.nav.format
+        [200, 304].include?(@status) ? log_data : log_data.magenta
+      end
 
       [@status, @headers.to_h, [@body]]
     end
@@ -203,7 +222,7 @@ module Lux
 
       current.session[:lux_flash] = flash.to_h
 
-      # dont annd cookies to public pages (images, etc..)
+      # dont send cookies to public pages (images, etc..)
       unless @headers['cache-control'].index('public')
         cookie = current.session.generate_cookie
         @headers['set-cookie'] = cookie if cookie

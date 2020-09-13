@@ -1,15 +1,9 @@
 module Lux
-  CONFIG ||= {}.to_ch
+  CONFIG ||= {}.to_hwia
 
   # get config hash pointer or die if key provided and not found
-  def config key=nil
-    if key
-      value = CONFIG[key]
-      die 'Lux.config.%s not found' % key if value.nil?
-      value.kind_of?(Proc) ? value.call() : value
-    else
-      CONFIG
-    end
+  def config
+    CONFIG
   end
 
   # load rake tasks + including ones in plugins

@@ -2,40 +2,51 @@ class Object
   LUX_AUTO_LOAD = {}
 
   def self.const_missing klass, path=nil
+    klass = klass.to_s if klass.class == Symbol
+
     if path
-      LUX_AUTO_LOAD[klass.to_s] = path
+      LUX_AUTO_LOAD[klass] = path
       return
+    elsif LUX_AUTO_LOAD.keys.length == 0
+      for file in `find ./app -type f -name *.rb`.split($/)
+        klass_file = file.split('/').last.sub('.rb', '').classify
+        LUX_AUTO_LOAD[klass_file] ||= file
+      end
     end
 
-    file  = klass.to_s.underscore
-    paths = [
-      'models',
-      'lib',
-      'lib/vendor',
-      'vendor',
-      file.split('_').last.pluralize
-    ].map  { |it| './app/%s/%s.rb' % [it, file] }
+    if @_last_autoload_class == klass
+      error      = ['Can\'t find and autoload module/class: "%s"' % klass]
+      call_file  = caller.find{ |f| !f.include?('lux-fw/') && !f.include?('/.') && !f.include?('`evaluate') }
 
-    klass_file   = LUX_AUTO_LOAD[klass.to_s]
-    klass_file ||= paths.find { |it| File.exist?(it) } or
-      raise NameError.new('Can not find and autoload class "%s", looked in %s' % [klass, paths.map{ |it| "\n#{it}" }.join('')])
+      if call_file
+        call_file  = call_file.sub(Dir.pwd, '.')
+        err_folder = call_file.split(':').first.sub(/\/[^\/]+$/, '')
+        file       = klass.underscore
+        klass_path = [err_folder, '%s/lib' % err_folder]
+                       .map   { |folder| '%s/%s.rb' % [folder, file] }
+                       .find  { |file| File.exist?(file) }
 
-    if @last_autoload == klass_file
-      puts '* Autoload fail: "%s" from "%s"'.red % [klass, klass_file]
-      exit
+        error.push ["Searched in #{err_folder}/#{file}.rb", "#{err_folder}/lib/#{file}.rb", "./app/**/#{file}.rb"].join(', ')
+      end
+
+      raise NameError, error.join(' ')
+    else
+      @_last_autoload_class = klass
     end
 
-    @last_autoload = klass_file
+    klass_path ||= LUX_AUTO_LOAD[klass.to_s]
 
-    require klass_file
+    require klass_path.sub('.rb', '') if klass_path
+
+    # puts '* Autoload: %s from %s' % [klass, klass_path]
 
     Object.const_get(klass)
   end
 
   ###
 
-  def or _or
-    self.blank? || self == 0 ? _or : self
+  def or _or=nil, &block
+    self.blank? || self == 0 ? (block ? block.call : _or) : self
   end
 
   def try *args, &block
@@ -93,7 +104,7 @@ class Object
         func ? send(func) : self
       end
     else
-      block_given? || func ? nil : {}.to_ch
+      block_given? || func ? nil : {}.to_hwia
     end
   end
 

@@ -44,12 +44,16 @@ class Dir
     glob = []
     glob.push 'echo'
     glob.push '%s/*'             % dir_path
-    glob.push '%s/*/*'           % dir_path
-    glob.push '%s/*/*/*'         % dir_path
-    glob.push '%s/*/*/*/*'       % dir_path
-    glob.push '%s/*/*/*/*/*'     % dir_path
-    glob.push '%s/*/*/*/*/*/*'   % dir_path
-    glob.push '%s/*/*/*/*/*/*/*' % dir_path
+
+    unless opts[:shallow]
+      glob.push '%s/*/*'           % dir_path
+      glob.push '%s/*/*/*'         % dir_path
+      glob.push '%s/*/*/*/*'       % dir_path
+      glob.push '%s/*/*/*/*/*'     % dir_path
+      glob.push '%s/*/*/*/*/*/*'   % dir_path
+      glob.push '%s/*/*/*/*/*/*/*' % dir_path
+    end
+
     glob.push "| tr ' ' '\n'"
 
     `#{glob.join(' ')}`

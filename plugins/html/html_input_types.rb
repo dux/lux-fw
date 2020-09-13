@@ -2,16 +2,6 @@
 
 class HtmlInput
 
-  # if you call .memo which is not existant, it translates to .as_memo with opts_prepare first
-  # def method_missing(meth, *args, &block)
-  #   opts_prepare *args
-  #   send "as_#{meth}"
-  # end
-
-  #############################
-  # custom fields definitions #
-  #############################
-
   def as_string
     @opts[:type] = 'text'
     @opts[:autocomplete] ||= 'off'
@@ -39,15 +29,18 @@ class HtmlInput
 
     if @opts[:value].respond_to?(:short)
       @opts[:value]   = @opts[:value].short(true)
-      @opts[:hint]  ||= 'xx'
     end
 
     tag.div do |n|
+      @opts[:style] = 'width: 160px;'
+
       n.push @opts.tag(:input)
 
-      if @opts[:hint]
-        n.push ' &nbsp; '
-        n.span(class: 'gray') { Time.ago(@opts[:value]) }
+      if @opts[:value]
+        n.push ' &sdot; '
+        n.span(onclick: "document.getElementById('#{@opts[:id]}').value=''") { '&times;' }
+        n.push ' &sdot; '
+        n.span(class: 'gray') { Time.ago(Time.parse @opts[:value]) }
       end
     end
   end
@@ -83,6 +76,8 @@ class HtmlInput
   alias :as_memo :as_textarea
 
   def as_checkbox
+    @opts.delete(:value) if ['0', 'false', 'off'].include?(@opts[:value].to_s)
+
     id = Lux.current.uid
     hidden = { :name=>@opts.delete(:name), :type=>:hidden, :value=>@opts[:value] ? 1 : 0, :id=>id }
     @opts[:type] = :checkbox
@@ -115,7 +110,6 @@ class HtmlInput
 
   def as_select
     body = []
-    collection = @opts.delete(:collection)
 
     @opts[:class] ||= 'form-select'
 
@@ -123,8 +117,13 @@ class HtmlInput
       body.push %[<option value="">#{nullval}</option>] if nullval
     end
 
-    for el in prepare_collection(collection)
-      body.push(%[<option value="#{el[0]}"#{@opts[:value].to_s == el[0].to_s ? ' selected=""' : nil}>#{el[1]}</option>])
+    collection = @opts.delete(:collection)
+
+    for value, name in prepare_collection(collection)
+      opts            = {}
+      opts[:value]    = value || ''
+      opts[:selected] = 'true' if @opts[:value].to_s == value.to_s
+      body.push opts.tag(:option, name)
     end
 
     body = body.join("\n")
@@ -185,9 +184,7 @@ class HtmlInput
   end
 
   def as_color
-    value = @opts[:value]
-    @opts[:style] ||= 'width:150px; float: left; margin-right: 10px;'
-    as_text + %[<span style="background-color: #{value.or('#fff')}; height:34px; width:150px; display: inline-block;"></span>]
+    @opts.slice(:name, :value).tag 's-input-color'
   end
 
   def as_geo
@@ -215,5 +212,4 @@ class HtmlInput
     @opts.delete(:name)
     as_text
   end
-
 end

@@ -22,8 +22,7 @@
 #   Widget #name || HTMLElement
 
 # Example code
-# <w-yes_no data-filed="yes"></w-yes_no>
-# <div class="w yes_no" data-filed="yes"></div>
+# <w-yes_no data-field="yes"></w-yes_no>
 # Widget 'yes_no',
 #   init:
 #     @root = $ @node
@@ -84,6 +83,7 @@ Object.assign Widget,
       delete widget.once
 
     # create custom HTML element
+    # %widget-yes_no{ id: @product.id, object: :products, field: :use_suggestions, state: @product.use_suggestions ? 1 : 0 }
     CustomElement.define "#{@namespace}-#{name}", (node, opts) ->
       Widget.bind(name, node, opts)
 
