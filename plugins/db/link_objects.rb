@@ -105,9 +105,9 @@ module Sequel::Plugins::LuxLinks
       for klass, opts in LUX_LINK[self.class.to_s].or({})
         # Task.link :card, touch: true
         #   will touch @task.card (to clear caches) when @task changes
-        if opts.touch
-          send(opts.name).touch
-        end
+        # if opts.touch
+        #   send(opts.name).touch
+        # end
 
         # Asset.link :card, counter: true
         #   will update cache on @card.assets_count when @card.asset changes

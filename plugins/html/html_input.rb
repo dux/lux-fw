@@ -53,7 +53,7 @@ class HtmlInput
         name  = '%s_id' % object.class.to_s.tableize.singularize
 
         if @object.respond_to?(name)
-          value ||= @object.send(name)
+          value ||= object.id
         else
           return [
             hidden(:model_id, object.id),

@@ -51,20 +51,6 @@ module Lux
         end
       end
 
-      # - @block = function do |title, &block|
-      #   .row.divide
-      #     .col-200= title
-      #     .col= block.call
-      #
-      # = foo.call 'foo' do ...
-      def function *args, &block
-        if block_given?
-          @_last_function = block
-        else
-          @_last_function.call *args
-        end
-      end
-
       # renders just template but it is called
       # = render :_link, link:link
       # = render 'main/links/_link', link:link

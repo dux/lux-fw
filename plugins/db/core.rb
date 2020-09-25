@@ -38,33 +38,13 @@ class Sequel::Model
     end
 
     def attributes
-      ret = {}
-      for el in columns
-        ret[el.to_s] = send(el.to_s) rescue '-'
+      {}.tap do |ret|
+        for el in columns
+          ret[el.to_s] = send(el.to_s)
+        end
       end
-      ret
     end
-
-    def touch with_callbacks=false
-      if with_callbacks
-        self[:updated_at] = Time.now.utc
-        save
-      else
-        # self[:updated_at] = Time.now.utc
-        # save columns: [:updated_at]
-        DB.run 'update %s set updated_at=now() where id=%s' % [self.class.table_name, id]
-      end
-
-      self
-    end
-
-    def to_h
-      ret = {}
-      for el in self.keys
-        ret[el] = send el
-      end
-      ret
-    end
+    alias :to_h :attributes
 
     def creator
       self[:created_by] ? User.find(self[:created_by]) : nil
@@ -97,7 +77,7 @@ class Sequel::Model
     end
 
     def save!
-      save
+      save validate: false
     end
 
     def slice *args

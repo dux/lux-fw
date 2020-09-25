@@ -97,7 +97,11 @@ module Lux
         if parts.last.is_numeric?
           @domain = request.host
         else
-          @domain    = parts.pop(2).join('.')
+          count = 2
+          count = 1 if parts.last == 'localhost'
+          count = 3 if parts.last(2).join('.') == 5 # foo.co.uk
+
+          @domain    = parts.pop(count).join('.')
           @domain    += ".#{parts.pop}" if @domain.length < 6
           @subdomain = parts.join('.')
         end

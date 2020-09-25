@@ -56,12 +56,18 @@ class Dir
 
     glob.push "| tr ' ' '\n'"
 
-    `#{glob.join(' ')}`
+    files = `cd #{Dir.pwd} && #{glob.join(' ')}`
       .split("\n")
       .reject { |_| _.include?('/*') }
       .select { |_| _ =~ /\.\w+$/ }
       .select { |_| opts[:ext].first ? opts[:ext].include?(_.split('.').last) : true }
       .map { |_| opts[:root] ? _.sub(opts[:root], '') : _ }
+
+    if block_given?
+      files.map { |f| yield(f).gsub('%s', f) }.join($/)
+    else
+      files
+    end
   end
 
   # Requires all found ruby files in a folder, deep search into child folders

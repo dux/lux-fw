@@ -110,15 +110,7 @@ module Lux
     # redirect_to '/foo'
     # redirect_to :back, info: 'bar ...'
     def redirect_to where, opts={}
-      Lux.log do
-        app_line = caller
-          .find { |line| !line.include?('/lux-fw/') }
-          .split(':in ')
-          .first
-          .sub(Lux.root.to_s+'/', '')
-
-        ' Redirected from: %s' % app_line
-      end
+      Lux.log { ' Redirected from: %s' % Lux.app_caller }
 
       opts   = { info: opts } if opts.is_a?(String)
       where  = current.request.env['HTTP_REFERER'].or('/') if where == :back

@@ -99,7 +99,7 @@ module Lux
 
           if error.is_a?(Lux::Error::AutoRaise)
             Lux.current.response.status status
-            Lux.log " error.#{data[:code]} in #{split_backtrace(error)[1].first.to_s.split(':in ').first}"
+            Lux.log " error.#{data[:code]} in #{Lux.app_caller}"
             raise error
           end
 

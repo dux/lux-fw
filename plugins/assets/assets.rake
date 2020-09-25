@@ -18,7 +18,7 @@ namespace :assets do
   desc 'Build and generate manifest'
   task :compile do
     Lux.run 'rm -rf public/assets'
-    Lux.run 'rollup -c --compact'
+    Lux.run 'rollup -c --compact' # --context window
 
     for css in Dir.files('app/assets').select { |it| it.ends_with?('.css') }
       Lux.run "npx node-sass app/assets/#{css} -o public/assets/ --output-style compressed"

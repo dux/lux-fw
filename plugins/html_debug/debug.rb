@@ -39,7 +39,7 @@ module ApplicationHelper
     end
 
     out = %[
-      <script>$.keyPress('KeyD', function(){ $('#debug-toggle').click() })</script>
+      <script>$.keyPress('ctrl+d', function(){ $('#debug-toggle').click() })</script>
       <div style="position: fixed; right: 6px; top: 5px; text-align: right; z-index: 100;">#{button}</div>
     ]
   end

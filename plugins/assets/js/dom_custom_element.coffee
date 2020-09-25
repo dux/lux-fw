@@ -1,3 +1,5 @@
+window._ceh_cache ||= {}
+
 # React to do
 # ReactDOM.render(React.createElement(SomeReactComponent, { foo: 'bar' }), dom_node);
 
@@ -39,6 +41,9 @@ Object.assign Svelte,
   # bind custom node to class
   bind:(name, svelte_klass) ->
     CustomElement.define name, (node, opts) ->
+      return if node.is_binded
+      node.is_binded = true
+
       in_opts = {
         props: {
           ...opts,
@@ -65,6 +70,9 @@ window.CustomElement =
       .call(node.attributes)
       .reduce (h, el) ->
         h[el.name] = el.value;
+        # if window.dev != true
+        #   unless ['id', 'class'].includes(el.name) || el.name.includes('data-') || el.name.startsWith('on')
+        #     node.removeAttribute el.name
         h
       , {}
 

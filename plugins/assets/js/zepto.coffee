@@ -12,10 +12,20 @@ $.untilTrue = (func) ->
 # capture key press unless in forms
 $.keyPress = (key, func) ->
   $(document).keydown (e) ->
-    return if e.code != key
+    # console.log([e.keyCode, e.key])
+
     return if e.target.nodeName == 'INPUT'
     return if $(e.target).parents('form')[0]
-    func e
+
+    if key.includes('+')
+      [base, part] = key.split('+', 2)
+      return unless e.ctrlKey || e.metaKey
+    else
+      part = key
+
+    if e.key == part
+      $(e).cancel()
+      func e
 
 # clear timeout and postopne execution of a function
 # like for autocomplete
@@ -32,6 +42,17 @@ $.debounce = (uid, delay, callback) ->
 
   $._debounce_hash[uid] = setTimeout(callback, delay)
 
+$._cached_get = {}
+$.cachedGet = (url, func) ->
+  console.log(url)
+  if data = $._cached_get[url]
+    func data
+  else
+    $.debounce 'cached-get', 200, ->
+      $.get url, (data) ->
+        func(data)
+        $._cached_get[url] = data
+
 # insert script in the head
 $.getScript = (src, func) ->
   # if $("script[src='#{src}']").length > 0
@@ -44,6 +65,7 @@ $.getScript = (src, func) ->
   document.getElementsByTagName('head')[0].appendChild script
 
 # parse and execute nested <script> tags
+# we need this for example in svelte, where template {@html data} does nor parse scripts
 $.parseScripts = (html) ->
   tmp = document.createElement 'DIV'
   tmp.innerHTML = html
@@ -54,9 +76,13 @@ $.parseScripts = (html) ->
     if type.indexOf('javascript') > -1
       f = new Function script_tag.innerText
       f()
+      script_tag.innerText = '1;'
+
+  tmp.innerHTML
+
 
 # return child nodes as list of hashes
-$.nodesAsList = (root) ->
+$.nodesAsList = (root, as_hash) ->
   list = []
 
   if typeof root == 'string'
@@ -67,6 +93,7 @@ $.nodesAsList = (root) ->
   root.childNodes.forEach (node, i) ->
     if node.attributes
       o = {}
+      o.NODENAME = node.nodeName
       o.HTML = node.innerHTML
       o.OUTER = node.outerHTML
       o.ID = i + 1
@@ -76,7 +103,14 @@ $.nodesAsList = (root) ->
 
       list.push o
 
-  list
+  if as_hash
+    out = {}
+    for el in list
+      out[el.NODENAME] ||= []
+      out[el.NODENAME].push el
+    out
+  else
+    list
 
 $.cookies =
   get: (name) ->
@@ -101,7 +135,34 @@ $.cookies =
   delete: (name) ->
     setCookie name, "", -1
 
+# copies text to clipboard
+$.copyText = (str) ->
+  el = document.createElement('textarea')
+  el.value = str
+  document.body.appendChild(el)
+  el.select()
+  document.execCommand('copy')
+  document.body.removeChild(el)
+
 #
+
+# add html but do not everwrite ids
+$.fn.xhtml = (data) ->
+  id = $(@).attr('id')
+
+  unless id
+    console.warn 'ID not defined on node for $.fn.xhtml'
+    return
+
+  @each ->
+    tmp_data = $("<div>#{data}</div>").find('#'+id)
+
+    if tmp_data[0]
+      data = tmp_data[0].innerHTML
+    else
+      console.warn "ID ##{id} not found in returned HTML"
+
+    this.innerHTML = data
 
 $.fn.node_id = ->
   unless window._node_id_cnt
@@ -157,12 +218,20 @@ $.fn.xfocus = ->
 # load URL and replace content under specific ID
 # executes scripts found in a page
 # $('#card-dialog-main').reload('/c/cts/show_dialog')
-$.fn.reload = (path) ->
-  node_id = this.attr('id') || alert('Error: ID not defined');
+$.fn.reload = (path, func) ->
+  if node_id = this.attr('id')
+    $.get path, (data) =>
+      $.parseScripts data
+      data = $("""<div>#{data}</div>""").find("##{node_id}").html()
+      this.html(data)
+      func(data) if func
 
-  $.get path, (data) =>
-    $.parseScripts data
-    data = $("""<div>#{data}</div>""").find("##{node_id}").html()
-    this.html(data)
+    console.log "Node ##{node_id} reloaded from '#{path}'"
 
-  "Node ##{node_id} reloaded from '#{path}'"
+$.fn.cancel = ->
+  e = @[0]
+  if e.preventDefault
+    e.preventDefault()
+    e.stopPropagation()
+  else if window.event
+    window.event.cancelBubble = true

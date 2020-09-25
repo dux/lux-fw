@@ -19,8 +19,7 @@ class Object
 
   # better console log dump
   def rr what
-    src = caller[0].sub(Lux.root.to_s+'/', '').sub(Lux.fw_root.to_s, 'lux-fw').split(':in `').first
-    ap ['--- START (%s) %s ---' % [what.class, src], what, '--- END ---']
+    ap ['--- START (%s) %s ---' % [what.class, Lux.app_caller], what, '--- END ---']
   end
 
   # unique methods for object

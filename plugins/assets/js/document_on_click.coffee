@@ -1,6 +1,8 @@
-$(document).on 'click', (event) ->
+doc_on_click = ->
   # if ctrl or cmd button is pressed
   return if event.which == 2
+
+  # Pjax.preload = event.type == 'mousedown'
 
   event.stopPropagation()
   # event.preventDefault()
@@ -47,4 +49,4 @@ $(document).on 'click', (event) ->
 
   false
 
-
+$(document).on 'click', (event), doc_on_click

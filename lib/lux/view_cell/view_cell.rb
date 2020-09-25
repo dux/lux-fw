@@ -60,7 +60,7 @@ module Lux
     define_method(:request) { Lux.current.request }
     define_method(:params)  { Lux.current.request.params }
 
-    def initialize parent, vars={}
+    def initialize parent=nil, vars={}
       @_parent = parent
 
       run_callback :before

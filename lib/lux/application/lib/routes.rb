@@ -154,13 +154,16 @@ module Lux
       # call Main::UsersController
       # call Main::UsersController, :index
       # call [Main::UsersController, :index]
-      # call 'main/orgs#show'
+      # call 'main/orgs'      -> index, show
+      # call 'main/orgs#show' -> show
+      # call 'main/orgs?list' -> list_index, list_show # provies namespace in controller
       # ```
       def call object=nil, action=nil, opts=nil, &block
         # log original app caller
-        root    = Lux.root.join('app/').to_s
-        sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
-        action  = action.gsub('-', '_').to_sym if action && action.is_a?(String)
+        root      = Lux.root.join('app/').to_s
+        sources   = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
+        action    = action.gsub('-', '_').to_sym if action && action.is_a?(String)
+        namespace = nil
         object  ||= block if block_given?
 
         Lux.log { ' Routed from: %s' % sources.join(' ') } if sources.first
@@ -172,6 +175,7 @@ module Lux
             object = [object.keys.first, object.values.first]
           when String
             object, action = object.split('#') if object.include?('#')
+            object, namespace = object.split('?') if object.include?('?')
           when Array
             if object[0].class == Integer && object[1].class == Hash
               # [200, {}, 'ok']
@@ -199,6 +203,8 @@ module Lux
 
         opts   ||= {}
         action ||= resolve_action object
+
+        action = [namespace, action].join('_') if namespace
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
           error.not_found Lux.env.dev? ? "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" : nil

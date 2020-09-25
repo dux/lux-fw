@@ -1,0 +1,24 @@
+Searching 846 files for "Lux.local_line" (case sensitive)
+
+/Users/dux/dev/apps/my/gems/lux-fw/lib/lux/error/error.rb:
+  100            if error.is_a?(Lux::Error::AutoRaise)
+  101              Lux.current.response.status status
+  102:             Lux.log " error.#{data[:code]} in #{Lux.local_line}"
+  103              raise error
+  104            end
+
+/Users/dux/dev/apps/my/gems/lux-fw/lib/overload/raise_variants.rb:
+   20    # better console log dump
+   21    def rr what
+   22:     ap ['--- START (%s) %s ---' % [what.class, Lux.local_line], what, '--- END ---']
+   23    end
+   24
+
+/Users/dux/dev/apps/my/gems/lux-fw/plugins/db/logger.rb:
+   16          if Lux.current.request.params[:sql] == 'true'
+   17            require 'niceql'
+   18:           puts '- %sms - %s' % [(elms[1].to_f * 1000).round(1), Lux.local_line]
+   19            puts Niceql::Prettifier.prettify_sql elms[2]
+   20            puts
+
+3 matches across 3 files

@@ -21,7 +21,7 @@ class Url
     end
 
     # change current subdomain
-    def subdomain name,  in_path=nil
+    def subdomain name, in_path=nil
       b = current.subdomain(name)
       b.path in_path if in_path
       b.url
@@ -86,7 +86,7 @@ class Url
     end
 
     # check for locale
-    parts = @opt.path.split('/')
+    parts = @opt.path.to_s.split('/')
     if parts[0] =~ /^\w{2}$/ || parts[0] =~ /^\w{2}\-\w{2}$/
       @opt.locale = parts.shift
       @opt.path   = parts.join('/')
@@ -109,6 +109,7 @@ class Url
       @opt.domain
     end
   end
+  alias :domain= :domain
 
   def subdomain name=nil
     if name
@@ -118,6 +119,7 @@ class Url
       @opt.subdomain
     end
   end
+  alias :subdomain= :subdomain
 
   def host
     @opt.subdomain ? [@opt.subdomain, @opt.domain].join('.') : @opt.domain
@@ -135,6 +137,7 @@ class Url
       @opt.locale ? "/#{@opt.locale}/#{@opt.path}" : "/#{@opt.path}"
     end
   end
+  alias :path= :path
 
   def delete *keys
     keys.map{ |key| @opt.qs.delete(key.to_s) }

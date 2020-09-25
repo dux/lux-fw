@@ -1,4 +1,5 @@
 class PageMeta
+  attr_accessor :app
 
   def initialize
     @meta   = {}
@@ -74,7 +75,7 @@ class PageMeta
     ret.push Lux.cache('page_meta-%s' % Crypt.sha1(caller.first)) { yield(self) } if block_given?
 
     # title
-    title = @title ? "#{@title} | #{Lux.config.app.name}" : Lux.config.app.name
+    title = @title ? "#{@title} | #{@app || Lux.config.app.name}" : Lux.config.app.name
     ret.push %[<title>#{title}</title>]
 
     data = ret.join("\n")

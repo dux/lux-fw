@@ -46,15 +46,15 @@ LuxCli.class_eval do
     Lux.config.dump_errors   = true
     Lux.config.log_to_stdout = true
 
+    # create mock session
+    Lux::Current.new '/'
+
     if File.exist?('./config/console.rb')
       puts '* loading ./config/console.rb'
       require './config/console'
     else
       puts '* ./config/console.rb not found'
     end
-
-    # create mock session
-    Lux::Current.new '/'
 
     if args.first
       command = args.join(' ')

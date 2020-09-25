@@ -64,13 +64,11 @@ module Lux
 
       @server.delete key if opts.force
 
-      Lux.log " Cache.fetch.get #{key} (ttl: #{opts.ttl.or(:nil)})".green if opts.log
+      Lux.log { " Cache.fetch.get ttl: #{opts.ttl.or(:nil)}, at: #{Lux.app_caller}".green }
 
       data = @server.fetch key, opts.ttl do
         speed = Lux.speed { data = yield }
-
-        Lux.log " Cache.fetch.SET #{key} len:#{data.to_s.length} (#{speed})".red if opts.log
-
+        Lux.log " Cache.fetch.set speed: #{speed}, at: #{Lux.app_caller}".red if opts.log
         data
       end
 
@@ -99,6 +97,7 @@ module Lux
       end
 
       key = keys.join('-')
+
       Crypt.sha1(key)
     end
 

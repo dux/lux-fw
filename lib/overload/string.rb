@@ -3,6 +3,12 @@ class String
     Object.const_get('::'+self)
   end
 
+  # 'User'.constantize? # User
+  # 'UserFoo'.constantize? # nil
+  def constantize?
+    Object.const_defined?(self) ? constantize : nil
+  end
+
   # simple markdown
   def as_html
     self
@@ -59,7 +65,7 @@ class String
   end
 
   def parse_erb scope=nil
-    ERB.new(self.gsub(/\n<%/, '<%')).result(scope ? scope.send(:binding) : binding)
+    ERB.new(self).result(scope || binding)
   end
 
   def parameterize

@@ -54,7 +54,7 @@ module Lux
       raise ArgumentError.new('Controller action called with blank action name argument') if method_name.blank?
 
       if method_name.is_a?(Symbol)
-        raise ArgumentError.new('Forbiden action name :%s' % method_name) if [:action].include?(method_name)
+        raise ArgumentError.new('Forbiden action name :%s' % method_name) if [:action, :error].include?(method_name)
       else
         return controller_action_call(method_name, *args)
       end
@@ -180,7 +180,11 @@ module Lux
 
         layout = case layout_define
           when String
-            'layouts/%s' % layout_define
+            if layout_define.start_with?('./')
+              layout_define
+            else
+              'layouts/%s' % layout_define
+            end
           when Symbol
             'layouts/%s' % layout_define
           when Proc
@@ -276,6 +280,18 @@ module Lux
     end
 
     def action_missing name
+      path = [self.class.template_root, @lux.template_sufix, name].join('/')
+
+      if template = Dir['%s.*' % path].first
+        unless Lux.config.use_autoroutes
+          raise 'Autoroute for "%s" is found but it is disabled in Lux.config.use_autoroutes' % name
+        end
+
+        self.class.define_method(name) {}
+        Lux.log ' created method %s#%s | found template %s'.yellow % [self.class, name, template]
+        return
+      end
+
       raise Lux::Error.new 500,
         'Method "%s" not found found in "%s" (nav: %s)' % [name, self.class, nav],
         'You have defined %s' % (methods - Lux::Controller.instance_methods).sort.to_ul

@@ -72,6 +72,14 @@ module ::Lux
     logger(:system_die).error text
     exit
   end
+
+  def app_caller
+    app_line = caller
+      .find { |line| !line.include?('/lux-fw/') && !line.include?('/.') }
+      .split(':in ')
+      .first
+      .sub(Lux.root.to_s, '.')
+  end
 end
 
 require_relative 'environment/environment'

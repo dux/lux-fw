@@ -72,6 +72,9 @@ module Lux
       # Delay
       Lux.config.delay_timeout = 30
 
+      # Create controller methods if templates exist (as Rails does)
+      Lux.config.use_autoroutes = true
+
       # Logger
       Lux.config.loger_files_to_keep = 3
       Lux.config.loger_file_max_size = 1_024_000
