@@ -46,7 +46,8 @@ module Lux
 
       @headers['etag'] ||= key
 
-      if current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
+      if !current.no_cache?(true) && !Lux.env.dev? && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
+        Lux.log 'etag hit'
         status 304
         body 'not-modified'
       end
@@ -113,9 +114,16 @@ module Lux
       Lux.log { ' Redirected from: %s' % Lux.app_caller }
 
       opts   = { info: opts } if opts.is_a?(String)
-      where  = current.request.env['HTTP_REFERER'].or('/') if where == :back
-      where  = "#{current.request.path}#{where}" if where[0,1] == '?'
-      where  = current.host + where unless where.include?('://')
+
+      if where == :self
+        where = current.request.path
+      elsif where == :back
+        where  = current.request.env['HTTP_REFERER'].or('/')
+      elsif where[0,1] == '?'
+        where  = "#{current.request.path}#{where}"
+      elsif !where.include?('://')
+        where = current.host + where
+      end
 
       # local redirect
       if where.include?(current.host)

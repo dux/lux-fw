@@ -4,7 +4,7 @@ LuxCli.class_eval do
   method_option :info,   desc: 'Show info',    type: :boolean, aliases: "-i", default: false
   method_option :type,   desc: 'Request type', type: :boolean, aliases: "-i", default: false
   def get path
-    require './config/application'
+    require './config/app'
 
     Cli.die "Use\n -b to show body\n -i to show info" unless options[:body] || options[:info]
 

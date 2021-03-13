@@ -51,11 +51,11 @@ module Lux
             begin
               msg = msg.h if msg.is_a?(Hash)
               m.call msg
-            rescue => e
-              error = "#{e.class}: #{e.message} (:#{func}, #{msg})"
-              Lux.log "background job error: #{error}"
-              Lux.logger('background-job-errors').error error
-              Lux::Error.screen e
+            rescue => error
+              message = "#{e.class}: #{e.message} (:#{func}, #{msg})"
+              Lux.log "background job error: #{message}"
+              Lux.logger('background-job-errors').error message
+              Lux.error.screen error
             end
           end
         end

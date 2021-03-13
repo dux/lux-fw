@@ -112,19 +112,19 @@ end
 
 doc.br
 
-plugins = Dir
-  .folders('./plugins')
-  .select { |f| File.exist?('./plugins/%s/README.md' % f) }
+# plugins = Dir
+#   .folders('./plugins')
+#   .select { |f| File.exist?('./plugins/%s/README.md' % f) }
 
-doc.br
+# doc.br
 
-doc.h3 'Plugins'
-doc.p 'You manualy load this'
-doc.push plugins
-  .map { |el| "* [Lux.plugin :#{el}](./plugins/#{el})" }
-  .join($/)
+# doc.h3 'Plugins'
+# doc.p 'You manualy load this'
+# doc.push plugins
+#   .map { |el| "* [Lux.plugin :#{el}](./plugins/#{el})" }
+#   .join($/)
 
-doc.big_br
+# doc.big_br
 
 for c in components
   klass  = 'Lux::%s' % c.capitalize

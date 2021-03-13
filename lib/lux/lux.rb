@@ -1,7 +1,3 @@
-# frozen_string_literal: true
-
-# require_relative 'cache/cache'
-
 module ::Lux
   extend self
 
@@ -18,35 +14,16 @@ module ::Lux
   # main rack response
   def call env=nil
     app = Lux::Application.new env
-    app.render
-  rescue => error
+    app.render || raise('No RACK response given')
+  rescue => err
+    error.log err
+
     if Lux.config.dump_errors
-      raise error
+      raise err
     else
       log error.backtrace
       [500, {}, ['Server error: %s' % error.message]]
     end
-  end
-
-  # initialize the Lux application
-  def boot &block
-    # load plugins
-    (Lux.config.plugins || []).each do |name|
-      Lux.plugin name
-    end
-
-    Config.boot!
-
-    instance_exec &block if block
-  end
-
-  # must be called when serving web pages from rackup
-  def serve rack_handler
-    $rackup_start = true
-
-    # Boot Lux
-    Lux::Application.run_callback :boot, rack_handler
-    rack_handler.run self
   end
 
   # simple block to calc block execution speed
@@ -74,16 +51,29 @@ module ::Lux
   end
 
   def app_caller
-    app_line = caller
-      .find { |line| !line.include?('/lux-fw/') && !line.include?('/.') }
-      .split(':in ')
-      .first
-      .sub(Lux.root.to_s, '.')
+    app_line   = caller.find { |line| !line.include?('/lux-fw/') && !line.include?('/.') }
+    app_line ? app_line.split(':in ').first.sub(Lux.root.to_s, '.') : nil
   end
 end
+
+###
+
+def Lux
+  if caller[0].include?('config.ru')
+    $rackup_start = true
+    $rack_handler = self
+    run Lux
+  else
+    Lux.die 'Not supported'
+  end
+end
+
+###
 
 require_relative 'environment/environment'
 require_relative 'environment/lux_adapter'
 
 require_relative 'config/config'
 require_relative 'config/lux_adapter'
+
+$lux_start_time = Time.now

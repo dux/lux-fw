@@ -1,7 +1,7 @@
 class Float
 
   # Convert float to currenct
-  # `@sum.as_currency(pretty: false, symbol: '$')`
+  # `@sum.as_currency(pretty: false, strip: true, symbol: '$')`
   def as_currency opts={}
     opts = { symbol: opts } unless opts.is_a?(Hash)
 
@@ -10,7 +10,7 @@ class Float
     out = out.sub(/(\d)(\d{3}),/, '\1.\2,')
     out = out.sub(/(\d)(\d{3})\./, '\1.\2.')
 
-    if opts[:pretty]
+    if opts[:pretty] && !opts[:strip]
       out = out.sub(/^([\d\.]+),(\d{2})$/, '<b>\1</b><small>,\2</small> ')
     end
 
@@ -23,6 +23,9 @@ class Float
         out += " #{symbol}"
       end
     end
+
+    # remove decimal places
+    out = out.split(',').first if opts[:strip]
 
     out
   end

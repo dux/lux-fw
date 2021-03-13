@@ -1,5 +1,10 @@
 require 'whirly'
 
+def invoke task, *args
+  puts task.light_black
+  Rake::Task[task].invoke(*args)
+end
+
 def run what
   puts what.yellow
   system what
@@ -25,11 +30,11 @@ end
 ###
 
 task :env do
-  require './config/environment'
+  require './config/env'
 end
 
 task :app do
-  require './config/application'
+  require './config/app'
 end
 
 task :default do
@@ -46,6 +51,8 @@ Bundler.require :default, ENV.fetch('RACK_ENV')
 tasks  = []
 tasks += Dir['%s/tasks/*.rake' % Lux.fw_root]
 tasks += Dir['./lib/**/*.rake']
+
+ap Lux.plugin.folders
 
 for dir in Lux.plugin.folders
   tasks += Dir['%s/**/*.rake' % dir]

@@ -16,3 +16,4 @@ require_relative './loader'
 
 # pollutes ApplicationHelper, need to load after Lux is loaded
 require 'html-tag'
+require 'view-cell'

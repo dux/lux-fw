@@ -28,7 +28,7 @@ module Lux
 
       define_method(:current) { Lux.current }
       define_method(:request) { Lux.current.request }
-      define_method(:params)  { Lux.current.request.params }
+      define_method(:params)  { Lux.current.params }
       define_method(:nav)     { Lux.current.nav }
       define_method(:get)     { |name| instance_variable_get('@%s' % name) }
 
@@ -83,10 +83,9 @@ module Lux
         end
       end
 
-      def cache *args, &block
-        ttl = args.last.class == Hash ? args.pop[:ttl] : nil
-        key  = 'view:'+Lux.cache.generate_key(args)+block.source_location.join(':')
-        Lux.cache.fetch(key, ttl) { yield }
+      def cache name, opts={}, &block
+        key  = 'view:'+Lux.cache.generate_key(name)+block.source_location.join(':')
+        Lux.cache.fetch(key, opts) { yield }
       end
 
       def error msg=nil

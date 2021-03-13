@@ -54,11 +54,11 @@ module Lux
           data = @tilt.render(@helper) do
             yield if block_given?
           end
-        rescue => e
+        rescue => error
           if Lux.config.dump_errors
-            data = Lux::Error.inline %[Lux::Template #{@template} render error], e
+            data = Lux.error.inline error, %[Lux::Template #{@template} render error]
           else
-            raise e
+            raise error
           end
         end
       end

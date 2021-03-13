@@ -24,7 +24,7 @@ module Lux
           end
         end
 
-        Lux.current.request.params
+        Lux.current.params
       end
 
       def nav

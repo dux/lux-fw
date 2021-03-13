@@ -1,50 +1,34 @@
 class Object
-  LUX_AUTO_LOAD = {}
+  LUX_AUTO_LOAD ||= {}
 
   def self.const_missing klass, path=nil
-    klass = klass.to_s if klass.class == Symbol
-
-    if path
-      LUX_AUTO_LOAD[klass] = path
-      return
-    elsif LUX_AUTO_LOAD.keys.length == 0
+    unless LUX_AUTO_LOAD.keys.first
       for file in `find ./app -type f -name *.rb`.split($/)
         klass_file = file.split('/').last.sub('.rb', '').classify
-        LUX_AUTO_LOAD[klass_file] ||= file
+        LUX_AUTO_LOAD[klass_file] ||= [false, file]
       end
     end
 
-    if @_last_autoload_class == klass
-      error      = ['Can\'t find and autoload module/class: "%s"' % klass]
-      call_file  = caller.find{ |f| !f.include?('lux-fw/') && !f.include?('/.') && !f.include?('`evaluate') }
+    klass = klass.to_s if klass.class == Symbol
+    path  = LUX_AUTO_LOAD[klass]
+    error = %{Can't find and autoload module/class "%s"} % klass
 
-      if call_file
-        call_file  = call_file.sub(Dir.pwd, '.')
-        err_folder = call_file.split(':').first.sub(/\/[^\/]+$/, '')
-        file       = klass.underscore
-        klass_path = [err_folder, '%s/lib' % err_folder]
-                       .map   { |folder| '%s/%s.rb' % [folder, file] }
-                       .find  { |file| File.exist?(file) }
-
-        error.push ["Searched in #{err_folder}/#{file}.rb", "#{err_folder}/lib/#{file}.rb", "./app/**/#{file}.rb"].join(', ')
+    if path
+      if path[0]
+        raise NameError.new('%s, found file "%s" is not defineing it.' % [error, path[1]])
+      else
+        path[0] = true
+        require path[1].sub('.rb', '')
+        Object.const_get(klass)
       end
-
-      raise NameError, error.join(' ')
     else
-      @_last_autoload_class = klass
+      raise NameError.new('%s. Scanned all files in ./app folder' % error)
     end
-
-    klass_path ||= LUX_AUTO_LOAD[klass.to_s]
-
-    require klass_path.sub('.rb', '') if klass_path
-
-    # puts '* Autoload: %s from %s' % [klass, klass_path]
-
-    Object.const_get(klass)
   end
 
   ###
 
+  # @foo.or(2)
   def or _or=nil, &block
     self.blank? || self == 0 ? (block ? block.call : _or) : self
   end

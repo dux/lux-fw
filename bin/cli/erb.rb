@@ -1,4 +1,4 @@
-  class ErbParser
+class ErbParser
   def self.parse file
     new(file).parse_file
   end
@@ -40,7 +40,7 @@ LuxCli.class_eval do
   def erb file=nil
     # To create server side template, create file ending in .erb
 
-    require './config/application'
+    require './config/app'
 
     if file
       puts ErbParser.parse(file)

@@ -47,7 +47,7 @@ class String
     begin
       StringBase.decode self
     rescue
-      raise ArgumentError.new('Bad ID')
+      raise ArgumentError.new('Bad ID for string_id')
     end
   end
 end

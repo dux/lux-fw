@@ -101,7 +101,7 @@ module Lux
       # respond with not found
       # * if format provided /foo.png
       # * and error not triggered
-      error.not_found('%s document Not Found' % nav.format.to_s.upcase) if nav.format && !$!
+      # error.not_found('%s document Not Found' % nav.format.to_s.upcase) if nav.format && !$!
 
       if name.class == Hash
         opts.merge! name

@@ -2,7 +2,7 @@ LuxCli.class_eval do
   desc :config, 'Show server config'
   method_option :mode,  aliases: '-m', default: 'production', desc: 'One of the server modes(dev, log, production)'
   def config
-    require './config/application.rb'
+    require './config/app.rb'
 
     puts 'config:'
     Lux.config.sort.each do |key , value|

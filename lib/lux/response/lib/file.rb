@@ -89,7 +89,7 @@ module Lux
           response.headers['content-disposition'] = 'attachment; filename=%s' % @opts.name
         end
 
-        response.headers['cache-control'] = Lux.env.dev? ? 'no-cache' : 'max-age=%d, public' % (@opts.cache ? 31536000 : 0)
+        response.headers['cache-control'] = Lux.env.dev? ? 'public' : 'max-age=%d, public' % (@opts.cache ? 31536000 : 0)
         response.headers['etag']          = '"%s"' % key
         response.headers['last-modified'] = file_mtime
 

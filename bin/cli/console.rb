@@ -41,7 +41,7 @@ LuxCli.class_eval do
     $lux_start_time = Time.now
 
     require 'amazing_print'
-    require './config/application'
+    require './config/app'
 
     Lux.config.dump_errors   = true
     Lux.config.log_to_stdout = true
@@ -56,6 +56,16 @@ LuxCli.class_eval do
       puts '* ./config/console.rb not found'
     end
 
+    Pry.config.print = proc do |output, value|
+      if value.is_a?(Method)
+        output.puts value.inspect
+      elsif value.is_a?(String)
+        output.puts value
+      else
+        ap value
+      end
+    end
+
     if args.first
       command = args.join(' ')
 
@@ -66,7 +76,6 @@ LuxCli.class_eval do
         puts 'Command : %s' % command.light_blue
         data = eval command
         puts '-'
-        ap [:method_source_location, data.source_location] if data.is_a?(Method)
         Pry.config.print.call $stdout, data
       end
     else

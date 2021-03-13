@@ -1,7 +1,7 @@
 LuxCli.class_eval do
   desc :routes, 'Print routes'
   def routes
-    require './config/application'
+    require './config/app'
 
     $total_routes = 0
 

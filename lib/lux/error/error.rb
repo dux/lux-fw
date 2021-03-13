@@ -110,88 +110,60 @@ module Lux
 
     class << self
       # template to show full error page
-      def render *args
-        error =
-        if args.first.is_a?(String)
-          new args[1], args.first
-        else
-          args.first
-        end
+      def render error
+        error = StandardError.new(error) if error.is_a?(String)
 
         code = error.respond_to?(:code) ? error.code : 500
-
         Lux.current.response.status code
 
-        description = error.respond_to?(:description) ? error.description : ''
-
-        unless description.include?(':in `')
-          lines     = split_backtrace(error)
-          backtrace = %[
-            <h4>Backtrace</h4>
-            <code style="font-size: 14px; position: relative; left: -10px; line-height: 18px;">
-              #{lines[1].to_ul}
-              #{lines[2].to_ul}
-            </code>]
-        end
-
-        %{<html>
-            <head>
-              <title>Lux error</title>
-              <style>body { font-size: 14pt; font-family: sans-serif;} </style>
-            </head>
-            <body style="margin: 20px 20px 20px 140px; background-color:#fdd;">
-              <img src="https://i.imgur.com/Zy7DLXU.png" style="width: 100px; position: absolute; margin-left: -120px;" />
-              <h4>HTPP Error &mdash; <a href="https://httpstatuses.com/#{code}" target="http_error">#{code}</a></h4>
-              <h3>#{error.class}</h3>
-              <h3>#{error.message.html_escape}</h3>
-              #{description}
-              #{backtrace}
-            </body>
-          </html>}
+        Lux.current.response.body(
+          HtmlTag.html do |n|
+            n.head do |n|
+              n.title 'Lux error'
+            end
+            n.body style: "margin: 20px 20px 20px 140px; background-color:#fdd; font-size: 14pt; font-family: sans-serif;" do |n|
+              n.img src: "https://i.imgur.com/Zy7DLXU.png", style: "width: 100px; position: absolute; margin-left: -120px;"
+              n.h4 %[HTPP Error &mdash; <a href="https://httpstatuses.com/#{code}" target="http_error">#{code}</a>]
+              n.push inline error
+            end
+          end
+        )
       end
 
-      # render error inline or break in production
-      def inline name, error=nil
-        error ||= $!
+      # render error inline
+      def inline object, msg=nil
+        error, message =
+          if object.is_a?(String)
+            [nil, object]
+          else
+            [object, object.message]
+          end
 
-        unless Lux.config.dump_errors
-          key = log error
-          render "Lux inline error: %s\n\nkey: %s" % [error.message, key]
+        error_key = error ? log(error) : nil
+        message   = message.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
+
+        HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 1px 10px 10px 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|
+          n.h3 'Error: %s' % message
+          n.p msg if msg
+          n.p 'Class: %s' % error.class
+          n.p 'Key: %s' % error_key if error_key
+          n.p 'Code: %s' % error.code if error && error.respond_to?(:code)
+          n.p 'Name: %s' % error.name if error && error.respond_to?(:name)
+          n.p 'Description: %s' % error.description if error && error.respond_to?(:description) && error.description
+
+          if error && Lux.config.dump_errors
+            n.hr
+            n.push mark_backtrace(error).join("\n")
+          end
         end
-
-        name ||= 'Undefined name'
-        msg    = error.message.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
-
-        dmp = split_backtrace error
-
-        dmp[1] = dmp[1].map { |_| _ = _.split(':', 3); '<b>%s</b> - %s - %s' % _ }
-
-        log error
-
-        <<~TEXT
-          <pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:15pt; font-size:11pt;">
-          <b style="font-size:110%;">#{name}</b>
-          <xmp style="font-family:'Lucida Console'; line-height:15pt; font-size:12pt; font-weight: bold; margin-bottom: -5px;">#{dmp[0][0]}: #{dmp[0][1]}</xmp>
-          #{dmp[1].join("\n")}
-          #{dmp[2].join("\n")}
-          </pre>
-        TEXT
       end
 
+      # clear osx screen :)
       def clear_screen
-        print "\e[H\e[2J\e[3J" # clear osx screen :)
+        print "\e[H\e[2J\e[3J"
       end
 
-      def report code, msg=nil
-        e = Integer === code ? Lux::Error.new(code) : Lux::Error.send(code)
-        e.message = msg if msg
-        raise e
-      end
-
-      def log error
-        Lux.config.error_logger.call error
-      end
-
+      # prepare backtrace for better render
       def split_backtrace error
         # split app log rest of the log
         dmp = [[error.class, error.message], [], []]
@@ -206,6 +178,16 @@ module Lux
         dmp
       end
 
+      def mark_backtrace error
+        root = Lux.root.to_s
+
+        error
+          .backtrace
+          .map {|line| line.sub(root, '.') }
+          .map {|line| line[0,1] != '/' ? line.tag(:b) : line }
+      end
+
+      # show in stdout
       def screen error
         return if Lux.env.test?
         data = split_backtrace(error)
@@ -220,10 +202,20 @@ module Lux
     attr_accessor :message
     attr_accessor :description
 
-    def initialize code_num, message=nil, description=nil
-      self.code = code_num
-      self.name = CODE_LIST[code_num][:name]
-      self.description = description
+    def initialize *args
+      while (value = args.shift)
+        if value.is_a?(Integer)
+          self.code = value
+        else
+          if self.message
+            self.description = value
+          else
+            self.message = value
+          end
+        end
+      end
+
+      self.name = CODE_LIST[code][:name]
 
       if Lux.config.dump_errors && !self.description
         parts = self.class.split_backtrace(self)
@@ -249,10 +241,6 @@ module Lux
       @code = num.to_i
 
       raise 'Status code %s not found' % @code unless CODE_LIST[@code]
-    end
-
-    def render
-      self.class.render message, code
     end
   end
 end

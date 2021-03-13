@@ -15,6 +15,6 @@ LuxCli.class_eval do
     Cli.info 'secret: "%s"' % @secrets.secret
     Cli.info 'dump for ENV %s' % Lux.env
 
-    puts @secrets.to_h.pretty_generate
+    puts @secrets.to_h.to_jsonp(true)
   end
 end

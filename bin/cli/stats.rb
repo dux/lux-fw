@@ -122,7 +122,7 @@ end
 LuxCli.class_eval do
   desc :stats, 'Print project stats'
   def stats
-    require './config/application'
+    require './config/app'
 
     stat = LuxStat.new
     stat.call :controllers

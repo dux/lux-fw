@@ -1,6 +1,6 @@
 # http://stackoverflow.com/questions/5159607/rails-engine-gems-dependencies-how-to-load-them-into-the-application
 
-gem_files = [:bin, :lib, :plugins, :tasks]
+gem_files = [:bin, :lib, :tasks]
   .inject([]) { |t, el| t + `find ./#{el}`.split($/) }
   .push './.version'
 
@@ -81,6 +81,7 @@ Gem::Specification.new 'lux-fw' do |gem|
   # best server side templateing
   gem.add_dependency 'hamlit'
   gem.add_dependency 'hamlit-block'
+  gem.add_dependency 'view-cell'
 
   # better development errors
   # gem.add_dependency 'binding_of_caller'

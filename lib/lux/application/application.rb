@@ -7,7 +7,6 @@ module Lux
   class Application
     include Routes
     include Shared
-    include RescueFromError
 
     define_callback :config    # pre boot app config
     define_callback :boot      # after rack app boot (web only)
@@ -15,11 +14,6 @@ module Lux
     define_callback :before    # before any page load
     define_callback :routes    # routes resolve
     define_callback :after     # after any page load
-
-    rescue_from :all do |err|
-      error.screen err
-      call [400, {}, Lux::Error.render(err)]
-    end
 
     boot do |rack_handler|
       # deafult host is required
@@ -31,14 +25,19 @@ module Lux
         # require 'binding_of_caller'
         require 'better_errors'
 
-        rack_handler.use BetterErrors::Middleware
+        rack_handler.use BetterErrors::Middleware if rack_handler
         BetterErrors.editor = :sublime
       end
     end
 
     def initialize env, opts={}
       Lux::Current.new env, opts if env
-      raise 'Config is not loaded (Lux.boot not called), cant render page' unless Lux.config[:lux_config_loaded]
+
+      unless Lux.config[:lux_config_loaded]
+        # raise 'Config is not loaded (Lux.boot not called), cant render page'
+        Lux::Application.run_callback :boot, $rack_handler
+        Lux::Config.boot!
+      end
     end
 
     def render
@@ -47,7 +46,7 @@ module Lux
         if current.no_cache?
           error.clear_screen
         else
-          puts $/
+          puts $/ if Lux.config.log_to_stdout
         end
 
         Lux.log { [request.request_method.white, request.url].join(' ') }
@@ -60,18 +59,28 @@ module Lux
       end
 
       catch :done do
-        resolve_rescue_from do
-          if Lux.config.serve_static_files
-            return if Lux::Response::File.deliver_asset(request)
-          end
-
-          resolve_routes unless response.body?
-
-          error.not_found('Document %s not found' % request.path) unless response.body?
+        if Lux.config.serve_static_files
+          return if Lux::Response::File.deliver_asset(request)
         end
+
+        resolve_routes unless response.body?
+
+        error.not_found('Document %s not found' % request.path) unless response.body?
       end
 
-      @response_render ||= response.render
+      response.render
+    rescue => err
+      error.log err
+
+      unless response.body?
+        catch :done do
+          unless response.body?
+            rescue_from err
+          end
+        end
+
+        response.render
+      end
     end
 
     def info
@@ -95,6 +104,11 @@ module Lux
       return unless request.path.starts_with?(value)
 
       call target.call current.env
+    end
+
+    def rescue_from err
+      error.screen err
+      error.render err
     end
   end
 end

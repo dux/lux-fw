@@ -1,17 +1,15 @@
-# frozen_string_literal: true
-
 module Lux
   class Current
     # set to true if user is admin and you want him to be able to clear caches in production
     attr_accessor :can_clear_cache
 
     attr_accessor :session, :locale
-    attr_reader   :request, :response, :nav, :var, :env
+    attr_reader   :request, :response, :nav, :var, :env, :params
 
     def initialize env=nil, opts={}
-      @env    = env || '/mock'
-      @env    = ::Rack::MockRequest.env_for(env) if env.is_a?(String)
-      request = ::Rack::Request.new @env
+      @env     = env || '/mock'
+      @env     = ::Rack::MockRequest.env_for(env) if env.is_a?(String)
+      @request = ::Rack::Request.new @env
 
       # fix params if defined
       if opts.keys.length > 0
@@ -30,32 +28,18 @@ module Lux
       Thread.current[:lux] = self
 
       # overload request method
-      request.env['REQUEST_METHOD'] = opts[:request_method].to_s.upcase if opts[:request_method]
+      @request.env['REQUEST_METHOD'] = opts[:request_method].to_s.upcase if opts[:request_method]
 
       # set cookies
-      request.cookies.merge opts[:cookies] if opts[:cookies]
+      @request.cookies.merge opts[:cookies] if opts[:cookies]
 
-      # merge qs if present
-      request.params.merge! opts[:query_string] if opts[:query_string]
-
-      # remove empty paramsters in GET request
-      if request.request_method == 'GET'
-        for el in request.params.keys
-          request.params.delete(el) if request.params[el].blank?
-        end
-      end
-
-      # patch params to support indiferent access 😈
-      request.instance_variable_set(:@params, request.params.to_hwia) if request.params.keys.length > 0
-
-      Lux::Current::EncryptParams.decrypt request.params
+      prepare_params opts
 
       # base vars
       @files_in_use = []
       @response     = Lux::Response.new
-      @request      = request
-      @session      = Lux::Current::Session.new request
-      @nav          = Lux::Application::Nav.new request
+      @session      = Lux::Current::Session.new @request
+      @nav          = Lux::Application::Nav.new @request
       @var          = {}.to_hwia
 
       @session.merge! opts[:session] if opts[:session]
@@ -88,9 +72,11 @@ module Lux
     end
 
     # Set Lux.current.can_clear_cache = true in production for admins
-    def no_cache?
-      if @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache'
-        if Lux.env.dev?
+    def no_cache? shallow_check=false
+      check = @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache'
+
+      if check
+        if shallow_check || Lux.env.dev?
           true
         else
           can_clear_cache ? true : false
@@ -147,6 +133,26 @@ module Lux
         @files_in_use.push file
         false
       end
+    end
+
+    private
+
+    def prepare_params opts
+      # patch params to support indiferent access 😈
+      # request.instance_variable_set(:@params, request.params.to_hwia) if request.params.keys.length > 0
+
+      # merge qs if present
+      @params = (@request.params.dup || {}).to_hwia
+      @params.merge! opts[:query_string] if opts[:query_string]
+
+      # remove empty parametars in GET request
+      if request.request_method == 'GET'
+        for el in @params.keys
+          @params.delete(el) if @params[el].blank?
+        end
+      end
+
+      Lux::Current::EncryptParams.decrypt @params
     end
   end
 end

@@ -29,7 +29,6 @@ module Lux
 
       production_mode = true
       production_opts = [
-        [:compile_assets,   false],
         [:auto_code_reload, false],
         [:dump_errors,      false],
         [:log_to_stdout,    false],
@@ -66,9 +65,6 @@ module Lux
       # Automatic code reloads in development
       Lux.config.auto_code_reload = Lux.env.dev?
 
-      # Runtime compile js and css assets
-      Lux.config.compile_assets = Lux.env.dev?
-
       # Delay
       Lux.config.delay_timeout = 30
 
@@ -92,7 +88,6 @@ module Lux
       if Lux.env.log?
         Lux.config.dump_errors      = false
         Lux.config.auto_code_reload = false
-        Lux.config.compile_assets   = false
       end
 
       ###

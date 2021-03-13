@@ -31,6 +31,12 @@ class Url
       current.qs(name, value).relative
     end
 
+    # same as force qs but remove value if selected
+    def toggle name, value
+      value = nil if Lux.current.params[name].to_s == value.to_s
+      qs name, value
+    end
+
     # for search
     # Url.prepare_qs(:q) -> /foo?bar=1&q=
     def prepare_qs name

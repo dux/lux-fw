@@ -26,7 +26,7 @@ module Lux
       end
 
       def process
-        system 'bundle exec faktory-worker -r ./config/application.rb'
+        system 'bundle exec faktory-worker -r ./config/app.rb'
       end
 
       def start

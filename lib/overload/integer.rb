@@ -29,15 +29,15 @@ class Integer
       .sub(/\.\d KB/, ' KB')
   end
 
-  def to_filesize
-    {
-      'B'  => 1024,
-      'KB' => 1024 * 1024,
-      'MB' => 1024 * 1024 * 1024,
-      'GB' => 1024 * 1024 * 1024 * 1024,
-      'TB' => 1024 * 1024 * 1024 * 1024 * 1024
-    }.each_pair do |e, s|
-      return "#{(self.to_f / (s / 1024)).round(['B', 'KB'].include?(e) ? 0 : 1)} #{e}" if self < s
-    end
-  end
+  # def to_filesize
+  #   {
+  #     'B'  => 1024,
+  #     'KB' => 1024 * 1024,
+  #     'MB' => 1024 * 1024 * 1024,
+  #     'GB' => 1024 * 1024 * 1024 * 1024,
+  #     'TB' => 1024 * 1024 * 1024 * 1024 * 1024
+  #   }.each_pair do |e, s|
+  #     return "#{(self.to_f / (s / 1024)).round(['B', 'KB'].include?(e) ? 0 : 1)} #{e}" if self < s
+  #   end
+  # end
 end

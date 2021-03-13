@@ -54,25 +54,25 @@ module Lux
       key = generate_key key
 
       opts = { ttl: opts } unless opts.is_a?(Hash)
-      opts = opts.to_hwia :ttl, :force, :log, :if
+      opts = opts.to_hwia :ttl, :force, :if
 
       return yield if opts.if.is_a?(FalseClass)
 
       opts.ttl     = opts.ttl.to_i if opts.ttl
-      opts.log   ||= Lux.config.log_to_stdout    unless opts.log.class   == FalseClass
       opts.force ||= Lux.current.try(:no_cache?) unless opts.force.class == FalseClass
 
       @server.delete key if opts.force
 
-      Lux.log { " Cache.fetch.get ttl: #{opts.ttl.or(:nil)}, at: #{Lux.app_caller}".green }
+      Lux.log { " Cache.fetch.get #{opts.compact.to_jsonc}, at: #{Lux.app_caller}".green }
 
       data = @server.fetch key, opts.ttl do
-        speed = Lux.speed { data = yield }
-        Lux.log " Cache.fetch.set speed: #{speed}, at: #{Lux.app_caller}".red if opts.log
-        data
+        opts.speed = Lux.speed { data = yield }
+        Lux.log " Cache.fetch.set #{opts.compact.to_jsonc}, at: #{Lux.app_caller}".red
+
+        Marshal.dump data
       end
 
-      data
+      Marshal.load data
     end
 
     def is_available?
@@ -88,7 +88,7 @@ module Lux
         keys.push el.id if el.respond_to?(:id)
 
         if el.respond_to?(:updated_at)
-          keys.push el.updated_at
+          keys.push el.updated_at.to_f
         elsif el.respond_to?(:created_at)
           keys.push el.created_at
         else

@@ -74,6 +74,10 @@ class PageMeta
 
     ret.push Lux.cache('page_meta-%s' % Crypt.sha1(caller.first)) { yield(self) } if block_given?
 
+    if Lux.current.no_cache?
+      ret.push %[<script>window.noCache = true;</script>]
+    end
+
     # title
     title = @title ? "#{@title} | #{@app || Lux.config.app.name}" : Lux.config.app.name
     ret.push %[<title>#{title}</title>]

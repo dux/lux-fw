@@ -4,9 +4,8 @@ LuxCli.class_eval do
   desc :evaluate, 'Eval ruby string in context of Lux::Application'
   def evaluate *args
     require 'amazing_print'
-    require './config/application'
+    require './config/app'
 
-    Lux.info 'Warning: Use lux c *args'
     console *args
   end
 end

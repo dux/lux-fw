@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 class Hash
   def blank?
     self.keys.count == 0
@@ -16,23 +14,13 @@ class Hash
     end.join('&')
   end
 
-  def data_attributes
-    self.keys.sort.map{ |k| 'data-%s="%s"' % [k, self[k].to_s.gsub('"', '&quot;')]}.join(' ')
+  def to_attributes
+    self.keys.sort.map{ |k| '%s="%s"' % [k, self[k].to_s.gsub('"', '&quot;')]}.join(' ')
   end
 
   def pluck *args
     string_args = args.map(&:to_s)
     self.select{ |k,v| string_args.index(k.to_s) }
-  end
-
-  def transform_keys &block
-    return enum_for(:transform_keys) unless block_given?
-    result = Hash.new
-    for key, value in self
-      value = value.transform_keys(&block) if value.is_a?(Hash)
-      result[block.call(key)] = value
-    end
-    result
   end
 
   def stringify_keys
@@ -41,10 +29,6 @@ class Hash
 
   def symbolize_keys
     transform_keys { |key| key.respond_to?(:to_sym) ? key.to_sym : key }
-  end
-
-  def pretty_generate
-    JSON.pretty_generate(self).gsub(/"([\w\-]+)":/) { %["#{$1.yellow}":] }
   end
 
   # Returns hash with only se
@@ -83,8 +67,23 @@ class Hash
   def remove_empty
     self.keys.inject({}) do |t, el|
       v = self[el]
-      t[el] = v if v.present?
+      t[el] = v if el.present? && v.present?
       t
+    end
+  end
+
+  private
+
+  def transform_keys &block
+    if block
+      Hash.new.tap do |result|
+        for key, value in self
+          value = value.transform_keys(&block) if value.is_a?(Hash)
+          result[block.call(key)] = value
+        end
+      end
+    else
+      enum_for(:transform_keys)
     end
   end
 end

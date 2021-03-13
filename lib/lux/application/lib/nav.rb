@@ -8,8 +8,9 @@ module Lux
 
       # acepts path as a string
       def initialize request
-        @path         = request.path.split('/').slice(1, 100) || []
-        @original     = @path.dup
+        @path     = request.path.split('/').slice(1, 100) || []
+        @original = @path.dup
+        @request  = request
 
         set_variables
         set_domain request
@@ -87,7 +88,7 @@ module Lux
         # convert /foo/bar:baz to /foo?bar=baz
         while @path.last&.include?(':')
           key, val = @path.pop.split(':')
-          Lux.current.request.params[key.to_sym] ||= val
+          Lux.current.params[key.to_sym] ||= val
         end
       end
 
