@@ -216,7 +216,7 @@ module Lux
 
         object.action action.to_sym
 
-        unless response.body
+        unless response.body?
           Lux.error 'Lux action "%s" called via route "%s" but page body is not set' % [object, nav.root]
         end
       end

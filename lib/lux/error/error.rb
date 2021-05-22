@@ -45,13 +45,13 @@ module Lux
       308 => { name: 'Permanent Redirect' },
 
       # 4×× Client Error
-      400 => { name: 'Bad Request',        code: :bad_request },
-      401 => { name: 'Unauthorized',       code: :unauthorized },
-      402 => { name: 'Payment Required',   code: :payment_required },
-      403 => { name: 'Forbidden',          code: :forbidden },
-      404 => { name: 'Document Not Found', code: :not_found },
-      405 => { name: 'Method Not Allowed', code: :method_not_allowed },
-      406 => { name: 'Not Acceptable',     code: :not_acceptable },
+      400 => { name: 'Bad Request',        short: :bad_request },
+      401 => { name: 'Unauthorized',       short: :unauthorized },
+      402 => { name: 'Payment Required',   short: :payment_required },
+      403 => { name: 'Forbidden',          short: :forbidden },
+      404 => { name: 'Document Not Found', short: :not_found },
+      405 => { name: 'Method Not Allowed', short: :method_not_allowed },
+      406 => { name: 'Not Acceptable',     short: :not_acceptable },
       407 => { name: 'Proxy Authentication Required' },
       408 => { name: 'Request Timeout' },
       409 => { name: 'Conflict' },
@@ -77,8 +77,8 @@ module Lux
       499 => { name: 'Client Closed Request' },
 
       # 5×× Server Error
-      500 => { name: 'Internal Server Error', code: :internal_server_error },
-      501 => { name: 'Not Implemented',       code: :not_implemented },
+      500 => { name: 'Internal Server Error', short: :internal_server_error },
+      501 => { name: 'Not Implemented',       short: :not_implemented },
       502 => { name: 'Bad Gateway' },
       503 => { name: 'Service Unavailable' },
       504 => { name: 'Gateway Timeout' },
@@ -93,8 +93,8 @@ module Lux
 
     # e = Lux::Error.not_found('foo')
     CODE_LIST.each do |status, data|
-      if data[:code]
-        define_singleton_method(data[:code]) do |message=nil|
+      if data[:short]
+        define_singleton_method(data[:short]) do |message=nil|
           error = new status, message
 
           if error.is_a?(Lux::Error::AutoRaise)
@@ -123,7 +123,10 @@ module Lux
             end
             n.body style: "margin: 20px 20px 20px 140px; background-color:#fdd; font-size: 14pt; font-family: sans-serif;" do |n|
               n.img src: "https://i.imgur.com/Zy7DLXU.png", style: "width: 100px; position: absolute; margin-left: -120px;"
-              n.h4 %[HTPP Error &mdash; <a href="https://httpstatuses.com/#{code}" target="http_error">#{code}</a>]
+              n.h4 do |n|
+                n.push %[HTTP Error &mdash; <a href="https://httpstatuses.com/#{code}" target="http_error">#{code}</a>]
+                n.push %[ &dash; #{error.name}] if error.respond_to?(:name)
+              end
               n.push inline error
             end
           end
@@ -143,17 +146,14 @@ module Lux
         message   = message.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
 
         HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 1px 10px 10px 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|
-          n.h3 'Error: %s' % message
+          n.h3 '%s : %s' % [error.class, message]
           n.p msg if msg
-          n.p 'Class: %s' % error.class
           n.p 'Key: %s' % error_key if error_key
-          n.p 'Code: %s' % error.code if error && error.respond_to?(:code)
-          n.p 'Name: %s' % error.name if error && error.respond_to?(:name)
           n.p 'Description: %s' % error.description if error && error.respond_to?(:description) && error.description
 
           if error && Lux.config.dump_errors
             n.hr
-            n.push mark_backtrace(error).join("\n")
+            n.push mark_backtrace(error, html: true).join("\n")
           end
         end
       end
@@ -178,13 +178,21 @@ module Lux
         dmp
       end
 
-      def mark_backtrace error
+      def mark_backtrace error, html: false
+        return ['no backtrace present'] unless error && error.backtrace
+
         root = Lux.root.to_s
 
         error
           .backtrace
-          .map {|line| line.sub(root, '.') }
-          .map {|line| line[0,1] != '/' ? line.tag(:b) : line }
+          .map do |line|
+            path = line.split(':in').first
+            path = path.sub(/^\.\//, root+'/')
+
+            edit = html ? %[ &bull; <a href="subl://open?url=file:/#{path}">edit</a>] : ''
+            line = line.sub(root, '.')
+            (line[0,1] != '/' ? (html ? line.tag(:b) : line) : line) + edit
+          end
       end
 
       # show in stdout
@@ -194,47 +202,31 @@ module Lux
         data[2] = data[2][0,5]
         ap data
       end
+
+      def log err
+        Lux.config.error_logger.call err
+      end
     end
 
     ###
 
-    attr_accessor :name
     attr_accessor :message
-    attr_accessor :description
 
     def initialize *args
-      while (value = args.shift)
-        if value.is_a?(Integer)
-          self.code = value
-        else
-          if self.message
-            self.description = value
-          else
-            self.message = value
-          end
-        end
+      if args.first.is_a?(Integer)
+        self.code    = args.shift
       end
 
-      self.name = CODE_LIST[code][:name]
-
-      if Lux.config.dump_errors && !self.description
-        parts = self.class.split_backtrace(self)
-        self.description = %[
-          <hr />
-          <style>pre { font-size: 14px; }</style>
-          <h4>Lux.config.dump_errors = true</h4>
-          <pre>Lux.current.nav.path: <b>#{Lux.current.nav.path.join(' / ')}</b></pre>
-          <pre>#{parts[1].join("\n")}</pre>
-          <pre>#{parts[2].join("\n")}</pre>
-        ]
-      end
-
-      @message = message || self.name
+      self.message = args.shift || name
     end
 
     def code
       # 400 is a default
       @code || 400
+    end
+
+    def name
+      CODE_LIST[code][:name]
     end
 
     def code= num

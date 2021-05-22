@@ -36,8 +36,8 @@ end
 ###
 
 LuxCli.class_eval do
-  desc :erb, 'Parse and process *.erb templates'
-  def erb file=nil
+  desc :cerb, 'Parse and process *.cerb templates (cli erb)'
+  def cerb file=nil
     # To create server side template, create file ending in .erb
 
     require './config/app'
@@ -45,7 +45,7 @@ LuxCli.class_eval do
     if file
       puts ErbParser.parse(file)
     else
-      commmand = "find . -type file | grep --color=never \\.erb$"
+      commmand = "find . -type file | grep --color=never \\.cerb$"
       puts commmand.gray
       files = `#{commmand}`
         .split($/)
@@ -54,9 +54,9 @@ LuxCli.class_eval do
       Cli.die 'No erb templates found' unless files.first
 
       for file in files
-        target = file.sub(/\.erb$/, '')
+        target = file.sub(/\.cerb$/, '')
 
-        puts 'Assets compile: %s -> %s' % [file.green, target]
+        puts 'Assets compile: %s -> %s (%s)' % [file.green, target, File.size(target).to_filesize]
         out = []
         out.push "/* Generated from #{file} */"
 

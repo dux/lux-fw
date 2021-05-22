@@ -26,8 +26,8 @@ class Dir
   # Find files in child folders.
   # All lists are allways sorted with idempotent function response.
   # Example: get all js and coffee in ./app/assets and remove ./app
-  # `Dir.find('./app/assets', ext: [:js, :coffee], root: './app')`
-  # shortuct to remove ./app
+  # `Dir.find('./app/assets', ext: [:js, :coffee], root: './app', hash: true)`
+  # shortuct to remove ./app and not use root param
   # `Dir.find('./app#assets', ext: [:js, :coffee])`
   def self.find dir_path, opts={}
     opts[:ext] ||= []
@@ -63,8 +63,24 @@ class Dir
       .select { |_| opts[:ext].first ? opts[:ext].include?(_.split('.').last) : true }
       .map { |_| opts[:root] ? _.sub(opts[:root], '') : _ }
 
+    if opts[:hash]
+      files = files.map do |full|
+        parts  = full.split('/')
+        file   = parts.pop
+        fparts = file.split('.')
+
+        {
+          full: full,
+          dir: parts.join('/'),
+          file: file,
+          ext: fparts.pop,
+          name: fparts.join('.')
+        }.to_hwia
+      end
+    end
+
     if block_given?
-      files.map { |f| yield(f).gsub('%s', f) }.join($/)
+      files.map { |f| yield(f).gsub('%s', f) }.join(opts[:join] || $/)
     else
       files
     end

@@ -52,8 +52,6 @@ tasks  = []
 tasks += Dir['%s/tasks/*.rake' % Lux.fw_root]
 tasks += Dir['./lib/**/*.rake']
 
-ap Lux.plugin.folders
-
 for dir in Lux.plugin.folders
   tasks += Dir['%s/**/*.rake' % dir]
 end

@@ -13,15 +13,14 @@ module ::Lux
 
   # main rack response
   def call env=nil
-    app = Lux::Application.new env
-    app.render || raise('No RACK response given')
+    app  = Lux::Application.new env
+    data = app.render || raise('No RACK response given')
   rescue => err
     error.log err
 
     if Lux.config.dump_errors
       raise err
     else
-      log error.backtrace
       [500, {}, ['Server error: %s' % error.message]]
     end
   end
@@ -59,13 +58,12 @@ end
 ###
 
 def Lux
-  if caller[0].include?('config.ru')
-    $rackup_start = true
+  if self.class == Rack::Builder
     $rack_handler = self
     run Lux
-  else
-    Lux.die 'Not supported'
   end
+
+  Lux::Config.app_boot
 end
 
 ###
@@ -76,4 +74,9 @@ require_relative 'environment/lux_adapter'
 require_relative 'config/config'
 require_relative 'config/lux_adapter'
 
-$lux_start_time = Time.now
+if $lux_start_time
+  # for better start stats add $lux_start_time ||= Time.now to begginging of Gemfile
+  $lux_start_time = [$lux_start_time, Time.now]
+else
+  $lux_start_time = Time.now
+end

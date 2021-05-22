@@ -47,10 +47,8 @@ class PageMeta
   end
   alias_method :image=, :image
 
-  def render header_id
+  def render
     ret   = []
-
-    meta 'pjax_template_id', header_id
 
     ret.push %[<meta name="viewport" content="width=device-width" initial-scale="1.0" maximum-scale="1.0" minimum-scale="1.0" user-scalable="no" />]
 

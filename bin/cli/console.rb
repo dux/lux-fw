@@ -38,13 +38,14 @@ ARGV[0] = 'console' if ARGV[0] == 'c'
 LuxCli.class_eval do
   desc :console, 'Start console'
   def console *args
-    $lux_start_time = Time.now
-
     require 'amazing_print'
     require './config/app'
 
     Lux.config.dump_errors   = true
     Lux.config.log_to_stdout = true
+
+    # boot
+    Lux()
 
     # create mock session
     Lux::Current.new '/'

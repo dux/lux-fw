@@ -13,13 +13,14 @@
 # if you want to cancel mail delivery - mail.to = false
 module Lux
   class Mailer
-    class_attribute :template_root, './app/views/mailer'
+    include ClassCallbacks
+
+    cattr :template_root, './app/views/mailer'
+    cattr :helper, nil
+    cattr :layout, 'mailer'
 
     define_callback :before
     define_callback :after
-
-    class_attribute :helper
-    class_attribute :layout, 'mailer'
 
     attr_reader :mail
 
@@ -58,7 +59,7 @@ module Lux
 
       unless data
         helper = Lux::Template::Helper.new self, self.class.helper
-        data = Lux::Template.render helper, template: "#{self.class.template_root}/mailer/#{@_template}", layout: "layouts/#{self.class.layout}"
+        data = Lux::Template.render helper, template: "#{cattr.template_root}/mailer/#{@_template}", layout: "layouts/#{self.class.layout}"
       end
 
       data.gsub(%r{\shref=(['"])/}) { %[ href=#{$1}#{Lux.config.host}/] }

@@ -33,7 +33,7 @@ module Lux
     end
 
     def cli?
-      $rackup_start != true
+      !$rack_handler
     end
 
     ###

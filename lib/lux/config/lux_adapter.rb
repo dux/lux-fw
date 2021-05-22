@@ -8,8 +8,18 @@ module Lux
 
   # load rake tasks + including ones in plugins
   def load_tasks
-    if ARGV.first.to_s.end_with?(':')
-      run 'rake -T | grep %s' % ARGV.first
+    name = ARGV.first.to_s
+
+    if name.end_with?(':')
+        data = `rake #{name}info 2>&1`
+
+        unless data.include?('rake aborted!')
+          puts "rake #{name}".gray
+          puts data
+          puts '---'
+        end
+
+        run 'rake -T | grep --color=never %s' % ARGV.first
       exit
     end
 

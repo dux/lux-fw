@@ -83,8 +83,18 @@ module Lux
         end
       end
 
-      def cache name, opts={}, &block
-        key  = 'view:'+Lux.cache.generate_key(name)+block.source_location.join(':')
+      def cache name=nil, opts={}, &block
+        if opts.class == Integer
+          opts = { ttl: opts }
+        elsif name.is_a?(Hash)
+          opts = name
+          name = ''
+        else
+          name = Lux.cache.generate_key(name)
+        end
+
+        opts[:ttl] ||= 1.hour
+        key = 'view:'+name+block.source_location.join(':')
         Lux.cache.fetch(key, opts) { yield }
       end
 

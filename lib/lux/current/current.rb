@@ -87,14 +87,15 @@ module Lux
     end
 
     # Execute action once per page
-    def once id=nil, data=nil, &block
-      id ||= Digest::SHA1.hexdigest caller[0] if block
+    def once id = nil
+      id ||= Digest::SHA1.hexdigest caller[0]
 
       @once_hash ||= {}
-      return if @once_hash[id]
+      return false if @once_hash[id]
       @once_hash[id] = true
 
-      block_given? ? yield : data
+      yield if block_given?
+      true
     end
 
     # Generete unique ID par page render

@@ -54,7 +54,7 @@ module Lux
       key = generate_key key
 
       opts = { ttl: opts } unless opts.is_a?(Hash)
-      opts = opts.to_hwia :ttl, :force, :if
+      opts = opts.to_hwia :ttl, :force, :if, :unless
 
       return yield if opts.if.is_a?(FalseClass)
 
@@ -81,7 +81,7 @@ module Lux
     end
 
     def generate_key *data
-      keys = []
+      keys = [Lux.config.deploy_timestamp]
 
       for el in [data].flatten
         keys.push el.class.to_s

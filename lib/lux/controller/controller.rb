@@ -3,17 +3,18 @@
 
 module Lux
   class Controller
+    include ClassCallbacks
     include ::Lux::Application::Shared
 
     # define master layout
     # string is template, symbol is method pointer and lambda is lambda
-    class_attribute :layout
+    cattr :layout, nil
 
     # define helper contest, by defult derived from class name
-    class_attribute :helper
+    cattr :helper, nil
 
     # custom template root instead calcualted one
-    class_attribute :template_root, './app/views'
+    cattr :template_root, './app/views'
 
     # before and after any action filter, ignored in controllers, after is called just before render
     define_callback :before
@@ -51,7 +52,9 @@ module Lux
     # action(:show)
     # action(:select', ['users'])
     def action method_name, *args
-      raise ArgumentError.new('Controller action called with blank action name argument') if method_name.blank?
+      if method_name.blank?
+        raise ArgumentError.new('Controller action called with blank action name argument')
+      end
 
       if method_name.is_a?(Symbol)
         raise ArgumentError.new('Forbiden action name :%s' % method_name) if [:action, :error].include?(method_name)
@@ -146,7 +149,7 @@ module Lux
     define_method(:get?)          { request.request_method == 'GET' }
     define_method(:post?)         { request.request_method == 'POST' }
     define_method(:etag)          { |*args| current.response.etag *args }
-    define_method(:layout)        { |arg| @lux.layout = arg }
+    define_method(:layout)        { |arg = :_nil| arg == :_nil ? @lux.layout : (@lux.layout = arg) }
     define_method(:cache_control) { |arg| response.headers['cache-control'] = arg }
 
     # called be render
@@ -292,9 +295,9 @@ module Lux
         return
       end
 
-      raise Lux::Error.new 500,
-        'Method "%s" not found found in "%s" (nav: %s)' % [name, self.class, nav],
-        'You have defined %s' % (methods - Lux::Controller.instance_methods).sort.to_ul
+      message = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, nav]
+      defined = 'You have defined %s' % (methods - Lux::Controller.instance_methods).sort.to_ul
+      raise Lux::Error.new 500, [message, defined].join(' ')
     end
   end
 end

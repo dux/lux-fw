@@ -1,10 +1,17 @@
-# frozen_string_literal: true
-
 require 'yaml'
 
 module Lux
   module Config
     extend self
+
+    def app_boot
+      # mock first request to boot app, we need to access config in app somehow
+      Lux.app.new('/app-boot').run_callback :config
+
+      after_boot_check
+
+      start_info
+    end
 
     # preview config in development
     def show_config
@@ -18,13 +25,7 @@ module Lux
       `ps -o rss -p #{$$}`.chomp.split("\n").last.to_i / 1000
     end
 
-    def boot!
-      Lux::Application.run_callback :config
-      Lux.config.lux_config_loaded = true
-      start_info $lux_start_time
-    end
-
-    def start_info start=nil
+    def start_info
       return @load_info if @load_info
 
       production_mode = true
@@ -44,18 +45,25 @@ module Lux
       end
 
       mode  = production_mode ? 'production'.green : 'development'.yellow
-      speed = start ? ' in %s sec' % ((Time.now - start)).round(1).to_s.white : nil
+
+      if $lux_start_time.class == Array
+        # $lux_start_time ||= Time.now added to Gemfile
+        speed = 'in %s sec (%s gems, %s app)' % [
+          time_diff($lux_start_time[0]).white,
+          time_diff($lux_start_time[0], $lux_start_time[1]),
+          time_diff($lux_start_time[1]),
+        ]
+      else
+        speed = 'in %s sec' % time_diff($lux_start_time).white
+      end
 
       info = []
       info.push '* Config: %s' % opts.join(', ')
-      info.push "* Lux loaded #{mode} mode#{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec}"
-
-      @load_info = info.join($/)
-      puts @load_info if start
-      @load_info
+      info.push "* Lux loaded in #{mode} mode, #{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
+      puts info.join($/)
     end
 
-    def init!
+    def set_defaults
       # Show server errors to a client
       Lux.config.dump_errors = Lux.env.dev?
 
@@ -80,7 +88,7 @@ module Lux
       Lux.config.asset_root            = false
       Lux.config[:plugins]           ||= []
       Lux.config[:error_logger]      ||= Proc.new do |error|
-        ap Lux::Error.split_backtrace(error)
+        ap [error.message, error.class, Lux::Error.mark_backtrace(error)]
       end
 
       ###
@@ -95,6 +103,9 @@ module Lux
       # Serve static files is on by default
       Lux.config.serve_static_files = true
 
+      # Etag and cache tags reset after deploy
+      Lux.config.deploy_timestamp = File.mtime('./Gemfile').to_i.to_s
+
       # inflector
       String.inflections do |inflect|
         inflect.plural   'bonus', 'bonuses'
@@ -102,6 +113,27 @@ module Lux
         inflect.plural   'people', 'people'
         inflect.singular /news$/, 'news'
       end
+    end
+
+    def after_boot_check
+      # deafult host is required
+      unless Lux.config.host.to_s.include?('http')
+        raise 'Invalid "Lux.config.host"'
+      end
+
+      if Lux.config.dump_errors
+        # require 'binding_of_caller'
+        require 'better_errors'
+
+        $rack_handler.use BetterErrors::Middleware if $rack_handler
+        BetterErrors.editor = :sublime
+      end
+    end
+
+    private
+
+    def time_diff time1, time2 = Time.now
+      ((time2 - time1)).round(2).to_s
     end
   end
 end

@@ -26,4 +26,4 @@ if Lux.root != Lux.fw_root
   ['./log', './tmp'].each { |d| `mkdir #{d}` unless Dir.exist?(d) }
 end
 
-Lux::Config.init!
+Lux::Config.set_defaults

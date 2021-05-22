@@ -68,14 +68,17 @@ module Lux
       throw :done
     end
 
-    def body body_data=nil, status=nil
-      @body = yield(@body) if block_given?
-      return @body if @body
-      @status = status if status
-      @body = body_data
-      throw :done
+    def body body_data = :_nil
+      if block_given?
+        @body = yield(@body)
+        throw :done
+      elsif body_data == :_nil
+        @body
+      else
+        @body = body_data
+        throw :done
+      end
     end
-    alias :body= :body
 
     def body?
       !!@body
@@ -232,7 +235,7 @@ module Lux
 
       @headers['x-lux-speed']     = "#{((Time.monotonic - @render_start)*1000).round(1)}ms"
       @headers['content-type']  ||= "#{@content_type}; charset=utf-8"
-      @headers['content-length']  = @body.bytesize.to_s
+      # @headers['content-length']  = @body.bytesize.to_s
 
       # if "no-store" is present then HTTP_IF_NONE_MATCH is not sent from browser
     end

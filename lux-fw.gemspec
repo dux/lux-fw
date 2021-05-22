@@ -35,7 +35,9 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_dependency 'html-tag'
 
   # class and method attributes, rescue_from
-  gem.add_dependency 'clean-annotations'
+  # gem.add_dependency 'clean-annotations'
+  gem.add_dependency 'class-cattr'
+  gem.add_dependency 'class-callbacks'
 
   # hash inifferent access, hash to struct
   gem.add_dependency 'hash_wia'

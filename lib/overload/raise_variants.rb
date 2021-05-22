@@ -1,34 +1,31 @@
-class DebugRaiseError < StandardError
-  attr_accessor :description
-end
-
 class Object
   # raise object
   def r what
-    err = DebugRaiseError.new what
-
     if what.is_a?(Method)
-      err.description = what.source_location
+      rr [:source_location, what.source_location.join(':')]
     else
-      opath = what.class.ancestors
-      out   = opath.join("\n> ")
-      err.description = out
+      rr what
     end
 
-    raise err
+    raise StandardError.new(what)
   end
 
   # better console log dump
   def rr what
-    ap ['--- START (%s) %s ---' % [what.class, Lux.app_caller], what, '--- END ---']
+    # clear osx screen :)
+    print "\e[H\e[2J\e[3J" if Lux.current.once
+
+    from = caller[0].include?('raise_variants.rb') ? caller[1] : caller[0]
+    from = from.sub(Lux.root.to_s+'/', './').split(':in ').first
+    ap ['--- START (%s) %s ---' % [what.class, from], what, '--- END ---']
   end
 
   # unique methods for object
   # includes methods from modules
-  def rm object
+  def r? object
     dump = []
 
-    dump.push ['Class', object.class]
+    dump.push 'Class: %s' % object.class
 
     instance_unique = object.methods - object.class.ancestors[0].instance_methods
     class_unique    = object.methods
@@ -37,31 +34,16 @@ class Object
       class_unique -= _.instance_methods
 
       if _.class != Module
-        dump.push ['Parent Class', _]
+        dump.push 'Parent Class: %s' % _
         break
       end
     end
 
     dump.push ['Instance uniqe', instance_unique.sort] if instance_unique[0]
-    dump.push ['Uniqe from parent', class_unique.sort]
+    dump.push ['Uniqe from parent', class_unique.sort.join(', ')]
     dump.push ['Uniqe from parent simple', object.class.instance_methods(false)]
 
-    r dump
-  end
-
-  def rr! what
-    print "\e[H\e[2J\e[3J" # clear osx screen :)
-    rr what
-  end
-
-  # show method info
-  # show User, :secure_hash
-  def rr? instance, m
-    el = instance.class.instance_method(m)
-    puts el.source_location.join(':').yellow
-    puts '-'
-    puts el.source if el.respond_to?(:source)
-    nil
+    rr dump
   end
 end
 
@@ -75,4 +57,3 @@ method(:ap) rescue Proc.new do
     end
   end
 end.call
-
