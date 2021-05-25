@@ -54,8 +54,10 @@ module Lux
       # renders just template but it is called
       # = render :_link, link:link
       # = render 'main/links/_link', link:link
-      def render name, locals={}
-        if name.is_array?
+      def render name=nil, locals={}
+        if !name
+          return InlineRenderProxy.new(self)
+        elsif name.is_array?
           return name.map { |b| render(b) }.join("\n")
         elsif name.respond_to?(:db_schema)
           raise 'not supported'
