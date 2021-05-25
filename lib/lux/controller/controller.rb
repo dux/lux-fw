@@ -1,10 +1,13 @@
-# filters stack for call
-# before, before_action, :action, after
+# filters stack for call - before, before_action, :action, after
+# define path_id {} to capture path ids
+# if action is missing capture it via def action_missing name
 
 module Lux
   class Controller
     include ClassCallbacks
     include ::Lux::Application::Shared
+
+    TEMPLATE_ROOT ||= './app/views'
 
     # define master layout
     # string is template, symbol is method pointer and lambda is lambda
@@ -14,7 +17,10 @@ module Lux
     cattr :helper, nil
 
     # custom template root instead calcualted one
-    cattr :template_root, './app/views'
+    cattr :template_root, nil
+
+    cattr :path_id_store
+    cattr.path_id_store = [proc { raise 'path_id {} is not defined on controller' }]
 
     # before and after any action filter, ignored in controllers, after is called just before render
     define_callback :before
@@ -34,6 +40,14 @@ module Lux
       def mock *args
         args.each do |el|
           define_method(el) { true }
+        end
+      end
+
+      def path_id *args, &block
+        if block
+          cattr.path_id_store = [block]
+        else
+          cattr.path_id_store[0].call(*args)
         end
       end
     end
@@ -201,8 +215,8 @@ module Lux
     end
 
     def render_body opts
-      template      = (opts.template || @lux.action).to_s
-      template_root = self.class.template_root || './app/views'
+      template      = (opts.template      || @lux.action).to_s
+      template_root = cattr.template_root || TEMPLATE_ROOT
 
       template =
       if template.start_with?('./')
@@ -283,7 +297,7 @@ module Lux
     end
 
     def action_missing name
-      path = [self.class.template_root, @lux.template_sufix, name].join('/')
+      path = [cattr.template_root || TEMPLATE_ROOT, @lux.template_sufix, name].join('/')
 
       if template = Dir['%s.*' % path].first
         unless Lux.config.use_autoroutes
@@ -296,7 +310,21 @@ module Lux
       end
 
       message = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, nav]
-      defined = 'You have defined %s' % (methods - Lux::Controller.instance_methods).sort.to_ul
+
+      if Lux.env.dev?
+        defined_methods = (methods - Lux::Controller.instance_methods).map(&:to_s)
+        defined = '<br /><br />Defined methods %s' % defined_methods.sort.to_ul
+
+        if Lux.config.use_autoroutes
+          root  = [cattr.template_root || TEMPLATE_ROOT, @lux.template_sufix].join('/')
+          files = Dir.files(root).sort.filter {|f| f =~ /^[a-z]/ }.map {|f| f.sub(/\.\w+$/, '') }
+          files = files - defined_methods
+          defined += '<br />Defined via templates %s' % files.to_ul
+        else
+          defined += 'Defined templates - disabled'
+        end
+      end
+
       raise Lux::Error.new 500, [message, defined].join(' ')
     end
   end

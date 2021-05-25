@@ -259,18 +259,23 @@ module Lux
         # /
         return :index unless nav.root
 
+        params[:id] = object.path_id(nav.path[0])
+
         if nav.path[1]
           # /1/foo
-          params[:id] = nav.path[0]
+          unless params[:id]
+            error 'Bad path ID "%s" provided' % nav.path[0]
+          end
+
           action_name nav.path[1]
         else
-          # /foo
-          action  = action_name nav.path[0]
-          return action if object.instance_methods(false).include?(action)
-
-          # /1
-          params[:id] = nav.path[0]
-          :show
+          if params[:id]
+            # /123
+            :show
+          else
+            # /foo
+            action_name nav.path[0]
+          end
         end
       end
 

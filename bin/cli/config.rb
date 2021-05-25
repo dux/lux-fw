@@ -16,10 +16,10 @@ LuxCli.class_eval do
       when Proc
         'proc { ... }'
       else
-        value
+        value.inspect
       end
 
-      name = '  Lux.config.%s' % key.white
+      name = '  Lux.config.%s' % key.to_s.white
       print name.ljust(47)
       puts '= %s' % value
     end
@@ -34,7 +34,5 @@ LuxCli.class_eval do
     Lux.plugin.keys.each do |key|
       puts '  Lux.plugin.%s - %s' % [key.ljust(22).white, Lux.plugin.get(key).folder]
     end
-
-    Lux::Application.run_callback :info
   end
 end
