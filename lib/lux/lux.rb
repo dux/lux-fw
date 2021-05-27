@@ -14,7 +14,7 @@ module ::Lux
   # main rack response
   def call env=nil
     app  = Lux::Application.new env
-    data = app.render || raise('No RACK response given')
+    app.render || raise('No RACK response given')
   rescue => err
     error.log err
 

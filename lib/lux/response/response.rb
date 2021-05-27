@@ -41,15 +41,14 @@ module Lux
     end
 
     def etag *args
-      key = '"%s"' % Lux.cache.generate_key(current.request.url, args)
-      key = 'W/%s' % key unless max_age > 0
+      unless @headers['etag']
+        key = '"%s"' % Lux.cache.generate_key(current.request.url, args)
+        key = 'W/%s' % key unless max_age > 0
+        @headers['etag'] = key
+      end
 
-      @headers['etag'] ||= key
-
-      if !current.no_cache?(true) && !Lux.env.dev? && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
-        Lux.log 'etag hit'
-        status 304
-        body 'not-modified'
+      if !status && !current.no_cache?(true) && !Lux.env.dev? && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
+        body 'not-modified', 304
       end
     end
 
@@ -68,14 +67,21 @@ module Lux
       throw :done
     end
 
-    def body body_data = :_nil
+    # response.body 'foo'
+    # response.body 'foo', 400
+    # response.body { 'foo' }
+    # response.body(400) { 'foo' }
+    def body arg1 = nil, arg2 = nil
       if block_given?
+        # if block given status can be first argument
+        status arg1 if arg1
         @body = yield(@body)
         throw :done
-      elsif body_data == :_nil
+      elsif !arg1
         @body
       else
-        @body = body_data
+        status arg2 if arg2
+        @body = arg1
         throw :done
       end
     end
@@ -231,11 +237,13 @@ module Lux
         @headers['set-cookie'] = cookie if cookie
       end
 
-      etag(@body) if current.request.request_method == 'GET'
+      if current.request.request_method == 'GET'
+        catch(:done) { etag(@body) }
+      end
 
       @headers['x-lux-speed']     = "#{((Time.monotonic - @render_start)*1000).round(1)}ms"
       @headers['content-type']  ||= "#{@content_type}; charset=utf-8"
-      # @headers['content-length']  = @body.bytesize.to_s
+      @headers['content-length']  = @body.bytesize.to_s
 
       # if "no-store" is present then HTTP_IF_NONE_MATCH is not sent from browser
     end

@@ -236,4 +236,3 @@ module Lux
     end
   end
 end
-

@@ -15,7 +15,7 @@ module Lux
   class Mailer
     include ClassCallbacks
 
-    cattr :template_root, './app/views/mailer'
+    cattr :template_root, './app/views'
     cattr :helper, nil
     cattr :layout, 'mailer'
 

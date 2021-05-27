@@ -31,7 +31,9 @@ module Lux
         Lux.log { [request.request_method.white, request.url].join(' ') }
       end
 
-      Lux.log { JSON.pretty_generate(request.params.to_h) } if request.post?
+      if request.post?
+        Lux.log { request.params.to_h.to_jsonp }
+      end
 
       catch :done do
         begin
@@ -40,7 +42,7 @@ module Lux
           end
 
           if Lux.config.serve_static_files
-            return if Lux::Response::File.deliver_asset(request)
+            Lux::Response::File.deliver_asset(request)
           end
 
           resolve_routes  unless response.body?
