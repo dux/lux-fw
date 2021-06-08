@@ -33,6 +33,10 @@ class Object
     self.blank? || self == 0 ? (block ? block.call : _or) : self
   end
 
+  def and &block
+    block.call(self) if self.present?
+  end
+
   def try *args, &block
     return nil if self.class == NilClass
     data = self.send(*args) || return

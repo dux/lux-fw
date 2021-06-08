@@ -13,22 +13,19 @@ module Lux
 
       # fix params if defined
       if opts.keys.length > 0
-        opts = opts.to_hwia :qs, :query_string, :post, :request_method, :method, :session, :cookies
+        opts = opts.to_hwia :params, :post, :method, :session, :cookies
 
         if opts[:post]
           opts[:method] = 'POST'
-          opts[:qs]     = opts[:post]
+          opts[:params] = opts[:post]
         end
-
-        opts[:query_string]   ||= opts[:qs]
-        opts[:request_method] ||= opts[:method]
       end
 
       # reset page cache
       Thread.current[:lux] = self
 
       # overload request method
-      @request.env['REQUEST_METHOD'] = opts[:request_method].to_s.upcase if opts[:request_method]
+      @request.env['REQUEST_METHOD'] = opts[:method].to_s.upcase if opts[:method]
 
       # set cookies
       @request.cookies.merge opts[:cookies] if opts[:cookies]

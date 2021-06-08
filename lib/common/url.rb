@@ -165,6 +165,18 @@ class Url
       end
 
       self
+    elsif name.is_a?(Hash)
+      @opt.qs = name.inject(@opt.qs) do |t, el|
+        if el[1]
+          t[el[0].to_s] = el[1]
+        else
+          t.delete el[0].to_s
+        end
+
+        t
+      end
+
+      self
     elsif name
       @opt.qs[name.to_s]
     end

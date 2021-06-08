@@ -6,7 +6,7 @@ module Lux
 
     def app_boot
       # mock first request to boot app, we need to access config in app somehow
-      Lux.app.new('/app-boot').run_callback :config
+      Lux.app.new('/init-boot-config').run_callback :config
 
       after_boot_check
 

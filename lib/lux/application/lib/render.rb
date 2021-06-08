@@ -4,12 +4,12 @@ module Lux
       extend self
 
       # Alternative was to call render action
-      # `Lux.app.new(path, full_opts).info`
-      # `Lux.render.post(path, params, rest_of_opts).info`
-      # `Lux.render.get('/search', { q: 'london' }, { session: {user_id: 1} }).info`
+      # `Lux.app.new(path, full_opts).render.headers`
+      # `Lux.render.post(path, params, rest_of_opts).headers`
+      # `Lux.render.get('/search', params: { q: 'london' }, session: {user_id: 1} }).body`
       %i(get post delete patch put).each do |req_method|
-        define_method req_method do |path, params={}, opts={}|
-          Lux.app.new path, opts.merge(request_method: :get, query_string: params)
+        define_method req_method do |path, opts={}|
+          Lux.app.new(path, opts.merge(method: req_method)).render
         end
       end
 

@@ -1,6 +1,6 @@
 $live_require_check = Time.now
 
-Lux.config.on_code_reload do
+Lux.config.on_code_reload do |source = nil|
   watched_files = $LOADED_FEATURES
     .reject { |f| f.include?('/.') }
     .select { |f| File.exist?(f) && File.mtime(f) > $live_require_check }
@@ -12,6 +12,10 @@ Lux.config.on_code_reload do
     end
   else
     Lux.info 'No code changes found' if Lux.env.cli?
+  end
+
+  if source == :cli
+    Lux::Current.new('/')
   end
 
   $live_require_check = Time.now

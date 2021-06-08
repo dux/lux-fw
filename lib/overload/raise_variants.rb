@@ -13,7 +13,13 @@ class Object
   # better console log dump
   def rr what
     # clear osx screen :)
-    print "\e[H\e[2J\e[3J" if Lux.current.once
+    Lux.current.once do
+      last = Thread.current[:_lux_clear_screen] || 1.day.ago
+      if last > (last + 3)
+        last = Time.now
+        print "\e[H\e[2J\e[3J"
+      end
+    end
 
     from = caller[0].include?('raise_variants.rb') ? caller[1] : caller[0]
     from = from.sub(Lux.root.to_s+'/', './').split(':in ').first

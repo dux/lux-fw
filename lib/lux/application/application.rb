@@ -19,7 +19,7 @@ module Lux
       Lux::Current.new env, opts if env
     end
 
-    def render
+    def render_base
       # screen log request header unless is static file
       unless nav.format
         if current.no_cache?
@@ -55,8 +55,10 @@ module Lux
       response.render
     end
 
-    def info
-      out  = @response_render ||= render
+    # to get root page body
+    # Lux.app.new('/').render.body
+    def render
+      out  = @response_render ||= render_base
       body = out[2].join('')
       body = JSON.parse body if out[1]['content-type'].index('/json')
 

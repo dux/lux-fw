@@ -1,12 +1,12 @@
 class String
   def constantize
-    Object.const_get('::'+self)
+    Object.const_get('::' + self)
   end
 
   # 'User'.constantize? # User
   # 'UserFoo'.constantize? # nil
   def constantize?
-    Object.const_defined?(self) ? constantize : nil
+    Object.const_defined?('::' + self) ? constantize : nil
   end
 
   # simple markdown

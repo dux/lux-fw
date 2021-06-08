@@ -8,7 +8,7 @@ LuxCli.class_eval do
 
     Cli.die "Use\n -b to show body\n -i to show info" unless options[:body] || options[:info]
 
-    data = Lux.app.new(path).info
+    data = Lux.app.new(path).render
 
     if options[:body]
       puts data[:body]
