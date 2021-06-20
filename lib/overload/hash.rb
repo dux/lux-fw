@@ -31,10 +31,16 @@ class Hash
     transform_keys { |key| key.respond_to?(:to_sym) ? key.to_sym : key }
   end
 
-  # Returns hash with only se
+  # Returns hash with only selected keys
   def slice *keys
     keys.map! { |key| convert_key(key) } if respond_to?(:convert_key, true)
     keys.each_with_object(self.class.new) { |k, hash| hash[k] = self[k] if has_key?(k) }
+  end
+
+  # return hash withot selected keys
+  def slice_out *keys
+    keys = keys.flatten.map(&:to_s)
+    select {|k,v| !keys.include?(k.to_s) }
   end
 
   def slice! *keys

@@ -174,8 +174,11 @@ module Lux
           when Hash
             object = [object.keys.first, object.values.first]
           when String
-            object, action = object.split('#') if object.include?('#')
-            object, namespace = object.split('?') if object.include?('?')
+            if object.include?('#')
+              object, action = object.split('#')
+            elsif object.include?('?')
+              object, namespace = object.split('?')
+            end
           when Array
             if object[0].class == Integer && object[1].class == Hash
               # [200, {}, 'ok']
@@ -198,13 +201,21 @@ module Lux
             end
         end
 
-        object = ('%s_controller' % object).classify.constantize if object.is_a?(String)
+        if object.is_a?(String)
+          object = ('%s_controller' % object).classify.constantize
+        end
+
         current.files_in_use object.source_location
 
         opts   ||= {}
         action ||= resolve_action object
 
-        action = [namespace, action].join('_') if namespace
+        # map.pages 'domain?pages'
+        # '/pages/1/foo' -> domain#pages_foo
+        if namespace
+          action = [namespace, action].join('_')
+          resolve_action object
+        end
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
           error.not_found Lux.env.dev? ? "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" : nil

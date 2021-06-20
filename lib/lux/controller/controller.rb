@@ -84,13 +84,17 @@ module Lux
 
       @lux.action = method_name.to_sym
 
+      # we need to process before
+      catch :done do
+        filter :before, @lux.action
+      end
+
       # if action not found
       unless respond_to?(method_name)
         action_missing method_name
       end
 
       catch :done do
-        filter :before, @lux.action
         filter :before_action, @lux.action
         send method_name, *args
         render

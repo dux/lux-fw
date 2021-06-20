@@ -85,8 +85,6 @@ class PageMeta
 
     '  '+data
   end
-
-
 end
 
 # X-Robots-Tag h

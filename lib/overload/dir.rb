@@ -25,8 +25,8 @@ class Dir
 
   # Find files in child folders.
   # All lists are allways sorted with idempotent function response.
-  # Example: get all js and coffee in ./app/assets and remove ./app
-  # `Dir.find('./app/assets', ext: [:js, :coffee], root: './app', hash: true)`
+  # Example: get all js and coffee in ./app/assets and remove ./app and invert folder search list
+  # `Dir.find('./app/assets', ext: [:js, :coffee], root: './app', hash: true, invert: true)`
   # shortuct to remove ./app and not use root param
   # `Dir.find('./app#assets', ext: [:js, :coffee])`
   def self.find dir_path, opts={}
@@ -43,16 +43,21 @@ class Dir
 
     glob = []
     glob.push 'echo'
-    glob.push '%s/*'             % dir_path
+
+    folders = ['%s/*' % dir_path]
 
     unless opts[:shallow]
-      glob.push '%s/*/*'           % dir_path
-      glob.push '%s/*/*/*'         % dir_path
-      glob.push '%s/*/*/*/*'       % dir_path
-      glob.push '%s/*/*/*/*/*'     % dir_path
-      glob.push '%s/*/*/*/*/*/*'   % dir_path
-      glob.push '%s/*/*/*/*/*/*/*' % dir_path
+      folders.push '%s/*/*'           % dir_path
+      folders.push '%s/*/*/*'         % dir_path
+      folders.push '%s/*/*/*/*'       % dir_path
+      folders.push '%s/*/*/*/*/*'     % dir_path
+      folders.push '%s/*/*/*/*/*/*'   % dir_path
+      folders.push '%s/*/*/*/*/*/*/*' % dir_path
     end
+
+    folders = folders.reverse if opts[:invert]
+
+    glob += folders
 
     glob.push "| tr ' ' '\n'"
 

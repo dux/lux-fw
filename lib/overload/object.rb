@@ -3,7 +3,7 @@ class Object
 
   def self.const_missing klass, path=nil
     unless LUX_AUTO_LOAD.keys.first
-      for file in `find ./app -type f -name *.rb`.split($/)
+      for file in `find ./app -type f -name '*.rb'`.split($/)
         klass_file = file.split('/').last.sub('.rb', '').classify
         LUX_AUTO_LOAD[klass_file] ||= [false, file]
       end
@@ -69,7 +69,7 @@ class Object
   end
 
   def is_true?
-    self ? true :false
+    ['true', 'on', '1'].include?(to_s)
   end
 
   def is_numeric?
@@ -82,6 +82,17 @@ class Object
 
   def is_boolean?
     self.class == TrueClass || self.class == FalseClass
+  end
+
+  def is_a! klass, error = nil
+    ancestors.each { |kind| return true if kind == klass }
+
+    if error
+      message = error.class == String ? error : %[Expected "#{self}" to be of "#{klass}"]
+      raise ArgumentError.new(message)
+    else
+      false
+    end
   end
 
   def andand func=nil

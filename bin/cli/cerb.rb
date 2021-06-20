@@ -10,7 +10,7 @@ class ErbParser
   end
 
   def import_css folder
-    Dir.find(folder, ext: [:css, :scss]) { '@import "%s";' }
+    Dir.find(folder, ext: [:css, :scss], invert: true) { '@import "%s";' }
   end
 
   def import_js folder
@@ -24,6 +24,7 @@ class ErbParser
   def parse_file
     f = Pathname.new(@file)
     data = f.read
+    # data = data.gsub(/\n<%/, '<%')
 
     Dir.chdir f.dirname.to_s do
       data = ERB.new(data).result(binding).gsub('././', './')
@@ -56,13 +57,12 @@ LuxCli.class_eval do
       for file in files
         target = file.sub(/\.cerb$/, '')
 
-        puts 'Assets compile: %s -> %s (%s)' % [file.green, target, File.size(target).to_filesize]
         out = []
         out.push "/* Generated from #{file} */"
-
         out.push ErbParser.parse(file)
-
         File.write(target, out.join("\n\n"))
+
+        puts 'Assets compile: %s -> %s (%s)' % [file.green, target, File.size(target).to_filesize]
       end
     end
   end

@@ -32,6 +32,21 @@ class Time
   include TimeOptions
 
   class << self
+    # prints proc speed of execution
+    # it will print first execution separate from the rest, used in cache testing
+    def speed num = 1
+      start = Time.now
+      yield
+      total = Time.now - start
+      puts 'Speed: %s sec for 1st run' % total.round(3)
+      if num > 1
+        start = Time.now
+        (num - 1).times { yield }
+        total = Time.now - start
+        puts 'Other %s runs speed: %s sec, avg -> %s' % [num, total.round(3), (total/num).round(3)]
+      end
+    end
+
     # Precise ago
     # Time.agop(61)   -> 1min 1sec
     # Time.agop(1111) -> 18min 31sec

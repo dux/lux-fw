@@ -45,7 +45,7 @@ end
 class String
   def string_id
     begin
-      StringBase.decode self
+      StringBase.decode self.split('-').last
     rescue
       raise ArgumentError.new('Bad ID for string_id')
     end

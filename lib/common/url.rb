@@ -14,6 +14,10 @@ class Url
       new '/' + Lux.current.request.url.split('/').drop(3).join('/')
     end
 
+    def host
+      ::Url.new(Lux.config.host)
+    end
+
     def force_locale loc
       u = current
       u.locale loc

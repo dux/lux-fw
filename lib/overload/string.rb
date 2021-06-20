@@ -17,12 +17,11 @@ class String
   end
 
   # convert escaped strings, remove scritpts
-  def to_html opts={}
-    value = self.gsub(/&lt;/, '<').gsub(/&gt;/, '>').gsub(/&amp;/,'&')
-    value = value.gsub(/<script/,'&lt;script') unless opts[:script]
-    value = value.gsub(/<link/,'&lt;link') unless opts[:link]
-    value
+  def html_safe safe = true
+    out = self.gsub(/&lt;/, '<').gsub(/&gt;/, '>').gsub(/&amp;/,'&')
+    safe ? out.gsub(/<script/,'&lt;script') : out
   end
+  alias :to_html :html_safe
 
   def html_escape
     self
