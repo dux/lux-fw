@@ -48,7 +48,7 @@ class PageMeta
   alias_method :image=, :image
 
   def render
-    ret   = []
+    ret = []
 
     ret.push %[<meta name="viewport" content="width=device-width" initial-scale="1.0" maximum-scale="1.0" minimum-scale="1.0" user-scalable="no" />]
 
@@ -70,14 +70,17 @@ class PageMeta
 
     ret += @links
 
-    ret.push Lux.cache('page_meta-%s' % Crypt.sha1(caller.first)) { yield(self) } if block_given?
+    if block_given?
+      ret.push yield(self)
+    end
 
     if Lux.current.no_cache?
       ret.push %[<script>window.noCache = true;</script>]
     end
 
     # title
-    title = @title ? "#{@title} | #{@app || Lux.config.app.name}" : Lux.config.app.name
+    app_name = @app || Lux.config.app.name
+    title    = @title ? "#{@title} | #{app_name}" : app_name
     ret.push %[<title>#{title}</title>]
 
     data = ret.join("\n")

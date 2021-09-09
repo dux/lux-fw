@@ -30,11 +30,19 @@ module ::Lux
     render_start = Time.monotonic
     yield
     num = (Time.monotonic - render_start) * 1000
-    '%s ms' % num.round(1)
+    if num > 1000
+      '%s sec' % (num/1000).round(2)
+    else
+      '%s ms' % num.round(1)
+    end
   end
 
   def info text
-    puts '* %s' % text.magenta
+    if text.class == Array
+      text.each {|line| self.info line }
+    else
+      puts '* %s' % text.magenta
+    end
   end
 
   def run command

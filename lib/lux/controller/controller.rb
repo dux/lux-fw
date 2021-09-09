@@ -1,4 +1,4 @@
-# filters stack for call - before, before_action, :action, after
+ # filters stack for call - before, before_action, :action, after
 # define path_id {} to capture path ids
 # if action is missing capture it via def action_missing name
 
@@ -89,20 +89,28 @@ module Lux
         filter :before, @lux.action
       end
 
-      # if action not found
-      unless respond_to?(method_name)
-        action_missing method_name
-      end
+      throw :done if response.body?
 
       catch :done do
         filter :before_action, @lux.action
-        send method_name, *args
+
+        # if action not found
+        if respond_to?(method_name)
+          send method_name, *args
+        else
+          action_missing method_name
+        end
+
         render
       end
 
       filter :after, @lux.action
 
       throw :done
+    end
+
+    def timeout seconds
+      Lux.current.var[:app_timeout] = seconds
     end
 
     private
@@ -136,17 +144,21 @@ module Lux
       response.content_type = opts.content_type if opts.content_type
       opts.text             = opts.plain        if opts.plain         # match rails nameing
 
-      page =
-      if opts.cache
-        Lux.cache.fetch(opts.cache, opts.ttl || 3600) { render_resolve(opts) }
-      else
-        render_resolve(opts)
-      end
+      timeout = Lux.current.var[:app_timeout] || Lux.config[:app_timeout] || 10
 
-      if opts.render_to_string
-        page
-      else
-        response.body page
+      Timeout::timeout timeout do
+        page =
+        if opts.cache
+          Lux.cache.fetch(opts.cache, opts.ttl || 3600) { render_resolve(opts) }
+        else
+          render_resolve(opts)
+        end
+
+        if opts.render_to_string
+          page
+        else
+          response.body page
+        end
       end
     end
 

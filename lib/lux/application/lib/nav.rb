@@ -3,7 +3,7 @@
 module Lux
   class Application
     class Nav
-      attr_accessor :path, :id, :format
+      attr_accessor :format
       attr_reader :original, :domain, :subdomain, :namespace
 
       # acepts path as a string
@@ -76,6 +76,43 @@ module Lux
         else
           Url.current
         end
+      end
+
+      def path *args
+        if args.first
+          # contruct path
+          # /upload_dialog/is_image:true/model:posts/id:2/field:image_url
+          # = nav.path :model, :id, :field -> /upload_dialog/model:posts/id:2/field:image_url
+          parts  = @original.select {|el| !el.include?(':') }
+          parts += args.map {|el| [el, Lux.current.params[el] || Lux.error("qs param [#{el}] not found")].join(':') }
+          '/' + parts.join('/')
+        else
+          @path
+        end
+      end
+
+      # removes leading www.
+      # https://www.foo.bar/path -> https://foo.bar/path
+      def remove_www
+        url = Lux.current.request.url
+
+        if url.include?('://www.')
+          Lux.current.response.redirect_to url.sub('://www.', '://')
+        end
+      end
+
+      # nav.rename_domain 'localhost', 'lvh.me'
+      # http://localhost:3000/foo?bar=123 -> http://lvh.me:3000/foo?bar=123
+      def rename_domain from_domain, to_domain
+        if from_domain == @domain
+          url = Url.new Lux.current.request.url
+          Lux.current.response.redirect_to url.domain(to_domain).to_s
+        end
+      end
+
+      # http://tiger.lvh.me:3000/foo?bar=1 -> http://tiger.lvh.me:3000
+      def base
+        Lux.current.request.url.split('/').first(3).join('/')
       end
 
       def to_s

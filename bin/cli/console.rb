@@ -57,6 +57,8 @@ LuxCli.class_eval do
       puts '* ./config/console.rb not found'
     end
 
+    Pry.pager = false
+
     Pry.config.print = proc do |output, value|
       if value.is_a?(Method)
         output.puts value.inspect

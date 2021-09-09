@@ -9,33 +9,37 @@ class String
     Object.const_defined?('::' + self) ? constantize : nil
   end
 
+  # export html without scripts
+  def html_safe safe = true
+    out = html_unescape
+    safe ? out.gsub(/<script/,'&lt;script') : out
+  end
+
+  # prepare data for storage write, to make it safe to dump on screen
+  def html_escape
+    self
+      .gsub('<', '&lt;').gsub('>', '&gt;')
+      .gsub("'", '&#39').gsub('"', '&#34')
+      .gsub(/\A^\s+|\s+\z/,'')
+  end
+
+  # restore original before storage write
+  def html_unescape
+    self
+      .gsub('&lt;', '<')
+      .gsub('&gt;', '>')
+      .gsub('&#39', "'")
+      .gsub('&#34', '"')
+  end
+
   # simple markdown
   def as_html
     self
       .gsub($/, '<br />')
-      .gsub(/(https?:\/\/[^\s<]+)/) { %[<a href="#{$1}">#{$1}</a>] }
+      .gsub(/(https?:\/\/[^\s<]+)/) { %[<a href="#{$1}">#{$1.trim(40)}</a>] }
   end
 
-  # convert escaped strings, remove scritpts
-  def html_safe safe = true
-    out = self.gsub(/&lt;/, '<').gsub(/&gt;/, '>').gsub(/&amp;/,'&')
-    safe ? out.gsub(/<script/,'&lt;script') : out
-  end
-  alias :to_html :html_safe
-
-  def html_escape
-    self
-      .gsub(/[ ]+/, ' ') # match only multiple spaces
-      .gsub("'", '&#39')
-      .gsub('"', '&#34')
-      .gsub('<', '&lt;')
-      .gsub('>', '&gt;')
-  end
-
-  # result = ActiveSupport::Multibyte::Unicode.tidy_bytes(s.to_s).gsub(HTML_ESCAPE_ONCE_REGEXP, HTML_ESCAPE)
-  #     s.html_safe? ? result.html_safe : result
-
-  def trim(len)
+  def trim len
     return self if self.length<len
     data = self.dup[0,len]+'&hellip;'
     data
@@ -45,11 +49,12 @@ class String
     self[0,1]
   end
 
-  def last(num=1)
+  def last num = 1
     len = self.length
     self[len-num, len]
   end
 
+  # https://github.com/rgrove/sanitize
   def sanitize
     Sanitize.clean(self, :elements=>%w[span ul ol li b bold i italic u underline hr br p], :attributes=>{'span'=>['style']} )
   end
@@ -73,6 +78,7 @@ class String
 
     self
       .tr(str_from, str_to)
+      .sub(/^[^\w+]/, '')
       .sub(/[^\w+]$/, '')
       .downcase
       .gsub(/[^\w+]+/,'-')[0, 50]
@@ -119,5 +125,13 @@ class String
 
   def unescape
     CGI::unescape self
+  end
+
+  def sha1
+    Digest::SHA1.hexdigest self
+  end
+
+  def md5
+    Digest::MD5.hexdigest self
   end
 end

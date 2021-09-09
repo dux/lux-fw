@@ -40,21 +40,25 @@ module Lux
       # = @foo
       # - content :foo do ...
       # = content :foo
-      def content name=nil
-        if name.is_a?(Array)
-          data = yield
-          name.push data if data.present?
+      def content *args, &block
+        if name = args.shift
+          name = 'haml_content_%s' % name
+
+          if block_given?
+            Lux.current.var[name] = block
+            nil
+          else
+            Lux.current.var[name].call *args
+          end
         else
-          block = 'haml_content_%s' % name
-          Lux.current.var[block] = yield if block_given?
-          Lux.current.var[block]
+          block.call
         end
       end
 
       # renders just template but it is called
       # = render :_link, link:link
       # = render 'main/links/_link', link:link
-      def render name=nil, locals={}
+      def render name = nil, locals = {}
         if !name
           return InlineRenderProxy.new(self)
         elsif name.is_array?
@@ -85,7 +89,7 @@ module Lux
         end
       end
 
-      def cache name=nil, opts={}, &block
+      def cache name = nil, opts = {}, &block
         if opts.class == Integer
           opts = { ttl: opts }
         elsif name.is_a?(Hash)
@@ -100,7 +104,7 @@ module Lux
         Lux.cache.fetch(key, opts) { yield }
       end
 
-      def error msg=nil
+      def error msg = nil
         return Lux::Error unless msg
         %[<pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:14pt; font-size:10pt;">#{msg}</pre>]
       end
@@ -110,7 +114,7 @@ module Lux
         Lux::Template::Helper.new(self, *names)
       end
 
-      def once id=nil
+      def once id = nil
         Lux.current.once("template-#{id || caller[0]}") do
           block_given? ? yield : true
         end

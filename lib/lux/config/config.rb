@@ -10,7 +10,7 @@ module Lux
 
       after_boot_check
 
-      start_info
+      puts start_info
     end
 
     # preview config in development
@@ -26,41 +26,41 @@ module Lux
     end
 
     def start_info
-      return @load_info if @load_info
-
-      production_mode = true
-      production_opts = [
-        [:auto_code_reload, false],
-        [:dump_errors,      false],
-        [:log_to_stdout,    false],
-      ]
-
-      opts = production_opts.map do |key, production_value|
-        config_test     = Lux.config[key]
-        config_ok       = production_value == config_test
-        production_mode = false unless config_ok
-
-        data = "#{key} (%s)" % [config_test ? :yes : :no]
-        config_ok ? data : data.yellow
-      end
-
-      mode  = production_mode ? 'production'.green : 'development'.yellow
-
-      if $lux_start_time.class == Array
-        # $lux_start_time ||= Time.now added to Gemfile
-        speed = 'in %s sec (%s gems, %s app)' % [
-          time_diff($lux_start_time[0]).white,
-          time_diff($lux_start_time[0], $lux_start_time[1]),
-          time_diff($lux_start_time[1]),
+      @load_info ||= proc do
+        production_mode = true
+        production_opts = [
+          [:auto_code_reload, false],
+          [:dump_errors,      false],
+          [:log_to_stdout,    false],
         ]
-      else
-        speed = 'in %s sec' % time_diff($lux_start_time).white
-      end
 
-      info = []
-      info.push '* Config: %s' % opts.join(', ')
-      info.push "* Lux loaded in #{mode} mode, #{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
-      puts info.join($/)
+        opts = production_opts.map do |key, production_value|
+          config_test     = Lux.config[key]
+          config_ok       = production_value == config_test
+          production_mode = false unless config_ok
+
+          data = "#{key} (%s)" % [config_test ? :yes : :no]
+          config_ok ? data : data.yellow
+        end
+
+        mode  = production_mode ? 'production'.green : 'development'.yellow
+
+        if $lux_start_time.class == Array
+          # $lux_start_time ||= Time.now added to Gemfile
+          speed = 'in %s sec (%s gems, %s app)' % [
+            time_diff($lux_start_time[0]).white,
+            time_diff($lux_start_time[0], $lux_start_time[1]),
+            time_diff($lux_start_time[1]),
+          ]
+        else
+          speed = 'in %s sec' % time_diff($lux_start_time).white
+        end
+
+        info = []
+        info.push '* Config: %s' % opts.join(', ')
+        info.push "* Lux loaded in #{mode} mode, #{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
+        info.join($/)
+      end.call
     end
 
     def set_defaults
@@ -81,7 +81,7 @@ module Lux
 
       # Logger
       Lux.config.loger_files_to_keep = 3
-      Lux.config.loger_file_max_size = 1_024_000
+      Lux.config.loger_file_max_size = 10_024_000
 
       # Other
       Lux.config.session_cookie_domain = false

@@ -17,6 +17,21 @@ class ErbParser
     Dir.find(folder, ext: [:js, :coffee]) { 'import "%s";' }
   end
 
+  def import_svelte folder:, prefix:
+    out = []
+    for file in Dir.find(folder, ext: [:svelte])
+      name       = file.split('/').last.split('.').first.downcase
+      klass      = "svelte_#{name}".gsub(/[^\w]/, '_').classify
+      inline     = !File.read(file).include?('props.html')
+
+      out.push "import #{klass} from './#{file}';";
+      out.push "Svelte.bind('#{prefix}-#{name.gsub('_', '-')}', #{klass}, {inline: #{inline}});"
+      out.push ''
+    end
+
+    out.join($/)
+  end
+
   def import folder
     @file.include?('.js.') ? import_js(folder) : import_css(folder)
   end

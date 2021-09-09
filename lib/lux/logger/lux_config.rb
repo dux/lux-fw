@@ -1,6 +1,6 @@
 # Output log format
 Lux.config.logger_formater do |severity, datetime, progname, msg|
-  date = datetime.utc
+  date = Time.now.strftime('%Y-%m-%dT%H:%M:%S.%L')
   msg  = '%s: %s' % [severity, msg] if severity != 'INFO'
   "[%s] %s\n" % [date, msg]
 end

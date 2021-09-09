@@ -74,7 +74,7 @@ LuxCli.class_eval do
       end
     end
 
-    Lux.render('/route-mock').info
+    Lux.render.get('/route-mock')
 
     puts
     puts 'Unique routes: %s' % $total_routes

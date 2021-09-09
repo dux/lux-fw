@@ -93,6 +93,8 @@ module Lux
     def content_type in_type=nil
       return @content_type unless in_type
 
+      in_type = :js if in_type == :javascript
+
       if in_type.is_a?(Symbol)
         type = Lux::Response::File::MIMME_TYPES[in_type]
         raise ArgumentError.new('Bad content type: %s' % in_type) unless type
@@ -166,15 +168,15 @@ module Lux
     end
 
     # auth { |user, pass| [user, pass] == ['foo', 'bar'] }
-    def auth relam=nil
+    def auth realm: nil, message: nil
       if auth = current.request.env['HTTP_AUTHORIZATION']
         credentials = auth.to_s.split('Basic ', 2)[1].unpack("m*").first.split(':', 2)
         return true if yield *credentials
       end
 
       status 401
-      header('WWW-Authenticate', 'Basic realm="%s"' % relam.or('default'))
-      body 'HTTP 401 Authorization needed (Lux HTTP auth)'
+      header('WWW-Authenticate', 'Basic realm="%s"' % realm.or('default'))
+      body message || 'HTTP 401 Authorization needed'
       throw :done
     end
 

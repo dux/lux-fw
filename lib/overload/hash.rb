@@ -37,12 +37,6 @@ class Hash
     keys.each_with_object(self.class.new) { |k, hash| hash[k] = self[k] if has_key?(k) }
   end
 
-  # return hash withot selected keys
-  def slice_out *keys
-    keys = keys.flatten.map(&:to_s)
-    select {|k,v| !keys.include?(k.to_s) }
-  end
-
   def slice! *keys
     keys.map! { |key| convert_key(key) } if respond_to?(:convert_key, true)
     omit = slice(*self.keys - keys)
@@ -64,6 +58,7 @@ class Hash
     dup.except!(*keys)
   end
 
+
   # Hash#except in place, modifying current hash
   def except!(*keys)
     keys.each { |key| delete(key.to_s); delete(key.to_sym)  }
@@ -76,6 +71,13 @@ class Hash
       t[el] = v if el.present? && v.present?
       t
     end
+  end
+
+  def to_js opts = {}
+    data = opts[:empty] ? self : remove_empty
+    data = data.to_json.gsub(/"(\w+)":/, "\\1:")
+    data = data.gsub(/",(\w)/, '", \1') unless opts[:narrow]
+    data
   end
 
   private
