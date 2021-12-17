@@ -4,13 +4,14 @@ module Lux
   class Application
     class Nav
       attr_accessor :format
-      attr_reader :original, :domain, :subdomain, :namespace
+      attr_reader :original, :domain, :subdomain, :querystring
 
       # acepts path as a string
       def initialize request
-        @path     = request.path.split('/').slice(1, 100) || []
-        @original = @path.dup
-        @request  = request
+        @path        = request.path.split('/').slice(1, 100) || []
+        @original    = @path.dup
+        @request     = request
+        @querystring = {}.to_hwia
 
         set_variables
         set_domain request
@@ -78,11 +79,11 @@ module Lux
         end
       end
 
+      # contruct path
+      # /upload_dialog/is_image:true/model:posts/id:2/field:image_url
+      # = nav.path :model, :id, :field -> /upload_dialog/model:posts/id:2/field:image_url
       def path *args
         if args.first
-          # contruct path
-          # /upload_dialog/is_image:true/model:posts/id:2/field:image_url
-          # = nav.path :model, :id, :field -> /upload_dialog/model:posts/id:2/field:image_url
           parts  = @original.select {|el| !el.include?(':') }
           parts += args.map {|el| [el, Lux.current.params[el] || Lux.error("qs param [#{el}] not found")].join(':') }
           '/' + parts.join('/')
@@ -125,6 +126,7 @@ module Lux
         # convert /foo/bar:baz to /foo?bar=baz
         while @path.last&.include?(':')
           key, val = @path.pop.split(':')
+          @querystring[key] = val
           Lux.current.params[key.to_sym] ||= val
         end
       end

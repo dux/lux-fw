@@ -19,6 +19,12 @@ module Lux
         else
           new(template: opts.template, scope: scope).render &block
         end
+      rescue => error
+        if Lux.config.dump_errors
+          Lux.error.inline error, %[Lux::Template #{@template} render error]
+        else
+          raise error
+        end
       end
 
       def helper scope, name
@@ -50,16 +56,8 @@ module Lux
       data = nil
 
       speed = Lux.speed do
-        begin
-          data = @tilt.render(@helper) do
-            yield if block_given?
-          end
-        rescue => error
-          if Lux.config.dump_errors
-            data = Lux.error.inline error, %[Lux::Template #{@template} render error]
-          else
-            raise error
-          end
+        data = @tilt.render(@helper) do
+          yield if block_given?
         end
       end
 

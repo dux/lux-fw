@@ -38,9 +38,14 @@ class Object
   end
 
   def try *args, &block
-    return nil if self.class == NilClass
-    data = self.send(*args) || return
-    block_given? ? block.call(data) : data
+    if self.class == NilClass
+      nil
+    elsif block_given?
+      data = args.first.nil? ? self : self.send(*args)
+      yield data
+    else
+      self.send(*args)
+    end
   end
 
   def die desc=nil, exp_object=nil

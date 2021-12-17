@@ -58,8 +58,7 @@ module Lux
 
     def initialize
       # before and after should be exected only once
-      @lux = {}.to_hwia :executed_filters, :template_sufix, :action, :layout, :helper
-      @lux.executed_filters = {}
+      @lux = {}.to_hwia :template_sufix, :action, :layout, :helper
       @lux.template_sufix = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
     end
 
@@ -84,28 +83,23 @@ module Lux
 
       @lux.action = method_name.to_sym
 
-      # we need to process before
       catch :done do
         filter :before, @lux.action
-      end
-
-      throw :done if response.body?
-
-      catch :done do
         filter :before_action, @lux.action
 
-        # if action not found
-        if respond_to?(method_name)
-          send method_name, *args
-        else
-          action_missing method_name
-        end
+        unless response.body?
+          # if action not found
+          if respond_to?(method_name)
+            send method_name, *args
+          else
+            action_missing method_name
+          end
 
-        render
+          render
+        end
       end
 
       filter :after, @lux.action
-
       throw :done
     end
 
@@ -287,10 +281,9 @@ module Lux
     # because we can call action multiple times
     # ensure we execute filters only once
     def filter fiter_name, arg=nil
-      return if @lux.executed_filters[fiter_name]
-      @lux.executed_filters[fiter_name] = true
-
-      run_callback fiter_name, arg
+      Lux.current.once 'lux-controller-filter-%s' % fiter_name do
+        run_callback fiter_name, arg
+      end
     end
 
     def cache *args, &block

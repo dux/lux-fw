@@ -21,8 +21,8 @@ LuxCli.class_eval do
       environemnt = ENVIRONEMNTS.find { |el| el[0] == environemnt[0] }
     end
 
-    command = "puma -p #{options[:port]} -e #{environemnt}"
-    command = 'RACK_ENV=%s %s' % [options[:mode], command] if options[:mode]
+    command = "puma -p #{options[:port]}"
+    command = 'RACK_ENV=%s %s' % [environemnt, command]
 
     if options[:rerun]
       Cli.run "find #{LUX_ROOT} . -name *.rb | entr -r #{command}"

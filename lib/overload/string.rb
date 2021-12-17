@@ -9,13 +9,7 @@ class String
     Object.const_defined?('::' + self) ? constantize : nil
   end
 
-  # export html without scripts
-  def html_safe safe = true
-    out = html_unescape
-    safe ? out.gsub(/<script/,'&lt;script') : out
-  end
-
-  # prepare data for storage write, to make it safe to dump on screen
+  # prepare data for storage write, to make it safe to dump on screen without unescape
   def html_escape
     self
       .gsub('<', '&lt;').gsub('>', '&gt;')
@@ -23,13 +17,19 @@ class String
       .gsub(/\A^\s+|\s+\z/,'')
   end
 
-  # restore original before storage write
+  # restore original before storage read
   def html_unescape
     self
       .gsub('&lt;', '<')
       .gsub('&gt;', '>')
       .gsub('&#39', "'")
       .gsub('&#34', '"')
+  end
+
+  # export html without scripts
+  def html_safe safe = true
+    out = html_unescape
+    safe ? out.gsub(/<script/,'&lt;script') : out
   end
 
   # simple markdown
