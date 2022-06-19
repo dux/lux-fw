@@ -1,6 +1,10 @@
 module Lux
   class Cache
-    class NullCache
+    class NullServer
+      def initialize
+        @server = nil
+      end
+
       def set key, data, ttl=nil
         data
       end

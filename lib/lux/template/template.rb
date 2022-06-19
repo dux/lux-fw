@@ -86,7 +86,7 @@ module Lux
         Lux.var
       end
 
-      pointer[:cached_templates] ||= {}
+      pointer = (pointer[:_cached_templates] ||= {})
 
       if ref = pointer[template]
         @tilt, @template = *ref
@@ -104,7 +104,7 @@ module Lux
 
       unless @template
         err  = caller.reject{ |l| l =~ %r{(/lux/|/gems/)} }.map{ |l| el=l.to_s.split(Lux.root.to_s); el[1] || l }.join("\n")
-        msg  = %[Lux::Template "#{template}.{erb,haml}" not found]
+        msg  = Lux.env.dev? ? %[Lux::Template "#{template}.{erb,haml}" not found] : 'View template not found.'
         msg += %[\n\n#{err}] if Lux.config.dump_errors
 
         raise msg

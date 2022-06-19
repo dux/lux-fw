@@ -48,7 +48,11 @@ module Lux
             Lux.current.var[name] = block
             nil
           else
-            Lux.current.var[name].call *args
+            if Lux.current.var[name]
+              Lux.current.var[name].call *args
+            else
+              nil
+            end
           end
         else
           block.call

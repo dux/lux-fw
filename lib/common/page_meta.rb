@@ -23,7 +23,9 @@ class PageMeta
   end
 
   def description data
-    meta(:description, data)
+    return @description unless data.present?
+    data = data.trim(140)
+    @meta['og:description'] = data
   end
   alias_method :description=, :description
 
@@ -31,11 +33,17 @@ class PageMeta
     @links.push '<link rel="%s" href="%s" />' % [rel, href]
   end
 
-  def title data=nil
-    return @title unless data
-    @title = data.trim(100)
+  def title data = nil
+    return @title unless data.present?
+    @meta['og:title'] = @title = data.trim(100)
   end
   alias_method :title=, :title
+
+  def url data = nil
+    return @url unless data.present?
+    @meta['og:url'] = @url = data
+  end
+  alias_method :url=, :url
 
   def robots *args
     raise ArgumentError.new('Unsupported robots decalaration %s' % args.first) unless args - [:noindex, :nofollow] == []
@@ -47,7 +55,13 @@ class PageMeta
   end
   alias_method :image=, :image
 
+  def icon path
+    @icon_path = path
+  end
+
   def render
+    render_data = yield(self)
+
     ret = []
 
     ret.push %[<meta name="viewport" content="width=device-width" initial-scale="1.0" maximum-scale="1.0" minimum-scale="1.0" user-scalable="no" />]
@@ -60,18 +74,23 @@ class PageMeta
     Lux.current.response.header 'x-robots-tag', @robots.join(', ')
 
     # favicon
-    link 'apple-touch-icon', '/favicon.png'
+    @icon_path ||= '/favicon.png'
+    ext = File.ext(@icon_path) || '*'
+    @links.push %[<link rel="icon" href="#{@icon_path}" type="image/#{ext}" />]
+    @links.push %[<link rel="apple-touch-icon" href="#{@icon_path}" type="image/#{ext}" />]
 
     for k,v in @meta
-      v.gsub!('"', '&quot;')
-      name = k.starts_with?('og:') ? :property : :name
-      ret.push %[<meta #{name}="#{k}" content="#{v}" />]
+      if v
+        v.gsub!('"', '&quot;')
+        name = k.starts_with?('og:') ? :property : :name
+        ret.push %[<meta #{name}="#{k}" content="#{v}" />]
+      end
     end
 
     ret += @links
 
     if block_given?
-      ret.push yield(self)
+      ret.push render_data
     end
 
     if Lux.current.no_cache?

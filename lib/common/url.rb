@@ -56,12 +56,16 @@ class Url
     def unescape str=nil
       CGI::unescape(str.to_s)
     end
+
+    def root
+      new(Lux.current.request.url).host_with_port
+    end
   end
 
   ###
 
   def initialize url
-    @opt = {}.to_hwia %i(proto port subdomain domain locale path qs qs_hash)
+    @opt = Struct.new(:proto, :port, :subdomain, :domain, :locale, :path, :qs, :qs_hash).new
 
     url, qs_part = url.split('?', 2)
 

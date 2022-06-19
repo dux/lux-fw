@@ -31,7 +31,7 @@ module Lux
         production_opts = [
           [:auto_code_reload, false],
           [:dump_errors,      false],
-          [:log_to_stdout,    false],
+          [:logger_stdout,    false],
         ]
 
         opts = production_opts.map do |key, production_value|
@@ -64,11 +64,10 @@ module Lux
     end
 
     def set_defaults
+      ENV['TZ'] = 'UTC'
+
       # Show server errors to a client
       Lux.config.dump_errors = Lux.env.dev?
-
-      # Log debug output to stdout
-      Lux.config.log_to_stdout = Lux.env.dev?
 
       # Automatic code reloads in development
       Lux.config.auto_code_reload = Lux.env.dev?
@@ -80,11 +79,13 @@ module Lux
       Lux.config.use_autoroutes = true
 
       # Logger
-      Lux.config.loger_files_to_keep = 3
-      Lux.config.loger_file_max_size = 10_024_000
+      Lux.config.logger_path_mask     = './log/%s.log'
+      Lux.config.logger_default       = Lux.env.dev? ? STDOUT : nil
+      Lux.config.logger_files_to_keep = 3
+      Lux.config.logger_file_max_size = 10_240_000
+      Lux.config.logger_formatter     = nil
 
       # Other
-      Lux.config.session_cookie_domain = false
       Lux.config.asset_root            = false
       Lux.config[:plugins]           ||= []
       Lux.config[:error_logger]      ||= Proc.new do |error|

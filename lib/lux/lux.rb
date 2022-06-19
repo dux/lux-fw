@@ -12,7 +12,7 @@ module ::Lux
   end
 
   # main rack response
-  def call env=nil
+  def call env = nil
     app  = Lux::Application.new env
     app.render_base || raise('No RACK response given')
   rescue => err
@@ -58,8 +58,16 @@ module ::Lux
   end
 
   def app_caller
-    app_line   = caller.find { |line| !line.include?('/lux-fw/') && !line.include?('/.') }
+    app_line   = caller.find { |line| !line.include?('/lux-') && !line.include?('/.') && !line.include?('(eval)') }
     app_line ? app_line.split(':in ').first.sub(Lux.root.to_s, '.') : nil
+  end
+
+  def delay time_to_live = nil
+    Thread.new do
+      Timeout::timeout time_to_live || Lux.config.delay_timeout do
+        yield
+      end
+    end
   end
 end
 

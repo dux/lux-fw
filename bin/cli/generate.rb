@@ -31,6 +31,7 @@ module LuxGenerate
       object  = @object
       objects = @objects
       klass   = @object.classify
+      klasses = klass.pluralize
 
       data.gsub(/\{\{([^\}]+)\}\}/) { eval $1 }
     end

@@ -1,7 +1,6 @@
 # vars
 # Lux.config.session_cookie_name
 # Lux.config.session_cookie_max_age
-# Lux.config.session_cookie_domain
 
 module Lux
   class Current
@@ -37,11 +36,13 @@ module Lux
         encrypted = Crypt.encrypt(@hash.to_json)
 
         if @request.cookies[@cookie_name] != encrypted
+          cookie_domain = Lux.current.var[:lux_cookie_domain] || Lux.current.nav.domain
+
           cookie = []
           cookie.push [@cookie_name, encrypted].join('=')
           cookie.push 'Max-Age=%s' % (Lux.config.session_cookie_max_age)
           cookie.push "Path=/"
-          cookie.push "Domain=#{Lux.config.session_cookie_domain}" if Lux.config[:session_cookie_domain]
+          cookie.push "Domain=#{cookie_domain}"
           cookie.push "secure" if Lux.current.request.url.start_with?('https:')
           cookie.push "HttpOnly"
 
@@ -53,6 +54,14 @@ module Lux
 
       def merge! hash={}
         @hash.keys.each { |k| self[k] = @hash[k] }
+      end
+
+      def keys
+        @hash.keys
+      end
+
+      def to_h
+        @hash
       end
 
       private

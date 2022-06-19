@@ -33,7 +33,15 @@ module Lux
     end
 
     def cli?
-      !$rack_handler
+      !web?
+    end
+
+    def web?
+      if @env_web.nil?
+        @env_web = ObjectSpace.each_object(Class).map(&:to_s).include?('#<Class:Rack::Server>')
+      end
+
+      @env_web
     end
 
     ###

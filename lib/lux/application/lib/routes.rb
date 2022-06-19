@@ -205,7 +205,13 @@ module Lux
           object = ('%s_controller' % object).classify.constantize
         end
 
-        current.files_in_use object.source_location
+        if [Module, Class].include?(object.class) && object.respond_to?(:call)
+          response.rack object
+        end
+
+        if object.respond_to?(:source_location)
+          current.files_in_use object.source_location
+        end
 
         opts   ||= {}
         action ||= resolve_action object

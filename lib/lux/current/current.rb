@@ -4,9 +4,9 @@ module Lux
     attr_accessor :can_clear_cache
 
     attr_accessor :session, :locale
-    attr_reader   :request, :response, :nav, :var, :env, :params
+    attr_reader   :request, :response, :nav, :var, :env, :params, :env
 
-    def initialize env=nil, opts={}
+    def initialize env = nil, opts={}
       @env     = env || '/mock'
       @env     = ::Rack::MockRequest.env_for(env) if env.is_a?(String)
       @request = ::Rack::Request.new @env
@@ -69,7 +69,7 @@ module Lux
     end
 
     # Set Lux.current.can_clear_cache = true in production for admins
-    def no_cache? shallow_check=false
+    def no_cache? shallow_check = false
       check = @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache'
 
       if check
@@ -99,14 +99,13 @@ module Lux
     def uid num_only=false
       Thread.current[:lux][:uid_cnt] ||= 0
       num = Thread.current[:lux][:uid_cnt] += 1
-      num_only ? num : "uid_#{num}"
+      num_only ? num : "uid_#{num}_#{(Time.now.to_f*1000).to_i}"
     end
 
     # Get or check current session secure token
     def secure_token token=nil
       generated = Crypt.sha1(request.ip)
-      return generated == token if token
-      generated
+      token ? (generated == token) : generated
     end
 
     def curl?
@@ -121,7 +120,6 @@ module Lux
       end
 
       return @files_in_use unless file
-      return unless Lux.config.log_to_stdout
 
       file = file.sub './', ''
 
@@ -130,6 +128,25 @@ module Lux
       else
         @files_in_use.push file
         false
+      end
+    end
+
+    # Thread.new but copies env to a thread
+    def delay *args
+      if block_given?
+        lux_env = self.dup
+        Thread.new do
+          begin
+            Thread.current[:lux] = lux_env
+            Timeout::timeout(Lux.config.delay_timeout) do
+              yield *args
+            end
+          rescue => e
+            Lux.log ['Lux.current.delay error: %s' % e.message, e.backtrace].join($/)
+          end
+        end
+      else
+        raise ArgumentError, 'Block not given'
       end
     end
 

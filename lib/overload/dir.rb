@@ -4,23 +4,25 @@ class Dir
   def self.folders dir
     dir = dir.to_s
 
-    Dir
-      .entries(dir)
-      .reject { |el| ['.', '..'].include?(el) }
-      .select { |el| File.directory?([dir, el].join('/')) }
+    (Dir.entries(dir) - ['.', '..'])
       .sort
+      .select { |el| File.directory?([dir, el].join('/')) }
   end
 
   # Get all files in a folder
   # `Dir.files('./app/assets')`
-  def self.files dir
+  def self.files dir, opts = {}
     dir = dir.to_s
 
-    Dir
-      .entries(dir)
-      .drop(2)
-      .reject { |el| File.directory?([dir, el].join('/')) }
+    list = (Dir.entries(dir) - ['.', '..'])
       .sort
+      .reject { |el| File.directory?([dir, el].join('/')) }
+
+    if opts[:ext] == false
+      list = list.map{|f| f.sub(/\.\w+$/, '') }
+    end
+
+    list
   end
 
   # Find files in child folders.
@@ -98,6 +100,10 @@ class Dir
     list
       .select{ |o| o.index('.rb') }
       .each { |ruby_file| require ruby_file }
+  end
+
+  def self.mkdir? name
+    Dir.mkdir name unless Dir.exist? name
   end
 end
 

@@ -17,7 +17,6 @@ class Object
   end
 end
 
-Lux.config.log_to_stdout    = false
 Lux.config.auto_code_reload = false
 Lux.config.dump_errors      = true
 

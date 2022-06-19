@@ -27,9 +27,10 @@ class String
   end
 
   # export html without scripts
-  def html_safe safe = true
+  def html_safe scripts: false
     out = html_unescape
-    safe ? out.gsub(/<script/,'&lt;script') : out
+    out = out.gsub(/<(\/?script)/,'&lt;\1') unless scripts
+    out
   end
 
   # simple markdown

@@ -7,20 +7,17 @@ module Lux
     include ClassCallbacks
     include ::Lux::Application::Shared
 
-    TEMPLATE_ROOT ||= './app/views'
-
     # define master layout
     # string is template, symbol is method pointer and lambda is lambda
-    cattr :layout, nil
+    cattr :layout, class: true
 
     # define helper contest, by defult derived from class name
-    cattr :helper, nil
+    cattr :helper, class: true
 
     # custom template root instead calcualted one
-    cattr :template_root, nil
+    cattr :template_root, default: './app/views', class: true
 
-    cattr :path_id_store
-    cattr.path_id_store = [proc { raise 'path_id {} is not defined on controller' }]
+    cattr :path_id_store, default: [proc { raise 'path_id {} is not defined on controller' }]
 
     # before and after any action filter, ignored in controllers, after is called just before render
     define_callback :before
@@ -43,12 +40,20 @@ module Lux
         end
       end
 
+      # define function to parse object ids
+      # path_id do |text|
+      #   text.string_id rescue nil
+      # end
       def path_id *args, &block
         if block
           cattr.path_id_store = [block]
         else
           cattr.path_id_store[0].call(*args)
         end
+      end
+
+      def rescue_from &block
+        Lux.config.error_logger = block
       end
     end
 
@@ -85,9 +90,10 @@ module Lux
 
       catch :done do
         filter :before, @lux.action
-        filter :before_action, @lux.action
 
         unless response.body?
+          filter :before_action, @lux.action
+
           # if action not found
           if respond_to?(method_name)
             send method_name, *args
@@ -133,6 +139,8 @@ module Lux
       end
 
       opts = opts.to_hwia :text, :plain, :html, :json, :javascript, :cache, :template, :layout, :render_to_string, :data, :status, :ttl, :content_type
+
+      opts.layout ||= false if @lux.layout == false
 
       response.status opts.status               if opts.status
       response.content_type = opts.content_type if opts.content_type
@@ -226,7 +234,7 @@ module Lux
 
     def render_body opts
       template      = (opts.template      || @lux.action).to_s
-      template_root = cattr.template_root || TEMPLATE_ROOT
+      template_root = cattr.template_root
 
       template =
       if template.start_with?('./')
@@ -281,7 +289,7 @@ module Lux
     # because we can call action multiple times
     # ensure we execute filters only once
     def filter fiter_name, arg=nil
-      Lux.current.once 'lux-controller-filter-%s' % fiter_name do
+      Lux.current.once 'lux-controller-filter-%s-%s' % [self.class, fiter_name] do
         run_callback fiter_name, arg
       end
     end
@@ -306,7 +314,7 @@ module Lux
     end
 
     def action_missing name
-      path = [cattr.template_root || TEMPLATE_ROOT, @lux.template_sufix, name].join('/')
+      path = [cattr.template_root, @lux.template_sufix, name].join('/')
 
       if template = Dir['%s.*' % path].first
         unless Lux.config.use_autoroutes
@@ -325,10 +333,10 @@ module Lux
         defined = '<br /><br />Defined methods %s' % defined_methods.sort.to_ul
 
         if Lux.config.use_autoroutes
-          root  = [cattr.template_root || TEMPLATE_ROOT, @lux.template_sufix].join('/')
+          root  = [cattr.template_root, @lux.template_sufix].join('/')
           files = Dir.files(root).sort.filter {|f| f =~ /^[a-z]/ }.map {|f| f.sub(/\.\w+$/, '') }
           files = files - defined_methods
-          defined += '<br />Defined via templates %s' % files.to_ul
+          defined += '<br />Defined via templates in %s%s' % [root, files.to_ul]
         else
           defined += 'Defined templates - disabled'
         end

@@ -4,7 +4,7 @@ class Hash
   end
 
   def to_query namespace=nil
-    keys = self.keys.map(&:to_s).sort
+    keys = self.keys.sort
 
     return unless keys.first
 
@@ -79,8 +79,6 @@ class Hash
     data = data.gsub(/",(\w)/, '", \1') unless opts[:narrow]
     data
   end
-
-  private
 
   def transform_keys &block
     if block

@@ -25,7 +25,7 @@ module Lux
         if current.no_cache?
           error.clear_screen if Lux.env.dev?
         else
-          puts $/ if Lux.config.log_to_stdout
+          Lux.log ''
         end
 
         Lux.log { [request.request_method.white, request.url].join(' ') }

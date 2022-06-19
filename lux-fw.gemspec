@@ -51,9 +51,6 @@ Gem::Specification.new 'lux-fw' do |gem|
   # used for "bundle exec lux"
   gem.add_dependency 'thor'
 
-  # for console
-  gem.add_dependency 'pry'
-
   # sweet cli spinner
   gem.add_dependency 'whirly'
 
@@ -70,6 +67,11 @@ Gem::Specification.new 'lux-fw' do |gem|
 
   # load .env if present
   gem.add_dependency 'dotenv'
+
+  ### shuld be removed from a gem
+
+  # for console
+  gem.add_dependency 'pry'
 
   # best ORM mapper for ruby/postgres
   gem.add_dependency 'sequel_pg'
@@ -88,6 +90,7 @@ Gem::Specification.new 'lux-fw' do |gem|
   # better development errors
   # gem.add_dependency 'binding_of_caller'
 
-  # gem.add_dependency 'dry-inflector'
-  # gem.add_dependency 'nokogiri'
+  gem.add_dependency 'dry-inflector'
+
+  gem.add_dependency 'memory_profiler'
 end

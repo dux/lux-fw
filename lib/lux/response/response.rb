@@ -20,13 +20,21 @@ module Lux
       Lux.current
     end
 
+    # header['x-foo']
+    # header 'x-foo', 'bar'
+    # header @hash
     def header *args
       if args.first
-        @headers[args.first] = args[1] if args[1] != :_
-        @headers[args.first]
-      else
-        @headers
+        if args.first.class == Hash
+          args.each{|k,v| header k, v.to_s if k && v }
+        else
+          key = args.first.to_s.downcase
+          @headers[key] = args[1].to_s if args[1] != :_
+          @headers[key]
+        end
       end
+
+      @headers
     end
 
     def max_age= age
@@ -122,7 +130,7 @@ module Lux
     # redirect_to '/foo'
     # redirect_to :back, info: 'bar ...'
     def redirect_to where, opts={}
-      Lux.log { ' Redirected from: %s' % Lux.app_caller }
+      Lux.log { ' Redirected to "%s" from: %s' % [where, Lux.app_caller] }
 
       opts   = { info: opts } if opts.is_a?(String)
 
@@ -136,26 +144,34 @@ module Lux
         where = current.host + where
       end
 
-      # local redirect
-      if where.include?(current.host)
-        redirect_var = Lux.config[:redirect_var] || :_r
+      redirect_var = Lux.config[:redirect_var] || :_r
 
-        url = Url.new where
-        url[redirect_var] = current.request.params[redirect_var].to_i + 1
+      url = Url.new where
+      url[redirect_var] = current.request.params[redirect_var].to_i + 1
 
-        where =
-        if opts.delete(:silent)
-          url.delete redirect_var
-          url.to_s
-        else
-          url[redirect_var] > 3 ? '/' : url.to_s
-        end
+      where =
+      if opts.delete(:silent)
+        url.delete redirect_var
+        url.to_s
+      else
+        url[redirect_var] > 3 ? '/' : url.to_s
       end
 
       @status = opts.delete(:status) || 302
       opts.map { |k,v| flash.send(k, v) }
 
-      @body = %[redirecting to #{where}\n\n#{opts.values.join("\n")}]
+      @body = <<~PAGE
+        <html>
+          <head>
+            <title>redirecting</title>
+          </head>
+          <body>
+            <p>redirecting to #{where}</p>
+            <p>#{opts.values.join("\n")}</p>
+            <script>location.href = '#{where}'</script>
+          </body>
+        </html>
+      PAGE
 
       @headers['location'] = where
       @headers['access-control-expose-headers'] ||= 'Location'
@@ -193,6 +209,13 @@ module Lux
       end
 
       [@status, @headers.to_h, [@body]]
+    end
+
+    def rack klass
+      data = klass.call current.env
+      @headers.merge data[1]
+      body(data[0]) { data[2].first }
+      throw :done
     end
 
     private

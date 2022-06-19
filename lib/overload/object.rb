@@ -33,6 +33,10 @@ class Object
     self.blank? || self == 0 ? (block ? block.call : _or) : self
   end
 
+  def nil _or=nil, &block
+    self.nil? ? (block ? block.call : _or) : self
+  end
+
   def and &block
     block.call(self) if self.present?
   end
@@ -120,8 +124,14 @@ class Object
 
   # value should be Float
   # value.is! Float
-  def is! value
-    if value == self.class
+  def is! value = :_nil
+    if value == :_nil
+      if self.present?
+        self
+      else
+        raise ArgumentError.new('Expected not not empty value')
+      end
+    elsif value == self.class
       true
     else
       raise ArgumentError.new('Expected %s but got %s in %s' % [value, self.class, caller[0]])
@@ -130,8 +140,11 @@ class Object
 
   # value can be nil but if defined should be Float
   # value.is? Float
-  def is? value
+  def is? value = nil
     is! value
+    true
+  rescue ArgumentError
+    false
   end
 end
 

@@ -39,6 +39,10 @@ module Lux
         Lux.current.response.redirect_to where, flash
       end
 
+      def user
+        User.current
+      end
+
       # Triggers HTTP page error
       # ```
       # error.not_found

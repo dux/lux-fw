@@ -1,6 +1,6 @@
 module Lux
   class Cache
-    class MemoryCache
+    class MemoryServer
       @@lock = Mutex.new
       @@ram_cache = {}
       @@ttl_cache = {}

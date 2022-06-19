@@ -12,8 +12,6 @@ class Object
 
   # better console log dump
   def rr what
-    Lux.error.clear_screen
-
     from = caller[0].include?('raise_variants.rb') ? caller[1] : caller[0]
     from = from.sub(Lux.root.to_s+'/', './').split(':in ').first
     ap ['--- START (%s) %s - %s ---' % [what.class, from, Lux.current.request.url], what, '--- END ---']

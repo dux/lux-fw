@@ -24,9 +24,7 @@ class Integer
       }.each_pair { |e, s| return "#{(self.to_f / (s / 1024)).round(1)} #{e}" if self < s }
     end.call
 
-    out
-      .sub('.0 B', ' B')
-      .sub(/\.\d KB/, ' KB')
+    out.sub('.0 B', ' B')
   end
 
   # def to_filesize

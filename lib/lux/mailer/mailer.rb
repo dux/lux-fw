@@ -15,9 +15,9 @@ module Lux
   class Mailer
     include ClassCallbacks
 
-    cattr :template_root, './app/views'
-    cattr :helper, nil
-    cattr :layout, 'mailer'
+    cattr :template_root, default: './app/views', class: true
+    cattr :helper, class: true
+    cattr :layout, default: 'mailer', class: true
 
     define_callback :before
     define_callback :after
@@ -30,7 +30,13 @@ module Lux
         obj = new
         obj.instance_variable_set :@_template, template
         obj.run_callback :before
-        obj.send template, *args
+
+        if args[0].class == Hash
+          obj.send template, **args[0]
+        else
+          obj.send template, *args
+        end
+
         obj.run_callback :after
         obj
       end
@@ -75,7 +81,7 @@ module Lux
 
     def deliver
       if m = build_mail_object
-        Lux.delay(m) { |mail| mail.deliver! }
+        Lux.current.delay(m) { |mail| mail.deliver! }
       end
     end
 

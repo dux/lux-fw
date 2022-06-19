@@ -26,8 +26,7 @@ LuxCli.class_eval do
 
     puts
     puts 'servers:'
-    puts '  Lux.delay.server                  = %s' % Lux.delay.server
-    puts '  Lux.cache.server                  = %s' % Lux.cache.server
+    puts '  Lux.cache.server = %s' % Lux.cache.server
 
     puts
     puts 'plugins:'

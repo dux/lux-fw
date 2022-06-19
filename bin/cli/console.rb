@@ -42,7 +42,6 @@ LuxCli.class_eval do
     require './config/app'
 
     Lux.config.dump_errors   = true
-    Lux.config.log_to_stdout = true
 
     # boot
     Lux()
@@ -82,7 +81,20 @@ LuxCli.class_eval do
         Pry.config.print.call $stdout, data
       end
     else
+      # custom history loader
+      history = Pathname.new Lux.root.join('./.pry_history')
+
+      Thread.new do
+        # load in started pry session
+        sleep 0.5
+        if history.exist?
+          lines = history.read.split($/).uniq - ['exit']
+          lines.each {|l| Pry.history.push(l) }
+        end
+      end
       Pry.start
+
+      history.write Pry.history.to_a.uniq.last(100).join($/)
     end
   end
 end

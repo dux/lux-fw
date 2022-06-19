@@ -64,7 +64,7 @@ module Lux
       end
 
       env  = Lux.env.to_s
-      data = YAML.load(it)
+      data = YAML.safe_load it, aliases: true
 
       data[env] || {}
     end

@@ -1,9 +1,7 @@
-# frozen_string_literal: true
-
 module Lux
   class Cache
-    def initialize
-      @server = Lux::Cache::MemoryCache.new
+    def initialize server_name = nil
+      self.server= server_name || :memory
     end
 
     # sert cache server
@@ -11,18 +9,13 @@ module Lux
     # Lux.cache.server = :memcached
     # Lux.cache.server = Dalli::Client.new('localhost:11211', { :namespace=>Digest::MD5.hexdigest(__FILE__)[0,4], :compress => true,  :expires_in => 1.hour })
     def server= name
-      @server = if name.is_a?(Symbol)
-        if name == :memcached
-          require 'dalli'
-          Dalli::Client.new('127.0.0.1:11211', { :namespace=>Digest::MD5.hexdigest(__FILE__)[0,4], :compress => true,  :expires_in => 1.hour })
-        else
-          "Lux::Cache::#{name.to_s.classify}Cache".constantize.new
-        end
+      @server =
+      if name.is_a?(Symbol)
+        require_relative 'lib/%s_server' % name
+        @server = ('lux/cache/%s_server' % name).classify.constantize.new
       else
         name
       end
-
-      fetch('cache-test') { true }
     end
 
     def server
@@ -47,6 +40,8 @@ module Lux
     alias :set :write
 
     def delete key, data=nil
+      Lux.log { %[ Cache.delete "#{key}", at: #{Lux.app_caller}].yellow }
+
       @server.delete(key)
     end
 
@@ -54,7 +49,7 @@ module Lux
       key = generate_key key
 
       opts = { ttl: opts } unless opts.is_a?(Hash)
-      opts = opts.to_hwia :ttl, :force, :if, :unless
+      opts = opts.to_hwia :ttl, :force, :if, :unless, :speed
 
       return yield if opts.if.is_a?(FalseClass)
 
@@ -112,5 +107,3 @@ module Lux
 
   end
 end
-
-require_relative 'lib/memory'

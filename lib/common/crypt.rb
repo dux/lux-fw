@@ -22,8 +22,8 @@ module Crypt
     Base64.urlsafe_encode64(str)
   end
 
-  def uid
-    SecureRandom.hex
+  def uid size = nil
+    SecureRandom.alphanumeric(size || 32).downcase
   end
 
   def sha1 str
@@ -65,10 +65,14 @@ module Crypt
   def decrypt token, opts={}
     opts = opts.to_hwia :password, :ttl
 
-    token_data = JWT.decode token, secret+opts.password.to_s, true, { :algorithm => ALGORITHM }
+    token_data = JWT.decode token, secret+opts.password.to_s, true, { algorithm: ALGORITHM }
     data = token_data[0]
 
-    raise "Crypted data expired before #{Time.now.to_i - data['ttl']} seconds" if data['ttl'] && data['ttl'] < Time.now.to_i
+    if data['ttl'] && data['ttl'] < Time.now.to_i
+      seconds = Time.now.to_i - data['ttl']
+      before  = Time.respond_to?(:ago) ? Time.ago(Time.now - seconds) : "#{seconds} seconds"
+      raise JWT::VerificationError, "Crypted data expired before #{before}. Please get a fresh token."
+    end
 
     data['data']
   end

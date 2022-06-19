@@ -14,7 +14,7 @@ require 'optparse'
 require 'amazing_print'
 require 'dotenv'
 require 'whirly'
-require_relative '../lib/overload/thread'
+require_relative '../lib/overload/thread_simple'
 
 Dotenv.load
 

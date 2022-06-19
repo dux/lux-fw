@@ -2,23 +2,45 @@
 
 Lux logger is logging helper module.
 
-* uses default [Ruby logger](https://ruby-doc.org/stdlib/libdoc/logger/rdoc/Logger.html)
-* logger output path/location can be customized via `Lux.config.logger_output_location` proc
-  * default outputs
-    * development: screen
-    * production: `./log/@name.log`
-* formating style can be customized by modifing `Lux.config.logger_formater`
-* logger defined via the name will be created unless exists
+It has 2 basic methods, get pointer to a logger `Lux.logger(:name).info msg` and log to screen `Lux.log msg`
+
+Uses default [Ruby logger](https://ruby-doc.org/stdlib/libdoc/logger/rdoc/Logger.html)
+
+### Options
+
+#### Lux.config.logger_path_mask
+
+Defaults to `./log/%s.log`.
+
+#### Lux.config.logger_formatter
+
+If defined it will be assigned to all logs created by `Lux#logger`
+
+#### Lux.config.logger_default
+
+Default system logger output location called via `Lux#log`.
+
+Defauls to `STDOUT` in development and `nil` in production (no render output log)
+
+#### Lux.config.logger_files_to_keep = 3
+
+By default keep 3 log files
+
+#### Lux.config.logger_file_max_size = 10_240_000
+
+10 MB per file log file
+
+### Defaults and example
 
 ```ruby
-##./lib/lux/config/defaults/logger.rb##
+# defaults
+Lux.config.logger_path_mask     = './tmp/%s.log'
+Lux.config.logger_stdout        = Lux.env.dev?
+Lux.config.logger_default       = Lux.env.dev? ? STDOUT : nil
+Lux.config.logger_files_to_keep = 3
+Lux.config.logger_file_max_size = 10_240_000
 
-Lux.logger(:foo).info 'hello' # ./log/foo.log
-
-# write allways to file and provide env sufix
-Lux.config.logger_output_location do |name|
-  './log/%s-%s.log' % [name, Lux.env]
-end
-
-Lux.logger(:bar).info 'hello' # ./log/bar-development.log
+# example
+# by default writes in ./log/%s.log, log rotation 3 files, 10 MB each.
+Lux.logger(:foo).info 'hello'
 ```

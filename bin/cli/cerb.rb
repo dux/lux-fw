@@ -22,10 +22,10 @@ class ErbParser
     for file in Dir.find(folder, ext: [:svelte])
       name       = file.split('/').last.split('.').first.downcase
       klass      = "svelte_#{name}".gsub(/[^\w]/, '_').classify
-      inline     = !File.read(file).include?('props.html')
+      # inline     = !File.read(file).include?('props.html')
 
       out.push "import #{klass} from './#{file}';";
-      out.push "Svelte.bind('#{prefix}-#{name.gsub('_', '-')}', #{klass}, {inline: #{inline}});"
+      out.push "Svelte.bind('#{prefix}-#{name.gsub('_', '-')}', #{klass});"
       out.push ''
     end
 

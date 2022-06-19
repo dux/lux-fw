@@ -3,19 +3,19 @@
 class Thread::Simple
   attr_accessor :que, :size, :named
 
-  def initialize size: 5, sleep: 0.01
-    @sync    = Mutex.new
-    @sleep   = sleep
-    @size    = size
-    @que     = []
-    @threds  = []
-    @named   = {}
+  def initialize size: 5, sleep: 0.05
+    @sync     = Mutex.new
+    @sleep    = sleep
+    @size     = size
+    @que      = []
+    @threds   = []
+    @name_val = {}
   end
 
   def add name = nil, &block
     @sync.synchronize do
       if name
-        @que << proc { @named[name] = block.call }
+        @que << proc { @name_val[name] = block.call }
       else
         @que << block
       end
@@ -37,11 +37,9 @@ class Thread::Simple
       end
     end
 
-    while active?
-      sleep @sleep
+    unless @endless
+      @threds.each(&:join)
     end
-
-    @threds.each(&:join)
   end
 
   def stop
@@ -49,7 +47,7 @@ class Thread::Simple
   end
 
   def [] name
-    @named[name]
+    @name_val[name]
   end
 
   private

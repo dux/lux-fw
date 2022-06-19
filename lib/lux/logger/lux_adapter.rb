@@ -1,17 +1,44 @@
 module Lux
-  # Lux.logger(:foo).warn 'bar'
-  def logger name=nil
-    name          ||= Lux.env.to_s
-    output_location = Lux.config.logger_output_location.call(name)
+  LOGGER_CACHE ||= {}
 
-    CACHE['lux-logger-%s' % name] ||=
-    Logger.new(output_location,  Lux.config[:loger_files_to_keep], Lux.config[:loger_file_max_size]).tap do |it|
-      it.formatter = Lux.config.logger_formater
+  # Lux.logger(:foo).warn 'bar'
+  def logger name = nil
+
+    if !name
+      _logger_default
+    elsif Lux.config.logger_default == STDOUT
+      logger = Logger.new STDOUT
+      logger.formatter = proc do |severity, _, _, msg|
+         "LOGGER(#{name}) #{severity}: #{msg}\n"
+      end
+      logger
+    else
+      unless LOGGER_CACHE[name]
+        output_location = Lux.config.logger_path_mask % name
+        LOGGER_CACHE[name] = Logger.new output_location,  Lux.config.logger_files_to_keep, Lux.config.logger_file_max_size
+
+        if Lux.config.logger_formatter
+          LOGGER_CACHE[name].formatter = Lux.config.logger_formatter
+        end
+      end
+
+      LOGGER_CACHE[name]
     end
   end
 
-  # simple log to stdout
-  def log what=nil, &block
-    Lux.config.logger_stdout.call what || block
+  def log what = nil, &block
+    what = block.call if block
+
+    if Lux.config.logger_default == STDOUT
+      # do not show log headers when printing
+      # print is thread safer than puts
+      print what.to_s + "\n"
+    else
+      _logger_default.info what
+    end
+  end
+
+  def _logger_default
+    LOGGER_CACHE[:default] ||= Logger.new Lux.config.logger_default
   end
 end
