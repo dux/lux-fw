@@ -2,10 +2,9 @@ class PageMeta
   attr_accessor :app
 
   def initialize
-    @meta   = {}
-    @head   = []
-    @links  = []
-    @robots = []
+    @meta    = {}
+    @links   = []
+    @scripts = []
   end
 
   def meta name, desc
@@ -45,18 +44,42 @@ class PageMeta
   end
   alias_method :url=, :url
 
-  def robots *args
-    raise ArgumentError.new('Unsupported robots decalaration %s' % args.first) unless args - [:noindex, :nofollow] == []
-    @robots += args
+  def noindex
+    @noindex = true
+  end
+
+  def nofollow
+    @nofollow = true
+  end
+
+  # last modified date
+  def revised date_time
+    meta :revised, date_time.iso8601
   end
 
   def image url
     @meta['og:image'] = url
+    @meta['twitter:card'] = 'summary_large_image'
+
+    size = url.split('.').last(2).first.to_s.split('-').last.to_s.split('x')
+    if size[1].is_numeric?
+      @meta['og:image:width']  = size[0]
+      @meta['og:image:height'] = size[1]
+    end
   end
   alias_method :image=, :image
 
   def icon path
     @icon_path = path
+  end
+
+  def canonical href
+    @links << '<link rel="canonical" href="%s" />' % href
+    meta 'og:url', href
+  end
+
+  def locale name
+    meta 'og:locale', name
   end
 
   def render
@@ -68,10 +91,11 @@ class PageMeta
 
     # do not render other data if request is xhr/ajax
     # robots
-    @robots.push :index unless @robots.include?(:noindex)
-    @robots.push :follow unless @robots.include?(:nofollow)
-    meta :robots, @robots.join(', ')
-    Lux.current.response.header 'x-robots-tag', @robots.join(', ')
+    robots = []
+    robots.push @noindex ? :noindex : :index
+    robots.push @nofollow ? :nofollow : :follow
+    meta :robots, robots.join(', ')
+    Lux.current.response.header 'x-robots-tag', robots.join(', ')
 
     # favicon
     @icon_path ||= '/favicon.png'
@@ -79,14 +103,16 @@ class PageMeta
     @links.push %[<link rel="icon" href="#{@icon_path}" type="image/#{ext}" />]
     @links.push %[<link rel="apple-touch-icon" href="#{@icon_path}" type="image/#{ext}" />]
 
+    meta = []
     for k,v in @meta
       if v
         v.gsub!('"', '&quot;')
         name = k.starts_with?('og:') ? :property : :name
-        ret.push %[<meta #{name}="#{k}" content="#{v}" />]
+        meta.push %[<meta #{name}="#{k}" content="#{v}" />]
       end
     end
 
+    ret += meta.sort
     ret += @links
 
     if block_given?

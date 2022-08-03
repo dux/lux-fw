@@ -53,6 +53,10 @@ module Lux
         data = @cache.where(key: args).all
         data.inject({}) {|t, el| t[el[:key]] = Marshal.load Base64.decode64(el[:value]); t}
       end
+
+      def clear
+        @cache.truncate
+      end
     end
   end
 end

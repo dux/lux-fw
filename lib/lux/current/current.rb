@@ -56,15 +56,14 @@ module Lux
     end
 
     # Cache data in scope of current request
-    def cache key, opts = {}
-      if opts[:ttl]
-        # cache globaly if ttl provided
-        Lux.cache.fetch(key, opts) { yield }
-      else
-        data = @var[:cache] ||= {}
-        data = @var[:cache][key]
-        return data if data
+    def cache key
+      data = @var[:cache] ||= {}
+      data = @var[:cache][key]
+
+      if data.nil?
         @var[:cache][key] = yield
+      else
+        data
       end
     end
 
@@ -91,8 +90,11 @@ module Lux
       return false if @once_hash[id]
       @once_hash[id] = true
 
-      yield if block_given?
-      true
+      if block_given?
+        yield || true
+      else
+        true
+      end
     end
 
     # Generete unique ID par page render
@@ -150,6 +152,18 @@ module Lux
       end
     end
 
+    def encrypt data, opts={}
+      opts[:password] ||= request.ip
+      opts[:ttl]      ||= 10.minutes
+      Crypt.encrypt(data, opts)
+    end
+
+    def decrypt token, opts={}
+      opts[:password] ||= request.ip
+      Crypt.decrypt(token, opts)
+    end
+
+    # Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
     private
 
     def prepare_params opts

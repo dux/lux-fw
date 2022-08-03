@@ -104,7 +104,7 @@ module Lux
         end
 
         opts[:ttl] ||= 1.hour
-        key = 'view:'+name+block.source_location.join(':')
+        key = 'view:'+name+block.source_location.join(':')+Lux.config.deploy_timestamp.to_s
         Lux.cache.fetch(key, opts) { yield }
       end
 
@@ -122,6 +122,10 @@ module Lux
         Lux.current.once("template-#{id || caller[0]}") do
           block_given? ? yield : true
         end
+      end
+
+      def flash
+        Lux.current.response.flash
       end
     end
   end

@@ -24,6 +24,10 @@ module Lux
       def get_multi *args
         {}
       end
+
+      def clear
+        true
+      end
     end
   end
 end

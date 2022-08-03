@@ -61,7 +61,7 @@ module Crypt
   end
 
   # Crypt.decrypt('secret')
-  # Crypt.decrypt('secret', password:'pa$$w0rd')
+  # Crypt.decrypt('secret', password:'pa$$w0rd', unsafe: true)
   def decrypt token, opts={}
     opts = opts.to_hwia :password, :ttl
 
@@ -75,6 +75,8 @@ module Crypt
     end
 
     data['data']
+  rescue => err
+    raise err unless opts[:unsafe]
   end
 
   # encrypts data, with unsafe base64 + basic check

@@ -24,6 +24,7 @@ module Lux
 
     def read key
       return nil if (Lux.current.no_cache? rescue false)
+      key = generate_key key
       @server.get(key)
     end
     alias :get :read
@@ -34,12 +35,14 @@ module Lux
     alias :get_multi :read_multi
 
     def write key, data, ttl=nil
+      key = generate_key key
       ttl = ttl.to_i if ttl
       @server.set(key, data, ttl)
     end
     alias :set :write
 
     def delete key, data=nil
+      key = generate_key key
       Lux.log { %[ Cache.delete "#{key}", at: #{Lux.app_caller}].yellow }
 
       @server.delete(key)
@@ -58,16 +61,20 @@ module Lux
 
       @server.delete key if opts.force
 
-      Lux.log { " Cache.fetch.get #{opts.compact.to_jsonc}, at: #{Lux.app_caller}".green }
+      Lux.log { " Cache.fetch.get #{opts.compact.to_jsonc}:#{key.trim(30)}, at: #{Lux.app_caller}".green }
 
       data = @server.fetch key, opts.ttl do
         opts.speed = Lux.speed { data = yield }
-        Lux.log " Cache.fetch.set #{opts.compact.to_jsonc}, at: #{Lux.app_caller}".red
+        Lux.log " Cache.fetch.set #{opts.compact.to_jsonc}:#{key.trim(30)}, at: #{Lux.app_caller}".red
 
         Marshal.dump data
       end
 
       Marshal.load data
+    end
+
+    def clear
+      @server.clear
     end
 
     def is_available?
@@ -76,7 +83,11 @@ module Lux
     end
 
     def generate_key *data
-      keys = [Lux.config.deploy_timestamp]
+      if data[0].class == String && !data[1]
+        return data[0]
+      end
+
+      keys = []
 
       for el in [data].flatten
         keys.push el.class.to_s

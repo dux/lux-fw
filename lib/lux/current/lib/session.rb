@@ -45,6 +45,7 @@ module Lux
           cookie.push "Domain=#{cookie_domain}"
           cookie.push "secure" if Lux.current.request.url.start_with?('https:')
           cookie.push "HttpOnly"
+          cookie.push "SameSite=Lax"
 
           cookie.join('; ')
         else
@@ -74,7 +75,9 @@ module Lux
         @hash.delete(key) unless @hash[key].class == Array
 
         # allow 10 mins delay for IP change
-        @hash = {} if @hash[key] && (@hash[key][0] != check && @hash[key][1].to_i < Time.now.to_i - Lux.config.session_forced_validity)
+        if @hash[key] && (@hash[key][0] != check && @hash[key][1].to_i < Time.now.to_i - Lux.config.session_forced_validity)
+          @hash = {}
+        end
 
         # add new time stamp to every request
         @hash[key] = [check, Time.now.to_i]

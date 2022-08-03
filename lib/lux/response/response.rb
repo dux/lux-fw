@@ -117,7 +117,7 @@ module Lux
       content_type type
     end
 
-    def flash message=nil
+    def flash message = nil
       @flash ||= Flash.new current.session[:lux_flash]
 
       message ? @flash.error(message) : @flash
@@ -266,8 +266,10 @@ module Lux
         catch(:done) { etag(@body) }
       end
 
+      # @headers['access-control-allow-credentials'] = 'true'
       @headers['x-lux-speed']     = "#{((Time.monotonic - @render_start)*1000).round(1)}ms"
       @headers['content-type']  ||= "#{@content_type}; charset=utf-8"
+      @headers['content-length']  = @body.bytesize.to_s
       @headers['content-length']  = @body.bytesize.to_s
 
       # if "no-store" is present then HTTP_IF_NONE_MATCH is not sent from browser

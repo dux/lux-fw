@@ -64,7 +64,13 @@ module ::Lux
 
   def delay time_to_live = nil
     Thread.new do
-      Timeout::timeout time_to_live || Lux.config.delay_timeout do
+      time_to_live ||= Lux.config.delay_timeout
+
+      unless time_to_live.is_a?(Numeric)
+        raise 'Time to live is not integer (seconds)'
+      end
+
+      Timeout::timeout time_to_live do
         yield
       end
     end

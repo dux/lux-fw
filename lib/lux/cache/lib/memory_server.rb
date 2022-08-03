@@ -35,6 +35,10 @@ module Lux
       def get_multi(*args)
         @@ram_cache.select{ |k,v| args.index(k) }
       end
+
+      def clear
+        @@ram_cache = {}
+      end
     end
   end
 end

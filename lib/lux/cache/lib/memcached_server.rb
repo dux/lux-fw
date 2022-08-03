@@ -27,6 +27,10 @@ module Lux
       def fetch key, ttl = nil, &block
         @server.fetch key, ttl, &block
       end
+
+      def clear
+        @server.flush_all
+      end
     end
   end
 end

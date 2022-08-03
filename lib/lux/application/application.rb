@@ -20,6 +20,15 @@ module Lux
     end
 
     def render_base
+      request_method = request.request_method
+
+      if request_method == 'OPTIONS'
+        return [200, {
+          'access-control-allow-credential' => true,
+          'access-control-allow-methods' => '*'
+        }, ['OPTIONS']]
+      end
+
       # screen log request header unless is static file
       unless nav.format
         if current.no_cache?
@@ -28,7 +37,7 @@ module Lux
           Lux.log ''
         end
 
-        Lux.log { [request.request_method.white, request.url].join(' ') }
+        Lux.log { [request_method.white, request.url].join(' ') }
       end
 
       if request.post?

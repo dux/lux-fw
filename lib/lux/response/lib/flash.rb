@@ -16,12 +16,20 @@ module Lux
 
       ###
 
-      def initialize h=nil
-        @msg = h || {}
+      def initialize h = nil
+        @msg = (h || {}).to_hwia
       end
 
       def clear
         to_h.tap { @msg = {} }
+      end
+
+      def present?
+        @msg.keys.first
+      end
+
+      def empty?
+        !present?
       end
 
       def to_h
@@ -40,6 +48,8 @@ module Lux
       private
 
       def add name, message
+        return if message.blank?
+
         @msg[name] ||= []
 
         return if @msg[name].last == message

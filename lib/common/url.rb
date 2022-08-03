@@ -81,7 +81,7 @@ class Url
     end
 
     # domain and subdomain
-    if url =~ %r{://}
+    if url =~ %r{^\w+://}
       @opt.proto, _, host, @opt.path = url.split '/', 4
 
       @opt.proto = @opt.proto.sub(':', '')

@@ -59,11 +59,13 @@ module Lux
 
     ### INSTANCE METHODS
 
+    IVARS ||= Struct.new 'LuxControllerIvars', :template_sufix, :action, :layout, :helper, :render_cache
+
     attr_reader :controller_action
 
     def initialize
       # before and after should be exected only once
-      @lux = {}.to_hwia :template_sufix, :action, :layout, :helper
+      @lux = IVARS.new
       @lux.template_sufix = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
     end
 
@@ -113,6 +115,10 @@ module Lux
       Lux.current.var[:app_timeout] = seconds
     end
 
+    def flash
+      response.flash
+    end
+
     private
 
     # send file to browser
@@ -142,15 +148,33 @@ module Lux
 
       opts.layout ||= false if @lux.layout == false
 
-      response.status opts.status               if opts.status
-      response.content_type = opts.content_type if opts.content_type
-      opts.text             = opts.plain        if opts.plain         # match rails nameing
+      if opts.status
+        response.status opts.status
+      end
+
+      if opts.content_type
+        response.content_type = opts.content_type
+      end
+
+      # match rails nameing
+      if opts.plain
+        opts.text = opts.plain
+      end
+
+      # copy value from render_cache
+      if @lux.render_cache
+        opts.cache = @lux.render_cache
+      end
+
+      # we do not want to cache pages that have flashes in response
+      if response.flash.present?
+        opts.cache = nil
+      end
 
       timeout = Lux.current.var[:app_timeout] || Lux.config[:app_timeout] || 10
 
       Timeout::timeout timeout do
-        page =
-        if opts.cache
+        page = if opts.cache
           Lux.cache.fetch(opts.cache, opts.ttl || 3600) { render_resolve(opts) }
         else
           render_resolve(opts)
@@ -236,8 +260,7 @@ module Lux
       template      = (opts.template      || @lux.action).to_s
       template_root = cattr.template_root
 
-      template =
-      if template.start_with?('./')
+      template = if template.start_with?('./')
         # full path
         # render './apps/main/root/index'
         template
@@ -296,6 +319,16 @@ module Lux
 
     def cache *args, &block
       Lux.cache.fetch *args, &block
+    end
+
+    def render_cache key = :_nil
+      if key == :_nil
+        @lux.render_cache
+      else
+        unless @lux.render_cache == false
+          @lux.render_cache = key
+        end
+      end
     end
 
     def controller_action_call controller_action, *args
