@@ -32,8 +32,6 @@ end
 
 ###
 
-Lux.boot
-
 Lux.app do
   def city_map
     nav.root == 'zagreb'
@@ -59,7 +57,7 @@ Lux.app do
       map 'foo-nested' => 'routes_test#nested'
     end
 
-    response.body 'not found', 404
+    response.body 'not found', status: 404
   end
 
   ###

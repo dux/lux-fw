@@ -3,7 +3,7 @@ class File
     # write and create dir
     def write_p file, data
       path = file.split('/').reverse.drop(1).reverse.join('/')
-      FileUtils.mkdir_p(path) unless File.exists?(path)
+      FileUtils.mkdir_p(path) unless File.exist?(path)
       self.write file, data
       data
     end

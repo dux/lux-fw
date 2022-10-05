@@ -3,7 +3,7 @@
 
 ENV['THOR_SILENCE_DEPRECATION'] = 'true'
 
-if File.exists?('lux-fw.gemspec')
+if File.exist?('lux-fw.gemspec')
   puts 'Cant run in lux folder'
   exit
 end

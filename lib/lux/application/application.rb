@@ -46,7 +46,7 @@ module Lux
 
       catch :done do
         begin
-          if Lux.config.auto_code_reload
+          if Lux.config.auto_code_reload && !Lux.env.test?
             Lux.config.on_code_reload.call
           end
 

@@ -1,6 +1,3 @@
-# partialy extracted from
-# https://github.com/rails/rails/blob/5-0-stable/activesupport/lib/active_support/core_ext/object/blank.rb
-
 class Object
   def blank?
     !self
@@ -16,6 +13,14 @@ class Object
 end
 
 class NilClass
+  def empty?
+    true
+  end
+
+  def present?
+    false
+  end
+
   def blank?
     true
   end

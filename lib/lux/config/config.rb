@@ -35,7 +35,7 @@ module Lux
         ]
 
         opts = production_opts.map do |key, production_value|
-          config_test     = Lux.config[key]
+          config_test     = !!Lux.config[key]
           config_ok       = production_value == config_test
           production_mode = false unless config_ok
 
@@ -43,7 +43,7 @@ module Lux
           config_ok ? data : data.yellow
         end
 
-        mode  = production_mode ? 'production'.green : 'development'.yellow
+        mode = production_mode ? 'production'.green : 'development'.yellow
 
         if $lux_start_time.class == Array
           # $lux_start_time ||= Time.now added to Gemfile

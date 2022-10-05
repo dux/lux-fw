@@ -132,7 +132,7 @@ class Object
         raise ArgumentError.new('Expected not not empty value')
       end
     elsif value == self.class
-      true
+      self
     else
       raise ArgumentError.new('Expected %s but got %s in %s' % [value, self.class, caller[0]])
     end

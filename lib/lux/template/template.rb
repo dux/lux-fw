@@ -96,7 +96,7 @@ module Lux
       Tilt.default_mapping.template_map.keys.each do |ext|
         test = [template, ext].join('.')
 
-        if File.exists?(test)
+        if File.exist?(test)
           @template = test
           break
         end

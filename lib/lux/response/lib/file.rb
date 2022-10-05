@@ -77,7 +77,7 @@ module Lux
       def send
         file = ::File.exist?(@file) ? @file : Lux.root.join('public', @file).to_s
 
-        raise Lux::Error.not_found('Static file not found') unless ::File.exists?(file)
+        raise Lux::Error.not_found('Static file not found') unless ::File.exist?(file)
 
         response.content_type(@opts.content_type || MIMME_TYPES[@ext || '_'] || 'application/octet-stream')
 

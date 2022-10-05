@@ -93,6 +93,13 @@ module Lux
       catch :done do
         filter :before, @lux.action
 
+        # we will skip render action if full page cache is present
+        if !response.body? && @lux.render_cache && response.flash.empty?
+          if data = Lux.cache.get(@lux.render_cache)
+            response.body *data
+          end
+        end
+
         unless response.body?
           filter :before_action, @lux.action
 
@@ -175,7 +182,15 @@ module Lux
 
       Timeout::timeout timeout do
         page = if opts.cache
-          Lux.cache.fetch(opts.cache, opts.ttl || 3600) { render_resolve(opts) }
+          if cache = Lux.cache.get(opts.cache)
+            response.body *cache
+          else
+            render_resolve(opts).tap do |data|
+              if (opts.status || 200) == 200
+                Lux.cache.write(opts.cache, [data, {content_type: response.content_type}], opts.ttl || 3600)
+              end
+            end
+          end
         else
           render_resolve(opts)
         end

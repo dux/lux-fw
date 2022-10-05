@@ -56,7 +56,7 @@ module Lux
       end
 
       if !status && !current.no_cache?(true) && !Lux.env.dev? && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
-        body 'not-modified', 304
+        body 'not-modified', status: 304
       end
     end
 
@@ -76,22 +76,21 @@ module Lux
     end
 
     # response.body 'foo'
-    # response.body 'foo', 400
+    # response.body 'foo', status: 400, content_type: :js
     # response.body { 'foo' }
-    # response.body(400) { 'foo' }
-    def body arg1 = nil, arg2 = nil
+    # response.body({...}) { 'foo' }
+    def body data = nil, opts = nil
       if block_given?
-        # if block given status can be first argument
-        status arg1 if arg1
-        @body = yield(@body)
-        throw :done
-      elsif !arg1
-        @body
+        opts = data || {}
+        data = yield
       else
-        status arg2 if arg2
-        @body = arg1
-        throw :done
+        opts ||= {}
       end
+
+      opts.is!(Hash).each {|k,v| self.send k, *v }
+
+      @body = data
+      throw :done
     end
 
     def body?
@@ -214,7 +213,7 @@ module Lux
     def rack klass
       data = klass.call current.env
       @headers.merge data[1]
-      body(data[0]) { data[2].first }
+      body(status:data[0]) { data[2].first }
       throw :done
     end
 

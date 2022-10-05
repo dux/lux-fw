@@ -6,7 +6,7 @@ module Lux
     attr_accessor :session, :locale
     attr_reader   :request, :response, :nav, :var, :env, :params, :env
 
-    def initialize env = nil, opts={}
+    def initialize env = nil, opts = {}
       @env     = env || '/mock'
       @env     = ::Rack::MockRequest.env_for(env) if env.is_a?(String)
       @request = ::Rack::Request.new @env
@@ -39,7 +39,7 @@ module Lux
       @nav          = Lux::Application::Nav.new @request
       @var          = {}.to_hwia
 
-      @session.merge! opts[:session] if opts[:session]
+      opts[:session].or({}).each {|k,v| @session[k] = v }
     end
 
     def [] name

@@ -65,7 +65,7 @@ module LuxGenerate
       next unless parse_templates.index(type)
       for el in templates[type]
         file, data = *el
-        if File.exists?(file)
+        if File.exist?(file)
           print 'exists'.yellow.rjust(20)
         else
           FileUtils.mkdir_p(file.sub(/\/[^\/]+$/,'')) rescue false

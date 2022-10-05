@@ -1,6 +1,6 @@
 module Lux
   class Environment
-    ENVS = %w(development production test log)
+    ENVS = %w(development production test log live)
 
     def initialize env_name
       unless ENVS.include?(env_name)
@@ -16,12 +16,12 @@ module Lux
     alias :dev? development?
 
     def production?
-      ['production', 'log'].include?(@env_name)
+      ['production', 'log', 'live'].include?(@env_name)
     end
     alias :prod? :production?
 
     def test?
-      @env_name == 'test'
+      $0.end_with?('/rspec') || @env_name == 'test'
     end
 
     def log?
@@ -34,6 +34,10 @@ module Lux
 
     def cli?
       !web?
+    end
+
+    def live?
+      ENV['LUX_LIVE'] == 'true'
     end
 
     def web?

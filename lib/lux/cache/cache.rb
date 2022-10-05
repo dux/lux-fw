@@ -43,6 +43,7 @@ module Lux
 
     def delete key, data=nil
       key = generate_key key
+
       Lux.log { %[ Cache.delete "#{key}", at: #{Lux.app_caller}].yellow }
 
       @server.delete(key)

@@ -58,10 +58,13 @@ class PageMeta
   end
 
   def image url
+    return unless url.present?
+
     @meta['og:image'] = url
     @meta['twitter:card'] = 'summary_large_image'
 
     size = url.split('.').last(2).first.to_s.split('-').last.to_s.split('x')
+
     if size[1].is_numeric?
       @meta['og:image:width']  = size[0]
       @meta['og:image:height'] = size[1]

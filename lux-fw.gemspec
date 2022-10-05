@@ -34,6 +34,9 @@ Gem::Specification.new 'lux-fw' do |gem|
   # html string building lib
   gem.add_dependency 'html-tag'
 
+  # backed template view parts
+  gem.add_dependency 'view-cell'
+
   # class and method attributes, rescue_from
   # gem.add_dependency 'clean-annotations'
   gem.add_dependency 'class-cattr'
@@ -84,8 +87,6 @@ Gem::Specification.new 'lux-fw' do |gem|
 
   # best server side templateing
   gem.add_dependency 'hamlit'
-  gem.add_dependency 'hamlit-block'
-  gem.add_dependency 'view-cell'
 
   # better development errors
   # gem.add_dependency 'binding_of_caller'
