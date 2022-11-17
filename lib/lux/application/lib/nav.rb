@@ -133,7 +133,7 @@ module Lux
 
       def set_domain request
         # localtest.me
-        parts = request.host.split('.')
+        parts = request.host.to_s.split('.')
         if parts.last.is_numeric?
           @domain = request.host
         else

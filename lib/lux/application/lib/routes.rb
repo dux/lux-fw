@@ -4,25 +4,22 @@ module Lux
       # generate get, get?, post, post? ...
       # get {}
       # get foo: 'main/bar', only: [:show], except: [:index]
-      [:get, :head, :post, :delete, :put, :patch].map(&:to_s).each do |m|
+      %w{get head post delete put patch}.each do |m|
         define_method('%s?' % m) do |*args, &block|
-          @_is_type_cache ||= {}
-          @_is_type_cache[m] = current.request.request_method == m.upcase if @_is_type_cache[m].nil?
-          return unless @_is_type_cache[m]
+          cm = current.request.request_method
+          cm = 'GET' if cm == 'HEAD'
+          return unless cm == m.upcase
 
           if block
-            # get { ... }
+            # get? { ... }
             block.call
           elsif args.first
             # post api: 'api#call'
             map *args
           else
-            # get
             true
           end
         end
-
-        #eval "alias :#{m}? :#{m}"
       end
 
       # Matches if there is not root in nav

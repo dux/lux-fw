@@ -207,6 +207,10 @@ module Lux
         [200, 304].include?(@status) ? log_data : log_data.magenta
       end
 
+      if current.request.request_method == 'HEAD'
+        @body = ''
+      end
+
       [@status, @headers.to_h, [@body]]
     end
 

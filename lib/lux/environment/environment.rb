@@ -1,6 +1,6 @@
 module Lux
   class Environment
-    ENVS = %w(development production test log live)
+    ENVS = %w(development production test)
 
     def initialize env_name
       unless ENVS.include?(env_name)
@@ -16,7 +16,7 @@ module Lux
     alias :dev? development?
 
     def production?
-      ['production', 'log', 'live'].include?(@env_name)
+      @env_name == 'production'
     end
     alias :prod? :production?
 
@@ -24,28 +24,26 @@ module Lux
       $0.end_with?('/rspec') || @env_name == 'test'
     end
 
-    def log?
-      @env_name == 'log'
-    end
-
     def rake?
       $0.end_with?('/rake')
     end
 
-    def cli?
-      !web?
-    end
-
     def live?
-      ENV['LUX_LIVE'] == 'true'
+      value = ENV['LUX_LIVE'] || Lux.die('ENV LUX_LIVE not defined')
+      value == 'true'
     end
 
     def web?
       if @env_web.nil?
-        @env_web = ObjectSpace.each_object(Class).map(&:to_s).include?('#<Class:Rack::Server>')
+        list = ObjectSpace.each_object(Class).map(&:to_s)
+        @env_web = list.include?('#<Class:Rack::Server>') || list.include?('Puma::Launcher')
       end
 
       @env_web
+    end
+
+    def cli?
+      !web?
     end
 
     ###

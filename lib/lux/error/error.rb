@@ -134,13 +134,12 @@ module Lux
       end
 
       # render error inline
-      def inline object, msg=nil
-        error, message =
-          if object.is_a?(String)
-            [nil, object]
-          else
-            [object, object.message]
-          end
+      def inline object, msg = nil
+        error, message = if object.is_a?(String)
+          [nil, object]
+        else
+          [object, object.message]
+        end
 
         error_key = error ? log(error) : nil
         message   = message.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')

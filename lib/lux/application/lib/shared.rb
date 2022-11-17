@@ -66,6 +66,7 @@ module Lux
           Lux::Error::AutoRaise
         end
       end
+      alias :lux_error :error
     end
   end
 end

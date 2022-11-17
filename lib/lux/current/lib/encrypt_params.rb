@@ -11,7 +11,7 @@ module Lux
         base = name.include?('[') ? name.split(/[\[\]]/).first(2).join('::') : name
         base += '#%s' % value
 
-        OpenStruct.new(name: "_data_#{Lux.current.uid(true)}", value: Crypt.encrypt(base))
+        OpenStruct.new(name: "_data_#{Lux.current.uid}", value: Crypt.encrypt(base))
       end
 
       def hidden_input name, value

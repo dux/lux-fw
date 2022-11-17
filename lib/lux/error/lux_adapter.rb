@@ -1,7 +1,7 @@
 module Lux
-  def lux_error data=nil
-    if data
-      raise Lux::Error.new(500, data)
+  def error *args
+    if args.first
+      raise Lux::Error.new(*args)
     else
       Lux::Error
     end

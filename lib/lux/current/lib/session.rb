@@ -69,7 +69,7 @@ module Lux
 
       def security_check
         key   = '_c'
-        ip    = @request.ip.to_s.split('.').first(3).join('.') # only 3 first numbers of IP
+        ip    = Lux.current.ip.split('.').first(3).join('.') # only 3 first numbers of IP
         check = Crypt.sha1(ip+@request.env['HTTP_USER_AGENT'].to_s)[0, 5]
 
         # force type array

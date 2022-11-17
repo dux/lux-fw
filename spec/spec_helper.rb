@@ -17,8 +17,8 @@ class Object
   end
 end
 
-Lux.config.auto_code_reload = false
-Lux.config.dump_errors      = true
+Lux.config.code_reload = false
+Lux.config.dump_errors = true
 
 # basic config
 RSpec.configure do |config|

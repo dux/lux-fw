@@ -80,7 +80,7 @@ module Lux
 
     def compile_template template
       pointer =
-      if Lux.config.auto_code_reload
+      if Lux.config.code_reload
         Lux.current.var
       else
         Lux.var
@@ -103,11 +103,8 @@ module Lux
       end
 
       unless @template
-        err  = caller.reject{ |l| l =~ %r{(/lux/|/gems/)} }.map{ |l| el=l.to_s.split(Lux.root.to_s); el[1] || l }.join("\n")
-        msg  = Lux.env.dev? ? %[Lux::Template "#{template}.{erb,haml}" not found] : 'View template not found.'
-        msg += %[\n\n#{err}] if Lux.config.dump_errors
-
-        raise msg
+        msg = %[Lux::Template "#{template}.{erb,haml}" not found]
+        raise ArgumentError.new(msg)
       end
 
       begin

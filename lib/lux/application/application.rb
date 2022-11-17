@@ -20,14 +20,11 @@ module Lux
     end
 
     def render_base
-      request_method = request.request_method
-
-      if request_method == 'OPTIONS'
-        return [200, {
-          'access-control-allow-credential' => true,
-          'access-control-allow-methods' => '*'
-        }, ['OPTIONS']]
+      if Lux.config.code_reload && !Lux.env.test?
+        Lux.config.on_code_reload.call
       end
+
+      request_method = request.request_method
 
       # screen log request header unless is static file
       unless nav.format
@@ -44,12 +41,15 @@ module Lux
         Lux.log { request.params.to_h.to_jsonp }
       end
 
+      if request_method == 'OPTIONS'
+        return [204, {
+          'allow' => Lux.config[:request_options] || 'OPTIONS, GET, HEAD, POST',
+          'cache-control' => 'max-age=604800',
+        }, ['']]
+      end
+
       catch :done do
         begin
-          if Lux.config.auto_code_reload && !Lux.env.test?
-            Lux.config.on_code_reload.call
-          end
-
           if Lux.config.serve_static_files
             Lux::Response::File.deliver_asset(request)
           end
@@ -84,7 +84,7 @@ module Lux
       target = opts.keys.first
       value  = opts.values.first
 
-      return unless request.path.starts_with?(value)
+      return unless request.path.to_s.starts_with?(value)
 
       call target.call current.env
     end

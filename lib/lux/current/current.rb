@@ -98,7 +98,9 @@ module Lux
     end
 
     # Generete unique ID par page render
-    def uid num_only=false
+    # current.uid => "uid_123_1668273316128"
+    # current.uid(true) => 123
+    def uid num_only = false
       Thread.current[:lux][:uid_cnt] ||= 0
       num = Thread.current[:lux][:uid_cnt] += 1
       num_only ? num : "uid_#{num}_#{(Time.now.to_f*1000).to_i}"
@@ -152,14 +154,21 @@ module Lux
       end
     end
 
+    def ip
+      request.env['HTTP_CF_CONNECTING_IP'] || # will not work with cloudflare if removed
+      request.env['HTTP_X_FORWARDED_FOR'] ||
+      request.env['REMOTE_ADDR'] ||
+      '127.0.0.1'
+    end
+
     def encrypt data, opts={}
-      opts[:password] ||= request.ip
+      opts[:password] ||= self.ip
       opts[:ttl]      ||= 10.minutes
       Crypt.encrypt(data, opts)
     end
 
     def decrypt token, opts={}
-      opts[:password] ||= request.ip
+      opts[:password] ||= self.ip
       Crypt.decrypt(token, opts)
     end
 

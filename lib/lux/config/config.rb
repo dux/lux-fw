@@ -27,23 +27,15 @@ module Lux
 
     def start_info
       @load_info ||= proc do
-        production_mode = true
-        production_opts = [
-          [:auto_code_reload, false],
-          [:dump_errors,      false],
-          [:logger_stdout,    false],
-        ]
+        production_opts = %i(code_reload dump_errors screen_log)
 
-        opts = production_opts.map do |key, production_value|
-          config_test     = !!Lux.config[key]
-          config_ok       = production_value == config_test
-          production_mode = false unless config_ok
+        opts = production_opts.map do |key|
+          env_value = env_value_of key
+          Lux.config[key] = env_value ? env_value == 'yes' : Lux.config[key]
 
-          data = "#{key} (%s)" % [config_test ? :yes : :no]
-          config_ok ? data : data.yellow
+          data = "#{key} (%s)" % [Lux.config[key] ? :yes : :no]
+          Lux.config[key] ? data.yellow : data.green
         end
-
-        mode = production_mode ? 'production'.green : 'development'.yellow
 
         if $lux_start_time.class == Array
           # $lux_start_time ||= Time.now added to Gemfile
@@ -58,7 +50,7 @@ module Lux
 
         info = []
         info.push '* Config: %s' % opts.join(', ')
-        info.push "* Lux loaded in #{mode} mode, #{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
+        info.push "* Lux loaded in #{ENV['RACK_ENV']} mode, #{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
         info.join($/)
       end.call
     end
@@ -70,7 +62,10 @@ module Lux
       Lux.config.dump_errors = Lux.env.dev?
 
       # Automatic code reloads in development
-      Lux.config.auto_code_reload = Lux.env.dev?
+      Lux.config.code_reload = Lux.env.dev?
+
+      # Dump all logs to screen
+      Lux.config.screen_log = Lux.env.dev?
 
       # Delay
       Lux.config.delay_timeout = 30
@@ -81,6 +76,7 @@ module Lux
       # Logger
       Lux.config.logger_path_mask     = './log/%s.log'
       Lux.config.logger_default       = Lux.env.dev? ? STDOUT : nil
+      Lux.config.logger_default       = nil if env_value_of(:screen_log) == 'no'
       Lux.config.logger_files_to_keep = 3
       Lux.config.logger_file_max_size = 10_240_000
       Lux.config.logger_formatter     = nil
@@ -90,13 +86,6 @@ module Lux
       Lux.config[:plugins]           ||= []
       Lux.config[:error_logger]      ||= Proc.new do |error|
         ap [error.message, error.class, Lux::Error.mark_backtrace(error)]
-      end
-
-      ###
-
-      if Lux.env.log?
-        Lux.config.dump_errors      = false
-        Lux.config.auto_code_reload = false
       end
 
       ###
@@ -135,6 +124,13 @@ module Lux
 
     def time_diff time1, time2 = Time.now
       ((time2 - time1)).round(2).to_s
+    end
+
+    def env_value_of key
+      value = ENV["LUX_#{key.to_s.upcase}"]
+      value = 'yes' if value == 'true'
+      value = 'no' if value == 'false'
+      value
     end
   end
 end

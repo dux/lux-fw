@@ -2,8 +2,7 @@ module Lux
   LOGGER_CACHE ||= {}
 
   # Lux.logger(:foo).warn 'bar'
-  def logger name = nil
-
+  def logger name = nil, otps = {}
     if !name
       _logger_default
     elsif Lux.config.logger_default == STDOUT
