@@ -50,7 +50,7 @@ class Time
     # Precise ago
     # Time.agop(61)   -> 1min 1sec
     # Time.agop(1111) -> 18min 31sec
-    def agop secs, desc=nil
+    def agop secs, desc = nil
       return '-' unless secs
 
       [[60, :sec], [60, :min], [24, :hrs], [356, :days], [1000, :years]].map do |count, name|

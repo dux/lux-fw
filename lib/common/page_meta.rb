@@ -61,6 +61,7 @@ class PageMeta
     return unless url.present?
 
     @meta['og:image'] = url
+    @meta['twitter:image'] = url
     @meta['twitter:card'] = 'summary_large_image'
 
     size = url.split('.').last(2).first.to_s.split('-').last.to_s.split('x')
@@ -113,6 +114,10 @@ class PageMeta
         name = k.starts_with?('og:') ? :property : :name
         meta.push %[<meta #{name}="#{k}" content="#{v}" />]
       end
+    end
+
+    if Site.current && Lux.current.request.path == '/'
+      meta.push %[<link rel="alternate" type="application/rss+xml" title="#{Site.current.name.html_escape}" href="#{Site.current.www_link}/rss">]
     end
 
     ret += meta.sort

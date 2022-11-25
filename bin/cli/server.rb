@@ -5,6 +5,11 @@ if ARGV[0] == 's'
   ARGV[0] = 'server'
 end
 
+if ARGV[0] == 'ss'
+  ARGV[0] = 'server'
+  ARGV[1] = '-cl'
+end
+
 LuxCli.class_eval do
   ENVIRONEMNTS  = %w[production development test]
 

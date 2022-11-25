@@ -132,8 +132,15 @@ module Lux
       end
 
       def set_domain request
-        # localtest.me
-        parts = request.host.to_s.split('.')
+        begin
+          # NoMethodError
+          # Message undefined method `start_with?' for nil:NilClass
+          # gems/rack-2.2.4/lib/rack/request.rb:567:in `wrap_ipv6'
+          parts = request.host.to_s.split('.')
+        rescue NoMethodError
+          raise Lux::Error.bad_request('Host name error')
+        end
+
         if parts.last.is_numeric?
           @domain = request.host
         else

@@ -20,7 +20,7 @@ module Lux
     end
 
     def render_base
-      if Lux.config.code_reload && !Lux.env.test?
+      if Lux.config.code_reload && Lux.env.web?
         Lux.config.on_code_reload.call
       end
 

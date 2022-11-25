@@ -19,5 +19,14 @@ class File
       out = name.to_s.split('.').last.to_s.downcase
       [3,4].include?(out.length) ? out : nil
     end
+
+    def delete? path
+      if File.exist?(path)
+        File.delete path
+        true
+      else
+        false
+      end
+    end
   end
 end

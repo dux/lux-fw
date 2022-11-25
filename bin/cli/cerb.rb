@@ -21,8 +21,10 @@ class ErbParser
     out = []
     for file in Dir.find(folder, ext: [:svelte])
       name       = file.split('/').last.split('.').first.downcase
-      klass      = "svelte_#{name}".gsub(/[^\w]/, '_').classify
-      # inline     = !File.read(file).include?('props.html')
+
+      # cant call classify because we can have block in singular and plural
+      # block-post and block-posts and become SvelteBlockPost
+      klass      = "Svelte_#{prefix}_#{name}".gsub(/[^\w]/, '_') #.classify
 
       out.push "import #{klass} from './#{file}';";
       out.push "Svelte.bind('#{prefix}-#{name.gsub('_', '-')}', #{klass});"

@@ -95,9 +95,9 @@ module Lux
     CODE_LIST.each do |status, data|
       if data[:short]
         define_singleton_method(data[:short]) do |message=nil|
-          error = new status, message
+          error = Lux::Error.new status, message
 
-          if error.is_a?(Lux::Error::AutoRaise)
+          if self == Lux::Error::AutoRaise
             Lux.current.response.status status
             Lux.log " error.#{data[:code]} in #{Lux.app_caller}"
             raise error
