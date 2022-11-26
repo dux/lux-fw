@@ -60,7 +60,7 @@ module Lux
       end
     end
 
-    def status num=nil
+    def status num = nil
       return @status unless num
       raise 'Bad status value [%s]' % num unless num.is_numeric?
 
@@ -72,7 +72,6 @@ module Lux
     def halt status=nil, msg=nil
       @status = status || 400
       @body   = msg if msg
-      throw :done
     end
 
     # response.body 'foo'
@@ -90,7 +89,6 @@ module Lux
       opts.is!(Hash).each {|k,v| self.send k, *v }
 
       @body = data
-      throw :done
     end
 
     def body?
@@ -174,8 +172,6 @@ module Lux
 
       @headers['location'] = where
       @headers['access-control-expose-headers'] ||= 'Location'
-
-      throw :done
     end
 
     def permanent_redirect_to where
@@ -192,7 +188,6 @@ module Lux
       status 401
       header('WWW-Authenticate', 'Basic realm="%s"' % realm.or('default'))
       body message || 'HTTP 401 Authorization needed'
-      throw :done
     end
 
     def render
@@ -218,7 +213,6 @@ module Lux
       data = klass.call current.env
       @headers.merge data[1]
       body(status:data[0]) { data[2].first }
-      throw :done
     end
 
     private
@@ -266,7 +260,7 @@ module Lux
       end
 
       if current.request.request_method == 'GET'
-        catch(:done) { etag(@body) }
+        etag(@body)
       end
 
       # @headers['access-control-allow-credentials'] = 'true'

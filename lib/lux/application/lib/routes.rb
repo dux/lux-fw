@@ -71,7 +71,9 @@ module Lux
 
         yield
 
-        error.not_found("Namespace <b>:#{name}</b> matched but nothing is called")
+        unless response.body?
+          error.not_found("Namespace <b>:#{name}</b> matched but nothing is called")
+        end
       end
 
       # Matches given subdomain name
@@ -94,8 +96,9 @@ module Lux
       #   map :about
       # end
       # ```
-      def map route_object=nil, &block
+      def map route_object = nil, &block
         return @magic unless route_object
+        return if response.body?
 
         if block_given?
           return namespace route_object, &block
@@ -166,36 +169,36 @@ module Lux
         Lux.log { ' Routed from: %s' % sources.join(' ') } if sources.first
 
         case object
-          when Symbol
-            return send(object)
-          when Hash
-            object = [object.keys.first, object.values.first]
-          when String
-            if object.include?('#')
-              object, action = object.split('#')
-            elsif object.include?('?')
-              object, namespace = object.split('?')
+        when Symbol
+          return send(object)
+        when Hash
+          object = [object.keys.first, object.values.first]
+        when String
+          if object.include?('#')
+            object, action = object.split('#')
+          elsif object.include?('?')
+            object, namespace = object.split('?')
+          end
+        when Array
+          if object[0].class == Integer && object[1].class == Hash
+            # [200, {}, 'ok']
+            for key, value in object[1]
+              response.header key, value
             end
-          when Array
-            if object[0].class == Integer && object[1].class == Hash
-              # [200, {}, 'ok']
-              for key, value in object[1]
-                response.header key, value
-              end
 
-              response.status object[0]
-              response.body object[2].is_a?(Array) ? object[2].first : object[2]
-            else
-              object, action = object
-            end
-          when Proc
-            case data = object.call
-              when Array
-                response.status = data.first
-                response.body data[2].is_a?(Array) ? data[2][0] : data[2]
-              else
-                response.body data
-            end
+            response.status object[0]
+            response.body object[2].is_a?(Array) ? object[2].first : object[2]
+          else
+            object, action = object
+          end
+        when Proc
+          case data = object.call
+          when Array
+            response.status = data.first
+            response.body data[2].is_a?(Array) ? data[2][0] : data[2]
+          else
+            response.body data
+          end
         end
 
         if object.is_a?(String)
@@ -228,9 +231,13 @@ module Lux
           error.not_found Lux.env.dev? ? "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" : nil
         end
 
-        object.action action.to_sym
+        if object.respond_to?(:action)
+          object.action action.to_sym
+        end
 
-        unless response.body?
+        if response.body?
+          throw :route_resolved
+        else
           Lux.error 'Lux action "%s" called via route "%s" but page body is not set' % [object, nav.root]
         end
       end
@@ -241,16 +248,16 @@ module Lux
         root = nav.root.to_s
 
         ok = case route
-          when String
-            root == route.sub(/^\//,'')
-          when Symbol
-            route.to_s == root
-          when Regexp
-            !!(route =~ root)
-          when Array
-            !!route.map(&:to_s).include?(root)
-          else
-            raise 'Route type %s is not supported' % route.class
+        when String
+          root == route.sub(/^\//,'')
+        when Symbol
+          route.to_s == root
+        when Regexp
+          !!(route =~ root)
+        when Array
+          !!route.map(&:to_s).include?(root)
+        else
+          false
         end
 
         nav.shift if ok
@@ -297,14 +304,14 @@ module Lux
       def resolve_routes
         @magic = MagicRoutes.new self
 
-        catch(:done) do
-          run_callback :before, nav.path
-          run_callback :routes, nav.path
+        run_callback :before, nav.path
+        run_callback :routes, nav.path
+
+        unless response.body?
+          error.not_found 'Document not found'
         end
 
-        catch(:done) do
-          run_callback :after, nav.path
-        end
+        run_callback :after, nav.path
       end
     end
   end

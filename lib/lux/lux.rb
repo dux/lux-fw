@@ -14,8 +14,12 @@ module ::Lux
 
   # main rack response
   def call env = nil
-    app  = Lux::Application.new env
-    app.render_base || raise('No RACK response given')
+    timeout = Lux.current.var[:app_timeout] || Lux.config[:app_timeout] || 30
+
+    Timeout::timeout timeout do
+      app  = Lux::Application.new env
+      app.render_base || raise('No RACK response given')
+    end
   rescue => err
     error.log err
 

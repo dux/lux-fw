@@ -52,17 +52,13 @@ describe Lux::Controller do
   end
 
   it 'renders text' do
-    catch(:done) do
-      TestController.action(:render_text)
-    end
+    TestController.action(:render_text)
 
     expect(Lux.current.response.body).to eq('foo')
   end
 
   it 'renders json' do
-    catch(:done) do
-      TestController.action(:render_json)
-    end
+    TestController.action(:render_json)
 
     expect(Lux.current.response.body).to eq({ foo: 'bar' })
   end
@@ -72,17 +68,13 @@ describe Lux::Controller do
   end
 
   it 'executes before filter' do
-    catch(:done) do
-      TestController.action(:test_before)
-    end
+    TestController.action(:test_before)
 
     expect(Lux.current.response.body).to eq('beforebefore_action')
   end
 
   it 'executes before_render filter' do
-    catch(:done) do
-      TestController.action(:test_before)
-    end
+    TestController.action(:test_before)
 
     expect(Lux.current.response.body).to eq('beforebefore_action')
   end

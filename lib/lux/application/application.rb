@@ -48,13 +48,13 @@ module Lux
         }, ['']]
       end
 
-      catch :done do
+      catch :route_resolved do
         begin
           if Lux.config.serve_static_files
             Lux::Response::File.deliver_asset(request)
           end
 
-          resolve_routes  unless response.body?
+          resolve_routes unless response.body?
           error.not_found unless response.body?
         rescue => err
           rescue_from err

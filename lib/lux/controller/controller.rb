@@ -90,32 +90,29 @@ module Lux
 
       @lux.action = method_name.to_sym
 
-      catch :done do
-        filter :before, @lux.action
+      filter :before, @lux.action
 
-        # we will skip render action if full page cache is present
-        if !response.body? && @lux.render_cache && response.flash.empty?
-          if data = Lux.cache.get(@lux.render_cache)
-            response.body *data
-          end
-        end
-
-        unless response.body?
-          filter :before_action, @lux.action
-
-          # if action not found
-          if respond_to?(method_name)
-            send method_name, *args
-          else
-            action_missing method_name
-          end
-
-          render
+      # we will skip render action if full page cache is present
+      if !response.body? && @lux.render_cache && response.flash.empty?
+        if data = Lux.cache.get(@lux.render_cache)
+          response.body *data
         end
       end
 
+      unless response.body?
+        filter :before_action, @lux.action
+
+        # if action not found
+        if respond_to?(method_name)
+          send method_name, *args
+        else
+          action_missing method_name
+        end
+
+        render
+      end
+
       filter :after, @lux.action
-      throw :done
     end
 
     def timeout seconds
@@ -136,7 +133,9 @@ module Lux
     # render :index
     # render 'main/root/index'
     # render text: 'ok'
-    def render name=nil, opts={}
+    def render name = nil, opts = {}
+      return if response.body?
+
       filter :after_action, @lux.action
       filter :before_render, @lux.action
 
@@ -178,28 +177,24 @@ module Lux
         opts.cache = nil
       end
 
-      timeout = Lux.current.var[:app_timeout] || Lux.config[:app_timeout] || 10
-
-      Timeout::timeout timeout do
-        page = if opts.cache
-          if cache = Lux.cache.get(opts.cache)
-            response.body *cache
-          else
-            render_resolve(opts).tap do |data|
-              if (opts.status || 200) == 200
-                Lux.cache.write(opts.cache, [data, {content_type: response.content_type}], opts.ttl || 3600)
-              end
+      page = if opts.cache
+        if cache = Lux.cache.get(opts.cache)
+          response.body *cache
+        else
+          render_resolve(opts).tap do |data|
+            if (opts.status || 200) == 200
+              Lux.cache.write(opts.cache, [data, {content_type: response.content_type}], opts.ttl || 3600)
             end
           end
-        else
-          render_resolve(opts)
         end
+      else
+        render_resolve(opts)
+      end
 
-        if opts.render_to_string
-          page
-        else
-          response.body page
-        end
+      if opts.render_to_string
+        page
+      else
+        response.body page
       end
     end
 
@@ -272,7 +267,7 @@ module Lux
     end
 
     def render_body opts
-      template      = (opts.template      || @lux.action).to_s
+      template      = (opts.template || @lux.action).to_s
       template_root = cattr.template_root
 
       template = if template.start_with?('./')

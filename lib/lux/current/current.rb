@@ -118,7 +118,11 @@ module Lux
     end
 
     # Add to list of files in use
-    def files_in_use file=nil
+    def files_in_use file = nil
+      unless file.class == String
+        return
+      end
+
       if block_given?
         return yield(file) unless @files_in_use.include?(file)
       end

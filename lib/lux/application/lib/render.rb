@@ -22,10 +22,7 @@ module Lux
         klass = (klass+'Controller').classify.constantize if klass.is_a?(String)
         c = klass.new
         c.instance_exec &block if block
-
-        catch :done do
-          c.send action
-        end
+        c.send action
 
         Lux.current.response
       end
