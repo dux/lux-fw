@@ -30,7 +30,7 @@ module Lux
 
       # shift element of the path
       # or eval block on path index and slice if true
-      def shift index=0
+      def shift index = 0
         return unless @path[index].present?
 
         if block_given?

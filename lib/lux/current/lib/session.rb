@@ -2,6 +2,10 @@
 # Lux.config.session_cookie_name
 # Lux.config.session_cookie_max_age
 
+# IMPORTANT - it is probably not a bug!
+# If you have issues with cookies and sessions, try annonymous window and check info on set headers
+# sometimes there is a bug there and cookie will not be set because of http https issues
+
 module Lux
   class Current
     class Session

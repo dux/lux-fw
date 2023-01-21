@@ -24,6 +24,7 @@ module Lux
     define_callback :before_action
     define_callback :after_action
     define_callback :before_render
+    define_callback :after_render
     define_callback :after
 
     class << self
@@ -86,18 +87,11 @@ module Lux
 
       # dev console log
       Lux.log { ' %s#%s (action)'.light_blue % [self.class, method_name] }
-      Lux.log { ' %s' % self.class.source_location }
+      # Lux.log { ' %s' % self.class.source_location }
 
       @lux.action = method_name.to_sym
 
       filter :before, @lux.action
-
-      # we will skip render action if full page cache is present
-      if !response.body? && @lux.render_cache && response.flash.empty?
-        if data = Lux.cache.get(@lux.render_cache)
-          response.body *data
-        end
-      end
 
       unless response.body?
         filter :before_action, @lux.action
@@ -125,9 +119,29 @@ module Lux
 
     private
 
+    # delegated to current
+    define_method(:get?)          { request.request_method == 'GET' }
+    define_method(:post?)         { request.request_method == 'POST' }
+    define_method(:etag)          { |*args| current.response.etag *args }
+    define_method(:layout)        { |arg = :_nil| arg == :_nil ? @lux.layout : (@lux.layout = arg) }
+    define_method(:cache_control) { |arg| response.headers['cache-control'] = arg }
+
     # send file to browser
     def send_file file, opts={}
       response.send_file(file, opts)
+    end
+
+    # does not set the body, returns body string
+    def render_to_string name=nil, opts={}
+      opts[:render_to_string] = true
+      render name, opts
+    end
+
+    # shortcut to render javascript
+    def render_javascript name=nil, opts={}
+      opts[:content_type] = :javascript
+      opts[:layout]       = false
+      render name, opts
     end
 
     # render :index
@@ -135,9 +149,6 @@ module Lux
     # render text: 'ok'
     def render name = nil, opts = {}
       return if response.body?
-
-      filter :after_action, @lux.action
-      filter :before_render, @lux.action
 
       # respond with not found
       # * if format provided /foo.png
@@ -154,39 +165,34 @@ module Lux
 
       opts.layout ||= false if @lux.layout == false
 
-      if opts.status
-        response.status opts.status
-      end
-
-      if opts.content_type
-        response.content_type = opts.content_type
-      end
+      # set response status and content_type
+      response.status opts.status if opts.status
+      response.content_type = opts.content_type if opts.content_type
 
       # match rails nameing
-      if opts.plain
-        opts.text = opts.plain
-      end
+      opts.text = opts.plain if opts.plain
 
       # copy value from render_cache
-      if @lux.render_cache
-        opts.cache = @lux.render_cache
-      end
+      opts.cache = @lux.render_cache if @lux.render_cache
 
       # we do not want to cache pages that have flashes in response
-      if response.flash.present?
-        opts.cache = nil
-      end
+      opts.cache = nil if response.flash.present?
 
       page = if opts.cache
-        if cache = Lux.cache.get(opts.cache)
-          response.body *cache
-        else
-          render_resolve(opts).tap do |data|
-            if (opts.status || 200) == 200
-              Lux.cache.write(opts.cache, [data, {content_type: response.content_type}], opts.ttl || 3600)
-            end
-          end
+        return if etag opts.cache
+
+        add_info = true
+        data = Lux.cache.fetch opts.cache, ttl: 3600 do
+          add_info = false
+          render_resolve(opts)
         end
+
+        if add_info && data
+          response.header['x-lux-cache'] = 'render-cache'
+          data += '<!-- from page cache -->' if data =~ %r{</html>\s*$}
+        end
+
+        data
       else
         render_resolve(opts)
       end
@@ -198,32 +204,16 @@ module Lux
       end
     end
 
-    # does not set the body, returns body string
-    def render_to_string name=nil, opts={}
-      opts[:render_to_string] = true
-      render name, opts
-    end
-
-    # shortcut to render javascript
-    def render_javascript name=nil, opts={}
-      opts[:content_type] = :javascript
-      opts[:layout]       = false
-      render name, opts
-    end
-
-    # delegated to current
-    define_method(:get?)          { request.request_method == 'GET' }
-    define_method(:post?)         { request.request_method == 'POST' }
-    define_method(:etag)          { |*args| current.response.etag *args }
-    define_method(:layout)        { |arg = :_nil| arg == :_nil ? @lux.layout : (@lux.layout = arg) }
-    define_method(:cache_control) { |arg| response.headers['cache-control'] = arg }
-
     # called be render
     def render_resolve opts
+      filter :after_action, @lux.action
+      filter :before_render, @lux.action
+
       # render static types
       for el in [:text, :html, :json, :javascript]
         if value = opts[el]
           response.content_type ||= el
+          filter :after_render, value
           return value
         end
       end
@@ -242,7 +232,7 @@ module Lux
       layout = nil   if layout.class == TrueClass
       layout = false if @lux.layout.class == FalseClass
 
-      if layout.class == FalseClass
+      data = if layout.class == FalseClass
         page_part
       else
         layout_define = @lux.layout || layout || self.class.layout
@@ -264,6 +254,10 @@ module Lux
 
         Lux::Template.render(helper, layout) { page_part }
       end
+
+      filter :after_render, data
+
+      data
     end
 
     def render_body opts
@@ -385,7 +379,7 @@ module Lux
         end
       end
 
-      raise Lux::Error.new 500, [message, defined].join(' ')
+      raise Lux::Error.new 404, [message, defined].join(' ')
     end
   end
 end

@@ -16,6 +16,10 @@ Lux.config.on_code_reload do |source = nil|
 
   if source == :cli
     Lux::Current.new('/')
+
+    if File.exist?('./config/console.rb')
+      load './config/console.rb'
+    end
   end
 
   $live_require_check = Time.now

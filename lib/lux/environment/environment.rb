@@ -33,6 +33,10 @@ module Lux
       value == 'true'
     end
 
+    def local?
+      !live?
+    end
+
     def web?
       if @env_web.nil?
         list = ObjectSpace.each_object(Class).map(&:to_s)

@@ -116,10 +116,6 @@ class PageMeta
       end
     end
 
-    if Site.current && Lux.current.request.path == '/'
-      meta.push %[<link rel="alternate" type="application/rss+xml" title="#{Site.current.name.html_escape}" href="#{Site.current.www_link}/rss">]
-    end
-
     ret += meta.sort
     ret += @links
 

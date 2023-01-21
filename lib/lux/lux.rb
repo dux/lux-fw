@@ -57,7 +57,7 @@ module ::Lux
   end
 
   def die text
-    puts text.red
+    puts "Lux FATAL: #{text}".red
     logger(:system_die).error text
     exit
   end

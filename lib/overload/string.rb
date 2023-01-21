@@ -20,6 +20,7 @@ class String
   # restore original before storage read
   def html_unescape
     self
+      .gsub('&LT;', '<')
       .gsub('&lt;', '<')
       .gsub('&gt;', '>')
       .gsub('&#39', "'")
@@ -28,9 +29,21 @@ class String
 
   # export html without scripts
   def html_safe scripts: false
-    out = html_unescape
+    out = html_light_unescape
     out = out.gsub(/<(\/?script)/,'&lt;\1') unless scripts
     out
+  end
+
+  # used to restore DB data
+  def html_light_escape
+    self.gsub('<', '&LT;')
+  end
+
+  # used to sanitise DB data
+  def html_light_unescape
+    self
+      .gsub('&lt;', '<') # we keep this for now, untill I fix DB
+      .gsub('&LT;', '<')
   end
 
   # simple markdown

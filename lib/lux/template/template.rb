@@ -50,27 +50,16 @@ module Lux
     def render
       # global thread safe reference pointer to last temaplte rendered
       # we nned this for inline template render
+      Lux.current.files_in_use(@template) do |tpl|
+        Lux.log ' ' + tpl.magenta
+      end
 
-      Lux.current.files_in_use @template
-
-      data = nil
-
-      speed = Lux.speed do
+      begin
         data = @tilt.render(@helper) do
           yield if block_given?
         end
-      end
-
-      Lux.log do
-        log = @template.split('app/views/').last
-
-        if log.start_with?('./')
-          log = log.sub('./', '')
-        else
-          log = 'app/views/%s' % log
-        end
-
-        ' %s, %s' % [log, speed]
+      rescue => e
+        report_error(e)
       end
 
       data
@@ -110,9 +99,14 @@ module Lux
       begin
         @tilt = Tilt.new(@template, escape_html: false)
         pointer[template] = [@tilt, @template]
-      rescue
-        Lux.error "#{$!.message}\n\nTemplate: #{@template}"
+      rescue => e
+        report_error(e)
       end
+    end
+
+    def report_error e
+      Lux.log ' %s (HAS ERROR)' % @template.red
+      Lux.error "#{e.message}\n\nTemplate: #{@template}"
     end
   end
 end

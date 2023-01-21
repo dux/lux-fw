@@ -34,9 +34,10 @@ module Lux
     end
     alias :get_multi :read_multi
 
-    def write key, data, ttl=nil
-      key = generate_key key
+    def write key, data, ttl = nil
+      ttl = ttl[:ttl] || ttl[:expires_at] if ttl.class == Hash
       ttl = ttl.to_i if ttl
+      key = generate_key key
       @server.set(key, data, ttl)
     end
     alias :set :write
@@ -66,12 +67,29 @@ module Lux
 
       data = @server.fetch key, opts.ttl do
         opts.speed = Lux.speed { data = yield }
-        Lux.log " Cache.fetch.set #{opts.compact.to_jsonc}:#{key.trim(30)}, at: #{Lux.app_caller}".red
+        Lux.log " Cache.fetch.set #{opts.compact.to_jsonc}:#{key.trim(30)}, at: #{Lux.app_caller}".yellow
 
         Marshal.dump data
       end
 
       Marshal.load data
+    end
+
+    # lock execution of a block for some time and allow only once instance running in time slot
+    # give some block 3 seconds to run, if another instance executes same block after 1 second, if will wait 2 seconds till it wil continue
+    # Lux.cache.lock 'some-key', 3 do ...
+    def lock key, time
+      key = "syslock-#{key}"
+      cache_time = Lux.cache.get key
+
+      if cache_time && cache_time > (Time.monotonic - time)
+        diff = time - (Time.monotonic - cache_time)
+        sleep diff.abs
+      else
+        Lux.cache.set(key, Time.monotonic, time)
+      end
+
+      yield
     end
 
     def clear
@@ -116,6 +134,5 @@ module Lux
     def [] key
       @server.get key.to_s
     end
-
   end
 end

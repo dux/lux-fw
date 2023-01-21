@@ -103,7 +103,7 @@ class Dir
   end
 
   def self.mkdir? name
-    Dir.mkdir name unless Dir.exist? name
+    FileUtils.mkdir_p name
   end
 end
 

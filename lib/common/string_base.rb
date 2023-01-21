@@ -1,15 +1,38 @@
 # frozen_string_literal: true
 
-module StringBase
-  extend self
+class StringBase
+  SHORT_KEYS ||= 'bcdghjklmnpqrstvwxyz'
+  LONG_KEYS  ||= 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 
-  KEYS       ||= 'bcdghjklmnpqrstvwxyz'
-  MULTIPLIER ||= 99
+  class << self
+    def encode text
+      short.encode text
+    end
+
+    def decode text
+      short.decode text
+    end
+
+    def short
+      new(keys: SHORT_KEYS, multiplier: 99)
+    end
+
+    def long
+      new(keys: LONG_KEYS)
+    end
+  end
+
+  ###
+
+  def initialize keys: nil, multiplier: 1
+    @keys = keys
+    @multiplier = multiplier
+  end
 
   def encode value
-    value = value * MULTIPLIER
-    ring = Hash[KEYS.chars.map.with_index.to_a.map(&:reverse)]
-    base = KEYS.length
+    value = value * @multiplier
+    ring = Hash[@keys.chars.map.with_index.to_a.map(&:reverse)]
+    base = @keys.length
     result = []
     until value == 0
       result << ring[ value % base ]
@@ -19,17 +42,17 @@ module StringBase
   end
 
   def decode string
-    ring = Hash[KEYS.chars.map.with_index.to_a]
-    base = KEYS.length
-    ret = string.reverse.chars.map.with_index.inject(0) do |sum,(char,i)|
+    ring = Hash[@keys.chars.map.with_index.to_a]
+    base = @keys.length
+    ret = string.reverse.chars.map.with_index.inject(0) do |sum, (char, i)|
       sum + ring[char] * (base**i)
     end
-    raise 'Invalid decode base' if ret%MULTIPLIER>0
-    ret/MULTIPLIER
+    raise 'Invalid decode base' if ret % @multiplier > 0
+    ret / @multiplier
   end
 
   # extract ID from url
-  def extract(url_part)
+  def extract url_part
     id_str = url_part.split('-').last
     return nil unless id_str
     StringBase.decode(id_str) rescue nil

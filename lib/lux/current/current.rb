@@ -107,8 +107,8 @@ module Lux
     end
 
     # Get or check current session secure token
-    def secure_token token=nil
-      generated = Crypt.sha1(request.ip)
+    def secure_token token = nil
+      generated = Crypt.sha1(self.ip)
       token ? (generated == token) : generated
     end
 
@@ -119,15 +119,8 @@ module Lux
 
     # Add to list of files in use
     def files_in_use file = nil
-      unless file.class == String
-        return
-      end
-
-      if block_given?
-        return yield(file) unless @files_in_use.include?(file)
-      end
-
       return @files_in_use unless file
+      return unless file.class == String
 
       file = file.sub './', ''
 
@@ -135,6 +128,7 @@ module Lux
         true
       else
         @files_in_use.push file
+        yield(file) if block_given?
         false
       end
     end

@@ -55,8 +55,11 @@ module Lux
         @headers['etag'] = key
       end
 
-      if !status && !current.no_cache?(true) && !Lux.env.dev? && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
+      if Lux.env.prod? && !status && !current.no_cache?(true) && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
         body 'not-modified', status: 304
+        true
+      else
+        false
       end
     end
 
@@ -69,7 +72,7 @@ module Lux
     end
     alias :status= :status
 
-    def halt status=nil, msg=nil
+    def halt status = nil, msg = nil
       @status = status || 400
       @body   = msg if msg
     end
@@ -80,16 +83,17 @@ module Lux
     # response.body({...}) { 'foo' }
     def body data = nil, opts = nil
       if block_given?
+        # block can override data set
         opts = data || {}
-        data = yield
+        @body = yield
       else
         opts ||= {}
+        @body ||= data
       end
 
       opts.is!(Hash).each {|k,v| self.send k, *v }
-
-      @body = data
     end
+    alias :body= :body
 
     def body?
       !!@body
@@ -185,9 +189,8 @@ module Lux
         return true if yield *credentials
       end
 
-      status 401
       header('WWW-Authenticate', 'Basic realm="%s"' % realm.or('default'))
-      body message || 'HTTP 401 Authorization needed'
+      body message || 'HTTP 401 Authorization needed', status: 401
     end
 
     def render
@@ -212,7 +215,7 @@ module Lux
     def rack klass
       data = klass.call current.env
       @headers.merge data[1]
-      body(status:data[0]) { data[2].first }
+      body data[2].first, status:data[0]
     end
 
     private

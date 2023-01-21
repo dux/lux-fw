@@ -134,7 +134,15 @@ class Object
     elsif value == self.class
       self
     else
-      raise ArgumentError.new('Expected %s but got %s in %s' % [value, self.class, caller[0]])
+      if self.class == Class && self.superclass != Object
+        if self.ancestors.include?(value)
+          self
+        else
+          raise ArgumentError.new('There is no %s in %s ancestors in %s' % [value, self, caller[0]])
+        end
+      else
+        raise ArgumentError.new('Expected %s but got %s in %s' % [value, self.class, caller[0]])
+      end
     end
   end
 

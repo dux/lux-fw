@@ -11,7 +11,7 @@ module LuxGenerate
     Cli.die "./generate [object singular]" unless object
 
     template_dir = 'config/templates'
-    Cli.die "Lux::Template dir #{template_dir} is not accessible" unless Dir.exists?(template_dir)
+    Cli.die "Lux::Template dir #{template_dir} is not accessible" unless Dir.exist?(template_dir)
 
     tpl_desc = {
       p:'api',

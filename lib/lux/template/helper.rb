@@ -36,26 +36,16 @@ module Lux
         yield.gsub(/>\s+</,'><')
       end
 
-      # - @foo = content do ...
-      # = @foo
-      # - content :foo do ...
+      # = content :foo do ...
       # = content :foo
-      def content *args, &block
-        if name = args.shift
-          name = 'haml_content_%s' % name
+      def content key
+        name = 'haml_content_%s' % key
 
-          if block_given?
-            Lux.current.var[name] = block
-            nil
-          else
-            if Lux.current.var[name]
-              Lux.current.var[name].call *args
-            else
-              nil
-            end
-          end
+        if block_given?
+          Lux.current.var[name] = "#{yield}"
+          nil
         else
-          block.call
+          Lux.current.var[name]
         end
       end
 

@@ -12,9 +12,11 @@ class Object
 
   # better console log dump
   def rr what
+    klass = what.class
+    klass = '%s at %s' % [klass, what.source_location.join(':').sub(Lux.root.to_s, '.')] if klass == Method
     from = caller[0].include?('raise_variants.rb') ? caller[1] : caller[0]
     from = from.sub(Lux.root.to_s+'/', './').split(':in ').first
-    ap ['--- START (%s) %s - %s ---' % [what.class, from, Lux.current.request.url], what, '--- END ---']
+    ap ['--- START (%s) %s - %s ---' % [klass, from, Lux.current.request.url], what, '--- END ---']
   end
 
   # unique methods for object
