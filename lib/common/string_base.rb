@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
 class StringBase
-  SHORT_KEYS ||= 'bcdghjklmnpqrstvwxyz'
-  LONG_KEYS  ||= 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  SHORT_KEYS   ||= 'bcdghjklmnpqrstvwxyz'
+  MDEIUM_KEYS  ||= 'abcdefghijklmnopqrstuvwxyz0123456789'
+  LONG_KEYS    ||= 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 
   class << self
     def encode text
@@ -11,6 +12,10 @@ class StringBase
 
     def decode text
       short.decode text
+    end
+
+    def medium
+      new(keys: MDEIUM_KEYS)
     end
 
     def short

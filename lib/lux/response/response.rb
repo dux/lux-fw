@@ -145,17 +145,17 @@ module Lux
         where = current.host + where
       end
 
-      redirect_var = Lux.config[:redirect_var] || :_r
+      if where.start_with?('/') || opts.delete(:redirect_tracker)
+         redirect_var = Lux.config[:redirect_var] || :_r
+        url = Url.new where
+        url[redirect_var] = current.request.params[redirect_var].to_i + 1
 
-      url = Url.new where
-      url[redirect_var] = current.request.params[redirect_var].to_i + 1
-
-      where =
-      if opts.delete(:silent)
-        url.delete redirect_var
-        url.to_s
-      else
-        url[redirect_var] > 3 ? '/' : url.to_s
+        where = if opts.delete(:silent)
+          url.delete redirect_var
+          url.to_s
+        else
+          url[redirect_var].to_i > 3 ? '/' : url.to_s
+        end
       end
 
       @status = opts.delete(:status) || 302
@@ -248,11 +248,11 @@ module Lux
 
     def write_response_header
       # cache-control
-      @headers['cache-control'] ||= Proc.new do
+      @headers['cache-control'] ||= begin
         cc = ['max-age=%d' % max_age]
-        cc.push max_age > 0 ? 'public, no-cache' : 'private, must-revalidate'
+        cc.push max_age > 0 ? 'public' : 'private, must-revalidate'
         cc.join(', ')
-      end.call
+      end
 
       current.session[:lux_flash] = flash.to_h
 

@@ -35,6 +35,10 @@ class Url
       current.qs(name, value).relative
     end
 
+    def pqs name, value
+      current.pqs(name, value).relative
+    end
+
     # same as force qs but remove value if selected
     def toggle name, value
       value = nil if Lux.current.params[name].to_s == value.to_s
@@ -65,7 +69,7 @@ class Url
   ###
 
   def initialize url
-    @opt = Struct.new(:proto, :port, :subdomain, :domain, :locale, :path, :qs, :qs_hash).new
+    @opt = Struct.new(:proto, :port, :subdomain, :domain, :locale, :path, :qs, :qs_hash, :qs_path).new
 
     url, qs_part = url.split('?', 2)
 
@@ -100,11 +104,18 @@ class Url
     end
 
     # check for locale
+    @opt.qs_path ||= {}
     parts = @opt.path.to_s.split('/')
     if parts[0] =~ /^\w{2}$/ || parts[0] =~ /^\w{2}\-\w{2}$/
       @opt.locale = parts.shift
-      @opt.path   = parts.join('/')
     end
+
+    while parts.last&.include?(':')
+      key, value = parts.pop.split(':')
+      @opt.qs_path[key] = value
+    end
+
+    @opt.path   = parts.join('/')
 
     @opt.path = '' if @opt.path.blank?
   end
@@ -148,7 +159,9 @@ class Url
       @opt.path = val.sub /^\//, ''
       return self
     else
-      @opt.locale ? "/#{@opt.locale}/#{@opt.path}" : "/#{@opt.path}"
+      qs_path = @opt.qs_path.to_a.map{ "#{_1[0]}:#{_1[1]}"}.join('/')
+      qs_path = "/#{qs_path}" if qs_path.present?
+      @opt.locale ? "/#{@opt.locale}/#{@opt.path}#{path_qs}" : "/#{@opt.path}#{qs_path}"
     end
   end
   alias :path= :path
@@ -188,6 +201,12 @@ class Url
     elsif name
       @opt.qs[name.to_s]
     end
+  end
+
+  # path query string -> /foo/bar:baz
+  def pqs name, value
+    @opt.qs_path[name.to_s] = CGI::escape value.to_s
+    self
   end
 
   def locale name=nil

@@ -114,8 +114,8 @@ module Lux
 
         if el.respond_to?(:updated_at)
           keys.push el.updated_at.to_f
-        elsif el.respond_to?(:created_at)
-          keys.push el.created_at
+        elsif el.respond_to?(:id)
+          keys.push el.id
         else
           keys.push el.to_s
         end

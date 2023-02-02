@@ -120,6 +120,10 @@ module Lux
       end
     end
 
+    def app_timeout
+      @app_timeout || Lux.current.var[:app_timeout] || Lux.config[:app_timeout] || (Lux.env.dev? ? 3600 : 30)
+    end
+
     private
 
     def time_diff time1, time2 = Time.now
