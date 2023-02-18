@@ -48,20 +48,17 @@ module Lux
         }, ['']]
       end
 
-      catch :route_resolved do
-        begin
-          if Lux.config.serve_static_files
-            Lux::Response::File.deliver_asset(request)
-          end
-
-          resolve_routes unless response.body?
-          error.not_found unless response.body?
-        rescue => err
-          rescue_from err
-        end
+      if Lux.config.serve_static_files
+        Lux::Response::File.deliver_asset(request)
       end
 
+      resolve_routes unless response.body?
+      error.not_found unless response.body?
+
       response.render
+    rescue => err
+      error.log err
+      render_error err
     end
 
     # to get root page body
@@ -89,11 +86,10 @@ module Lux
       call target.call current.env
     end
 
-    def rescue_from err
-      Lux.log ' Lux.app#rescue_from not defined - fallback to default error capture'.red
-
-      error.screen err
-      error.render err
+    def render_error err
+      Lux.error.screen err
+      response.body "Server error: %s (%s)\n\nCheck log for details" % [err.message, err.class], status: 500
+      response.render
     end
   end
 end

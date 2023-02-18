@@ -52,10 +52,6 @@ module Lux
           cattr.path_id_store[0].call(*args)
         end
       end
-
-      def rescue_from &block
-        Lux.config.error_logger = block
-      end
     end
 
     ### INSTANCE METHODS
@@ -107,6 +103,10 @@ module Lux
       end
 
       filter :after, @lux.action
+    rescue => err
+      Lux::Error.log err
+
+      render_error err
     end
 
     def timeout seconds
@@ -295,7 +295,7 @@ module Lux
     end
 
     def helper ns=nil
-      @lux.helper ||= Lux::Template::Helper.new self, :html, self.class.helper, ns
+      @lux.helper = Lux::Template::Helper.new self, :html, self.class.helper, ns
     end
 
     # respond_to :js do ...

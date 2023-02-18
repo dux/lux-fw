@@ -35,6 +35,7 @@ class Url
       current.qs(name, value).relative
     end
 
+    # path qs /foo/bar:baz
     def pqs name, value
       current.pqs(name, value).relative
     end
@@ -159,7 +160,10 @@ class Url
       @opt.path = val.sub /^\//, ''
       return self
     else
-      qs_path = @opt.qs_path.to_a.map{ "#{_1[0]}:#{_1[1]}"}.join('/')
+      qs_path = @opt.qs_path.to_a
+        .select{ _1[1].present? }
+        .map{ "#{_1[0]}:#{_1[1]}"}
+        .join('/')
       qs_path = "/#{qs_path}" if qs_path.present?
       @opt.locale ? "/#{@opt.locale}/#{@opt.path}#{path_qs}" : "/#{@opt.path}#{qs_path}"
     end

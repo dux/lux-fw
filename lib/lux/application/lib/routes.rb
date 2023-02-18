@@ -234,12 +234,6 @@ module Lux
         if object.respond_to?(:action)
           object.action action.to_sym
         end
-
-        if response.body?
-          throw :route_resolved
-        else
-          Lux.error 'Lux action "%s" called via route "%s" but page body is not set' % [object, nav.root]
-        end
       end
 
       # Tests current root against the string to get a mach.

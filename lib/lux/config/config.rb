@@ -110,18 +110,14 @@ module Lux
       unless Lux.config.host.to_s.include?('http')
         raise 'Invalid "Lux.config.host"'
       end
-
-      if Lux.config.dump_errors
-        # require 'binding_of_caller'
-        require 'better_errors'
-
-        $rack_handler.use BetterErrors::Middleware if $rack_handler
-        BetterErrors.editor = :sublime
-      end
     end
 
     def app_timeout
-      @app_timeout || Lux.current.var[:app_timeout] || Lux.config[:app_timeout] || (Lux.env.dev? ? 3600 : 30)
+      @app_timeout || Lux.current.try('[]', :app_timeout) || Lux.config[:app_timeout] || (Lux.env.dev? ? 3600 : 30)
+    rescue
+      debugger if Lux.env.dev?
+
+      30
     end
 
     private

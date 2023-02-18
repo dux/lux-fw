@@ -28,16 +28,10 @@ Gem::Specification.new 'lux-fw' do |gem|
   # 5.minutes
   gem.add_dependency 'as-duration'
 
-  # various type systems and schemas
-  gem.add_dependency 'typero'
-
-  # html string building lib
-  gem.add_dependency 'html-tag'
-
   # backed template view parts
   gem.add_dependency 'view-cell'
 
-  # class and method attributes, rescue_from
+  # class and method attributes
   # gem.add_dependency 'clean-annotations'
   gem.add_dependency 'class-cattr'
   gem.add_dependency 'class-callbacks'
@@ -57,16 +51,16 @@ Gem::Specification.new 'lux-fw' do |gem|
   # sweet cli spinner
   gem.add_dependency 'whirly'
 
-  # formated SQL debugging
+  # formated SQL debugging in development
   gem.add_dependency 'niceql'
 
   ### possible removal in the future
 
   # better errors in developmet
-  gem.add_dependency 'better_errors'
+  # gem.add_dependency 'better_errors'
 
   # ruby web server for development
-  gem.add_dependency 'puma'
+  # gem.add_dependency 'puma'
 
   # load .env if present
   gem.add_dependency 'dotenv'
@@ -91,7 +85,13 @@ Gem::Specification.new 'lux-fw' do |gem|
   # better development errors
   # gem.add_dependency 'binding_of_caller'
 
-  gem.add_dependency 'dry-inflector'
+  # gem.add_dependency 'dry-inflector' # replace with sequel inflector
 
-  gem.add_dependency 'memory_profiler'
+  # gem.add_dependency 'memory_profiler'
+
+  # various type systems and schemas
+  gem.add_dependency 'typero'
+
+  # html string building lib
+  gem.add_dependency 'html-tag'
 end
