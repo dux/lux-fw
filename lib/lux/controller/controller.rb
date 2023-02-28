@@ -356,7 +356,11 @@ module Lux
 
         self.class.define_method(name) {}
         Lux.log ' created method %s#%s | found template %s'.yellow % [self.class, name, template]
-        return
+        return true
+      else
+        # if called via super from `action_missing', return false,
+        # so once can easily fallback to custom template search pattern
+        return false if caller[0].include?("`action_missing'")
       end
 
       message = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, nav]

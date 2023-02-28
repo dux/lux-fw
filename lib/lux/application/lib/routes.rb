@@ -76,7 +76,7 @@ module Lux
           if test?(route_object)
             yield
             unless response.body?
-              error.not_found("Namespace <b>:#{name}</b> matched but nothing is called")
+              error.not_found("Namespace <b>:#{route_object}</b> matched but nothing is called")
             end
           end
 
@@ -122,6 +122,20 @@ module Lux
         end
 
         test?(route) ? call(klass, nil, opts) : nil
+      end
+
+      # test if controller or controller + action exist
+      # map? 'dashboard/posts'
+      # map? 'dashboard/posts#index'
+      def map? target
+        base, action = target.split('#', 2)
+        klass = ('%s_controller' % base).classify
+
+        if Object.const_defined?(klass)
+          action ? klass.constantize.respond_to?(action) : true
+        else
+          false
+        end
       end
 
       # Calls target action in a controller, if no action is given, defaults to :call
