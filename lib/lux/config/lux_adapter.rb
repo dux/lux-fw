@@ -1,10 +1,9 @@
 module Lux
-  CONFIG ||= {}.to_hwia
-
   # get config hash pointer or die if key provided and not found
   def config
-    CONFIG
+    @lux_config ||= Lux::Config.load.to_hwia
   end
+  alias :secrets :config
 
   # load rake tasks + including ones in plugins
   def load_tasks

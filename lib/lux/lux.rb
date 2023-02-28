@@ -1,7 +1,6 @@
 module ::Lux
   extend self
 
-  CONFIG  ||= {}.to_hwia
   VERSION ||= File.read File.expand_path('../../../.version', __FILE__).chomp
 
   def root

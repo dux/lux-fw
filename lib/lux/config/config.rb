@@ -1,4 +1,5 @@
 require 'yaml'
+require 'deep_merge'
 
 module Lux
   module Config
@@ -118,6 +119,29 @@ module Lux
       debugger if Lux.env.dev?
 
       30
+    end
+
+    # './config/secrets.yaml'
+    # default:
+    #   development:
+    #      foo:
+    #   production:
+    #      bar:
+    def load
+      source = Pathname.new './config/secrets.yaml'
+      source = Pathname.new './config/config.yaml' unless source.exist?
+
+      if source.exist?
+        data = YAML.safe_load source.read, aliases: true
+
+        if data['default']
+          data['default'].deep_merge(data[Lux.env.to_s] || {})
+        else
+          raise "Secrets :default root not defined in %s" % source
+        end
+      else
+        {}
+      end
     end
 
     private

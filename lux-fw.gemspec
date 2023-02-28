@@ -31,6 +31,9 @@ Gem::Specification.new 'lux-fw' do |gem|
   # backed template view parts
   gem.add_dependency 'view-cell'
 
+  # for config loader
+  gem.add_dependency 'deep_merge'
+
   # class and method attributes
   # gem.add_dependency 'clean-annotations'
   gem.add_dependency 'class-cattr'
