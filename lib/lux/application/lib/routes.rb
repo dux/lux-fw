@@ -47,35 +47,6 @@ module Lux
         call target
       end
 
-      # Matches namespace block in a path
-      # if returns true value, match is positive and nav is shifted
-      # if given `Symbol`, it will call the function to do a match
-      # if given `String`, it will match the string value
-      # ```
-      # self.namespace :city do
-      #   @city = City.first slug: nav.root
-      #   !!@city
-      # end
-      # namespace 'dashboard' do
-      #   map orgs: 'dashboard/orgs'
-      # end
-      # ```
-      def namespace name
-        if String === name
-          return unless test?(name.to_s)
-        else
-          to_send = '%s_map' % name
-          return unless send to_send
-          nav.shift
-        end
-
-        yield
-
-        unless response.body?
-          error.not_found("Namespace <b>:#{name}</b> matched but nothing is called")
-        end
-      end
-
       # Matches given subdomain name
       def subdomain name
         return unless nav.subdomain == name.to_s
@@ -101,7 +72,15 @@ module Lux
         return if response.body?
 
         if block_given?
-          return namespace route_object, &block
+          # map 'admin' do ...
+          if test?(route_object)
+            yield
+            unless response.body?
+              error.not_found("Namespace <b>:#{name}</b> matched but nothing is called")
+            end
+          end
+
+          return
         end
 
         klass  = nil
