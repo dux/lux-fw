@@ -176,6 +176,9 @@ module Lux
 
       @headers['location'] = where
       @headers['access-control-expose-headers'] ||= 'Location'
+
+      # if we do not have this here, controller will proceed executing code after redirect_to
+      throw :done
     end
 
     def permanent_redirect_to where

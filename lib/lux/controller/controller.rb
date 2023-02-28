@@ -201,6 +201,7 @@ module Lux
         page
       else
         response.body page
+        throw :done
       end
     end
 
@@ -283,11 +284,6 @@ module Lux
       Lux.current.var.root_template_path = template.sub(%r{/[\w]+$}, '')
 
       Lux::Template.render(helper, template)
-    end
-
-    def halt status, desc=nil
-      response.status = status
-      response.body   = desc || "Hatlt code #{status}"
     end
 
     def namespace

@@ -52,13 +52,19 @@ module Lux
         Lux::Response::File.deliver_asset(request)
       end
 
-      resolve_routes unless response.body?
-      error.not_found unless response.body?
+      catch :done do
+        resolve_routes unless response.body?
+      end
+
+      catch :done do
+        error.not_found unless response.body?
+      end
 
       response.render
     rescue => err
       error.log err
-      render_error err
+      catch(:done) { render_error(err) }
+      response.render
     end
 
     # to get root page body
