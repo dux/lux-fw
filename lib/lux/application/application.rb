@@ -63,7 +63,11 @@ module Lux
       response.render
     rescue => err
       error.log err
-      catch(:done) { render_error(err) }
+
+      catch(:done) do
+        render_error(err)
+      end
+
       response.render
     end
 

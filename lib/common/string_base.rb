@@ -25,6 +25,11 @@ class StringBase
     def long
       new(keys: LONG_KEYS)
     end
+
+    def uid
+      num = (Time.now.to_f.to_s + rand.to_s)
+      medium.encode num.gsub('.', '').to_i
+    end
   end
 
   ###

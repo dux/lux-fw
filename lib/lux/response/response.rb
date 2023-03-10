@@ -65,7 +65,11 @@ module Lux
 
     def status num = nil
       return @status unless num
-      raise 'Bad status value [%s]' % num unless num.is_numeric?
+
+      unless num.is_numeric?
+        Lux.info %[LUX error: Not numeric status code "#{num}", reverting to 400]
+        num = 400
+      end
 
       @status ||= num
       @status

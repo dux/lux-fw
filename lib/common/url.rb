@@ -165,7 +165,7 @@ class Url
         .map{ "#{_1[0]}:#{_1[1]}"}
         .join('/')
       qs_path = "/#{qs_path}" if qs_path.present?
-      @opt.locale ? "/#{@opt.locale}/#{@opt.path}#{path_qs}" : "/#{@opt.path}#{qs_path}"
+      @opt.locale ? "/#{@opt.locale}/#{@opt.path}#{qs_path}" : "/#{@opt.path}#{qs_path}"
     end
   end
   alias :path= :path

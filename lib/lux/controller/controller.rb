@@ -105,7 +105,7 @@ module Lux
       filter :after, @lux.action
     rescue => err
       Lux::Error.log err
-
+      Lux::Error.screen err unless err.class == Lux::Error
       render_error err
     end
 

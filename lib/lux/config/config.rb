@@ -128,18 +128,19 @@ module Lux
     #   production:
     #      bar:
     def load
-      source = Pathname.new './config/secrets.yaml'
-      source = Pathname.new './config/config.yaml' unless source.exist?
+      source = Pathname.new './config/config.yaml'
 
       if source.exist?
         data = YAML.safe_load source.read, aliases: true
+        base = data['default'] || data['base']
 
-        if data['default']
-          data['default'].deep_merge(data[Lux.env.to_s] || {})
+        if base
+          base.deep_merge(data[Lux.env.to_s] || {})
         else
           raise "Secrets :default root not defined in %s" % source
         end
       else
+        puts Lux.info '%s not found' % source
         {}
       end
     end
