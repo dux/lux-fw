@@ -17,8 +17,8 @@ require_relative './lux/lux'
 end
 
 # load Tilt parsers
-Tilt.register Tilt::ERBTemplate, 'erb'
-Tilt.register Hamlit::Template, 'haml'
+# Tilt.register Tilt::ERBTemplate, 'erb'
+# Tilt.register Haml::Template, 'haml'
 
 # ensure we are not loading lux in lux folder
 if Lux.root != Lux.fw_root

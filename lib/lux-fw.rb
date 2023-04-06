@@ -1,17 +1,19 @@
+require 'bundler/setup'
+require 'dotenv'
+Dotenv.load
+
 require 'amazing_print'
 require 'as-duration'
 require 'colorize'
 require 'json'
 require 'jwt'
-require 'hamlit'
+require 'haml'
 require 'rack'
 require 'sequel'
 require 'pry'
 require 'hash_wia'
-# require 'clean-annotations'
 require 'class-cattr'
 require 'class-callbacks'
-
 
 require_relative './overload/object'
 require_relative './loader'

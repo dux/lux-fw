@@ -83,7 +83,7 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_dependency 'amazing_print'
 
   # best server side templateing
-  gem.add_dependency 'hamlit'
+  gem.add_dependency 'haml'
 
   # better development errors
   # gem.add_dependency 'binding_of_caller'
