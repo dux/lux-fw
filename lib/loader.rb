@@ -17,6 +17,7 @@ require_relative './lux/lux'
 end
 
 # load Tilt parsers
+Haml::Template.options[:escape_html] = false
 # Tilt.register Tilt::ERBTemplate, 'erb'
 # Tilt.register Haml::Template, 'haml'
 
