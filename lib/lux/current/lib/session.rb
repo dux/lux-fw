@@ -9,7 +9,7 @@
 module Lux
   class Current
     class Session
-      attr_reader :hash
+      attr_reader :hash, :cookie_name
 
       def initialize request
         # how long will session last if BROWSER or IP change

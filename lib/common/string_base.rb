@@ -27,8 +27,10 @@ class StringBase
     end
 
     def uid
-      num = (Time.now.to_f.to_s + rand.to_s)
-      medium.encode num.gsub('.', '').to_i
+      [
+        rand.to_s.sub('0.',''),
+        Time.now.to_f.to_s.sub('.','').sub(/./, '').reverse
+      ].join('').to_i.to_s(36)[0, 16]
     end
   end
 

@@ -11,6 +11,8 @@ Sequel.database_timezone = :utc
 require_relative './overload/dir'
 require_relative './lux/lux'
 
+Lux::Config.set_defaults
+
 # load all lux libs
 [:overload, :common, :lux].each do |f|
   Dir.require_all Lux.fw_root.join('./lib/%s' % f)
@@ -27,4 +29,3 @@ if Lux.root != Lux.fw_root
   ['./log', './tmp'].each { |d| `mkdir #{d}` unless Dir.exist?(d) }
 end
 
-Lux::Config.set_defaults

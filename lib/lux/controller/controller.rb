@@ -381,5 +381,11 @@ module Lux
 
       raise Lux::Error.new 404, [message, defined].join(' ')
     end
+
+    def render_error err
+      lines = Lux::Error.split_backtrace err
+      text = lines.map{|el| el.join("\n")}.join("\n\n\n")
+      render text: text, status: 500
+    end
   end
 end

@@ -64,10 +64,10 @@ class Hash
     self
   end
 
-  def remove_empty
+  def remove_empty covert_to_s = false
     self.keys.inject({}) do |t, el|
       v = self[el]
-      t[el] = v if el.present? && v.present?
+      t[covert_to_s ? el.to_s : el] = v if el.present? && v.present?
       t
     end
   end
@@ -89,6 +89,30 @@ class Hash
       end
     else
       enum_for(:transform_keys)
+    end
+  end
+
+  def deep_compact value = nil
+    value ||= self
+    
+    res_hash = value.map do |key, value|
+      value = deep_compact(value) if value.is_a?(Hash)
+
+      value = nil if [{}, []].include?(value)
+      value = nil if value.blank?
+      [key, value]
+    end
+
+    res_hash.to_h.compact
+  end
+
+  def self.deep_compact value
+    (value || {}).deep_compact
+  end
+
+  def html_safe key
+    if data = self[key]
+      self[key] = data.html_safe
     end
   end
 end

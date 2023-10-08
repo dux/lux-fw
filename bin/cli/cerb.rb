@@ -19,6 +19,9 @@ class ErbParser
 
   def import_svelte folder:, prefix:
     out = []
+    out.push 'window.S ||= {};'
+    out.push ''
+
     for file in Dir.find(folder, ext: [:svelte])
       name       = file.split('/').last.split('.').first.downcase
 
@@ -28,6 +31,7 @@ class ErbParser
 
       out.push "import #{klass} from './#{file}';";
       out.push "Svelte.bind('#{prefix}-#{name.gsub('_', '-')}', #{klass});"
+      out.push "window.S.#{name.gsub('-', '_')} = #{klass};"
       out.push ''
     end
 
@@ -71,15 +75,17 @@ LuxCli.class_eval do
 
       Cli.die 'No erb templates found' unless files.first
 
-      for file in files
-        target = file.sub(/\.cerb$/, '')
+      for local in files
+        next if local.include?('/.')
+
+        target = local.sub(/\.cerb$/, '')
 
         out = []
-        out.push "/* Generated from #{file} */"
-        out.push ErbParser.parse(file)
+        out.push "/* Generated from #{local} */"
+        out.push ErbParser.parse(local)
         File.write(target, out.join("\n\n"))
 
-        puts 'Assets compile: %s -> %s (%s)' % [file.green, target, File.size(target).to_filesize]
+        puts 'Assets compile: %s -> %s (%s)' % [local.green, target, File.size(target).to_filesize]
       end
     end
   end

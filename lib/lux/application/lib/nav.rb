@@ -51,6 +51,8 @@ module Lux
       # used to make admin.lvm.me/users to lvh.me/admin/users
       def unshift name
         @path.unshift name
+        @path = @path.flatten
+        name
       end
 
       def last
@@ -125,7 +127,7 @@ module Lux
       def set_variables
         # convert /foo/bar:baz to /foo?bar=baz
         while @path.last&.include?(':')
-          key, val = @path.pop.split(':')
+          key, val = @path.pop.split(':', 2)
           @querystring[key] = val
           Lux.current.params[key.to_sym] ||= val
         end

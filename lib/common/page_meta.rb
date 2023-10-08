@@ -108,6 +108,8 @@ class PageMeta
     @links.push %[<link rel="apple-touch-icon" href="#{@icon_path}" type="image/#{ext}" />]
 
     meta = []
+    meta.push '<meta charset="UTF-8">'
+    
     for k,v in @meta
       if v
         v.gsub!('"', '&quot;')

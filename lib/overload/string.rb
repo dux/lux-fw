@@ -11,39 +11,33 @@ class String
 
   # prepare data for storage write, to make it safe to dump on screen without unescape
   def html_escape
+    # .gsub('<', '&lt;').gsub('>', '&gt;')
+    # .gsub("'", '&#39').gsub('"', '&#34')
     self
-      .gsub('<', '&lt;').gsub('>', '&gt;')
-      .gsub("'", '&#39').gsub('"', '&#34')
+      .gsub('<', '#LT;')
       .gsub(/\A^\s+|\s+\z/,'')
   end
 
   # restore original before storage read
-  def html_unescape
-    self
-      .gsub('&LT;', '<')
-      .gsub('&lt;', '<')
-      .gsub('&gt;', '>')
-      .gsub('&#39', "'")
-      .gsub('&#34', '"')
+  def html_unsafe full = false
+    if full
+      self
+        .gsub('#LT;', '<')
+        .gsub('$LT;', '<')
+        .gsub('&lt;', '<')
+        .gsub('&gt;', '>')
+        .gsub('&#39', "'")
+        .gsub('&#34', '"')
+    else
+      self.gsub('#LT;', '<')
+    end
   end
 
-  # export html without scripts
-  def html_safe scripts: false
-    out = html_light_unescape
-    out = out.gsub(/<(\/?script)/,'&lt;\1') unless scripts
-    out
-  end
-
-  # used to restore DB data
-  def html_light_escape
-    self.gsub('<', '&LT;')
-  end
-
-  # used to sanitise DB data
-  def html_light_unescape
-    self
-      .gsub('&lt;', '<') # we keep this for now, untill I fix DB
-      .gsub('&LT;', '<')
+  # export html without scripts and styles
+  def html_safe full = false
+    html_unsafe(full)
+      .gsub(/<(\/?script)/i,'&lt;\1')
+      .gsub(/<(\/?style)/i,'&lt;\1')
   end
 
   # simple markdown
@@ -71,6 +65,14 @@ class String
   # https://github.com/rgrove/sanitize
   def sanitize
     Sanitize.clean(self, :elements=>%w[span ul ol li b bold i italic u underline hr br p], :attributes=>{'span'=>['style']} )
+  end
+
+  def quick_sanitize
+    out = self.gsub('<!--{tag}-->', '')
+    out = out.gsub(/\sstyle="([^"]+)"/) do
+      $1.start_with?('text-align:') ? $1 : ''
+    end
+    out
   end
 
   def wrap node_name, opts={}
@@ -148,4 +150,15 @@ class String
   def md5
     Digest::MD5.hexdigest self
   end
+
+  def extract_scripts! list: false
+    scripts = []
+    self.gsub!(/<script\b[^>]*>(.*?)<\/script>/im) { scripts.push $1; '' }
+    list ? scripts : scripts.map{ "<script>#{_1}</script>"}.join($/)
+  end
+
+  def to_slug len = 80
+    self.downcase.gsub(/[^\w]+/, '_').gsub(/_+/, '-').sub(/\-$/, '')[0, len]
+  end
+
 end

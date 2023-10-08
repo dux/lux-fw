@@ -28,14 +28,12 @@ module Lux
 
     def start_info
       @load_info ||= proc do
-        production_opts = %i(code_reload dump_errors screen_log)
+        production_opts = %i(live code_reload dump_errors log_console log_disable)
 
         opts = production_opts.map do |key|
-          env_value = env_value_of key
-          Lux.config[key] = env_value ? env_value == 'yes' : Lux.config[key]
-
-          data = "#{key} (%s)" % [Lux.config[key] ? :yes : :no]
-          Lux.config[key] ? data.yellow : data.green
+          env_value = env_value_of(key) ? 'yes' : 'no'
+          data = "#{key} (#{env_value})"
+          env_value == 'yes' ? data.yellow : data.green
         end
 
         if $lux_start_time.class == Array
@@ -60,24 +58,21 @@ module Lux
       ENV['TZ'] = 'UTC'
 
       # Show server errors to a client
-      Lux.config.dump_errors = Lux.env.dev?
+      Lux.config.dump_errors = env_value_of(:dump_errors, Lux.env.dev?)
 
       # Automatic code reloads in development
-      Lux.config.code_reload = Lux.env.dev?
-
-      # Dump all logs to screen
-      Lux.config.screen_log = Lux.env.dev?
+      Lux.config.code_reload = env_value_of(:code_reload, Lux.env.dev?)
 
       # Delay
-      Lux.config.delay_timeout = 30
+      Lux.config.delay_timeout = Lux.env.dev? ? 3600 : 30
 
       # Create controller methods if templates exist (as Rails does)
-      Lux.config.use_autoroutes = true
+      Lux.config.use_autoroutes = env_value_of(:code_reload, true)
 
       # Logger
+      Lux.config.log_console          = env_value_of(:log_console, Lux.env.dev?)
+      Lux.config.log_disable          = env_value_of(:log_disable).to_s == 'true'
       Lux.config.logger_path_mask     = './log/%s.log'
-      Lux.config.logger_default       = Lux.env.dev? ? STDOUT : nil
-      Lux.config.logger_default       = nil if env_value_of(:screen_log) == 'no'
       Lux.config.logger_files_to_keep = 3
       Lux.config.logger_file_max_size = 10_240_000
       Lux.config.logger_formatter     = nil
@@ -116,8 +111,7 @@ module Lux
     def app_timeout
       @app_timeout || Lux.current.try('[]', :app_timeout) || Lux.config[:app_timeout] || (Lux.env.dev? ? 3600 : 30)
     rescue
-      debugger if Lux.env.dev?
-
+      # debugger if Lux.env.dev?
       30
     end
 
@@ -135,7 +129,8 @@ module Lux
         base = data['default'] || data['base']
 
         if base
-          base.deep_merge(data[Lux.env.to_s] || {})
+          base.deep_merge!(data[Lux.env.to_s] || {})
+          base
         else
           raise "Secrets :default root not defined in %s" % source
         end
@@ -151,11 +146,16 @@ module Lux
       ((time2 - time1)).round(2).to_s
     end
 
-    def env_value_of key
-      value = ENV["LUX_#{key.to_s.upcase}"]
-      value = 'yes' if value == 'true'
-      value = 'no' if value == 'false'
-      value
+    def env_value_of key, default = :_undef
+      value = ENV["LUX_#{key.to_s.upcase}"].to_s
+      value = true if ['true', 't', 'yes'].include?(value)
+      value = false if ['false', 'f', 'no'].include?(value)
+
+      if default == :_undef
+        value
+      else
+        value.nil? ? deafult : value
+      end
     end
   end
 end

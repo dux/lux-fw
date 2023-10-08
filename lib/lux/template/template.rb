@@ -45,7 +45,7 @@ module Lux
       # global thread safe reference pointer to last temaplte rendered
       # we nned this for inline template render
       Lux.current.files_in_use(@template) do |tpl|
-        Lux.log ' ' + tpl.magenta
+        Lux.log ' ' + tpl.sub('//', '/').magenta
       end
 
       begin

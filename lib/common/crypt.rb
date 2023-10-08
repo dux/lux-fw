@@ -23,6 +23,7 @@ module Crypt
   end
 
   def uid size = nil
+    # there is also StringBase.uid
     SecureRandom.alphanumeric(size || 32).downcase
   end
 
@@ -42,7 +43,7 @@ module Crypt
       .join('')
   end
 
-  def bcrypt plain, check=nil
+  def bcrypt plain, check = nil
     if check
       BCrypt::Password.new(check) == [plain, secret].join('')
     else
@@ -81,13 +82,13 @@ module Crypt
 
   # encrypts data, with unsafe base64 + basic check
   # not for sensitive data
-  def short_encrypt data, ttl=nil
+  def short_encrypt data, ttl = nil
     # expires in one day by deafult
     ttl ||= 1.day
     ttl   = ttl.to_i + Time.now.to_i
 
     data  = [data, ttl].to_json
-    sha1(data)[0,8] + base64(data).sub(/=+$/, '')
+    sha1(data + Lux.config.secret)[0,8] + base64(data).sub(/=+$/, '')
   end
 
   def short_decrypt data
@@ -96,10 +97,18 @@ module Crypt
     decoded = Base64.urlsafe_decode64(data)
     out     = JSON.load decoded
 
-    raise ArgumentError.new('Invalid check') unless sha1(decoded)[0,8] == check
+    raise ArgumentError.new('Invalid check') unless sha1(decoded + Lux.config.secret)[0,8] == check
     raise ArgumentError.new('Short code expired') if out[1] < Time.now.to_i
 
     out[0]
   end
 
+  # works with Z.simpleEncode
+  def rot_b64_decode str
+    Base64.decode64 str.gsub('_', '/').tr('A-Za-z', 'N-ZA-Mn-za-m')
+  end
+
+  def rot_b64_ecode str
+    Base64.encode64(str).gsub('_', '/').tr('A-Za-z', 'N-ZA-Mn-za-m').gsub(/=+$/, '').gsub(/\s/, '')
+  end
 end

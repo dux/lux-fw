@@ -41,7 +41,7 @@ LuxCli.class_eval do
     require 'amazing_print'
     require './config/app'
 
-    Lux.config.dump_errors   = true
+    Lux.config.dump_errors = true
 
     # boot
     Lux()

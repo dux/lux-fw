@@ -124,7 +124,6 @@ module Lux
 
     def flash message = nil
       @flash ||= Flash.new current.session[:lux_flash]
-
       message ? @flash.error(message) : @flash
     end
 
@@ -145,12 +144,12 @@ module Lux
         where  = current.request.env['HTTP_REFERER'].or('/')
       elsif where[0,1] == '?'
         where  = "#{current.request.path}#{where}"
-      elsif !where.include?('://')
-        where = current.host + where
+      # elsif !where.include?('://')
+      #   where = current.host + where
       end
 
       if where.start_with?('/') || opts.delete(:redirect_tracker)
-         redirect_var = Lux.config[:redirect_var] || :_r
+        redirect_var = Lux.config[:redirect_var] || :_r
         url = Url.new where
         url[redirect_var] = current.request.params[redirect_var].to_i + 1
 
@@ -225,6 +224,14 @@ module Lux
       body data[2].first, status:data[0]
     end
 
+    def public?
+      @headers['cache-control'].to_s.include?('public')
+    end
+
+    def cached?
+      @max_age > 0
+    end
+
     private
 
     def write_response_body
@@ -247,13 +254,19 @@ module Lux
         @body += "\n"
       else
         # if somebody sets @content_type, respect that
-        @body = @body.to_s unless @body.kind_of?(String)
+        # @body = @body.to_s unless @body.kind_of?(String)
         @content_type ||= 'text/plain' if @body[0,1] != '<'
         @content_type ||= 'text/html'
       end
     end
 
     def write_response_header
+      current.session[:lux_flash] = flash.to_h
+      
+      if current.session[:lux_flash].keys.length != 0
+        self.max_age = 0 
+      end
+
       # cache-control
       @headers['cache-control'] ||= begin
         cc = ['max-age=%d' % max_age]
@@ -261,12 +274,9 @@ module Lux
         cc.join(', ')
       end
 
-      current.session[:lux_flash] = flash.to_h
-
-      # dont send cookies to public pages (images, etc..)
-      unless @headers['cache-control'].index('public')
+      if self.max_age == 0
         cookie = current.session.generate_cookie
-        @headers['set-cookie'] = cookie if cookie
+        @headers['set-cookie'] = cookie
       end
 
       if current.request.request_method == 'GET'

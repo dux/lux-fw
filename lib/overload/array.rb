@@ -76,4 +76,17 @@ class Array
   def to_ul klass=nil
     %[<ul class="#{klass}">#{map{|el| "<li>#{el}</li>" }.join('')}</ul>]
   end
+  
+  def shift_push
+    next_item = shift
+    push next_item
+    next_item
+  end
+
+  def xmap
+    map do |el|
+      yield el
+      el
+    end
+  end
 end

@@ -7,7 +7,7 @@ class Object
       rr what
     end
 
-    raise StandardError.new(what)
+    raise StandardError.new(what.nil? ? 'nil' : what)
   end
 
   # better console log dump

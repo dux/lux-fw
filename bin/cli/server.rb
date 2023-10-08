@@ -7,7 +7,7 @@ end
 
 if ARGV[0] == 'ss'
   ARGV[0] = 'server'
-  ARGV[1] = '-cl'
+  ARGV[1] = '-f'
 end
 
 LuxCli.class_eval do
@@ -17,28 +17,29 @@ LuxCli.class_eval do
   method_option :port,  aliases: '-p', default: 3000,  desc: 'Port to run app on', type: :numeric
   method_option :env,   aliases: '-e', default: 'd',   desc: 'Environemnt, only first chart counts (%s)' % ENVIRONEMNTS.join(', ')
   method_option :rerun, aliases: '-r', default: false, desc: 'rerun app on every file chenge', type: :boolean
-  method_option :code_reload, aliases: '-c', default: false, desc: 'no code reload', type: :boolean
-  method_option :screen_log, aliases: '-l', default: false, desc: 'no screen log', type: :boolean
+  method_option :fast,  aliases: '-f', default: false, desc: 'prouction mode but dump errors', type: :boolean
   def server
     trap("SIGINT") { Cli.die 'ctrl+c exit' }
 
+    command = []
+
     environemnt = options[:env]
-
-
     if environemnt.length == 1
       environemnt = ENVIRONEMNTS.find { |el| el[0] == environemnt[0] }
     end
+    command.push 'RACK_ENV=%s' % environemnt
 
-    command = "puma -p #{options[:port]}"
-    command = 'RACK_ENV=%s %s' % [environemnt, command]
-
-    if options[:code_reload]
-      command = 'LUX_CODE_RELOAD=no %s' % command
+    ENV['LUX_DUMP_ERRORS'] = 'yes'
+    ENV['LUX_LOG_CONSOLE'] = 'yes'
+    
+    for el in %w(code_reload dump_errors log_console log_disable)
+      name = 'LUX_%s' % el.upcase
+      ENV[name] ||= options[:fast] ? 'no' : 'yes'
+      command.push "#{name}=#{ENV[name]}"
     end
 
-    if options[:screen_log]
-      command = 'LUX_SCREEN_LOG=no %s' % command
-    end
+    command = command.push("bundle exec puma -e #{environemnt}")
+    command = command.join(' ')
 
     if options[:rerun]
       Cli.run "find #{LUX_ROOT} . -name *.rb | entr -r #{command}"

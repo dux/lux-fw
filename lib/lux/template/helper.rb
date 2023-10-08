@@ -36,19 +36,31 @@ module Lux
         yield.gsub(/>\s+</,'><')
       end
 
-      # = content :foo do ...
-      # = content :foo
+      # = content :foo do ...            # define
+      # = content :foo? ? true : false   # ceheck existance
+      # = content :foo                   # get content
       def content key
         name = 'haml_content_%s' % key
 
-        if block_given?
+        if name.end_with?('?')
+          haz = !!Lux.current.var[name.sub(/\?$/, '')]
+          if block_given?
+            haz ? "#{yield}" : ''
+          else
+            haz
+          end
+        elsif block_given?
           Lux.current.var[name] = "#{yield}"
           nil
         else
           Lux.current.var[name]
         end
       end
-
+      
+      def capture_proc
+        proc { |*args| "#{yield(*args)}" }
+      end
+      
       # renders just template but it is called
       # = render :_link, link:link
       # = render 'main/links/_link', link:link
@@ -77,7 +89,7 @@ module Lux
         if block_given?
           name = "#{name}/layout" unless name.index('/')
 
-          Lux::Template.render(self, name) { yield }
+          Lux::Template.render(self, name) { yield() }
         else
           Lux::Template.render(self, name)
         end

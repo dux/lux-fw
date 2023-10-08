@@ -31,7 +31,7 @@ module Lux
         ico:   'image/png', # image/x-icon
         css:   'text/css',
         map:   'application/json',
-        js:    'application/javascript',
+        js:    'text/javascript',
         json:  'application/json',
         gz:    'application/x-gzip',
         zip:   'application/x-gzip',

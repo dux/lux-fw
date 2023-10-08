@@ -35,7 +35,6 @@ By default keep 3 log files
 ```ruby
 # defaults
 Lux.config.logger_path_mask     = './tmp/%s.log'
-Lux.config.logger_stdout        = Lux.env.dev?
 Lux.config.logger_default       = Lux.env.dev? ? STDOUT : nil
 Lux.config.logger_files_to_keep = 3
 Lux.config.logger_file_max_size = 10_240_000

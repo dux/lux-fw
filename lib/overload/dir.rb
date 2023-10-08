@@ -13,7 +13,7 @@ class Dir
   # `Dir.files('./app/assets')`
   def self.files dir, opts = {}
     dir = dir.to_s
-
+ 
     list = (Dir.entries(dir) - ['.', '..'])
       .sort
       .reject { |el| File.directory?([dir, el].join('/')) }
@@ -95,11 +95,18 @@ class Dir
 
   # Requires all found ruby files in a folder, deep search into child folders
   # `Dir.require_all('./app')`
-  def self.require_all list
-    list = Dir.find(list, ext: :rb) unless list.is_a?(Array)
+  def self.require_all folder
+    list = Dir.find(folder, ext: :rb) unless list.is_a?(Array)
     list
       .select{ |o| o.index('.rb') }
-      .each { |ruby_file| require ruby_file }
+      .each do |ruby_file|
+        begin
+          require ruby_file
+        rescue Exception => error
+          Lux.info "Dir.require_all('#{folder}') # error in #{ruby_file}"
+          raise error
+        end
+      end
   end
 
   def self.mkdir? name

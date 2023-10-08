@@ -57,14 +57,15 @@ module Lux
 
     # Cache data in scope of current request
     def cache key
-      data = @var[:cache] ||= {}
-      data = @var[:cache][key]
+      root = @var[:cache] ||= {}
+      data = root[key] # it is array ref because we want to cache nil results too
 
-      if data.nil?
-        @var[:cache][key] = yield
-      else
-        data
+      unless data
+        data = [yield]
+        root[key] = data
       end
+
+      data[0]
     end
 
     # Set Lux.current.can_clear_cache = true in production for admins
