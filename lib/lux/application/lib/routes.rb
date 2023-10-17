@@ -269,8 +269,6 @@ module Lux
         # /
         return :index unless nav.root
 
-        params[:id] = object.path_id(nav.path[0])
-
         if nav.path[1]
           # /1/foo
           unless params[:id]

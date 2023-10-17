@@ -1,5 +1,4 @@
- # filters stack for call - before, before_action, :action, after
-# define path_id {} to capture path ids
+# filters stack for call - before, before_action, :action, after
 # if action is missing capture it via def action_missing name
 
 module Lux
@@ -16,8 +15,6 @@ module Lux
 
     # custom template root instead calcualted one
     cattr :template_root, default: './app/views', class: true
-
-    cattr :path_id_store, default: [proc { raise 'path_id {} is not defined on controller' }]
 
     # before and after any action filter, ignored in controllers, after is called just before render
     define_callback :before
@@ -36,18 +33,6 @@ module Lux
       def mock *args
         args.each do |el|
           define_method(el) { true }
-        end
-      end
-
-      # define function to parse object ids
-      # path_id do |text|
-      #   text.string_id rescue nil
-      # end
-      def path_id *args, &block
-        if block
-          cattr.path_id_store = [block]
-        else
-          cattr.path_id_store[0].call(*args)
         end
       end
     end
@@ -148,11 +133,6 @@ module Lux
     def render name = nil, opts = {}
       return if response.body?
 
-      # respond with not found
-      # * if format provided /foo.png
-      # * and error not triggered
-      # error.not_found('%s document Not Found' % nav.format.to_s.upcase) if nav.format && !$!
-
       if name.class == Hash
         opts.merge! name
       else
@@ -160,8 +140,6 @@ module Lux
       end
 
       opts = opts.to_hwia :text, :plain, :html, :json, :javascript, :cache, :template, :layout, :render_to_string, :data, :status, :ttl, :content_type
-
-      opts.layout ||= false if @lux.layout == false
 
       # set response status and content_type
       response.status opts.status if opts.status
@@ -176,113 +154,53 @@ module Lux
       # we do not want to cache pages that have flashes in response
       opts.cache = nil if response.flash.present?
 
-      page = if opts.cache
-        return if etag opts.cache
-
-        add_info = true
-        data = Lux.cache.fetch opts.cache, ttl: 3600 do
-          add_info = false
-          render_resolve(opts)
-        end
-
-        if add_info && data
-          response.header['x-lux-cache'] = 'render-cache'
-          data += '<!-- from page cache -->' if data =~ %r{</html>\s*$}
-        end
-
-        data
-      else
-        render_resolve(opts)
-      end
-
-      if opts.render_to_string
-        page
-      else
-        response.body page
-      end
-    end
-
-    # called be render
-    def render_resolve opts
-      filter :after_action, @lux.action
-      filter :before_render, @lux.action
-
       # render static types
       for el in [:text, :html, :json, :javascript]
         if value = opts[el]
-          response.content_type ||= el
-          filter :after_render, value
-          return value
+          response.body value, content_type: el
         end
       end
 
-      # resolve page data, without template
-      page_part =
-        if opts.data
-          Lux.current.var.root_template_path = './views'
-          opts.data
-        else
-          render_body(opts)
+      data = if cache = opts.cache
+        return if etag(cache)
+
+        add_info = true
+        from_cache = Lux.cache.fetch opts.cache, ttl: 1_000_000 do
+          add_info = false
+          render_template(opts)
         end
 
-      # resolve data with layout
-      layout = opts.layout
-      layout = nil   if layout.class == TrueClass
-      layout = false if @lux.layout.class == FalseClass
-
-      data = if layout.class == FalseClass
-        page_part
+        if add_info && from_cache
+          response.header['x-lux-cache'] = 'render-cache'
+          from_cache += '<!-- from page cache -->' if from_cache =~ %r{</html>\s*$}
+        end
+        
+        from_cache
       else
-        layout_define = @lux.layout || layout || self.class.layout
+        render_template(opts)
+      end
 
-        layout = case layout_define
-          when String
-            if layout_define.start_with?('./')
-              layout_define
-            else
-              'layouts/%s' % layout_define
-            end
-          when Symbol
-            'layouts/%s' % layout_define
-          when Proc
-            instance_execute &layout_define
-          else
-            'layouts/%s' % namespace
-        end
+      response.body data
+    end
 
-        Lux::Template.render(helper, layout) { page_part }
+    def render_template opts
+      filter :after_action, @lux.action
+      filter :before_render, @lux.action
+
+      # prepare helper from layout, if possible
+      inline_helpers = self.helper(opts.layout)
+      
+      page_template = cattr.template_root + opts.template.to_s
+      Lux.current.var.root_template_path = page_template.sub(%r{/[\w]+$}, '')
+      data = Lux::Template.render(inline_helpers, page_template)
+
+      layout_template = [opts.layout, @lux.layout, self.class.cattr.layout].select { ! _1.nil? }.first
+      if layout_template
+        layout_template = cattr.template_root  + '/layouts/' + layout_template.to_s
+        data = Lux::Template.render(inline_helpers, layout_template) { data }
       end
 
       data
-    end
-
-    def render_body opts
-      template      = (opts.template || @lux.action).to_s
-      template_root = cattr.template_root
-
-      template = if template.start_with?('./')
-        # full path
-        # render './apps/main/root/index'
-        template
-      elsif template.start_with?('/')
-        # relative template root
-        [template_root, template].join('')
-      else
-        # join with sufix but use Pathname to enable ../ joins
-        Pathname
-          .new(template_root)
-          .join(@lux.template_sufix)
-          .join(template)
-          .to_s
-      end
-
-      # load template helper from layout, if possible
-      inline_helpers = [@lux.layout, opts.layout].compact.map do |l|
-        Object.const_defined?("#{l}_helper".classify) ? l : nil
-      end
-      
-      Lux.current.var.root_template_path = template.sub(%r{/[\w]+$}, '')
-      Lux::Template.render(helper(inline_helpers), template)
     end
 
     def namespace
@@ -290,7 +208,10 @@ module Lux
     end
 
     def helper ns = nil
-      @lux.helper ||= Lux::Template::Helper.new self, :html, self.class.helper, ns
+      inline_helpers = [@lux.layout, ns].compact.map do |l|
+        Object.const_defined?("#{l}_helper".classify) ? l : nil
+      end
+      Lux::Template::Helper.new self, :html, self.class.helper, inline_helpers
     end
 
     # respond_to :js do ...
