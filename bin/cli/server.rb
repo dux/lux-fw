@@ -38,7 +38,7 @@ LuxCli.class_eval do
       command.push "#{name}=#{ENV[name]}"
     end
 
-    command = command.push("bundle exec puma -e #{environemnt}")
+    command = command.push("bundle exec puma -e #{environemnt} -p #{options[:port]}")
     command = command.join(' ')
 
     if options[:rerun]

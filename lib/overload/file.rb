@@ -28,5 +28,17 @@ class File
         false
       end
     end
+
+    #  exit if File.is_locked?('tmp/test.lock')
+    def is_locked? lock_file
+      lock_fd = File.open(lock_file, File::RDWR|File::CREAT, 0644)
+
+      Timeout::timeout(0.1) do
+        lock_fd.flock(File::LOCK_EX)
+        return false
+      end
+    rescue Timeout::Error
+      return true
+    end
   end
 end

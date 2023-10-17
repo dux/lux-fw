@@ -55,9 +55,13 @@ module Lux
         @headers['etag'] = key
       end
 
-      if Lux.env.prod? && !status && !current.no_cache?(true) && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
-        body 'not-modified', status: 304
-        true
+      if !status && !current.no_cache?(true) && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
+        if Lux.env.prod?
+          body 'not-modified', status: 304
+          true
+        else
+          @http_log_info = 'etag match (skiping in dev)'
+        end
       else
         false
       end
@@ -90,12 +94,14 @@ module Lux
         # block can override data set
         opts = data || {}
         @body = yield
-      else
+      elsif data
         opts ||= {}
+        opts.is!(Hash).each {|k,v| self.send k, *v }
         @body ||= data
+        throw :done
+      else
+        @body
       end
-
-      opts.is!(Hash).each {|k,v| self.send k, *v }
     end
     alias :body= :body
 
@@ -207,7 +213,9 @@ module Lux
 
       Lux.log do
         log_data  = " #{@status}, #{@data.to_s.length}, #{(@body.bytesize.to_f/1024).round(1)}kb, #{@headers['x-lux-speed']}"
+        log_data += " - #{@http_log_info}" if @http_log_info
         log_data += " (#{current.request.url})" if current.nav.format
+        
         [200, 304].include?(@status) ? log_data : log_data.magenta
       end
 

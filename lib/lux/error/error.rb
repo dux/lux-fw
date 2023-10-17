@@ -142,7 +142,7 @@ module Lux
         end
 
         error_key = error ? log(error) : nil
-        message   = message.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
+        message = message.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
 
         HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 1px 10px 10px 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|
           n.h3 '%s : %s' % [error.class, message]

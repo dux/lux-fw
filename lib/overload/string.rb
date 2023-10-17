@@ -161,4 +161,8 @@ class String
     self.downcase.gsub(/[^\w]+/, '_').gsub(/_+/, '-').sub(/\-$/, '')[0, len]
   end
 
+  def remove_tags
+    self.gsub(/<[^>]+>/, '')
+  end
+
 end

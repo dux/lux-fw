@@ -18,6 +18,17 @@ Lux::Config.set_defaults
   Dir.require_all Lux.fw_root.join('./lib/%s' % f)
 end
 
+String.inflections do |inflect|
+  # inflect.plural /^(ox)$/i, '\1\2en'
+  # inflect.singular /^(ox)en/i, '\1'
+  # inflect.irregular 'octopus', 'octopi'
+  inflect.plural   'bonus', 'bonuses'
+  inflect.plural   'clothing', 'clothes'
+  inflect.plural   'people', 'people'
+  inflect.singular /news$/, 'news'
+  inflect.singular /Data$/i, 'Data'
+end
+
 # load Tilt parsers
 Haml::Template.options[:escape_html] = false
 # Tilt.register Tilt::ERBTemplate, 'erb'

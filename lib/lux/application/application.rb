@@ -28,12 +28,7 @@ module Lux
 
       # screen log request header unless is static file
       unless nav.format
-        if current.no_cache?
-          error.clear_screen if Lux.env.dev?
-        else
-          Lux.log ''
-        end
-
+        Lux.log ''
         Lux.log { [request_method.white, request.url].join(' ') }
       end
 
@@ -48,11 +43,11 @@ module Lux
         }, ['']]
       end
 
-      if Lux.config.serve_static_files
-        Lux::Response::File.deliver_asset(request)
-      end
-
       catch :done do
+        if Lux.config.serve_static_files
+          Lux::Response::File.deliver_asset(request)
+        end
+
         resolve_routes unless response.body?
       end
 
@@ -62,12 +57,9 @@ module Lux
 
       response.render
     rescue => err
-      error.log err
-
-      catch(:done) do
-        render_error(err)
-      end
-
+      Lux.current.error ||= err
+      Lux.error.screen Lux.current.error
+      render_error
       response.render
     end
 
@@ -96,10 +88,11 @@ module Lux
       call target.call current.env
     end
 
-    def render_error err
-      Lux.error.screen err
-      response.body "Server error: %s (%s)\n\nCheck log for details" % [err.message, err.class], status: 500
-      response.render
+    def render_error
+      err = Lux.current.error ||= $!
+      Lux.info "Unhandled error (definef render_error in routes): [#{err.class}] #{err.message}"
+      Lux.error.log err
+      raise err
     end
   end
 end

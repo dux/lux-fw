@@ -28,7 +28,7 @@ module Lux
 
     def start_info
       @load_info ||= proc do
-        production_opts = %i(live code_reload dump_errors log_console log_disable)
+        production_opts = %i(code_reload dump_errors log_console log_disable)
 
         opts = production_opts.map do |key|
           env_value = env_value_of(key) ? 'yes' : 'no'
@@ -91,14 +91,6 @@ module Lux
 
       # Etag and cache tags reset after deploy
       Lux.config.deploy_timestamp = File.mtime('./Gemfile').to_i.to_s
-
-      # inflector
-      String.inflections do |inflect|
-        inflect.plural   'bonus', 'bonuses'
-        inflect.plural   'clothing', 'clothes'
-        inflect.plural   'people', 'people'
-        inflect.singular /news$/, 'news'
-      end
     end
 
     def after_boot_check

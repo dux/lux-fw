@@ -84,8 +84,9 @@ class Array
   end
 
   def xmap
+    count = 0
     map do |el|
-      yield el
+      yield el, ++count
       el
     end
   end

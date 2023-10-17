@@ -99,9 +99,13 @@ module Lux
     end
 
     def report_error e
-      Lux.log ' %s (HAS ERROR)' % @template.red
-      Lux.error.screen e
-      raise e
+      if Lux.current.error
+        raise raise Lux.current.error
+      else
+        Lux.current.error = e
+        Lux.log ' %s (HAS ERROR)' % @template.red
+        raise e
+      end
     end
   end
 end

@@ -1,10 +1,11 @@
 class PageMeta
   attr_accessor :app
 
-  def initialize
+  def initialize app = nil
     @meta    = {}
     @links   = []
     @scripts = []
+    @app     = app
   end
 
   def meta name, desc
@@ -132,6 +133,7 @@ class PageMeta
     # title
     app_name = @app || Lux.config.app.name
     title    = @title ? "#{@title} | #{app_name}" : app_name
+    title = title.remove_tags
     ret.push %[<title>#{title}</title>]
 
     data = ret.join("\n")

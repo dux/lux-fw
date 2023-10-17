@@ -94,6 +94,10 @@ module Lux
         end
       end
 
+      def path= list
+        @path = list
+      end
+
       # removes leading www.
       # https://www.foo.bar/path -> https://foo.bar/path
       def remove_www

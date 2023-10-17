@@ -3,7 +3,7 @@ module Lux
     # set to true if user is admin and you want him to be able to clear caches in production
     attr_accessor :can_clear_cache
 
-    attr_accessor :session, :locale
+    attr_accessor :session, :locale, :error
     attr_reader   :request, :response, :nav, :var, :env, :params, :env
 
     def initialize env = nil, opts = {}

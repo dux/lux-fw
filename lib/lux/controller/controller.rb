@@ -24,8 +24,6 @@ module Lux
     define_callback :before_action
     define_callback :after_action
     define_callback :before_render
-    define_callback :after_render
-    define_callback :after
 
     class << self
       # simple shortcut allows direct call to action, bypasing call
@@ -89,24 +87,24 @@ module Lux
 
       filter :before, @lux.action
 
-      unless response.body?
-        filter :before_action, @lux.action
+      catch :done do
+        unless response.body?
+          filter :before_action, @lux.action
 
-        # if action not found
-        if respond_to?(method_name)
-          send method_name, *args
-        else
-          action_missing method_name
+          # if action not found
+          if respond_to?(method_name)
+            send method_name, *args
+          else
+            action_missing method_name
+          end
+
+          render
         end
-
-        render
       end
-
-      filter :after, @lux.action
-    rescue => err
-      Lux::Error.log err
-      Lux::Error.screen err unless err.class == Lux::Error
-      render_error err
+    # rescue => err
+    #   Lux::Error.log err
+    #   Lux::Error.screen err unless err.class == Lux::Error
+    #   render_error err
     end
 
     def timeout seconds
@@ -201,7 +199,6 @@ module Lux
         page
       else
         response.body page
-        throw :done
       end
     end
 
@@ -256,8 +253,6 @@ module Lux
         Lux::Template.render(helper, layout) { page_part }
       end
 
-      filter :after_render, data
-
       data
     end
 
@@ -281,17 +276,21 @@ module Lux
           .to_s
       end
 
+      # load template helper from layout, if possible
+      inline_helpers = [@lux.layout, opts.layout].compact.map do |l|
+        Object.const_defined?("#{l}_helper".classify) ? l : nil
+      end
+      
       Lux.current.var.root_template_path = template.sub(%r{/[\w]+$}, '')
-
-      Lux::Template.render(helper, template)
+      Lux::Template.render(helper(inline_helpers), template)
     end
 
     def namespace
       self.class.to_s.split('::').first.underscore.to_sym
     end
 
-    def helper ns=nil
-      @lux.helper = Lux::Template::Helper.new self, :html, self.class.helper, ns
+    def helper ns = nil
+      @lux.helper ||= Lux::Template::Helper.new self, :html, self.class.helper, ns
     end
 
     # respond_to :js do ...
@@ -380,12 +379,6 @@ module Lux
       end
 
       raise Lux::Error.new 404, [message, defined].join(' ')
-    end
-
-    def render_error err
-      lines = Lux::Error.split_backtrace err
-      text = lines.map{|el| el.join("\n")}.join("\n\n\n")
-      render text: text, status: 500
     end
   end
 end

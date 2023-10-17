@@ -227,6 +227,8 @@ module Lux
         if object.respond_to?(:action)
           object.action action.to_sym
         end
+
+        throw :done if response.body?
       end
 
       # Tests current root against the string to get a mach.
