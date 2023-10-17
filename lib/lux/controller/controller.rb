@@ -61,7 +61,7 @@ module Lux
     def initialize
       # before and after should be exected only once
       @lux = IVARS.new
-      @lux.template_sufix = self.class.to_s.include?('::') ? self.class.to_s.sub(/Controller$/,'').underscore : self.class.to_s.sub(/Controller$/,'').downcase
+      @lux.template_sufix = self.class.to_s.sub(/Controller$/,'').underscore.downcase.split('/').first
     end
 
     # action(:show)

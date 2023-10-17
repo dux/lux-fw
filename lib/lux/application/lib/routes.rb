@@ -91,7 +91,7 @@ module Lux
         case route_object
         when String
           # map 'root#call'
-          call route_object
+          catch(:done) { call route_object }
         when Hash
           route  = route_object.keys.first
           klass  = route_object.values.first
