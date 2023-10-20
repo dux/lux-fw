@@ -56,11 +56,11 @@ module Lux
       end
 
       if !status && !current.no_cache?(true) && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
-        if Lux.env.prod?
+        if Lux.env.no_cache?
+          @http_log_info = 'etag match (skiping in dev)'
+        else
           body 'not-modified', status: 304
           true
-        else
-          @http_log_info = 'etag match (skiping in dev)'
         end
       else
         false
@@ -95,9 +95,11 @@ module Lux
         opts = data || {}
         @body = yield
       elsif data
-        opts ||= {}
-        opts.is!(Hash).each {|k,v| self.send k, *v }
-        @body ||= data
+        unless @body
+          opts ||= {}
+          opts.is!(Hash).each {|k,v| self.send k, *v }
+          @body = data
+        end
         throw :done
       else
         @body
@@ -109,7 +111,7 @@ module Lux
       !!@body
     end
 
-    def content_type in_type=nil
+    def content_type in_type = nil
       return @content_type unless in_type
 
       in_type = :js if in_type == :javascript
@@ -133,8 +135,8 @@ module Lux
       message ? @flash.error(message) : @flash
     end
 
-    def send_file file, opts={}
-      ::Lux::Response::File.new(file, opts).send
+    def send_file file, opts = {} 
+      ::Lux::Response::File.new(opts.merge(file: file)).send
     end
 
     # redirect_to '/foo'
@@ -250,7 +252,7 @@ module Lux
 
       # respond as JSON if we recive hash
       if @body.kind_of?(Hash)
-        @body = Lux.env.dev? ? JSON.pretty_generate(@body) : JSON.generate(@body)
+        @body = Lux.env.screen_log? ? JSON.pretty_generate(@body) : JSON.generate(@body)
 
         if current.request.params[:callback]
           @body = "#{current.request.params[:callback]}(#{ret})"
@@ -288,16 +290,15 @@ module Lux
       end
 
       if current.request.request_method == 'GET'
-        etag(@body)
+        catch(:done) { etag(@body) }
       end
 
       # @headers['access-control-allow-credentials'] = 'true'
+      # if "no-store" is present then HTTP_IF_NONE_MATCH is not sent from browser
       @headers['x-lux-speed']     = "#{((Time.monotonic - @render_start)*1000).round(1)}ms"
       @headers['content-type']  ||= "#{@content_type}; charset=utf-8"
       @headers['content-length']  = @body.bytesize.to_s
       @headers['content-length']  = @body.bytesize.to_s
-
-      # if "no-store" is present then HTTP_IF_NONE_MATCH is not sent from browser
     end
   end
 end

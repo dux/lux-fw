@@ -4,21 +4,16 @@ module Lux
   class Response
     class File
       class << self
-        def deliver_asset request
-          ext = request.path.split('.').last
+        def deliver_from_current
+          path = './public' + Lux.current.request.path
+          ext = path.split('.').last
           return unless ext.length > 1 && ext.length < 5
-          file = new request.path.sub('/', ''), inline: true
-
-          if file.is_static_file?
-            file.send
-            true
-          else
-            false
-          end
+          rack_file = new file: path, inline: true
+          rack_file.send if rack_file.is_static_file?
         end
       end
 
-      #
+      ###
 
       MIMME_TYPES = {
         text:  'text/plain',
@@ -53,16 +48,15 @@ module Lux
       # :inline        - sets disposition to inline if true
       # :disposition   - inline or attachment
       # :content       - raw file data
-      def initialize file, in_opts={}
-        opts = in_opts.to_hwia :name, :cache, :content_type, :inline, :disposition, :content
+      def initialize in_opts = {}
+        opts = in_opts.to_hwia :name, :file, :cache, :content_type, :inline, :disposition, :content, :ext, :path
         opts.disposition ||= opts.inline.class == TrueClass ? 'inline' : 'attachment'
         opts.cache         = true if opts.cache.nil?
 
-        file = file.to_s if file.class == Pathname
-        file = 'public/%s' % file unless file[0, 1] == '/'
+        opts.file = Pathname.new(opts.file) unless opts.file.class == Pathname
+        opts.path = opts.file.to_s
+        opts.ext  = opts.path.include?('.') ? opts.path.split('.').last.to_sym : nil
 
-        @ext  = file.include?('.') ? file.split('.').last.to_sym : nil
-        @file = file
         @opts = opts
       end
 
@@ -70,35 +64,34 @@ module Lux
       define_method(:response) { Lux.current.response }
 
       def is_static_file?
-        return false unless @ext
-        ::File.exist?(@file)
+        return false unless @opts.ext
+        @opts.file.exist?
+      end
+
+      def etag key
+        response.headers['etag'] = '"%s"' % key
+        response.body('not-modified', status: 304) if request.env['HTTP_IF_NONE_MATCH'] == key
       end
 
       def send
-        file = ::File.exist?(@file) ? @file : Lux.root.join('public', @file).to_s
-
-        raise Lux::Error.not_found('Static file not found') unless ::File.exist?(file)
-
-        response.content_type(@opts.content_type || MIMME_TYPES[@ext || '_'] || 'application/octet-stream')
-
-        file_mtime = ::File.mtime(file).utc.to_s
-        key        = Crypt.sha1(file + (@opts.content || file_mtime.to_s))
-
+        @opts.name ||= @opts.path.split('/').last
         if @opts.disposition == 'attachment'
-          @opts.name ||= @file.split('/').last
           response.headers['content-disposition'] = 'attachment; filename=%s' % @opts.name
         end
 
+        response.content_type(@opts.content_type || MIMME_TYPES[@opts.ext || '_'] || 'application/octet-stream')
         response.headers['access-control-allow-origin'] = '*'
-        response.headers['cache-control'] = Lux.env.dev? ? 'public' : 'max-age=%d, public' % (@opts.cache ? 31536000 : 0)
-        response.headers['etag']          = '"%s"' % key
-        response.headers['last-modified'] = file_mtime
+        response.headers['cache-control'] = Lux.env.no_cache? ? 'public' : 'max-age=%d, public' % (@opts.cache ? 31536000 : 0)
 
-        # IF etags match, returnfrom cache
-        if request.env['HTTP_IF_NONE_MATCH'] == key
-          response.body('not-modified', 304)
+        if @opts.content
+          etag Crypt.sha1 @opts.content
+          response.body @opts.content
         else
-          response.body @opts.content || ::File.read(file)
+          raise Lux::Error.not_found('File not found') unless @opts.file.exist?
+          file_mtime = @opts.file.mtime.utc.to_s
+          response.headers['last-modified'] = file_mtime
+          etag Crypt.sha1(@opts.path + (@opts.content || file_mtime.to_s))
+          response.body @opts.file.read
         end
       end
     end
