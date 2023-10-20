@@ -20,7 +20,7 @@ module ::Lux
   rescue => err
     error.log err
 
-    if Lux.config.dump_errors
+    if Lux.env.dump_errors?
       raise err
     else
       [500, {}, ['Server error: %s' % err.message]]
@@ -85,9 +85,10 @@ def Lux
   if self.class == Rack::Builder
     $rack_handler = self
     run Lux
+    puts Lux::Config.start_info
+  else
+    raise 'Lux error: Rack not found'
   end
-
-  Lux::Config.app_boot
 end
 
 ###

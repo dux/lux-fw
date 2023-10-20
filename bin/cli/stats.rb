@@ -56,7 +56,7 @@ class LuxStat
     puts '  To find: find . -type file | grep \\\\.ext$'
     puts
 
-    files = `find . -type file | grep -v #{excluding.map{|el| " -e './#{el}/'" }.join(' ')}`.split($/)
+    files = `git ls-files | grep -v #{excluding.map{|el| " -e './#{el}/'" }.join(' ')}`.split($/)
     for file in files
       ext = file.split('.').last
       next if ext.length > 6

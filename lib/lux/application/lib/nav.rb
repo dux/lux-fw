@@ -119,7 +119,7 @@ module Lux
 
       # http://tiger.lvh.me:3000/foo?bar=1 -> http://tiger.lvh.me:3000
       def base
-        Lux.current.request.url.split('/').first(3).join('/')
+        @base ||= Lux.current.request.url.split('/').first(3).join('/')
       end
 
       def to_s

@@ -50,6 +50,21 @@ module Lux
       !web?
     end
 
+    def dump_errors?
+      @dump_errors = ENV['RACK_ENV'].include?('e') if @dump_errors.nil?
+      @dump_errors
+    end
+
+    def code_reload?
+      @code_reload = ENV['RACK_ENV'].include?('e') if @code_reload.nil?
+      @code_reload
+    end
+
+    def screen_log?
+      @screen_log = ENV['RACK_ENV'].include?('e') if @screen_log.nil?
+      @screen_log
+    end
+
     ###
 
     # Lux.env == :dev

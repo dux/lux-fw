@@ -7,23 +7,19 @@ module Lux
   def logger name = nil
     raise "Logger name is required" unless name
 
-    if Lux.config.log_disable
-      Logger.new(IO::NULL)
-    else
-      LOGGER_CACHE[name] ||= begin
-        output_location = Lux.config.logger_path_mask % name
-        LOGGER_CACHE[name] = Logger.new output_location,  Lux.config.logger_files_to_keep, Lux.config.logger_file_max_size
+    LOGGER_CACHE[name] ||= begin
+      output_location = Lux.config.logger_path_mask % name
+      LOGGER_CACHE[name] = Logger.new output_location,  Lux.config.logger_files_to_keep, Lux.config.logger_file_max_size
 
-        if Lux.config.logger_formatter
-          LOGGER_CACHE[name].formatter = Lux.config.logger_formatter
-        end
-        LOGGER_CACHE[name]
+      if Lux.config.logger_formatter
+        LOGGER_CACHE[name].formatter = Lux.config.logger_formatter
       end
+      LOGGER_CACHE[name]
     end
   end
 
   def log what = nil, &block
-    return unless Lux.config.log_console
+    return unless Lux.env.screen_log?
     what = block.call if block
     print what.to_s + "\n"
   end

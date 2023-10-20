@@ -11,6 +11,8 @@ Sequel.database_timezone = :utc
 require_relative './overload/dir'
 require_relative './lux/lux'
 
+require 'dotenv'
+Dotenv.load
 Lux::Config.set_defaults
 
 # load all lux libs

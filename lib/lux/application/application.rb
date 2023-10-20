@@ -9,8 +9,6 @@ module Lux
     include Routes
     include Shared
 
-    define_callback :config    # pre boot app config
-    define_callback :info      # called by "lux config" cli
     define_callback :before    # before any page load
     define_callback :routes    # routes resolve
     define_callback :after     # after any page load
@@ -20,7 +18,7 @@ module Lux
     end
 
     def render_base
-      if Lux.config.code_reload && Lux.env.web?
+      if Lux.env.code_reload? && Lux.env.web?
         Lux.config.on_code_reload.call
       end
 

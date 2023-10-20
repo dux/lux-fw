@@ -38,13 +38,10 @@ ARGV[0] = 'console' if ARGV[0] == 'c'
 LuxCli.class_eval do
   desc :console, 'Start console'
   def console *args
+    ENV['LUX_ENV'] = 'clre'
+
     require 'amazing_print'
     require './config/app'
-
-    Lux.config.dump_errors = true
-
-    # boot
-    Lux()
 
     # create mock session
     Lux::Current.new '/'

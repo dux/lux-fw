@@ -17,8 +17,7 @@ class Object
   end
 end
 
-Lux.config.code_reload = false
-Lux.config.dump_errors = true
+ENV['RACK_ENV'] = 'e'
 
 # basic config
 RSpec.configure do |config|

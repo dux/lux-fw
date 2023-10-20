@@ -63,7 +63,7 @@ module Lux
 
     def compile_template template
       pointer =
-      if Lux.config.code_reload
+      if Lux.env.code_reload?
         Lux.current.var
       else
         Lux.var

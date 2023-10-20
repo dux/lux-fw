@@ -1,3 +1,11 @@
+# RACK_ENV = test dev/development prod/production
+#   live acts as production. RACK_ENV=live; Lux.env.prod? # true
+# LUX_ENV  = clre - add any for dev env options. Emit all -> production settings
+  # Lux.env.cache?
+  # Lux.env.screen_log?
+  # Lux.env.code_reload?
+  # Lux.env.code_reload?
+
 # no code reload with logging
 # lux s -c
 
@@ -5,41 +13,26 @@ if ARGV[0] == 's'
   ARGV[0] = 'server'
 end
 
+# lux ss -> lux -opt le (only log and errors dump, no cacing and code reload)
 if ARGV[0] == 'ss'
   ARGV[0] = 'server'
-  ARGV[1] = '-f'
+  $prod_in_dev = true
 end
 
 LuxCli.class_eval do
-  ENVIRONEMNTS  = %w[production development test]
-
   desc :server, 'Start web server'
   method_option :port,  aliases: '-p', default: 3000,  desc: 'Port to run app on', type: :numeric
-  method_option :env,   aliases: '-e', default: 'd',   desc: 'Environemnt, only first chart counts (%s)' % ENVIRONEMNTS.join(', ')
+  method_option :env,   aliases: '-e', default: 'development',   desc: 'Environemnt, only first chart counts (%s)'
   method_option :rerun, aliases: '-r', default: false, desc: 'rerun app on every file chenge', type: :boolean
-  method_option :fast,  aliases: '-f', default: false, desc: 'prouction mode but dump errors', type: :boolean
+  method_option :opt,  aliases: '-opt', default: 'clre', desc: 'lux options (clre - cache, screen log, code reload, errors)', type: :string
   def server
     trap("SIGINT") { Cli.die 'ctrl+c exit' }
 
-    command = []
-
-    environemnt = options[:env]
-    if environemnt.length == 1
-      environemnt = ENVIRONEMNTS.find { |el| el[0] == environemnt[0] }
-    end
-    command.push 'RACK_ENV=%s' % environemnt
-
-    ENV['LUX_DUMP_ERRORS'] = 'yes'
-    ENV['LUX_LOG_CONSOLE'] = 'yes'
+    ENV['RACK_ENV'] = options[:env] if options[:env]
+    ENV['LUX_ENV'] = options[:opt]
+    ENV['LUX_ENV'] = 'le' if $prod_in_dev
     
-    for el in %w(code_reload dump_errors log_console log_disable)
-      name = 'LUX_%s' % el.upcase
-      ENV[name] ||= options[:fast] ? 'no' : 'yes'
-      command.push "#{name}=#{ENV[name]}"
-    end
-
-    command = command.push("bundle exec puma -e #{environemnt} -p #{options[:port]}")
-    command = command.join(' ')
+    command = "RACK_ENV=#{ENV['RACK_ENV']} LUX_ENV=#{ENV['LUX_ENV']} bundle exec puma -p #{options[:port]}"
 
     if options[:rerun]
       Cli.run "find #{LUX_ROOT} . -name *.rb | entr -r #{command}"
