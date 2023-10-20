@@ -73,7 +73,7 @@ module Lux
       check = @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache'
 
       if check
-        if shallow_check || Lux.env.dev?
+        if shallow_check || Lux.env.no_cache?
           true
         else
           can_clear_cache ? true : false

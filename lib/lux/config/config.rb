@@ -14,7 +14,7 @@ module Lux
         info = []
         
         config = []
-        %w(code_reload dump_errors screen_log).each do |name|
+        %w(no_cache code_reload dump_errors screen_log).each do |name|
           value = Lux.env.send("#{name}?")
           config.push value ? "#{name} (yes)".yellow : "#{name} (no)".green
         end
@@ -31,13 +31,13 @@ module Lux
           speed = 'in %s sec' % time_diff($lux_start_time).white
         end
 
-        puts [2, ENV['RACK_ENV']]
         info.push "* Lux loaded in #{ENV['RACK_ENV']} mode, #{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
         info.join($/)
       end.call
     end
 
     def set_defaults
+      ENV['LUX_ENV'] ||= ''
       ENV['TZ'] ||= 'UTC'
 
       # Delay
@@ -68,7 +68,6 @@ module Lux
     def app_timeout
       @app_timeout || Lux.current.try('[]', :app_timeout) || Lux.config[:app_timeout] || (Lux.env.dev? ? 3600 : 30)
     rescue
-      # debugger if Lux.env.dev?
       30
     end
 

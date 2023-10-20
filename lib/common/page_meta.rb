@@ -18,11 +18,7 @@ class PageMeta
     @links.push %[<link rel="preload" href="#{resource}" as="font" type="#{type}" crossorigin="anonymous" />]
   end
 
-  def live_reload
-    Lux.env.dev? ? %[<script src="/autoreload-check"></script>] : nil
-  end
-
-  def description data
+   def description data
     return @description unless data.present?
     data = data.trim(140)
     @meta['og:description'] = data
@@ -139,7 +135,7 @@ class PageMeta
     data = ret.join("\n")
     data = data.gsub("\n<","\n  <").gsub(/\n\s*\n/,"\n")
 
-    '  '+data
+    '  ' + data
   end
 end
 

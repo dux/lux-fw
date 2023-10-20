@@ -110,7 +110,7 @@ module Lux
     define_method(:cache_control) { |arg| response.headers['cache-control'] = arg }
 
     # send file to browser
-    def send_file file, opts={}
+    def send_file file, opts = {}
       response.send_file(file, opts)
     end
 
@@ -232,9 +232,10 @@ module Lux
     # because we can call action multiple times
     # ensure we execute filters only once
     def filter fiter_name, arg=nil
-      Lux.current.once 'lux-controller-filter-%s-%s' % [self.class, fiter_name] do
-        run_callback fiter_name, arg
-      end
+      key = 'lux-controller-filter-%s-%s' % [self.class, fiter_name]
+      rr [:filter_double_call, self.class, fiter_name] if Lux.current.var[key]
+      Lux.current.var[key] = true
+      run_callback fiter_name, arg
     end
 
     def cache *args, &block
@@ -285,7 +286,7 @@ module Lux
 
       message = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, nav]
 
-      if Lux.env.dev?
+      if Lux.env.dump_errors?
         defined_methods = (methods - Lux::Controller.instance_methods).map(&:to_s)
         defined = '<br /><br />Defined methods %s' % defined_methods.sort.to_ul
 

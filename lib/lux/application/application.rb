@@ -43,7 +43,7 @@ module Lux
 
       catch :done do
         if Lux.config.serve_static_files
-          Lux::Response::File.deliver_asset(request)
+          Lux::Response::File.deliver_from_current
         end
 
         resolve_routes unless response.body?
@@ -91,6 +91,33 @@ module Lux
       Lux.info "Unhandled error (definef render_error in routes): [#{err.class}] #{err.message}"
       Lux.error.log err
       raise err
+    end
+
+    def favicon path
+      return if response.body?
+      
+      if ['/favicon.ico', '/apple-touch-icon.png'].include?(request.path.downcase)
+        icon = Lux.root.join(path)
+        if icon.exist?
+          response.send_file(icon, inline: true)
+        else 
+          error '%s not found' % path
+        end
+      end
+    end
+
+    # internall call to resolve the routes
+    def resolve_routes
+      @magic = MagicRoutes.new self
+
+      run_callback :before, nav.path
+      run_callback :routes, nav.path
+
+      unless response.body?
+        error.not_found 'Document not found'
+      end
+
+      run_callback :after, nav.path
     end
   end
 end

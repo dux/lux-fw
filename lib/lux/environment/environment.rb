@@ -50,18 +50,23 @@ module Lux
       !web?
     end
 
+    def no_cache?
+      @no_cache = ENV['LUX_ENV'].include?('c') if @no_cache.nil?
+      @no_cache
+    end
+
     def dump_errors?
-      @dump_errors = ENV['RACK_ENV'].include?('e') if @dump_errors.nil?
+      @dump_errors = ENV['LUX_ENV'].include?('e') if @dump_errors.nil?
       @dump_errors
     end
 
     def code_reload?
-      @code_reload = ENV['RACK_ENV'].include?('e') if @code_reload.nil?
+      @code_reload = ENV['LUX_ENV'].include?('c') if @code_reload.nil?
       @code_reload
     end
 
     def screen_log?
-      @screen_log = ENV['RACK_ENV'].include?('e') if @screen_log.nil?
+      @screen_log = ENV['LUX_ENV'].include?('l') if @screen_log.nil?
       @screen_log
     end
 

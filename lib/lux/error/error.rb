@@ -200,7 +200,6 @@ module Lux
 
       # show in stdout
       def screen error
-        return if Lux.env.test?
         return unless Lux.env.dump_errors?
 
         data = split_backtrace(error)
