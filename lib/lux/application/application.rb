@@ -24,11 +24,8 @@ module Lux
 
       request_method = request.request_method
 
-      # screen log request header unless is static file
-      unless nav.format
-        Lux.log ''
-        Lux.log { [request_method.white, request.url].join(' ') }
-      end
+      Lux.log ''
+      Lux.log { [request_method.white, request.url].join(' ') }
 
       if request.post?
         Lux.log { request.params.to_h.to_jsonp }

@@ -126,6 +126,16 @@ module Lux
         @path.join('/').sub(/\/$/, '')
       end
 
+      def id
+        if block_given?
+          @id_set = true
+          @id_value = yield
+        else
+          raise "ID not set (use nav.id { ... })" unless @id_set
+          @id_value
+        end
+      end
+
       private
 
       def set_variables

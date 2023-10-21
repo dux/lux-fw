@@ -101,7 +101,7 @@ class String
   end
   alias :to_url :parameterize
 
-  def css_to_hash
+  def qs_to_hash
     self.split('&').inject({}) do |h,line|
       el = line.split('=', 2)
       h[el[0]] = el[1]

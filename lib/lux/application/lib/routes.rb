@@ -256,34 +256,11 @@ module Lux
 
       private
 
-      # direct template render, bypass controller
-      def template name, opts={}
-        # rr name
-      end
-
-      def action_name name
-        name.gsub('-', '_').gsub(/[^\w]/, '')[0, 30].to_sym
-      end
-
       def resolve_action object
-        # /
-        return :index unless nav.root
-
-        if nav.path[1]
-          # /1/foo
-          unless params[:id]
-            error 'Bad path ID "%s" provided' % nav.path[0]
-          end
-
-          action_name nav.path[1]
+        if nav.root
+          nav.id ? nav.path[1] : nav.path[0]
         else
-          if params[:id]
-            # /123
-            :show
-          else
-            # /foo
-            action_name nav.path[0]
-          end
+          :root
         end
       end
     end
