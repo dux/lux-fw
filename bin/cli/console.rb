@@ -7,7 +7,7 @@ class Object
 
   # reload code changes
   def reload!
-    Lux.config.on_code_reload.call :cli
+    Lux.config.on_reload_code.call :cli
   end
 
   # prettify last sql command

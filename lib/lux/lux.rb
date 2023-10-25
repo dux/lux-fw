@@ -20,7 +20,7 @@ module ::Lux
   rescue => err
     error.log err
 
-    if Lux.env.dump_errors?
+    if Lux.env.show_errors?
       raise err
     else
       [500, {}, ['Server error: %s' % err.message]]

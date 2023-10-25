@@ -14,7 +14,7 @@ module Lux
         info = []
         
         config = []
-        %w(no_cache code_reload dump_errors screen_log).each do |name|
+        %w(no_cache reload_code show_errors screen_log).each do |name|
           value = Lux.env.send("#{name}?")
           config.push value ? "#{name} (yes)".yellow : "#{name} (no)".green
         end

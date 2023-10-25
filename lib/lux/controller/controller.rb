@@ -19,7 +19,6 @@ module Lux
     # before and after any action filter, ignored in controllers, after is called just before render
     define_callback :before
     define_callback :before_action
-    define_callback :after_action
     define_callback :before_render
 
     class << self
@@ -70,11 +69,11 @@ module Lux
 
       @lux.action = method_name.to_sym
 
-      filter :before, @lux.action
+      run_callback :before, @lux.action
 
       catch :done do
         unless response.body?
-          filter :before_action, @lux.action
+          run_callback :before_action, @lux.action
 
           # if action not found
           if respond_to?(method_name)
@@ -184,8 +183,7 @@ module Lux
     end
 
     def render_template opts
-      filter :after_action, @lux.action
-      filter :before_render, @lux.action
+      run_callback :before_render, @lux.action
 
       # prepare helper from layout, if possible
       inline_helpers = self.helper(opts.layout)
@@ -227,15 +225,6 @@ module Lux
       else
         yield nav.format
       end
-    end
-
-    # because we can call action multiple times
-    # ensure we execute filters only once
-    def filter fiter_name, arg=nil
-      key = 'lux-controller-filter-%s-%s' % [self.class, fiter_name]
-      rr [:filter_double_call, self.class, fiter_name] if Lux.current.var[key]
-      Lux.current.var[key] = true
-      run_callback fiter_name, arg
     end
 
     def cache *args, &block
@@ -286,7 +275,7 @@ module Lux
 
       message = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, nav]
 
-      if Lux.env.dump_errors?
+      if Lux.env.show_errors?
         defined_methods = (methods - Lux::Controller.instance_methods).map(&:to_s)
         defined = '<br /><br />Defined methods %s' % defined_methods.sort.to_ul
 

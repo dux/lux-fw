@@ -217,11 +217,11 @@ module Lux
         end
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
-          error.not_found Lux.env.dump_errors? ? "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" : nil
+          error.not_found Lux.env.show_errors? ? "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" : nil
         end
 
         if opts[:except] && opts[:except].include?(action.to_sym)
-          error.not_found Lux.env.dump_errors? ? "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" : nil
+          error.not_found Lux.env.show_errors? ? "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" : nil
         end
 
         if object.respond_to?(:action)

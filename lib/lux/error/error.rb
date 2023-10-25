@@ -150,7 +150,7 @@ module Lux
           n.p 'Key: %s' % error_key if error_key
           n.p 'Description: %s' % error.description if error && error.respond_to?(:description) && error.description
 
-          if error && Lux.env.dump_errors?
+          if error && Lux.env.show_errors?
             n.hr
             n.push mark_backtrace(error, html: true).join("\n")
           end
@@ -200,7 +200,7 @@ module Lux
 
       # show in stdout
       def screen error
-        return unless Lux.env.dump_errors?
+        return unless Lux.env.show_errors?
 
         data = split_backtrace(error)
         data[2] = data[2][0,5]

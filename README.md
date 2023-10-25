@@ -192,7 +192,7 @@ end
 #### Config for application
 
 ```ruby
-Lux.config.on_code_reload do
+Lux.config.on_reload_code do
   $live_require_check ||= Time.now
 
   watched_files = $LOADED_FEATURES
@@ -344,7 +344,6 @@ Definable callbacks
 before do ...        # before all
 before_action do ... # before action
 before_render do ... # before render
-after_action do ...  # after action
 after do ...         # after all
 ```
 

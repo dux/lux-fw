@@ -18,8 +18,8 @@ module Lux
     end
 
     def render_base
-      if Lux.env.code_reload? && Lux.env.web?
-        Lux.config.on_code_reload.call
+      if Lux.env.reload_code? && Lux.env.web?
+        Lux.config.on_reload_code.call
       end
 
       request_method = request.request_method

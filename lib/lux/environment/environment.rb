@@ -1,6 +1,6 @@
 module Lux
   class Environment
-    ENVS = %w(development production test)
+    ENVS ||= %w(development production test)
 
     def initialize env_name
       unless ENVS.include?(env_name)
@@ -55,14 +55,14 @@ module Lux
       @no_cache
     end
 
-    def dump_errors?
-      @dump_errors = ENV['LUX_ENV'].include?('e') if @dump_errors.nil?
-      @dump_errors
+    def show_errors?
+      @show_errors = ENV['LUX_ENV'].include?('e') if @show_errors.nil?
+      @show_errors
     end
 
-    def code_reload?
-      @code_reload = ENV['LUX_ENV'].include?('c') if @code_reload.nil?
-      @code_reload
+    def reload_code?
+      @reload_code = ENV['LUX_ENV'].include?('c') if @reload_code.nil?
+      @reload_code
     end
 
     def screen_log?

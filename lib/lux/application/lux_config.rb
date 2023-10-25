@@ -1,6 +1,6 @@
 $live_require_check = Time.now
 
-Lux.config.on_code_reload do |source = nil|
+Lux.config.on_reload_code do |source = nil|
   watched_files = $LOADED_FEATURES
     .reject { |f| f.include?('/.') }
     .select { |f| File.exist?(f) && File.mtime(f) > $live_require_check }

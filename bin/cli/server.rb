@@ -3,8 +3,8 @@
 # LUX_ENV  = clre - add any for dev env options. Emit all -> production settings
   # Lux.env.no_cache?    # true
   # Lux.env.screen_log?  # true
-  # Lux.env.code_reload? # true
-  # Lux.env.code_reload? # true
+  # Lux.env.reload_code? # true
+  # Lux.env.reload_code? # true
 
 # no code reload with logging
 # lux s -c
