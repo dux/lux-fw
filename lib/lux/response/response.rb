@@ -286,7 +286,7 @@ module Lux
 
       if self.max_age == 0
         cookie = current.session.generate_cookie
-        @headers['set-cookie'] = cookie
+        @headers['set-cookie'] = cookie if cookie
       end
 
       if current.request.request_method == 'GET'

@@ -92,8 +92,9 @@ module Lux
 
     def favicon path
       return if response.body?
+      cpath = request.path.downcase
       
-      if ['/favicon.ico', '/apple-touch-icon.png'].include?(request.path.downcase)
+      if cpath.start_with?('/favicon') || cpath.start_with?('/apple-touch-icon')
         icon = Lux.root.join(path)
         if icon.exist?
           response.send_file(icon, inline: true)
