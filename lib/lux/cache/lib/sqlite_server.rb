@@ -1,9 +1,9 @@
 module Lux
   class Cache
     class SqliteServer
-      def initialize
-        file = Pathname.new './tmp/lux_cache.sqlite'
-        file.delete if file.exist?
+      def initialize path = nil
+        file = Pathname.new path || './tmp/lux_cache.sqlite'
+        # file.delete if file.exist?
         @db = Sequel.sqlite file.to_s
 
         unless @db.tables.include?(:cache)

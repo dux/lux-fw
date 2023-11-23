@@ -93,7 +93,8 @@ module Lux
       if block_given?
         # block can override data set
         opts = data || {}
-        @body = yield
+        @body = yield @body
+        @body
       elsif data
         unless @body
           opts ||= {}

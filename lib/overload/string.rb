@@ -136,7 +136,7 @@ class String
   end
 
   def escape
-    CGI::escape self
+    CGI::escape(self).gsub('+', '%20')
   end
 
   def unescape

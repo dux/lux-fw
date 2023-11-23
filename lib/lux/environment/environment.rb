@@ -50,6 +50,10 @@ module Lux
       !web?
     end
 
+    def cache?
+      !no_cache?
+    end
+
     def no_cache?
       @no_cache = ENV['LUX_ENV'].include?('c') if @no_cache.nil?
       @no_cache
