@@ -4,7 +4,7 @@ module Lux
   class Application
     class Nav
       attr_accessor :format
-      attr_reader :original, :domain, :subdomain, :querystring
+      attr_reader :original, :domain, :subdomain, :querystring, :ids
 
       # acepts path as a string
       def initialize request
@@ -12,63 +12,60 @@ module Lux
         @original    = @path.dup
         @request     = request
         @querystring = {}.to_hwia
+        @ids         = []
+        @shifted     = []
 
         set_variables
         set_domain request
         set_format
       end
 
-      # if block given, eval and shift or return nil
-      def root sub_nav=nil
-        raise 'Does not accept blocks' if block_given?
-        sub_nav ? ('%s/%s' % [@path.first, sub_nav]) : @path.first
+      def root
+        @path.first
       end
 
       def root= value
         @path[0] = value
       end
 
-      # shift element of the path
-      # or eval block on path index and slice if true
-      def shift index = 0
-        return unless @path[index].present?
-
-        if block_given?
-          result = yield(@path[index]) || return
-
-          if index == 0
-            active_shift
-          else
-            @path.slice!(index, 1)
-          end
-
-          result
-        else
-          active_shift
-        end
+      def shift
+        @shifted.push @path.shift
       end
 
       # used to make admin.lvm.me/users to lvh.me/admin/users
-      def unshift name
-        @path.unshift name
-        @path = @path.flatten
-        name
-      end
-
-      def last
-        if block_given?
-          # replace root in place if yields not nil
-          return unless @path.last.present?
-          result = yield(@path.last) || return
-          @path.pop
-          result
+      def unshift name = nil
+        if name
+          @path.unshift name
+          @path = @path.flatten
+          name
         else
-          @path.last
+          @path.unshift @shifted.pop
         end
       end
 
-      def active
-        @active
+      # pop element of the path
+      def pop replace_with = nil
+        if block_given?
+          if result = yield(@path.last)
+            @path.pop
+            @path.unshift replace_with if replace_with
+            result
+          end
+        else
+          @path.shift
+        end
+      end
+
+      def last
+      #   if block_given?
+      #     # replace root in place if yields not nil
+      #     return unless @path.last.present?
+      #     result = yield(@path.last) || return
+      #     @path.pop
+      #     result
+      #   else
+          @path.last
+      #   end
       end
 
       # get Url object initialized with request.url - relative
@@ -126,14 +123,43 @@ module Lux
         @path.join('/').sub(/\/$/, '')
       end
 
-      def id
-        if block_given?
-          @id_set = true
-          @id_value = yield
-        else
-          raise "ID not set (use nav.id { ... })" unless @id_set
-          @id_value
+      # accept only two strings locale
+      # nav.locale { _1.length == 2 ? _1 : nil }
+      def locale
+        return @locale if @locale
+
+        if @path[0].to_s.downcase =~ /^[a-z]{2}(-[a-z]{2})?$/
+          if @locale = yield(@path[0])
+            @path.shift
+          else
+            @locale = ''
+          end
         end
+        @locale
+      end
+
+      def locale= name
+        @locale = name.present? ? name.to_s : nil
+      end
+
+      def id
+        @ids.last
+      end
+
+      # replace nav path with id, when mached (works with resourceful routes map 'controler')
+      # nav.path_id { _1.split('-').last.string_id rescue nil }
+      # /foo/test-cbjy/bar -> ['foo', :id, 'bar]
+      def path_id
+        @path = @path.map do |el|
+          if result = yield(el)
+            @ids.push result
+            :id
+          else
+            el
+          end
+        end
+
+        @ids.last
       end
 
       private
@@ -178,10 +204,6 @@ module Lux
           @format    = parts.pop.to_s.downcase.to_sym
           @path.last = parts.join('.')
         end
-      end
-
-      def active_shift
-        @active = @path.shift
       end
     end
   end

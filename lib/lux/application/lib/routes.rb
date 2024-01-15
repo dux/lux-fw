@@ -74,10 +74,8 @@ module Lux
         if block_given?
           # map 'admin' do ...
           if test?(route_object)
-            yield
-            unless response.body?
-              error.not_found("Namespace <b>:#{route_object}</b> matched but nothing is called")
-            end
+            yield nav.root
+            nav.unshift
           end
 
           return
@@ -169,8 +167,12 @@ module Lux
         when String
           if object.include?('#')
             object, action = object.split('#')
-          elsif object.include?('?')
-            object, namespace = object.split('?')
+          else
+            action = if nav.root == :id
+              nav.path[1] || :show
+            else
+              nav.path[0] || :index
+            end
           end
         when Array
           if object[0].class == Integer && object[1].class == Hash
@@ -207,14 +209,7 @@ module Lux
         end
 
         opts   ||= {}
-        action ||= resolve_action object
-
-        # map.pages 'domain?pages'
-        # '/pages/1/foo' -> domain#pages_foo
-        if namespace
-          action = [namespace, action].join('_')
-          resolve_action object
-        end
+        action ||= nav.path.last || :index
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
           error.not_found Lux.env.show_errors? ? "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" : nil
@@ -250,18 +245,6 @@ module Lux
         end
 
         nav.shift if ok
-
-        ok
-      end
-
-      private
-
-      def resolve_action object
-        if nav.root
-          nav.id ? nav.path[1] : nav.path[0]
-        else
-          :root
-        end
       end
     end
   end
