@@ -24,6 +24,20 @@ module Lux
       def helper scope, name
         Lux::Template::Helper.new scope, name
       end
+
+      def find_layout root, layout_template
+        path = Lux.cache.fetch "layout-path-#{root}-#{layout_template}" do
+          base1 = '%s/layouts/%s.*' % [root, layout_template]
+          base2 = '%s/%s/layout.*' % [root, layout_template]
+          path = Dir[base1][0] || Dir[base2][0]
+          
+          if path
+            path.sub /\.[\w]+$/, ''
+          else
+            raise %[Layout path for #{layout_template} not found. Looked in #{base1} & #{base2}]
+          end
+        end
+      end
     end
 
     ###
@@ -100,7 +114,7 @@ module Lux
 
     def report_error e
       if Lux.current.error
-        raise raise Lux.current.error
+        raise Lux.current.error
       else
         Lux.current.error = e
         Lux.log ' %s (HAS ERROR)' % @template.red
