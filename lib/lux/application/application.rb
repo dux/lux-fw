@@ -14,9 +14,10 @@ module Lux
     define_callback :after     # after any page load
 
     def initialize env, opts={}
-      Lux::Current.new env, opts if env
+      Lux::Current.new env, opts
     end
 
+    # main render called by Lux.call
     def render_base
       if Lux.env.reload_code? && Lux.env.web?
         Lux.config.on_reload_code.call
@@ -51,11 +52,6 @@ module Lux
       end
 
       response.render
-    rescue => err
-      Lux.current.error ||= err
-      Lux.error.screen Lux.current.error
-      render_error
-      response.render
     end
 
     # to get root page body
@@ -85,7 +81,7 @@ module Lux
 
     def render_error
       err = Lux.current.error ||= $!
-      Lux.info "Unhandled error (definef render_error in routes): [#{err.class}] #{err.message}"
+      Lux.info "Unhandled error (define render_error in routes): [#{err.class}] #{err.message}"
       Lux.error.log err
       raise err
     end
@@ -93,12 +89,12 @@ module Lux
     def favicon path
       return if response.body?
       cpath = request.path.downcase
-      
+
       if cpath.start_with?('/favicon') || cpath.start_with?('/apple-touch-icon')
         icon = Lux.root.join(path)
         if icon.exist?
           response.send_file(icon, inline: true)
-        else 
+        else
           error '%s not found' % path
         end
       end

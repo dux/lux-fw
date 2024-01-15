@@ -85,10 +85,8 @@ module Lux
           render
         end
       end
-    # rescue => err
-    #   Lux::Error.log err
-    #   Lux::Error.screen err unless err.class == Lux::Error
-    #   render_error err
+    rescue => error
+      rescue_from error
     end
 
     def timeout seconds
@@ -97,6 +95,12 @@ module Lux
 
     def flash
       response.flash
+    end
+
+    def rescue_from error
+      Lux::Error.log error
+      data = Lux.env.show_errors? ? Lux::Error.inline(error) : 'Server error: %s (%s)' % [error.message, error.class]
+      render html: data, status: 400
     end
 
     private
@@ -138,7 +142,7 @@ module Lux
         opts[:template] = name
       end
 
-      opts = opts.to_hwia :text, :plain, :html, :json, :javascript, :cache, :template, :layout, :render_to_string, :data, :status, :ttl, :content_type
+      opts = opts.to_hwia :inline, :text, :plain, :html, :json, :javascript, :cache, :template, :layout, :render_to_string, :data, :status, :ttl, :content_type, :xml
 
       # set response status and content_type
       response.status opts.status if opts.status
@@ -154,7 +158,7 @@ module Lux
       opts.cache = nil if response.flash.present?
 
       # render static types
-      for el in [:text, :html, :json, :javascript]
+      for el in [:text, :html, :json, :javascript, :xml]
         if value = opts[el]
           response.body value, content_type: el
         end
@@ -173,7 +177,7 @@ module Lux
           response.header['x-lux-cache'] = 'render-cache'
           from_cache += '<!-- from page cache -->' if from_cache =~ %r{</html>\s*$}
         end
-        
+
         from_cache
       else
         render_template(opts)
@@ -185,17 +189,16 @@ module Lux
     def render_template opts
       run_callback :before_render, @lux.action
 
-      # prepare helper from layout, if possible
-      inline_helpers = self.helper(opts.layout)
-      
+      local_helper = self.helper
+
       page_template = cattr.template_root + opts.template.to_s
       Lux.current.var.root_template_path = page_template.sub(%r{/[\w]+$}, '')
-      data = Lux::Template.render(inline_helpers, page_template)
+      data = opts.inline || Lux::Template.render(self.helper, page_template)
 
       layout_template = [opts.layout, @lux.layout, self.class.cattr.layout].select { ! _1.nil? }.first
       if layout_template
-        layout_template = cattr.template_root  + '/layouts/' + layout_template.to_s
-        data = Lux::Template.render(inline_helpers, layout_template) { data }
+        path = Lux::Template.find_layout cattr.template_root, layout_template
+        data = Lux::Template.render(self.helper, path) { data }
       end
 
       data
@@ -205,11 +208,20 @@ module Lux
       self.class.to_s.split('::').first.underscore.to_sym
     end
 
-    def helper ns = nil
-      inline_helpers = [@lux.layout, ns].compact.map do |l|
-        Object.const_defined?("#{l}_helper".classify) ? l : nil
+    def helper *list
+      helpers =
+      if list[0]
+        list
+      else
+        self.class.ancestors
+          .select { _1.to_s.end_with?('Controller') }.reverse
+          .map { _1.cattr.helper }
+          .push(cattr.layout)
+          .flatten.compact.uniq
+          .select { Object.const_defined?("#{_1}_helper".classify) }
       end
-      Lux::Template::Helper.new self, :html, self.class.helper, inline_helpers
+
+      Lux::Template::Helper.new self, :html, self.class.helper, helpers
     end
 
     # respond_to :js do ...
@@ -289,7 +301,7 @@ module Lux
         end
       end
 
-      raise Lux::Error.new 404, [message, defined].join(' ')
+      raise Lux::Error.not_found [message, defined].join(' ')
     end
   end
 end
