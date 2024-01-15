@@ -10,11 +10,11 @@ class String
   end
 
   # prepare data for storage write, to make it safe to dump on screen without unescape
-  def html_escape
+  def html_escape display = false
     # .gsub('<', '&lt;').gsub('>', '&gt;')
     # .gsub("'", '&#39').gsub('"', '&#34')
     self
-      .gsub('<', '#LT;')
+      .gsub('<', display ? '&lt;' : '#LT;')
       .gsub(/\A^\s+|\s+\z/,'')
   end
 

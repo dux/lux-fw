@@ -19,19 +19,18 @@ class ErbParser
 
   def import_svelte folder:, prefix:
     out = []
-    out.push 'window.S ||= {};'
+    out.push 'window.S ||= Svelte.index;'
     out.push ''
 
     for file in Dir.find(folder, ext: [:svelte])
-      name       = file.split('/').last.split('.').first.downcase
+      name = file.split('/').last.split('.').first.downcase
 
       # cant call classify because we can have block in singular and plural
       # block-post and block-posts and become SvelteBlockPost
-      klass      = "Svelte_#{prefix}_#{name}".gsub(/[^\w]/, '_') #.classify
+      klass = "Svelte_#{prefix}_#{name}".gsub(/[^\w]/, '_') #.classify
 
       out.push "import #{klass} from './#{file}';";
       out.push "Svelte.bind('#{prefix}-#{name.gsub('_', '-')}', #{klass});"
-      out.push "window.S.#{name.gsub('-', '_')} = #{klass};"
       out.push ''
     end
 

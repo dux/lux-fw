@@ -12,7 +12,7 @@ module Lux
     def start_info
       @load_info ||= proc do
         info = []
-        
+
         config = []
         %w(no_cache reload_code show_errors screen_log).each do |name|
           value = Lux.env.send("#{name}?")
@@ -50,7 +50,8 @@ module Lux
       Lux.config.logger_formatter     = nil
 
       # Other
-      Lux.config.asset_root            = false
+      Lux.config.use_autoroutes       = false
+      Lux.config.asset_root           = false
       Lux.config[:plugins]           ||= []
       Lux.config[:error_logger]      ||= Proc.new do |error|
         ap [error.message, error.class, Lux::Error.mark_backtrace(error)]
@@ -86,6 +87,7 @@ module Lux
 
         if base
           base.deep_merge!(data[Lux.env.to_s] || {})
+          base['production'] = data['production']
           base
         else
           raise "Secrets :default root not defined in %s" % source

@@ -1,6 +1,19 @@
 # https://gist.github.com/dux/466507a5e86cadd2c4714381a1f06cf4
 
 class Thread::Simple
+  # Thread::Simple.run do |t|
+  #   for foo in bar
+  #     t.add { ... }
+  #   end
+  # end
+  def self.run **args
+    ts = new
+    yield ts
+    ts.run
+  end
+
+  ###
+
   attr_accessor :que, :size, :named
 
   def initialize size: 5, sleep: 0.05

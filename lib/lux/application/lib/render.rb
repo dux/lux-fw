@@ -1,3 +1,5 @@
+# renders pages without server
+
 module Lux
   class Application
     module Render

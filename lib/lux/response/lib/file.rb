@@ -37,7 +37,8 @@ module Lux
         ttf:   'application/font-ttf',
         eot:   'application/vnd.ms-fontobject',
         otf:   'application/font-otf',
-        doc:   'application/msword'
+        doc:   'application/msword',
+        xml:   'application/xml'
       }
 
       ###

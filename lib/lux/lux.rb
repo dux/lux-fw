@@ -18,7 +18,7 @@ module ::Lux
       app.render_base || raise('No RACK response given')
     end
   rescue => err
-    error.log err
+    Lux::Error.log err
 
     if Lux.env.show_errors?
       raise err
@@ -47,10 +47,10 @@ module ::Lux
     end
   end
 
-  def run command
+  def run command, get_result = false
     puts command.light_black
     logger(:system_run).info command
-    system command
+    get_result ? `${command}` : system(command)
   end
 
   def die text

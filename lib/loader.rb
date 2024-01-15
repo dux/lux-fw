@@ -39,4 +39,3 @@ if Lux.root != Lux.fw_root
   # create folders if needed
   ['./log', './tmp'].each { |d| `mkdir #{d}` unless Dir.exist?(d) }
 end
-

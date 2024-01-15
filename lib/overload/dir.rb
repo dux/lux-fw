@@ -95,10 +95,11 @@ class Dir
 
   # Requires all found ruby files in a folder, deep search into child folders
   # `Dir.require_all('./app')`
-  def self.require_all folder
+  def self.require_all folder, opts = {}
     list = Dir.find(folder, ext: :rb) unless list.is_a?(Array)
     list
       .select{ |o| o.index('.rb') }
+      .select{ |o| opts[:skip] ? !o.include?(opts[:skip]) : true }
       .each do |ruby_file|
         begin
           require ruby_file

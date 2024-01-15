@@ -2,10 +2,10 @@ class PageMeta
   attr_accessor :app
 
   def initialize app = nil
-    @meta    = {}
-    @links   = []
-    @scripts = []
-    @app     = app
+    @meta      = {}
+    @links     = []
+    @scripts   = []
+    @site_name = app
   end
 
   def meta name, desc
@@ -18,10 +18,12 @@ class PageMeta
     @links.push %[<link rel="preload" href="#{resource}" as="font" type="#{type}" crossorigin="anonymous" />]
   end
 
-   def description data
+  def description data
     return @description unless data.present?
     data = data.trim(140)
+    @meta['description'] = data
     @meta['og:description'] = data
+    @meta['twitter:description'] = data
   end
   alias_method :description=, :description
 
@@ -29,6 +31,10 @@ class PageMeta
     @links.push '<link rel="%s" href="%s" />' % [rel, href]
   end
 
+  def type kind
+    @og_type = kind
+  end
+  
   def title data = nil
     return @title unless data.present?
     @meta['og:title'] = @title = data.trim(100)
@@ -41,12 +47,24 @@ class PageMeta
   end
   alias_method :url=, :url
 
+  def site_name name
+    @site_name = name if name
+  end
+
   def noindex
     @noindex = true
   end
 
   def nofollow
     @nofollow = true
+  end
+
+  def rss url, title = nil
+    @links.push %[<link rel="alternate" type="application/rss+xml" title="#{title || 'RSS feed'}" href="#{url}" />]
+  end
+
+  def sitemap link
+    @links.push %[<link rel="sitemap" type="application/xml" title="Sitemap" href="#{link}" />]
   end
 
   # last modified date
@@ -57,16 +75,17 @@ class PageMeta
   def image url
     return unless url.present?
 
+    url = "#{Lux.current.nav.base}#{url}" if url.starts_with?('/')
+
     @meta['og:image'] = url
     @meta['twitter:image'] = url
     @meta['twitter:card'] = 'summary_large_image'
 
-    size = url.split('.').last(2).first.to_s.split('-').last.to_s.split('x')
-
-    if size[1].is_numeric?
-      @meta['og:image:width']  = size[0]
-      @meta['og:image:height'] = size[1]
-    end
+    # size = url.split('.').last(2).first.to_s.split('-').last.to_s.split('x')
+    # if size[1].is_numeric?
+    #   @meta['og:image:width']  = size[0]
+    #   @meta['og:image:height'] = size[1]
+    # end
   end
   alias_method :image=, :image
 
@@ -99,17 +118,25 @@ class PageMeta
     Lux.current.response.header 'x-robots-tag', robots.join(', ')
 
     # favicon
-    @icon_path ||= '/favicon.png'
+    @icon_path ||= '/favicon.svg'
     ext = File.ext(@icon_path) || '*'
     @links.push %[<link rel="icon" href="#{@icon_path}" type="image/#{ext}" />]
     @links.push %[<link rel="apple-touch-icon" href="#{@icon_path}" type="image/#{ext}" />]
 
     meta = []
-    meta.push '<meta charset="UTF-8">'
+    meta.push '<meta charset="UTF-8" />'
+    @meta['og:type'] = @og_type || 'website'
+    @meta['viewport'] ||= 'width=device-width, initial-scale=1'
     
+    # title
+    @site_name ||= Lux.config.app.name
+    @meta['og:site_name'] = @site_name
+    title = @title ? "#{@title} | #{@site_name}" : @site_name
+    title = title.remove_tags
+
     for k,v in @meta
       if v
-        v.gsub!('"', '&quot;')
+        v = v.gsub('"', '&quot;')
         name = k.starts_with?('og:') ? :property : :name
         meta.push %[<meta #{name}="#{k}" content="#{v}" />]
       end
@@ -123,13 +150,9 @@ class PageMeta
     end
 
     if Lux.current.no_cache?
-      ret.push %[<script>window.noCache = true;</script>]
+        ret.push %[<script>window.noCache = true;</script>]
     end
 
-    # title
-    app_name = @app || Lux.config.app.name
-    title    = @title ? "#{@title} | #{app_name}" : app_name
-    title = title.remove_tags
     ret.push %[<title>#{title}</title>]
 
     data = ret.join("\n")

@@ -124,7 +124,7 @@ module Lux
         type = in_type
       end
 
-      @content_type = type
+      @content_type ||= type
     end
 
     def content_type= type

@@ -7,16 +7,24 @@ class Object
       rr what
     end
 
+    what = what.respond_to?(:to_jsonp) ? what.to_jsonp : what.inspect
     raise StandardError.new(what.nil? ? 'nil' : what)
   end
 
   # better console log dump
-  def rr what
+  def rr what, as_jsonp = false
     klass = what.class
     klass = '%s at %s' % [klass, what.source_location.join(':').sub(Lux.root.to_s, '.')] if klass == Method
     from = caller[0].include?('raise_variants.rb') ? caller[1] : caller[0]
     from = from.sub(Lux.root.to_s+'/', './').split(':in ').first
-    ap ['--- START (%s) %s - %s ---' % [klass, from, Lux.current.request.url], what, '--- END ---']
+    header = '--- START (%s) %s - %s ---' % [klass, from, Lux.current.request.url]
+    if as_jsonp
+      puts header
+      puts what.to_jsonp
+      puts '--- END ---'
+    else
+      ap [header, what, '--- END ---']
+    end
   end
 
   # unique methods for object

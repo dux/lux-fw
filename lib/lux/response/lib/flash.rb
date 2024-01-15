@@ -1,4 +1,6 @@
-# frozen_string_literal: true
+# flash.info = 'Test'
+# flash.clear -> get hash
+# flash.clear_for_js -> get JS optimized hash
 
 module Lux
   class Response

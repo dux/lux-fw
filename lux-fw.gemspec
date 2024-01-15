@@ -94,7 +94,4 @@ Gem::Specification.new 'lux-fw' do |gem|
 
   # various type systems and schemas
   gem.add_dependency 'typero'
-
-  # html string building lib
-  gem.add_dependency 'html-tag'
 end

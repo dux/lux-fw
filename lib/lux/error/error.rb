@@ -144,7 +144,7 @@ module Lux
         error_key = error ? log(error) : nil
         message = message.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
 
-        HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 1px 10px 10px 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|
+        HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|
           n.h3 '%s : %s' % [error.class, message]
           n.p msg if msg
           n.p 'Key: %s' % error_key if error_key
@@ -203,8 +203,12 @@ module Lux
         return unless Lux.env.show_errors?
 
         data = split_backtrace(error)
-        data[2] = data[2][0,5]
-        ap data
+        if error.class == Lux::Error
+          Lux.info "Lux error: #{error.message} (#{error.code}) - #{data[1][0]}"
+        else
+          data[2] = data[2][0,5]
+          ap data
+        end
       end
 
       def log err
