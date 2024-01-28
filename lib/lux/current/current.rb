@@ -4,7 +4,7 @@ module Lux
     attr_accessor :can_clear_cache
 
     attr_accessor :session, :locale, :error
-    attr_reader   :request, :response, :nav, :var, :env, :params, :env
+    attr_reader   :request, :response, :nav, :var, :env, :params
 
     def initialize env = nil, opts = {}
       @env     = env || '/mock'

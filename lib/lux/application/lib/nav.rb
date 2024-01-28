@@ -204,6 +204,8 @@ module Lux
           @format    = parts.pop.to_s.downcase.to_sym
           @path.last = parts.join('.')
         end
+
+        @path.shift if @path[0] == ''
       end
     end
   end

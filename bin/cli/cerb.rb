@@ -19,7 +19,6 @@ class ErbParser
 
   def import_svelte folder:, prefix:
     out = []
-    out.push 'window.S ||= Svelte.index;'
     out.push ''
 
     for file in Dir.find(folder, ext: [:svelte])

@@ -11,7 +11,7 @@ module Lux
     cattr :layout, class: true
 
     # define helper contest, by defult derived from class name
-    cattr :helper, class: true
+    # cattr :helper, class: true
 
     # custom template root instead calcualted one
     cattr :template_root, default: './app/views', class: true
@@ -38,7 +38,7 @@ module Lux
 
     ### INSTANCE METHODS
 
-    IVARS ||= Struct.new 'LuxControllerIvars', :template_sufix, :action, :layout, :helper, :render_cache
+    IVARS ||= Struct.new 'LuxControllerIvars', :template_sufix, :action, :layout, :render_cache
 
     attr_reader :controller_action
 
@@ -142,7 +142,7 @@ module Lux
         opts[:template] = name
       end
 
-      opts = opts.to_hwia :inline, :text, :plain, :html, :json, :javascript, :cache, :template, :layout, :render_to_string, :data, :status, :ttl, :content_type, :xml
+      opts = opts.to_hwia :inline, :text, :plain, :html, :json, :javascript, :xml, :cache, :template, :layout, :render_to_string, :status, :ttl, :content_type
 
       # set response status and content_type
       response.status opts.status if opts.status
@@ -156,6 +156,9 @@ module Lux
 
       # we do not want to cache pages that have flashes in response
       opts.cache = nil if response.flash.present?
+
+      # define which layout we use
+      opts.layout ||= @lux.layout.nil? ? self.class.cattr.layout : @lux.layout
 
       # render static types
       for el in [:text, :html, :json, :javascript, :xml]
@@ -189,16 +192,15 @@ module Lux
     def render_template opts
       run_callback :before_render, @lux.action
 
-      local_helper = self.helper
+      local_helper = self.helper opts.layout
 
       page_template = cattr.template_root + opts.template.to_s
       Lux.current.var.root_template_path = page_template.sub(%r{/[\w]+$}, '')
-      data = opts.inline || Lux::Template.render(self.helper, page_template)
+      data = opts.inline || Lux::Template.render(local_helper, page_template)
 
-      layout_template = [opts.layout, @lux.layout, self.class.cattr.layout].select { ! _1.nil? }.first
-      if layout_template
-        path = Lux::Template.find_layout cattr.template_root, layout_template
-        data = Lux::Template.render(self.helper, path) { data }
+      if opts.layout
+        path = Lux::Template.find_layout cattr.template_root, opts.layout
+        data = Lux::Template.render(local_helper, path) { data }
       end
 
       data
@@ -208,20 +210,9 @@ module Lux
       self.class.to_s.split('::').first.underscore.to_sym
     end
 
-    def helper *list
-      helpers =
-      if list[0]
-        list
-      else
-        self.class.ancestors
-          .select { _1.to_s.end_with?('Controller') }.reverse
-          .map { _1.cattr.helper }
-          .push(cattr.layout)
-          .flatten.compact.uniq
-          .select { Object.const_defined?("#{_1}_helper".classify) }
-      end
-
-      Lux::Template::Helper.new self, :html, self.class.helper, helpers
+    def helper helper
+      helper = nil unless helper
+      Lux::Template::Helper.new self, :html, helper
     end
 
     # respond_to :js do ...

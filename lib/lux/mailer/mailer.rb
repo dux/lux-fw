@@ -65,7 +65,7 @@ module Lux
 
       unless data
         helper = Lux::Template::Helper.new self, self.class.helper
-        layout = Lux::Template.find_layout 'app/views', self.class.layout
+        layout = Lux::Template.find_layout './app/views', self.class.layout
         data = Lux::Template.render helper, template: "#{cattr.template_root}/mailer/#{@_template}", layout: layout
       end
 

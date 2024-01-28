@@ -89,6 +89,7 @@ module Lux
         case route_object
         when String
           # map 'root#call'
+          nav.shift
           catch(:done) { call route_object }
         when Hash
           route  = route_object.keys.first
@@ -120,20 +121,6 @@ module Lux
         end
 
         test?(route) ? call(klass, nil, opts) : nil
-      end
-
-      # test if controller or controller + action exist
-      # map? 'dashboard/posts'
-      # map? 'dashboard/posts#index'
-      def map? target
-        base, action = target.split('#', 2)
-        klass = ('%s_controller' % base).classify
-
-        if Object.const_defined?(klass)
-          action ? klass.constantize.respond_to?(action) : true
-        else
-          false
-        end
       end
 
       # Calls target action in a controller, if no action is given, defaults to :call

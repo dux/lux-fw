@@ -11,6 +11,10 @@ module Lux
           rack_file = new file: path, inline: true
           rack_file.send if rack_file.is_static_file?
         end
+
+        def type name
+          MIMME_TYPES[name.to_sym]
+        end
       end
 
       ###

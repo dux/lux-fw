@@ -29,11 +29,11 @@ class Object
   ###
 
   # @foo.or(2)
-  def or _or=nil, &block
+  def or _or = nil, &block
     self.blank? || self == 0 ? (block ? block.call : _or) : self
   end
 
-  def nil _or=nil, &block
+  def nil _or = nil, &block
     self.nil? ? (block ? block.call : _or) : self
   end
 

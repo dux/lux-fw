@@ -30,11 +30,11 @@ module Lux
           base1 = '%s/layouts/%s.*' % [root, layout_template]
           base2 = '%s/%s/layout.*' % [root, layout_template]
           path = Dir[base1][0] || Dir[base2][0]
-          
+
           if path
             path.sub /\.[\w]+$/, ''
           else
-            raise %[Layout path for #{layout_template} not found. Looked in #{base1} & #{base2}]
+            raise Lux::Error.not_found(%[Layout path for #{layout_template} not found. Looked in #{base1} & #{base2}])
           end
         end
       end
@@ -101,7 +101,7 @@ module Lux
 
       unless @template
         msg = %[Lux::Template "#{template}.{erb,haml}" not found]
-        raise ArgumentError.new(msg)
+        raise Lux::Error.not_found(msg)
       end
 
       begin
