@@ -1,4 +1,6 @@
 module Lux
+  OPTS ||= Struct.new 'LuxCacheOpts', :ttl, :force, :if, :unless, :speed, :delete_if_empty
+
   class Cache
     def initialize server_name = nil
       self.server= server_name || :memory
@@ -54,7 +56,7 @@ module Lux
       key = generate_key key
 
       opts = { ttl: opts } unless opts.is_a?(Hash)
-      opts = opts.to_hwia :ttl, :force, :if, :unless, :speed
+      opts = OPTS.new **opts
 
       return yield if opts.if.is_a?(FalseClass)
 
@@ -72,7 +74,11 @@ module Lux
         Marshal.dump data
       end
 
-      Marshal.load data
+      Marshal.load(data).tap do |out|
+        if opts.delete_if_empty && out.empty?
+          @server.delete key
+        end
+      end
     end
 
     # lock execution of a block for some time and allow only once instance running in time slot
