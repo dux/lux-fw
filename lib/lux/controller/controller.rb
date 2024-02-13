@@ -223,7 +223,7 @@ module Lux
           yield if block_given?
           true
         elsif nav.format
-          error.not_found '%s document Not Found' % nav.format.to_s.upcase
+          Lux.error.not_found '%s document Not Found' % nav.format.to_s.upcase
         end
       else
         yield nav.format

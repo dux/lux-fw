@@ -34,7 +34,7 @@ class PageMeta
   def type kind
     @og_type = kind
   end
-  
+
   def title data = nil
     return @title unless data.present?
     @meta['og:title'] = @title = data.trim(100)
@@ -127,7 +127,7 @@ class PageMeta
     meta.push '<meta charset="UTF-8" />'
     @meta['og:type'] = @og_type || 'website'
     @meta['viewport'] ||= 'width=device-width, initial-scale=1'
-    
+
     # title
     @site_name ||= Lux.config.app.name
     @meta['og:site_name'] = @site_name
@@ -150,7 +150,7 @@ class PageMeta
     end
 
     if Lux.current.no_cache?
-        ret.push %[<script>window.noCache = true;</script>]
+      ret.push %[<script>window.noCache = true;</script>]
     end
 
     ret.push %[<title>#{title}</title>]

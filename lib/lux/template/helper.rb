@@ -56,11 +56,11 @@ module Lux
           Lux.current.var[name]
         end
       end
-      
+
       def capture_proc
         proc { |*args| "#{yield(*args)}" }
       end
-      
+
       # renders just template but it is called
       # = render :_link, link:link
       # = render 'main/links/_link', link:link
@@ -108,11 +108,6 @@ module Lux
         opts[:ttl] ||= 1.hour
         key = 'view:'+name+block.source_location.join(':')+Lux.config.deploy_timestamp.to_s
         Lux.cache.fetch(key, opts) { yield }
-      end
-
-      def error msg = nil
-        return Lux::Error unless msg
-        %[<pre style="color:red; background:#eee; padding:10px; font-family:'Lucida Console'; line-height:14pt; font-size:10pt;">#{msg}</pre>]
       end
 
       # helper(:main).method

@@ -51,7 +51,7 @@ module Lux
       def subdomain name
         return unless nav.subdomain == name.to_s
         yield
-        error.not_found 'Subdomain "%s" matched but nothing called' % name
+        Lux.error.not_found 'Subdomain "%s" matched but nothing called' % name
       end
 
       # Main routing object, maps path part to target
@@ -67,9 +67,11 @@ module Lux
       #   map :about
       # end
       # ```
-      def map route_object = nil, &block
+      def map route_object = nil, target = nil &block
         return @magic unless route_object
         return if response.body?
+
+        route_object = [route_object, target] if target
 
         if block_given?
           # map 'admin' do ...
@@ -199,11 +201,11 @@ module Lux
         action ||= nav.path.last || :index
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
-          error.not_found Lux.env.show_errors? ? "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" : nil
+          Lux.error.not_found Lux.env.show_errors? ? "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" : nil
         end
 
         if opts[:except] && opts[:except].include?(action.to_sym)
-          error.not_found Lux.env.show_errors? ? "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" : nil
+          Lux.error.not_found Lux.env.show_errors? ? "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" : nil
         end
 
         if object.respond_to?(:action)

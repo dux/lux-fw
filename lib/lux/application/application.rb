@@ -48,7 +48,7 @@ module Lux
       end
 
       catch :done do
-        error.not_found unless response.body?
+        Lux.error.not_found unless response.body?
       end
 
       response.render
@@ -108,7 +108,7 @@ module Lux
       run_callback :routes, nav.path
 
       unless response.body?
-        error.not_found 'Document not found'
+        Lux.error.not_found 'Document not found'
       end
 
       run_callback :after, nav.path

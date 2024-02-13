@@ -1,9 +1,9 @@
 module Lux
   def error *args
     if args.first
-      raise Lux::Error.new(*args)
+      raise Lux::Error::AutoRaise.new(*args)
     else
-      Lux::Error
+      Lux::Error::AutoRaise
     end
   end
 end

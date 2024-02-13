@@ -78,13 +78,17 @@ module Lux
         end
       end
 
-      # contruct path
-      # /upload_dialog/is_image:true/model:posts/id:2/field:image_url
-      # = nav.path :model, :id, :field -> /upload_dialog/model:posts/id:2/field:image_url
       def path *args
         if args.first
+          # contruct path
+          # /upload_dialog/is_image:true/model:posts/id:2/field:image_url
+          # = nav.path :model, :id, :field -> /upload_dialog/model:posts/id:2/field:image_url
           parts  = @original.select {|el| !el.include?(':') }
-          parts += args.map {|el| [el, Lux.current.params[el] || Lux.error("qs param [#{el}] not found")].join(':') }
+          parts += args.map do |el|
+            if value = Lux.current.params[el]
+              [el, value].join(':')
+            end
+          end.compact
           '/' + parts.join('/')
         else
           @path

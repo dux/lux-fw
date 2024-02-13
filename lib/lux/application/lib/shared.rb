@@ -42,31 +42,6 @@ module Lux
       def user
         User.current
       end
-
-      # Triggers HTTP page error
-      # ```
-      # error.not_found
-      # error.not_found 'Doc not fount'
-      # error(404)
-      # error(404, 'Doc not fount')
-      # error('Doc not fount') # status 400
-      # ```
-      def error code=nil, message=nil
-        if code
-          if code.is_a?(String)
-            error = Lux::Error.new 400
-            error.message = code
-          else
-            error = Lux::Error.new code
-            error.message = message if message
-          end
-
-          raise error
-        else
-          Lux::Error::AutoRaise
-        end
-      end
-      alias :lux_error :error
     end
   end
 end
