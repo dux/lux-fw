@@ -130,7 +130,9 @@ module Lux
       # accept only two strings locale
       # nav.locale { _1.length == 2 ? _1 : nil }
       def locale
-        return @locale if @locale
+        if @locale
+          return @locale.to_s == '' ? nil : @locale
+        end
 
         if @path[0].to_s.downcase =~ /^[a-z]{2}(-[a-z]{2})?$/
           if @locale = yield(@path[0])
@@ -139,6 +141,7 @@ module Lux
             @locale = ''
           end
         end
+
         @locale
       end
 

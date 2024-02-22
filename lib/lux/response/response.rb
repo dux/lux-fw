@@ -136,13 +136,13 @@ module Lux
       message ? @flash.error(message) : @flash
     end
 
-    def send_file file, opts = {} 
+    def send_file file, opts = {}
       ::Lux::Response::File.new(opts.merge(file: file)).send
     end
 
     # redirect_to '/foo'
     # redirect_to :back, info: 'bar ...'
-    def redirect_to where, opts={}
+    def redirect_to where, opts = {}
       Lux.log { ' Redirected to "%s" from: %s' % [where, Lux.app_caller] }
 
       opts   = { info: opts } if opts.is_a?(String)
@@ -218,7 +218,7 @@ module Lux
         log_data  = " #{@status}, #{@data.to_s.length}, #{(@body.bytesize.to_f/1024).round(1)}kb, #{@headers['x-lux-speed']}"
         log_data += " - #{@http_log_info}" if @http_log_info
         log_data += " (#{current.request.url})" if current.nav.format
-        
+
         [200, 304].include?(@status) ? log_data : log_data.magenta
       end
 
@@ -273,15 +273,16 @@ module Lux
 
     def write_response_header
       current.session[:lux_flash] = flash.to_h
-      
+
       if current.session[:lux_flash].keys.length != 0
-        self.max_age = 0 
+        self.max_age = 0
       end
 
       # cache-control
       @headers['cache-control'] ||= begin
-        cc = ['max-age=%d' % max_age]
+        cc = []
         cc.push max_age > 0 ? 'public' : 'private, must-revalidate'
+        cc.push 'max-age=%d' % max_age
         cc.join(', ')
       end
 

@@ -35,7 +35,7 @@ module Lux
         Lux.current.response.body?
       end
 
-      def redirect_to where, flash={}
+      def redirect_to where, flash = {}
         Lux.current.response.redirect_to where, flash
       end
 

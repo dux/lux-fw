@@ -87,10 +87,11 @@ module Lux
     end
 
     def favicon path
-      return if response.body?
       cpath = request.path.downcase
 
-      if cpath.start_with?('/favicon') || cpath.start_with?('/apple-touch-icon')
+      if !response.body? && cpath.start_with?('/favicon') || cpath.start_with?('/apple-touch-icon')
+        response.max_age = 600 if response.max_age.to_i == 0
+
         icon = Lux.root.join(path)
         if icon.exist?
           response.send_file(icon, inline: true)

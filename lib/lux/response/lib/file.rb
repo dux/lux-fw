@@ -45,19 +45,18 @@ module Lux
         xml:   'application/xml'
       }
 
+      OPTS = Struct.new 'LuxResponseFileOpts', :name, :file, :content_type, :inline, :disposition, :content, :ext, :path
+
       ###
       # all parametars are optional
       # :name          - file name
-      # :cache         - client cache in seconds
       # :content_type  - string type
       # :inline        - sets disposition to inline if true
       # :disposition   - inline or attachment
       # :content       - raw file data
       def initialize in_opts = {}
-        opts = in_opts.to_hwia :name, :file, :cache, :content_type, :inline, :disposition, :content, :ext, :path
+        opts = OPTS.new **in_opts
         opts.disposition ||= opts.inline.class == TrueClass ? 'inline' : 'attachment'
-        opts.cache         = true if opts.cache.nil?
-
         opts.file = Pathname.new(opts.file) unless opts.file.class == Pathname
         opts.path = opts.file.to_s
         opts.ext  = opts.path.include?('.') ? opts.path.split('.').last.to_sym : nil
@@ -85,8 +84,7 @@ module Lux
         end
 
         response.content_type(@opts.content_type || MIMME_TYPES[@opts.ext || '_'] || 'application/octet-stream')
-        response.headers['access-control-allow-origin'] = '*'
-        response.headers['cache-control'] = Lux.env.no_cache? ? 'public' : 'max-age=%d, public' % (@opts.cache ? 31536000 : 0)
+        response.headers['access-control-allow-origin'] ||= '*'
 
         if @opts.content
           etag Crypt.sha1 @opts.content

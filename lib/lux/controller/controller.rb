@@ -39,6 +39,7 @@ module Lux
     ### INSTANCE METHODS
 
     IVARS ||= Struct.new 'LuxControllerIvars', :template_sufix, :action, :layout, :render_cache
+    RENDER_OPTS ||= Struct.new 'LuxControllerRenderOpts', :inline, :text, :plain, :html, :json, :javascript, :xml, :cache, :template, :layout, :render_to_string, :status, :ttl, :content_type
 
     attr_reader :controller_action
 
@@ -142,7 +143,7 @@ module Lux
         opts[:template] = name
       end
 
-      opts = opts.to_hwia :inline, :text, :plain, :html, :json, :javascript, :xml, :cache, :template, :layout, :render_to_string, :status, :ttl, :content_type
+      opts = RENDER_OPTS.new **opts
 
       # set response status and content_type
       response.status opts.status if opts.status
