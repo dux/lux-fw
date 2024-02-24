@@ -112,7 +112,7 @@ class PageMeta
     # do not render other data if request is xhr/ajax
     # robots
     robots = []
-    robots.push @noindex ? :noindex : :index
+    robots.push @noindex ? 'noindex, noarchive' : :index
     robots.push @nofollow ? :nofollow : :follow
     meta :robots, robots.join(', ')
     Lux.current.response.header 'x-robots-tag', robots.join(', ')

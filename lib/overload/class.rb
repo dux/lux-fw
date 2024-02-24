@@ -2,8 +2,14 @@ class Class
 
   # Get all class descendants
   # `ApplicationModel.descendants # get all DB models`
-  def descendants
-    ObjectSpace.each_object(Class).select { |klass| klass < self }
+  def descendants fast = false
+    ObjectSpace.each_object(Class).select do |klass|
+      if fast
+        klass < self
+      else
+        klass.ancestors.include?(self)
+      end
+    end - [self]
   end
 
   # OrgsController.source_location -> ./apps/controllers/orgs_controller.rb

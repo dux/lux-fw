@@ -28,7 +28,7 @@ module Lux
 
       def delete key
         @@lock.synchronize do
-          @@ram_cache.delete(key)
+          !!@@ram_cache.delete(key)
         end
       end
 

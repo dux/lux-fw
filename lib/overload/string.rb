@@ -84,7 +84,7 @@ class String
     self.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '?')
   end
 
-  def parse_erb scope=nil
+  def parse_erb scope = nil
     ERB.new(self).result(scope || binding)
   end
 

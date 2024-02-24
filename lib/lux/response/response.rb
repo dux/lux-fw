@@ -243,6 +243,10 @@ module Lux
       @max_age > 0
     end
 
+    def is_bot?
+      current.request.user_agent.to_s.include?('Googlebot')
+    end
+
     private
 
     def write_response_body
@@ -286,7 +290,7 @@ module Lux
         cc.join(', ')
       end
 
-      if self.max_age == 0
+      if self.max_age == 0 && !self.is_bot?
         cookie = current.session.generate_cookie
         @headers['set-cookie'] = cookie if cookie
       end
