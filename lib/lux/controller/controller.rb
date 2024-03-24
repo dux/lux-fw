@@ -193,7 +193,7 @@ module Lux
     def render_template opts
       run_callback :before_render, @lux.action
 
-      local_helper = self.helper opts.layout
+      local_helper = self.helper opts.layout.or(cattr.layout) # if layout is false (for dialogs) we fallback to controller default layout
 
       page_template = cattr.template_root + opts.template.to_s
       Lux.current.var.root_template_path = page_template.sub(%r{/[\w]+$}, '')

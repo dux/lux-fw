@@ -20,29 +20,30 @@ module Lux
       ###
 
       MIMME_TYPES = {
-        text:  'text/plain',
-        txt:   'text/plain',
-        html:  'text/html',
-        gif:   'image/gif',
-        jpg:   'image/jpeg',
-        jpeg:  'image/jpeg',
-        png:   'image/png',
-        ico:   'image/png', # image/x-icon
         css:   'text/css',
-        map:   'application/json',
+        doc:   'application/msword',
+        eot:   'application/vnd.ms-fontobject',
+        gif:   'image/gif',
+        gz:    'application/x-gzip',
+        html:  'text/html',
+        ico:   'image/png', # image/x-icon
+        jpeg:  'image/jpeg',
+        jpg:   'image/jpeg',
         js:    'text/javascript',
         json:  'application/json',
-        gz:    'application/x-gzip',
-        zip:   'application/x-gzip',
-        svg:   'image/svg+xml',
+        map:   'application/json',
         mp3:   'application/mp3',
+        otf:   'application/font-otf',
+        png:   'image/png',
+        svg:   'image/svg+xml',
+        text:  'text/plain',
+        ttf:   'application/font-ttf',
+        txt:   'text/plain',
+        webp:  'image/webp',
         woff:  'application/x-font-woff',
         woff2: 'application/x-font-woff',
-        ttf:   'application/font-ttf',
-        eot:   'application/vnd.ms-fontobject',
-        otf:   'application/font-otf',
-        doc:   'application/msword',
-        xml:   'application/xml'
+        xml:   'application/xml',
+        zip:   'application/x-gzip'
       }
 
       OPTS = Struct.new 'LuxResponseFileOpts', :name, :file, :content_type, :inline, :disposition, :content, :ext, :path

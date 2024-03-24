@@ -37,8 +37,9 @@ module Lux
       @headers
     end
 
-    def max_age= age
+    def max_age= age, stale_while_revalidate = nil
       @max_age = age.to_i
+      @stale_while_revalidate = stale_while_revalidate
     end
 
     # http 103
@@ -287,6 +288,7 @@ module Lux
         cc = []
         cc.push max_age > 0 ? 'public' : 'private, must-revalidate'
         cc.push 'max-age=%d' % max_age
+        cc.push 'stale-while-revalidate=%d' % @stale_while_revalidate if @stale_while_revalidate
         cc.join(', ')
       end
 

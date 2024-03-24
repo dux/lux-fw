@@ -158,9 +158,9 @@ module Lux
       end
 
       # clear osx screen :)
-      def clear_screen
+      def clear_screen time = 0
         last = (Thread.current[:_lux_clear_screen] ||= 1.day.ago)
-        if last < Time.now - 5
+        if last < Time.now - time
           Thread.current[:_lux_clear_screen] = Time.now
           print "\e[H\e[2J\e[3J"
         end

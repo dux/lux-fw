@@ -10,8 +10,11 @@ class Float
     out = out.sub(/(\d)(\d{3}),/, '\1.\2,')
     out = out.sub(/(\d)(\d{3})\./, '\1.\2.')
 
-    if opts[:pretty] && !opts[:strip]
-      out = out.sub(/^([\d\.]+),(\d{2})$/, '<b>\1</b><small>,\2</small> ')
+    # remove decimal places
+    out = out.split(',').first if opts[:strip]
+
+    if opts[:pretty]
+      out = out.sub(/^([\d\.]+),(\d{2})$/, '<span class="pretty-price"><b>\1</b><small>,\2</small></span> ')
     end
 
     if symbol = opts[:symbol]
@@ -24,10 +27,15 @@ class Float
       end
     end
 
-    # remove decimal places
-    out = out.split(',').first if opts[:strip]
-
     out
+  end
+
+  def format_with_underscores
+    if self > 0
+      sprintf('%.2f', self).to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1_').reverse.sub('.00', '')
+    else
+      nil
+    end
   end
 
   def dotted round_to=2

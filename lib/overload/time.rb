@@ -62,9 +62,9 @@ class Time
     end
 
     # How long ago?
-    def ago start_time, end_time=nil
-      start_time = Time.parse start_time.to_s if [String, Date].include?(start_time.class)
-      TimeDifference.new(start_time, end_time).humanize
+    def ago start_time, end_time = nil
+      start = Time.parse start_time.to_s if [String, Date].include?(start_time.class)
+      TimeDifference.new(start || start_time, end_time, start_time.class).humanize
     end
 
     def monotonic

@@ -14,14 +14,15 @@ class Integer
   end
 
   def to_filesize
+    base = 1024
     out = lambda do
       {
-        'B'  => 1024,
-        'KB' => 1024 * 1024,
-        'MB' => 1024 * 1024 * 1024,
-        'GB' => 1024 * 1024 * 1024 * 1024,
-        'TB' => 1024 * 1024 * 1024 * 1024 * 1024
-      }.each_pair { |e, s| return "#{(self.to_f / (s / 1024)).round(1)} #{e}" if self < s }
+        'B'  => base,
+        'KB' => base * base,
+        'MB' => base * base * base,
+        'GB' => base * base * base * base,
+        'TB' => base * base * base * base * base
+      }.each_pair { |e, s| return "#{(self.to_f / (s / base)).round(1)} #{e}" if self < s }
     end.call
 
     out.sub('.0 B', ' B')

@@ -92,9 +92,10 @@ class Hash
     end
   end
 
+  # clean empty values from hash, deep
   def deep_compact value = nil
     value ||= self
-    
+
     res_hash = value.map do |key, value|
       value = deep_compact(value) if value.is_a?(Hash)
 

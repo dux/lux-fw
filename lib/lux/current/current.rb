@@ -13,7 +13,7 @@ module Lux
 
       # fix params if defined
       if opts.keys.length > 0
-        opts = opts.to_hwia :params, :post, :method, :session, :cookies
+        opts = opts.to_hwia :params, :post, :method, :session, :cookies, :query_string
 
         if opts[:post]
           opts[:method] = 'POST'

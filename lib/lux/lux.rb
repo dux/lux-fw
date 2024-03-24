@@ -47,6 +47,7 @@ module ::Lux
     end
   end
 
+  # Cdn.run has maybe better runner, inspect
   def run command, get_result = false
     puts command.light_black
     logger(:system_run).info command

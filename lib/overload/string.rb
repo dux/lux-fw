@@ -113,6 +113,14 @@ class String
     self.split(/\s*,\s*/)
   end
 
+  def attribute_safe
+    self.gsub('"', '').gsub("'", '')
+  end
+
+  def db_safe
+    self.gsub(/[^0-9a-zA-Z_]/, '')
+  end
+
   def starts_with? prefix
     prefix.respond_to?(:to_str) && self[0, prefix.length] == prefix
   end

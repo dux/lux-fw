@@ -53,7 +53,7 @@ module Crypt
 
   # Crypt.encrypt('secret')
   # Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
-  def encrypt data, opts={}
+  def encrypt data, opts = {}
     opts          = opts.to_hwia :ttl, :password
     payload       = { data:data }
     payload[:ttl] = Time.now.to_i + opts.ttl.to_i if opts.ttl
@@ -104,11 +104,11 @@ module Crypt
   end
 
   # works with Z.simpleEncode
-  def rot_b64_decode str
+  def simple_decode str
     Base64.decode64 str.gsub('_', '/').tr('A-Za-z', 'N-ZA-Mn-za-m')
   end
 
-  def rot_b64_ecode str
+  def simple_encode str
     Base64.encode64(str).gsub('_', '/').tr('A-Za-z', 'N-ZA-Mn-za-m').gsub(/=+$/, '').gsub(/\s/, '')
   end
 end

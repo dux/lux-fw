@@ -16,21 +16,27 @@ class Object
     puts Niceql::Prettifier.prettify_sql sql || $last_sql_command
   end
 
-  # show method info
-  # show User, :secure_hash
-  # show User
-  # def show klass, m=nil
-  #   unless m
-  #     klass = klass.class unless klass.respond_to?(:new)
-  #     return klass.instance_methods false
-  #   end
+  def c
+    Lux.error.clear_screen
+  end
 
-  #   info = klass.method(m)
-  #   puts info.source_location.or([]).join(':').yellow
-  #   puts '-'
-  #   puts info.source
-  #   nil
-  # end
+  # show method info
+  # m User, :secure_hash
+  def m object, mtd = nil
+    if mtd
+      info = object.method(mtd)
+      puts info.source_location.or([]).join(':').yellow
+      puts '-'
+      puts info.source
+      nil
+    else
+      if object.respond_to?(:superclass)
+        object.methods - object.superclass.methods
+      else
+        object.methods - object.class.superclass.methods
+      end
+    end
+  end
 end
 
 ARGV[0] = 'console' if ARGV[0] == 'c'
