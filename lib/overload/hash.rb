@@ -99,7 +99,8 @@ class Hash
     res_hash = value.map do |key, value|
       value = deep_compact(value) if value.is_a?(Hash)
 
-      value = nil if [{}, []].include?(value)
+      # we need to remove '0' because that is what empty checkbox inserts, but it is nil
+      value = nil if [{}, [], '0'].include?(value)
       value = nil if value.blank?
       [key, value]
     end

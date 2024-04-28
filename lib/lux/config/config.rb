@@ -67,7 +67,7 @@ module Lux
     end
 
     def app_timeout
-      @app_timeout || Lux.current.try('[]', :app_timeout) || Lux.config[:app_timeout] || (Lux.env.dev? ? 3600 : 30)
+      @app_timeout ||= Lux.current.try('[]', :app_timeout) || Lux.config[:app_timeout] || (Lux.env.dev? ? 3600 : 30)
     rescue
       30
     end

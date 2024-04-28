@@ -57,7 +57,7 @@ module Lux
       end
 
       if method_name.is_a?(Symbol)
-        raise ArgumentError.new('Forbiden action name :%s' % method_name) if [:action, :error].include?(method_name)
+        raise Lux.error.internal_server_error('Forbiden action name :%s' % method_name) if [:action, :error].include?(method_name)
       else
         return controller_action_call(method_name, *args)
       end

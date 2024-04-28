@@ -146,7 +146,7 @@ module Lux
     def redirect_to where, opts = {}
       Lux.log { ' Redirected to "%s" from: %s' % [where, Lux.app_caller] }
 
-      opts   = { info: opts } if opts.is_a?(String)
+      opts = { info: opts } if opts.is_a?(String)
 
       if where == :self
         where = current.request.path

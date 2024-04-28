@@ -52,6 +52,16 @@ module Lux
       end
 
       response.render
+    rescue => error
+      if respond_to?(:rescue_from)
+        catch :done do
+          rescue_from error
+        end
+
+        response.render
+      else
+        raise error
+      end
     end
 
     # to get root page body
@@ -96,7 +106,7 @@ module Lux
         if icon.exist?
           response.send_file(icon, inline: true)
         else
-          error '%s not found' % path
+          Lux.error.not_found '%s not found' % path
         end
       end
     end

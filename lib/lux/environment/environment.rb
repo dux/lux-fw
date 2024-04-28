@@ -3,7 +3,9 @@ module Lux
     ENVS ||= %w(development production test)
 
     def initialize env_name
-      unless ENVS.include?(env_name)
+      if env_name.empty?
+        raise ArgumentError.new('RACK_ENV is not defined') # never default to "development", because it could be loaded as default in production
+      elsif !ENVS.include?(env_name)
         raise ArgumentError.new('Unsupported environemt: %s (supported are %s)' % [env_name, ENVS])
       end
 
