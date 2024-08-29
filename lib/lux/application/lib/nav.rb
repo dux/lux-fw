@@ -29,7 +29,9 @@ module Lux
       end
 
       def shift
-        @shifted.push @path.shift
+        @path.shift.tap do |value|
+          @shifted.push value
+        end
       end
 
       # used to make admin.lvm.me/users to lvh.me/admin/users

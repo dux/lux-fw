@@ -58,8 +58,9 @@ module Lux
 
       if !status && !current.no_cache?(true) && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
         if Lux.env.no_cache?
-          @http_log_info = 'etag match (skiping in dev)'
+          Lux.log ' * etag match (skiping for env.no_cache)' unless current.nav.format
         else
+          Lux.log ' * etag match'
           body 'not-modified', status: 304
           true
         end
@@ -217,7 +218,6 @@ module Lux
 
       Lux.log do
         log_data  = " #{@status}, #{@data.to_s.length}, #{(@body.bytesize.to_f/1024).round(1)}kb, #{@headers['x-lux-speed']}"
-        log_data += " - #{@http_log_info}" if @http_log_info
         log_data += " (#{current.request.url})" if current.nav.format
 
         [200, 304].include?(@status) ? log_data : log_data.magenta

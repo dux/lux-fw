@@ -56,4 +56,7 @@ for dir in Lux.plugin.folders
   tasks += Dir['%s/**/*.rake' % dir]
 end
 
-tasks.each { |file| eval File.read file }
+tasks.each do |file|
+  load file
+end
+

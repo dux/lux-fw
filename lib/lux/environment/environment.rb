@@ -67,7 +67,7 @@ module Lux
     end
 
     def reload_code?
-      @reload_code = ENV['LUX_ENV'].include?('c') if @reload_code.nil?
+      @reload_code = ENV['LUX_ENV'].include?('r') if @reload_code.nil?
       @reload_code
     end
 

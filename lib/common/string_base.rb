@@ -14,12 +14,12 @@ class StringBase
       short.decode text
     end
 
-    def medium
-      new(keys: MDEIUM_KEYS)
-    end
-
     def short
       new(keys: SHORT_KEYS, multiplier: 99)
+    end
+
+    def medium
+      new(keys: MDEIUM_KEYS)
     end
 
     def long
@@ -28,9 +28,9 @@ class StringBase
 
     def uid
       [
+        Time.now.to_f,
         rand.to_s.sub('0.',''),
-        Time.now.to_f.to_s.sub('.','').sub(/./, '').reverse
-      ].join('').to_i.to_s(36)[0, 16]
+      ].join('').to_s.sub('.','').to_i.to_s(36)[0, 16]
     end
   end
 

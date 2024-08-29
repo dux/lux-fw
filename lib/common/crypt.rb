@@ -31,6 +31,11 @@ module Crypt
     Digest::SHA1.hexdigest(str.to_s + secret)
   end
 
+  # sha1 shorter string
+  def sha1s str
+    Integer(Digest::SHA1.hexdigest(str.to_s), 16).to_s(36)
+  end
+
   def md5 str
     Digest::MD5.hexdigest(str.to_s + secret)
   end
