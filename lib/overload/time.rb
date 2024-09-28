@@ -1,5 +1,5 @@
 module TimeOptions
-  def short use_default=false
+  def short use_default = false
     # lang = Lux.current.request.env['HTTP_ACCEPT_LANGUAGE'] rescue 'en'
     default_format = '%Y-%m-%d'
     date_format    = Lux.current.var[:date_format].or(Lux.config[:date_format] || default_format)

@@ -5,7 +5,6 @@ LuxCli.class_eval do
   def evaluate *args
     require 'amazing_print'
     require './config/app'
-
     console *args
   end
 end

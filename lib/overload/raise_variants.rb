@@ -18,6 +18,7 @@ class Object
     from = caller[0].include?('raise_variants.rb') ? caller[1] : caller[0]
     from = from.sub(Lux.root.to_s+'/', './').split(':in ').first
     header = '--- START (%s) %s - %s ---' % [klass, from, Lux.current.request.url]
+    as_jsonp = true if ['HashWia', 'Hash'].include?(what.class.to_s)
     if as_jsonp
       puts header
       puts what.to_jsonp

@@ -27,6 +27,7 @@ module Lux
     def read key
       return nil if (Lux.current.no_cache? rescue false)
       key = generate_key key
+      log_get "Cache.read #{key}"
       @server.get(key)
     end
     alias :get :read
@@ -40,6 +41,7 @@ module Lux
       ttl = ttl[:ttl] || ttl[:expires_at] if ttl.class == Hash
       ttl = ttl.to_i if ttl
       key = generate_key key
+      Lux.log %[ Cache.write "#{key}", at: #{Lux.app_caller}].yellow
       @server.set(key, data, ttl)
     end
     alias :set :write
@@ -47,7 +49,11 @@ module Lux
     def delete key, data=nil
       key = generate_key key
 
-      Lux.log { %[ Cache.delete "#{key}", at: #{Lux.app_caller}].yellow }
+      Lux.log do
+        if Lux.config[:show_cache_log]
+          %[ Cache.delete "#{key}", at: #{Lux.app_caller}].yellow
+        end
+      end
 
       @server.delete(key)
     end
@@ -65,12 +71,12 @@ module Lux
 
       @server.delete key if opts.force
 
-      Lux.log { " Cache.fetch.get #{opts.compact.to_jsonc}:#{key.trim(30)}, at: #{Lux.app_caller}".green }
+      log_key_name = "Cache.fetch.get #{opts.compact.to_jsonc}:#{key.trim(30)}"
+      log_get log_key_name
 
       data = @server.fetch key, opts.ttl do
         opts.speed = Lux.speed { data = yield }
-        Lux.log " Cache.fetch.set #{opts.compact.to_jsonc}:#{key.trim(30)}, at: #{Lux.app_caller}".yellow
-
+        Lux.log " #{log_key_name}, at: #{Lux.app_caller}".yellow
         Marshal.dump data
       end
 
@@ -139,6 +145,22 @@ module Lux
 
     def [] key
       @server.get key.to_s
+    end
+
+    def log_get name
+      if Lux.env.screen_log?
+        if Lux.current.params[:lux_show_cache_get]
+          Lux.config[:show_cache_log] = true
+        end
+
+        if Lux.config[:show_cache_log]
+          Lux.log " Cache.get #{name}, at: #{Lux.app_caller}".green
+        else
+          if Lux.current.once(:show_cache_log)
+            Lux.log " Cache.get info is suppressed: enable? -> #{Lux.current.nav.base}#{Lux.current.request.path}?lux_show_cache_get=true".green
+          end
+        end
+      end
     end
   end
 end

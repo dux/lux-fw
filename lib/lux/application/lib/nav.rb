@@ -92,6 +92,8 @@ module Lux
             end
           end.compact
           '/' + parts.join('/')
+        elsif block_given?
+          @path = @path.map { _1.gsub('-', '_') }
         else
           @path
         end
