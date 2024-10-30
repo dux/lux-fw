@@ -113,7 +113,7 @@ module Lux
       token ? (generated == token) : generated
     end
 
-    def curl?
+    def robot?
       ua = request.env['HTTP_USER_AGENT'].to_s.downcase
       ua.include?('wget/') || ua.include?('curl/')
     end
