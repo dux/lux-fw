@@ -19,6 +19,8 @@ module Lux
 
     # main render called by Lux.call
     def render_base
+      run_callback :before, nav.path
+
       if Lux.env.reload_code? && Lux.env.web?
         Lux.config.on_reload_code.call
       end
@@ -50,6 +52,8 @@ module Lux
       catch :done do
         Lux.error.not_found unless response.body?
       end
+
+      run_callback :after, nav.path
 
       response.render
     rescue => error
@@ -115,14 +119,7 @@ module Lux
     def resolve_routes
       @magic = MagicRoutes.new self
 
-      run_callback :before, nav.path
       run_callback :routes, nav.path
-
-      unless response.body?
-        Lux.error.not_found 'Document not found'
-      end
-
-      run_callback :after, nav.path
     end
   end
 end

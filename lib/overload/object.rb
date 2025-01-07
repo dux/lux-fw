@@ -4,14 +4,20 @@ class Object
   def self.const_missing klass, path=nil
     unless LUX_AUTO_LOAD.keys.first
       for file in `find ./app -type f -name '*.rb'`.split($/)
-        klass_file = file.split('/').last.sub('.rb', '').classify
+        klass_file = file
+          .split('/')
+          .last
+          .sub('.rb', '')
+          .classify
         LUX_AUTO_LOAD[klass_file] ||= [false, file]
       end
     end
 
     klass = klass.to_s if klass.class == Symbol
-    path  = LUX_AUTO_LOAD[klass]
-    error = %{Can't find and autoload module/class "%s"} % klass
+    path  = LUX_AUTO_LOAD[klass] || LUX_AUTO_LOAD[klass.classify] # this is because 'status'.classify -> 'Statu' and not 'Status'
+    error = %{Can't find and autoload module/class "%s"} % klass.classify
+
+    # rr [klass, klass.classify] if klass != klass.classify
 
     if path
       if path[0]

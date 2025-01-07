@@ -3,7 +3,7 @@
 # LUX_ENV  = clre - add any for dev env options. Emit all -> production settings
   # Lux.env.no_cache?    # true
   # Lux.env.screen_log?  # true
-  # Lux.env.reload_code? # true
+  # Lux.env.relodad_code? # true
   # Lux.env.reload_code? # true
 
 # no code reload with logging
@@ -18,6 +18,12 @@ if ARGV[0] == 'ss'
   ARGV[0] = 'server'
   ARGV[1] = '-o'
   ARGV[2] = 'le'
+end
+
+if ARGV[0] == 'silent'
+  ARGV[0] = 'server'
+  ARGV[1] = '-o'
+  ARGV[2] = 'cre'
 end
 
 LuxCli.class_eval do

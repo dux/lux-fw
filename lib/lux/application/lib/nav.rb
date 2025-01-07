@@ -173,6 +173,10 @@ module Lux
         @ids.last
       end
 
+      def [] index
+        @original[index]
+      end
+
       private
 
       def set_variables

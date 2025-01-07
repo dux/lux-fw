@@ -18,6 +18,10 @@ class Hash
     self.keys.sort.map{ |k| '%s="%s"' % [k, self[k].to_s.gsub('"', '&quot;')]}.join(' ')
   end
 
+  def to_css
+    self.keys.sort.map{ |k| '%s: %s;' % [k, self[k].to_s.gsub('"', '&quot;')]}.join(' ')
+  end
+
   def pluck *args
     string_args = args.map(&:to_s)
     self.select{ |k,v| string_args.index(k.to_s) }
