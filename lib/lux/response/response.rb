@@ -103,7 +103,6 @@ module Lux
           opts.is!(Hash).each {|k,v| self.send k, *v }
           @body = data
         end
-        throw :done
       else
         @body
       end
@@ -298,7 +297,7 @@ module Lux
       end
 
       if current.request.request_method == 'GET'
-        catch(:done) { etag(@body) }
+        etag(@body)
       end
 
       # @headers['access-control-allow-credentials'] = 'true'

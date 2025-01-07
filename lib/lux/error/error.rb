@@ -157,15 +157,6 @@ module Lux
         end
       end
 
-      # clear osx screen :)
-      def clear_screen time = 0
-        last = (Thread.current[:_lux_clear_screen] ||= 1.day.ago)
-        if last < Time.now - time
-          Thread.current[:_lux_clear_screen] = Time.now
-          print "\e[H\e[2J\e[3J"
-        end
-      end
-
       # prepare backtrace for better render
       def split_backtrace error
         # split app log rest of the log

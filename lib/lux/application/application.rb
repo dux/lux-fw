@@ -41,27 +41,21 @@ module Lux
         }, ['']]
       end
 
-      catch :done do
-        if Lux.config.serve_static_files
-          Lux::Response::File.deliver_from_current
-        end
-
-        resolve_routes unless response.body?
+      if Lux.config.serve_static_files
+        Lux::Response::File.deliver_from_current
       end
 
-      catch :done do
-        Lux.error.not_found unless response.body?
-      end
+      resolve_routes unless response.body?
+
+      Lux.error.not_found unless response.body?
 
       run_callback :after, nav.path
-
       response.render
     rescue => error
       if respond_to?(:rescue_from)
         catch :done do
           rescue_from error
         end
-
         response.render
       else
         raise error
@@ -119,7 +113,9 @@ module Lux
     def resolve_routes
       @magic = MagicRoutes.new self
 
-      run_callback :routes, nav.path
+      catch :done do
+        run_callback :routes, nav.path
+      end
     end
   end
 end
