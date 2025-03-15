@@ -13,8 +13,8 @@ module Lux
 
       def initialize request
         # how long will session last if BROWSER or IP change
-        Lux.config[:session_forced_validity] ||= 10.minutes.to_i
-        Lux.config[:session_cookie_max_age]  ||= 1.week.to_i
+        Lux.config[:session_forced_validity] ||= 15.minutes.to_i
+        Lux.config[:session_cookie_max_age]  ||= 1.month.to_i
 
         # name of the session cookie
         @cookie_name = Lux.config[:session_cookie_name] ||= 'lux_' + Crypt.sha1(Lux.config.secret)[0,4].downcase
@@ -69,12 +69,16 @@ module Lux
         @hash
       end
 
+      def security_string
+        base = @request.env['HTTP_CF_IPCOUNTRY'] || Lux.current.ip.split('.').first(3).join('.')
+        base + @request.env['HTTP_USER_AGENT'].to_s
+      end
+
       private
 
       def security_check
         key   = '_c'
-        ip    = Lux.current.ip.split('.').first(3).join('.') # only 3 first numbers of IP
-        check = Crypt.sha1(ip+@request.env['HTTP_USER_AGENT'].to_s)[0, 5]
+        check = Crypt.sha1(security_string)[0, 5]
 
         # force type array
         @hash.delete(key) unless @hash[key].class == Array

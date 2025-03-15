@@ -69,7 +69,7 @@ module Crypt
   # Crypt.decrypt('secret')
   # Crypt.decrypt('secret', password:'pa$$w0rd', unsafe: true)
   def decrypt token, opts={}
-    opts = opts.to_hwia :password, :ttl
+    opts = opts.to_hwia :password, :ttl, :unsafe
 
     token_data = JWT.decode token, secret+opts.password.to_s, true, { algorithm: ALGORITHM }
     data = token_data[0]

@@ -180,12 +180,12 @@ module Lux
         error
           .backtrace
           .map do |line|
-            path = line.split(':in').first
-            path = path.sub(/^\.\//, root+'/')
-
-            edit = html ? %[ &bull; <a href="subl://open?url=file:/#{path}">edit</a>] : ''
-            line = line.sub(root, '.')
-            (line[0,1] != '/' ? (html ? line.tag(:b) : line) : line) + edit
+            path = line
+              .split(':in').first
+              .sub(Lux.root.to_s, '.')
+              .sub(ENV['HOME'], '~')
+            path = path.sub(/^(\.\/[^\:]+)/, "<b>\\1</b>") if html
+            path
           end
       end
 

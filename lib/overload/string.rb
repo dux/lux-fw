@@ -13,9 +13,19 @@ class String
   def html_escape display = false
     # .gsub('<', '&lt;').gsub('>', '&gt;')
     # .gsub("'", '&#39').gsub('"', '&#34')
-    self
-      .gsub('<', display ? '&lt;' : '#LT;')
-      .gsub(/\A^\s+|\s+\z/,'')
+
+    out =
+    if display
+      self
+        .gsub('<', '&lt;')
+        .gsub('>', '&gt;')
+        .gsub("'", '&apos;')
+        .gsub('"', '&quot;')
+    else
+      self.gsub('<', display ? '&lt;' : '#LT;')
+    end
+
+    out.gsub(/\A^\s+|\s+\z/,'')
   end
 
   # restore original before storage read
@@ -173,4 +183,8 @@ class String
     self.gsub(/<[^>]+>/, '')
   end
 
+  def squish
+    gsub(/[[:space:]]+/, " ")
+    .strip
+  end
 end

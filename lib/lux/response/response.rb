@@ -51,14 +51,14 @@ module Lux
 
     def etag *args
       unless @headers['etag']
-        key = '"%s"' % Lux.cache.generate_key(current.request.url, args)
+        key = '"%s"' % Lux.cache.generate_key([current.request.url, args])
         key = 'W/%s' % key unless max_age > 0
         @headers['etag'] = key
       end
 
       if !status && !current.no_cache?(true) && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
         if Lux.env.no_cache?
-          Lux.log ' * etag match (skiping for env.no_cache)' unless current.nav.format
+          Lux.log " * etag match at #{Lux.app_caller || ':lux'} (skiping for env.no_cache)" unless current.nav.format
         else
           Lux.log ' * etag match'
           body 'not-modified', status: 304

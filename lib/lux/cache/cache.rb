@@ -55,6 +55,7 @@ module Lux
         end
       end
 
+      Lux.current.var.cache.delete key
       @server.delete(key)
     end
 

@@ -62,12 +62,8 @@ module Lux
         Lux.log ' ' + tpl.sub('//', '/').magenta
       end
 
-      begin
-        data = @tilt.render(@helper) do
-          yield if block_given?
-        end
-      rescue => e
-        report_error(e)
+      data = @tilt.render(@helper) do
+        yield if block_given?
       end
 
       data
@@ -104,22 +100,8 @@ module Lux
         raise Lux::Error.not_found(msg)
       end
 
-      begin
-        @tilt = Tilt.new(@template, escape_html: false)
-        pointer[template] = [@tilt, @template]
-      rescue => e
-        report_error(e)
-      end
-    end
-
-    def report_error e
-      if Lux.current.error
-        raise Lux.current.error
-      else
-        Lux.current.error = e
-        Lux.log ' %s (HAS ERROR)' % @template.red
-        raise e
-      end
+      @tilt = Tilt.new(@template, escape_html: false)
+      pointer[template] = [@tilt, @template]
     end
   end
 end

@@ -25,9 +25,10 @@ Sequel.inflections do |inflect|
   inflect.plural   'bonus', 'bonuses'
   inflect.plural   'status', 'statuses'
   inflect.plural   'clothing', 'clothes'
-  inflect.plural   'people', 'people'
+  # inflect.plural   'person', 'people'
   inflect.singular /Data$/i, 'Data'
   inflect.uncountable 'news'
+  inflect.irregular 'status', 'statuses'
 end
 
 # ap Sequel.inflections.singulars

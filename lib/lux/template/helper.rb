@@ -106,7 +106,13 @@ module Lux
         end
 
         opts[:ttl] ||= 1.hour
-        key = 'view:'+name+block.source_location.join(':')+Lux.config.deploy_timestamp.to_s
+        key = 'view:' + name + block.source_location.join(':') + Lux.config.deploy_timestamp.to_s
+
+        if etag = opts.delete(:etag)
+          etag = key if etag.class != String
+          Lux.current.response.etag etag
+        end
+
         Lux.cache.fetch(key, opts) { yield }
       end
 

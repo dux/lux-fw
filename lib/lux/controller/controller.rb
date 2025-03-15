@@ -20,6 +20,7 @@ module Lux
     define_callback :before
     define_callback :before_action
     define_callback :before_render
+    define_callback :after
 
     class << self
       # simple shortcut allows direct call to action, bypasing call
@@ -32,6 +33,13 @@ module Lux
       def mock *args
         args.each do |el|
           define_method(el) { true }
+        end
+      end
+
+      # syntax sugar
+      def rescue_from &block
+        define_method :rescue_from do |err = nil|
+          instance_exec err, &block
         end
       end
     end

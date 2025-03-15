@@ -54,7 +54,8 @@ module Lux
       Lux.config.asset_root           = false
       Lux.config[:plugins]           ||= []
       Lux.config[:error_logger]      ||= Proc.new do |error|
-        ap [error.message, error.class, Lux::Error.mark_backtrace(error)]
+        Lux.log " * error: Lux.config.error_logger = proc {|err| ... } not configured"
+        Lux.error.screen error
       end
 
       ###

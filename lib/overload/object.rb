@@ -80,7 +80,7 @@ class Object
   end
 
   def is_false?
-    self.class.name == 'FalseClass' ? true : false
+    !is_true?
   end
 
   def is_true?
