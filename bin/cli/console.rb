@@ -17,7 +17,7 @@ class Object
   end
 
   def c
-    Lux.error.clear_screen
+    system('clear')
   end
 
   # show method info

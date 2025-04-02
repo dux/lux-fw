@@ -53,6 +53,17 @@ class Object
 
     rr dump
   end
+
+  # dump all object methods, class or instance
+  def m? object
+    current = object.respond_to?(:ancestors) ? object : object.class
+    parent = current.ancestors.select {_1.class == Class }[1]
+    if object == current
+      current.methods - parent.methods
+    else
+      object.methods - parent.instance_methods
+    end
+  end
 end
 
 ###

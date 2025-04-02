@@ -37,7 +37,7 @@ module Lux
       @response     = Lux::Response.new
       @session      = Lux::Current::Session.new @request
       @nav          = Lux::Application::Nav.new @request
-      @var          = {}.to_hwia
+      @var          = { cache: {} }.to_hwia
 
       opts[:session].or({}).each {|k,v| @session[k] = v }
     end
