@@ -40,7 +40,7 @@ module Crypt
     Digest::MD5.hexdigest(str.to_s + secret)
   end
 
-  def random length=32
+  def random length = 32
     chars = 'abcdefghjkmnpqrstuvwxyz0123456789'
     length
       .times

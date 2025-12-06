@@ -1,3 +1,5 @@
+require 'set'
+
 module Lux
   class Current
     # set to true if user is admin and you want him to be able to clear caches in production
@@ -33,7 +35,7 @@ module Lux
       prepare_params opts
 
       # base vars
-      @files_in_use = []
+      @files_in_use = Set.new
       @response     = Lux::Response.new
       @session      = Lux::Current::Session.new @request
       @nav          = Lux::Application::Nav.new @request
@@ -123,12 +125,16 @@ module Lux
       return @files_in_use unless file
       return unless file.class == String
 
+      file = file.sub(Lux.root.to_s + '/', '')
+
       file = file.sub './', ''
 
       if @files_in_use.include?(file)
         true
       else
-        @files_in_use.push file
+        Lux.log ' ' + file.sub('//', '/').magenta
+
+        @files_in_use.add file
         yield(file) if block_given?
         false
       end

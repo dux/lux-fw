@@ -2,7 +2,7 @@
 
 class StringBase
   SHORT_KEYS   ||= 'bcdghjklmnpqrstvwxyz'
-  MDEIUM_KEYS  ||= 'abcdefghijklmnopqrstuvwxyz0123456789'
+  MEDIUM_KEYS  ||= 'abcdefghijklmnopqrstuvwxyz0123456789'
   LONG_KEYS    ||= 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 
   class << self
@@ -19,7 +19,7 @@ class StringBase
     end
 
     def medium
-      new(keys: MDEIUM_KEYS)
+      new(keys: MEDIUM_KEYS)
     end
 
     def long
@@ -68,6 +68,11 @@ class StringBase
     id_str = url_part.split('-').last
     return nil unless id_str
     StringBase.decode(id_str) rescue nil
+  end
+
+  # StringBase.medium.rand(16) -> ulid 16 chars
+  def rand num
+    @keys.chars.sample(num).join
   end
 end
 

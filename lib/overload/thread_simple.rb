@@ -7,28 +7,43 @@ class Thread::Simple
   #   end
   # end
   def self.run **args
-    ts = new
+    ts = new(**args)
     yield ts
     ts.run
+    ts
+  end
+
+  # upload in 3 separate threads
+  # Thread::Simple.each(data., size: 3) do |source, target|
+  #   ::Cdn.cdn_upload "./public/assets/#{source}", "assets/#{target}"
+  # end
+  def self.each list, **args, &block
+    ts = new(**args)
+    list.send list.class == Hash ? :each : :each_with_index, &block
+    ts.run
+    ts
   end
 
   ###
 
-  attr_accessor :que, :size, :named
+  attr_accessor :que, :size
 
   def initialize size: 5, sleep: 0.05
     @sync     = Mutex.new
     @sleep    = sleep
     @size     = size
     @que      = []
-    @threds   = []
+    @threads  = []
     @name_val = {}
   end
 
   def add name = nil, &block
     @sync.synchronize do
       if name
-        @que << proc { @name_val[name] = block.call }
+        @que << proc do
+          value = block.call
+          @sync.synchronize { @name_val[name] = value }
+        end
       else
         @que << block
       end
@@ -39,7 +54,7 @@ class Thread::Simple
     @endless = endless
 
     @size.times do
-      @threds << Thread.new do
+      @threads << Thread.new do
         task = nil
 
         while active?
@@ -51,7 +66,7 @@ class Thread::Simple
     end
 
     unless @endless
-      @threds.each(&:join)
+      @threads.each(&:join)
     end
   end
 
@@ -60,13 +75,18 @@ class Thread::Simple
   end
 
   def [] name
-    @name_val[name]
+    @sync.synchronize { @name_val[name] }
+  end
+
+  # Read-only accessor for named results
+  def named
+    @sync.synchronize { @name_val.dup }
   end
 
   private
 
   def active?
-    @endless || @que.first
+    @endless || @sync.synchronize { !@que.empty? }
   end
 end
 

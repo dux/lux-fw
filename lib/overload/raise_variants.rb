@@ -28,6 +28,16 @@ class Object
     end
   end
 
+  # tail -f ./log/LOG.log
+  def LOG what
+    from = caller[0]
+    logger = Logger.new('./log/LOG.log')
+    logger.formatter = proc do |severity, datetime, progname, msg|
+      "#{Lux.app_caller} - #{from}\n#{msg}\n\n"
+    end
+    logger.info what.ai
+  end
+
   # unique methods for object
   # includes methods from modules
   def r? object

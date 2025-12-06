@@ -15,12 +15,17 @@ module Lux
         def type name
           MIMME_TYPES[name.to_sym]
         end
+
+        def send opts
+          new(opts).send
+        end
       end
 
       ###
 
       MIMME_TYPES = {
         css:   'text/css',
+        scss:  'text/css',
         doc:   'application/msword',
         eot:   'application/vnd.ms-fontobject',
         gif:   'image/gif',
@@ -49,7 +54,7 @@ module Lux
       OPTS = Struct.new 'LuxResponseFileOpts', :name, :file, :content_type, :inline, :disposition, :content, :ext, :path
 
       ###
-      # all parametars are optional
+      # all params are optional
       # :name          - file name
       # :content_type  - string type
       # :inline        - sets disposition to inline if true
@@ -68,6 +73,14 @@ module Lux
       define_method(:request)  { Lux.current.request }
       define_method(:response) { Lux.current.response }
 
+      def binary?
+        data = @opts.content
+        return true if data.include?("\x00")
+        # nontext_ratio = data.each_byte.count { |b| b < 9 || (b > 13 && b < 32) || b > 126 }.to_f / data.bytesize
+        # nontext_ratio > 0.3
+        false
+      end
+
       def is_static_file?
         return false unless @opts.ext
         @opts.file.exist?
@@ -78,25 +91,30 @@ module Lux
         response.body('not-modified', status: 304) if request.env['HTTP_IF_NONE_MATCH'] == key
       end
 
+      def get_content_type
+
+      end
+
       def send
         @opts.name ||= @opts.path.split('/').last
         if @opts.disposition == 'attachment'
           response.headers['content-disposition'] = 'attachment; filename=%s' % @opts.name
         end
 
-        response.content_type(@opts.content_type || MIMME_TYPES[@opts.ext || '_'] || 'application/octet-stream')
-        response.headers['access-control-allow-origin'] ||= '*'
-
         if @opts.content
           etag Crypt.sha1 @opts.content
-          response.body @opts.content
         else
           raise Lux::Error.not_found('File not found') unless @opts.file.exist?
           file_mtime = @opts.file.mtime.utc.to_s
+          @opts.content = @opts.file.read
           response.headers['last-modified'] = file_mtime
           etag Crypt.sha1(@opts.path + (@opts.content || file_mtime.to_s))
-          response.body @opts.file.read
         end
+
+        response.headers['access-control-allow-origin'] ||= '*'
+        guessed_type = binary? ? 'application/octet-stream' : 'text/plain'
+        response.content_type(@opts.content_type || MIMME_TYPES[@opts.ext || '_'] || guessed_type)
+        response.body @opts.content
       end
     end
   end

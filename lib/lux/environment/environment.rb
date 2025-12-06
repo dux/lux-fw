@@ -61,6 +61,11 @@ module Lux
       @no_cache
     end
 
+    def screen_log?
+      @screen_log = ENV['LUX_ENV'].include?('l') if @screen_log.nil?
+      @screen_log
+    end
+
     def show_errors?
       @show_errors = ENV['LUX_ENV'].include?('e') if @show_errors.nil?
       @show_errors
@@ -69,11 +74,6 @@ module Lux
     def reload_code?
       @reload_code = ENV['LUX_ENV'].include?('r') if @reload_code.nil?
       @reload_code
-    end
-
-    def screen_log?
-      @screen_log = ENV['LUX_ENV'].include?('l') if @screen_log.nil?
-      @screen_log
     end
 
     ###

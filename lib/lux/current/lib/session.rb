@@ -18,6 +18,7 @@ module Lux
 
         # name of the session cookie
         @cookie_name = Lux.config[:session_cookie_name] ||= 'lux_' + Crypt.sha1(Lux.config.secret)[0,4].downcase
+        @cookie_name += "_#{request.port}" # we do not want http and https cookie name conflicts
         @request     = request
         @hash        = JSON.parse(Crypt.decrypt(request.cookies[@cookie_name] || '{}')) rescue {}
 

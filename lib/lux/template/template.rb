@@ -3,6 +3,26 @@ module Lux
     @@template_cache = {}
 
     class << self
+      def wrap_with_debug_info files, data, opts = {}
+        return data unless Lux.env.dev? && Lux.current.request.env['QUERY_STRING'].include?('debug=render')
+
+        files = [files] unless files.is_a?(Array)
+        files = files.compact.map do |file|
+          file, prefix = file.sub(/'$/, '').sub(Lux.root.to_s, '.').split(':in `')
+          prefix = ' # %s' % prefix if prefix
+
+          %[<a href="vscode://file/%s" style="color: #fff;">%s%s</a>] % [Lux.root.join(file).to_s, file.split(':').first, prefix]
+        end.join(' &bull; ')
+
+        opts[:color] ||= '#fff'
+        opts[:bgcolor] ||= '#800'
+
+        %[<div style="border: 1px solid #{opts[:bgcolor]}; margin: 3px; padding: 35px 5px 5px 5px;">
+            <span style="position: absolute; background: #{opts[:bgcolor]}; color: #{opts[:color]}; font-weight: 400; font-size: 15px; margin: -36px 0 0 -5px; padding: 2px 5px;">#{files}</span>
+            #{data}
+        </div>]
+      end
+
       # scope is self or any other object
       # * methods called in templates will be called from scope
       # * scope = Lux::Template::Helper.new self, :main (prepare Rails style helper)
@@ -58,15 +78,13 @@ module Lux
     def render
       # global thread safe reference pointer to last temaplte rendered
       # we nned this for inline template render
-      Lux.current.files_in_use(@template) do |tpl|
-        Lux.log ' ' + tpl.sub('//', '/').magenta
-      end
+      Lux.current.files_in_use(@template)
 
       data = @tilt.render(@helper) do
         yield if block_given?
       end
 
-      data
+      Lux::Template.wrap_with_debug_info @template, data
     end
 
     private

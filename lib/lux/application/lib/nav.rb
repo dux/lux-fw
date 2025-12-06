@@ -28,6 +28,10 @@ module Lux
         @path[0] = value
       end
 
+      def child
+        @path[1]
+      end
+
       def shift
         @path.shift.tap do |value|
           @shifted.push value
@@ -157,7 +161,7 @@ module Lux
         @ids.last
       end
 
-      # replace nav path with id, when mached (works with resourceful routes map 'controler')
+      # when matched, replace nav path with id,  (works with resourceful routes map 'controler')
       # nav.path_id { _1.split('-').last.string_id rescue nil }
       # /foo/test-cbjy/bar -> ['foo', :id, 'bar]
       def path_id
@@ -175,6 +179,14 @@ module Lux
 
       def [] index
         @original[index]
+      end
+
+      # path without query params, or test path inclusion
+      def pathname ends: nil, has: nil
+        @pathname ||= '/' + original.reject { _1.include?(':') }.join('/')
+        return @pathname.include?("/#{has}") if has
+        return @pathname.end_with?("/#{ends}") if ends
+        @pathname
       end
 
       private

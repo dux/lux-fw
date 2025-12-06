@@ -10,7 +10,7 @@ module Lux
     end
 
     def start_info
-      @load_info ||= proc do
+      @load_info ||= begin
         info = []
 
         config = []
@@ -33,7 +33,7 @@ module Lux
 
         info.push "* Lux loaded in #{ENV['RACK_ENV']} mode, #{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
         info.join($/)
-      end.call
+      end
     end
 
     def set_defaults
@@ -74,11 +74,13 @@ module Lux
     end
 
     # './config/secrets.yaml'
+    # default is shared + specific envs
     # default:
-    #   development:
-    #      foo:
-    #   production:
-    #      foo:
+    #   foo:
+    # development:
+    #   foo:
+    # production:
+    #   foo:
     def load
       source = Pathname.new './config/config.yaml'
 

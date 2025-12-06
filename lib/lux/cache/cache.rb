@@ -60,13 +60,13 @@ module Lux
       @server.delete(key)
     end
 
-    def fetch key, opts={}
+    def fetch key, opts = {}
       key = generate_key key
 
       opts = { ttl: opts } unless opts.is_a?(Hash)
       opts = OPTS.new **opts
 
-      return yield if opts.if.is_a?(FalseClass)
+      return yield(@key) if opts.if.is_a?(FalseClass)
 
       opts.ttl     = opts.ttl.to_i if opts.ttl
       opts.force ||= Lux.current.try(:no_cache?) unless opts.force.class == FalseClass
@@ -87,6 +87,21 @@ module Lux
           @server.delete key
         end
       end
+    end
+
+    # cache only if data is true
+    # for example used for security checks, to check if user can access board
+    # complex search that is usually true, but if it is false, we want it to not be cached,
+    #   because we want it to work once we give user access
+    def fetch_if_true key, opts = {}
+      if data = self.read(key)
+        data
+      else
+        if data = yield(@key)
+          self.write key, data, opts
+        end
+      end
+      data
     end
 
     # lock execution of a block for some time and allow only once instance running in time slot
@@ -137,7 +152,7 @@ module Lux
 
       key = keys.join('-')
 
-      Crypt.sha1(key)
+      @key = Crypt.sha1(key)
     end
 
     def []= key, value
