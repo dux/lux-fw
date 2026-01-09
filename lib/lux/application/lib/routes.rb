@@ -67,7 +67,7 @@ module Lux
       #   map :about
       # end
       # ```
-      def map route_object = nil, target = nil &block
+      def map route_object = nil, target = nil, &block
         return @magic unless route_object
         return if response.body?
 

@@ -64,7 +64,7 @@ describe Lux::Controller do
   end
 
   it 'renders fails' do
-    expect{ TestController.action(:render_fail) }.to raise_error NoMethodError
+    expect{ TestController.action(:render_fail) }.to raise_error Lux::Error
   end
 
   it 'executes before filter' do
