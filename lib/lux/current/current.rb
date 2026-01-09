@@ -120,6 +120,16 @@ module Lux
       ua.include?('wget/') || ua.include?('curl/')
     end
 
+    def mobile?
+      ua = request.env['HTTP_USER_AGENT'].to_s.downcase
+      mobile_keywords = %w[
+        iphone ipod ipad android mobile blackberry nokia windows phone
+        opera mini kindle silk huawei samsung
+      ]
+
+      mobile_keywords.any? { |k| ua.include?(k) }
+    end
+
     # Add to list of files in use
     def files_in_use file = nil
       return @files_in_use unless file

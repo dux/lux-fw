@@ -22,6 +22,21 @@ class Hash
     self.keys.sort.map{ |k| '%s: %s;' % [k, self[k].to_s.gsub('"', '&quot;')]}.join(' ')
   end
 
+  def deep_sort
+    keys.sort.each_with_object({}) do |k, h|
+      v = self[k]
+      h[k] =
+        case v
+        when Hash
+          v.deep_sort
+        when Array
+          v.map { |e| e.is_a?(Hash) ? e.deep_sort : e }
+        else
+          v
+        end
+    end
+  end
+
   def pluck *args
     string_args = args.map(&:to_s)
     self.select{ |k,v| string_args.index(k.to_s) }

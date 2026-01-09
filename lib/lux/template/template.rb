@@ -31,13 +31,13 @@ module Lux
       # Lux::Template.render(scope, layout_template) { layout_data }
       def render scope, opts, &block
         opts = { template: opts } if opts.is_a?(String)
-        opts = opts.to_hwia :layout, :template
+        opts = opts.to_hwia :layout, :template, :dev_info
 
         if opts.layout
           part_data = render(scope, opts.template)
-          new(template: opts.layout, scope: scope).render { part_data }
+          new(template: opts.layout, scope: scope, info: opts.dev_info).render { part_data }
         else
-          new(template: opts.template, scope: scope).render &block
+          new(template: opts.template, scope: scope, info: opts.dev_info).render &block
         end
       end
 
@@ -62,9 +62,10 @@ module Lux
 
     ###
 
-    def initialize template:, scope:
+    def initialize template:, scope:, info:
       template = './app/views/' + template if template =~ /^\w/
 
+      @dev_info = info
       @helper = if scope.class == Hash
         # create helper class if only hash given
         Lux::Template::Helper.new(scope)
@@ -85,6 +86,17 @@ module Lux
       end
 
       Lux::Template.wrap_with_debug_info @template, data
+
+    rescue => error
+      if Lux.env.dev? && @dev_info
+        msg = error.message
+        dev_info = @dev_info
+        error.define_singleton_method :message do
+          "#{msg}\n - #{dev_info}"
+        end
+      end
+
+      raise error
     end
 
     private

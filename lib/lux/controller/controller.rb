@@ -201,11 +201,13 @@ module Lux
     def render_template opts
       run_callback :before_render, @lux.action
 
-      local_helper = self.helper opts.layout.or(cattr.layout) # if layout is false (for dialogs) we fallback to controller default layout
+      # get main helper from options, instance then class
+      helper_name = opts.layout || @lux.layout || cattr.layout
+      local_helper = self.helper helper_name
 
       page_template = cattr.template_root + opts.template.to_s
       Lux.current.var.root_template_path = page_template.sub(%r{/[\w]+$}, '')
-      data = opts.inline || Lux::Template.render(local_helper, page_template)
+      data = opts.inline || Lux::Template.render(local_helper, {template: page_template, dev_info: "Helper: #{helper_name.to_s.classify}Helper, Template: #{page_template}" })
 
       if opts.layout
         path = Lux::Template.find_layout cattr.template_root, opts.layout
@@ -219,9 +221,22 @@ module Lux
       self.class.to_s.split('::').first.underscore.to_sym
     end
 
+    HELPERS ||= {}
     def helper helper
-      helper = nil unless helper
-      Lux::Template::Helper.new self, :html, helper
+      HELPERS[helper] ||= Class.new Object do
+        include Lux::Template::Helper
+        include HtmlHelper
+        include ApplicationHelper
+        include "#{helper.to_s.classify}Helper".constantize if helper.present?
+      end
+
+      ctx = HELPERS[helper].new
+
+      for k, v in instance_variables_hash
+        ctx.instance_variable_set("@#{k.to_s.sub('@','')}", v)
+      end
+
+      ctx
     end
 
     # respond_to :js do ...

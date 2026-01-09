@@ -1,31 +1,6 @@
-# frozen_string_literal: true
-
 module Lux
   class Template
-    class Helper
-      attr_reader :_source_object
-
-      # create helper object that cah be used in template render
-      def initialize instance, *list
-        extend ApplicationHelper
-
-        @_source_object = instance
-
-        list.flatten.compact.each do |el|
-          el = el.to_s.classify+'Helper'
-          extend el.constantize
-        end
-
-        local_vars = instance.class == Hash ? instance : instance.instance_variables_hash
-
-        # locals overide globals
-        for k, v in local_vars
-          instance_variable_set("@#{k.to_s.sub('@','')}", v)
-        end
-
-        # helper.instance_exec &block if block
-      end
-
+    module Helper
       define_method(:current) { Lux.current }
       define_method(:request) { Lux.current.request }
       define_method(:params)  { Lux.current.params }
@@ -133,4 +108,3 @@ module Lux
     end
   end
 end
-
