@@ -119,7 +119,7 @@ module Lux
       in_type = :js if in_type == :javascript
 
       if in_type.is_a?(Symbol)
-        type = Lux::Response::File::MIMME_TYPES[in_type]
+        type = Lux::Response::File::MIME_TYPES[in_type]
         raise ArgumentError.new('Bad content type: %s' % in_type) unless type
       else
         type = in_type

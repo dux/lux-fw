@@ -13,7 +13,7 @@ module Lux
         end
 
         def type name
-          MIMME_TYPES[name.to_sym]
+          MIME_TYPES[name.to_sym]
         end
 
         def send opts
@@ -23,7 +23,7 @@ module Lux
 
       ###
 
-      MIMME_TYPES = {
+      MIME_TYPES = {
         css:   'text/css',
         scss:  'text/css',
         doc:   'application/msword',
@@ -113,7 +113,7 @@ module Lux
 
         response.headers['access-control-allow-origin'] ||= '*'
         guessed_type = binary? ? 'application/octet-stream' : 'text/plain'
-        response.content_type(@opts.content_type || MIMME_TYPES[@opts.ext || '_'] || guessed_type)
+        response.content_type(@opts.content_type || MIME_TYPES[@opts.ext || '_'] || guessed_type)
         response.body @opts.content
       end
     end

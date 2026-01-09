@@ -46,7 +46,7 @@ module Lux
 
     ### INSTANCE METHODS
 
-    IVARS ||= Struct.new 'LuxControllerIvars', :template_sufix, :action, :layout, :render_cache
+    IVARS ||= Struct.new 'LuxControllerIvars', :template_suffix, :action, :layout, :render_cache
     RENDER_OPTS ||= Struct.new 'LuxControllerRenderOpts', :inline, :text, :plain, :html, :json, :javascript, :xml, :cache, :template, :layout, :render_to_string, :status, :ttl, :content_type
 
     attr_reader :controller_action
@@ -54,7 +54,7 @@ module Lux
     def initialize
       # before and after should be exected only once
       @lux = IVARS.new
-      @lux.template_sufix = self.class.to_s.sub(/Controller$/,'').underscore.downcase.split('/').first
+      @lux.template_suffix = self.class.to_s.sub(/Controller$/,'').underscore.downcase.split('/').first
     end
 
     # action(:show)
@@ -284,7 +284,7 @@ module Lux
     end
 
     def action_missing name
-      path = [cattr.template_root, @lux.template_sufix, name].join('/')
+      path = [cattr.template_root, @lux.template_suffix, name].join('/')
 
       if template = Dir['%s.*' % path].first
         unless Lux.config.use_autoroutes
@@ -307,7 +307,7 @@ module Lux
         defined = '<br /><br />Defined methods %s' % defined_methods.sort.to_ul
 
         if Lux.config.use_autoroutes
-          root  = [cattr.template_root, @lux.template_sufix].join('/')
+          root  = [cattr.template_root, @lux.template_suffix].join('/')
           files = Dir.files(root).sort.filter {|f| f =~ /^[a-z]/ }.map {|f| f.sub(/\.\w+$/, '') }
           files = files - defined_methods
           defined += '<br />Defined via templates in %s%s' % [root, files.to_ul]

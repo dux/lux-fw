@@ -514,7 +514,7 @@ Lux logger is logging helper module.
 
 Lux.logger(:foo).info 'hello' # ./log/foo.log
 
-# write allways to file and provide env sufix
+# write allways to file and provide env suffix
 Lux.config.logger_output_location do |name|
   './log/%s-%s.log' % [name, Lux.env]
 end

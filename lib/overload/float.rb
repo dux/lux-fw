@@ -39,7 +39,7 @@ class Float
   end
 
   def dotted round_to=2
-    main, sufix = sprintf("%.#{round_to}f", self).to_s.split('.').map(&:to_i)
-    [main.dotted, sufix].join(',')
+    main, suffix = sprintf("%.#{round_to}f", self).to_s.split('.').map(&:to_i)
+    [main.dotted, suffix].join(',')
   end
 end
