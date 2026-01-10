@@ -111,8 +111,6 @@ module Lux
 
     # internall call to resolve the routes
     def resolve_routes
-      @magic = MagicRoutes.new self
-
       catch :done do
         run_callback :routes, nav.path
       end
