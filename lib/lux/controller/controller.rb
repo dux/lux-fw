@@ -24,8 +24,8 @@ module Lux
 
     class << self
       # simple shortcut allows direct call to action, bypasing call
-      def action *args
-        new.action(*args)
+      def action *args, **kwargs
+        new.action(*args, **kwargs)
       end
 
       # create mock function, to enable template rendering
@@ -59,14 +59,17 @@ module Lux
 
     # action(:show)
     # action(:select', ['users'])
-    def action method_name, *args
+    def action method_name, args: [], ivars: {}
       if method_name.blank?
         raise ArgumentError.new('Controller action called with blank action name argument')
       end
 
+      ivars.each { |k, v| instance_variable_set(k, v) }
+
       if method_name.is_a?(Symbol)
         raise Lux.error.internal_server_error('Forbiden action name :%s' % method_name) if [:action, :error].include?(method_name)
       else
+        r 'Do I use this? (controller_action_call)'
         return controller_action_call(method_name, *args)
       end
 

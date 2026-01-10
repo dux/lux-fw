@@ -208,7 +208,7 @@ module Lux
         end
 
         if object.respond_to?(:action)
-          object.action action.to_sym
+          object.action action.to_sym, ivars: instance_variables_hash
         end
 
         throw :done if response.body?
