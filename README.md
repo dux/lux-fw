@@ -2,33 +2,106 @@
 
 # LUX - ruby web framework
 
-* rack based
-* how? # explicit, avoid magic when possible
-* why? # fun, learn
-* dream? # sinatra speed and memory usage with Rails interface
+**Version 0.6.3**
 
-created by @dux in 2017
+A lightweight, Rack-based Ruby web framework designed for speed and simplicity.
 
-## How to start
+* **Rack based** - Built on top of Rack for maximum compatibility
+* **Explicit** - Avoid magic when possible for clear, predictable code
+* **Fun & Learn** - Designed to make web development enjoyable
+* **Dream** - Sinatra speed and memory usage with Rails-like interface
 
-First, make sure you have `ruby 2.x+` installed.
+Created by @dux in 2017 - MIT License
 
-`gem install lux-fw`
+## Installation
 
-Create new template for lux app
+First, make sure you have `ruby 2.7+` installed.
 
-`lux new my-app`
+```bash
+gem install lux-fw
+```
 
-Start the app
+## Quick Start
 
-`budle exec lux s`
+Create a new Lux application:
 
-Look at the generated code and play with it.
+```bash
+lux new my-app
+cd my-app
+bundle install
+```
 
+Start the development server:
+
+```bash
+bundle exec lux s
+```
+
+Your app will be available at `http://localhost:3000`
+
+Look at the generated code and play with it!
+
+
+## Framework Features
+
+Lux provides a complete web development stack with the following features:
+
+* **Fast & Lightweight** - Minimal overhead with optimal memory usage
+* **Explicit Routing** - Clear, predictable routing system
+* **Component-Based** - Modular architecture with pluggable components
+* **Built-in Caching** - Support for memory, memcached, and SQLite caching
+* **Email Support** - Integrated mailer built on the mail gem
+* **Template Engine** - HAML support out of the box with Tilt
+* **Session Management** - JWT-based encrypted sessions
+* **Error Handling** - Comprehensive error handling and logging
+* **CLI Tools** - Rich command-line interface for development
+* **Testing** - RSpec support included
+
+## Project Structure
+
+```
+lux-fw/
+├── bin/              # CLI commands and executables
+├── lib/
+│   ├── lux/          # Core framework modules
+│   │   ├── application/   # Application routing and configuration
+│   │   ├── cache/         # Caching implementations
+│   │   ├── config/        # Configuration management
+│   │   ├── controller/    # Request controllers
+│   │   ├── current/       # Request context (session, cookies, etc.)
+│   │   ├── environment/   # Environment detection and helpers
+│   │   ├── error/         # Error handling
+│   │   ├── mailer/        # Email sending
+│   │   ├── plugin/        # Plugin system
+│   │   ├── render/        # Template rendering
+│   │   ├── response/      # HTTP response handling
+│   │   └── template/      # Template engine
+│   ├── overload/      # Ruby core class extensions
+│   ├── common/        # Common utilities
+│   └── loader.rb      # Framework loader
+├── misc/             # Demo app and configuration examples
+├── spec/             # Test suite
+└── tasks/            # Rake tasks
+```
+
+## Dependencies
+
+Lux requires the following key dependencies:
+
+* **rack** - Web server interface
+* **haml** - Template engine
+* **mail** - Email sending
+* **sequel_pg** - PostgreSQL ORM
+* **jwt** - Session encryption
+* **thor** - CLI tools
+* **colorize** - Terminal coloring
+* **amazing_print** - Debug output
+
+See `lux-fw.gemspec` for the complete list.
 
 ## Lux module
 
-Main `Lux` module has a few usefull methods.
+Main `Lux` module provides useful utility methods:
 
 ```ruby
 Lux.root     # Pathname to application root
@@ -37,6 +110,8 @@ Lux.speed {} # execute block and return speed in ms
 Lux.info     # show console info in magenta
 Lux.run      # run a command on a server and log it
 Lux.die      # stop execution of a program and log
+Lux.call env # Main rack entry point
+Lux.delay    # Execute block in background thread
 ```
 
 
@@ -60,20 +135,31 @@ Automaticly loaded
 * [Lux.current.response (Lux::Response)](#response) &sdot; [&rarr;](./lib/lux/response)
 * [Lux.secrets (Lux::Secrets)](#secrets) &sdot; [&rarr;](./lib/lux/secrets)
 * [Lux::ViewCell](#view_cell) &sdot; [&rarr;](./lib/lux/view_cell)
+* [Lux::Template](#template) &sdot; [&rarr;](./lib/lux/template)
+* [Lux::Config](#config) &sdot; [&rarr;](./lib/lux/config)
 
 
-### Plugins
-You manualy load this
+### Plugin System
 
-* [Lux.plugin :api](./plugins/api)
-* [Lux.plugin :assets](./plugins/assets)
-* [Lux.plugin :db](./plugins/db)
-* [Lux.plugin :event](./plugins/event)
-* [Lux.plugin :favicon](./plugins/favicon)
-* [Lux.plugin :html](./plugins/html)
-* [Lux.plugin :html_debug](./plugins/html_debug)
-* [Lux.plugin :log_exceptions](./plugins/log_exceptions)
-* [Lux.plugin :oauth](./plugins/oauth)
+Lux includes a plugin system for extending functionality:
+
+```ruby
+# Load a plugin from framework plugins directory
+Lux.plugin :api
+
+# Load a plugin from a custom path
+Lux.plugin name: :my_plugin, folder: './plugins/my_plugin'
+
+# Load all Ruby files in a plugin directory
+Lux.plugin './path/to/plugin'
+
+# Get loaded plugin info
+Lux.plugin.get(:api)
+Lux.plugin.loaded
+Lux.plugin.keys
+```
+
+Plugins are loaded from the `plugins/` directory in the framework root and can be organized by namespace.
 
 
 
@@ -438,13 +524,14 @@ Lux.env.dev?  # Lux.env.development?
 Lux.env.prod? # Lux.env.production?
 ```
 
-Lux provides only 4 environent modes that are set via `ENV['RACK_ENV']` settings -
-  `development`, `production`, `test` and `log`.
-  * `test` and `log` are special modes
-    * `test`: will retun true to `Lux.env.test?` and `Lux.env.develoment?`
-    * `log`: Production mode with output logging. It will retun true for
-      `Lux.env.log?` and `Lux.env.production?` or `Lux.env.prod?`.
-      This mode is activated if you run server with `bundle exec lux ss`
+Lux provides 4 environment modes that are set via `ENV['RACK_ENV']` or `ENV['LUX_ENV']`:
+
+* **development** - Development mode with debugging enabled
+* **production** - Production mode optimized for performance
+* **test** - Test mode (returns true for both `test?` and `development?`)
+* **log** - Production mode with logging enabled (returns true for both `log?` and `production?`)
+
+The `log` mode is activated when running the server with `bundle exec lux ss`
 
 
 
@@ -877,6 +964,112 @@ cell.city.render @city
 
 
 &nbsp;
+<a name="template"></a>
+## Lux::Template
+
+Template rendering engine built on top of Tilt.
+
+Supports multiple template formats including HAML, ERB, and others.
+
+```ruby
+# Render a template with a scope
+Lux::Template.render(scope, './path/to/template.haml')
+
+# Render with layout
+Lux::Template.render(scope, template: './template.haml', layout: './layout.haml')
+
+# Render with yield content
+Lux::Template.render(scope, './layout.haml') { 'content to yield' }
+
+# Create a helper with access to scope
+helper = Lux::Template.helper(scope, :main)
+```
+
+### Template Helper
+
+The helper module provides Rails-style helper functionality:
+
+```ruby
+module MainHelper
+  def link_to(text, url)
+    %[<a href="#{url}">#{text}</a>]
+  end
+end
+
+# Use in template
+helper = Lux::Template.helper(scope, :main)
+helper.link_to('Home', '/')
+```
+
+Template caching is enabled in production mode for better performance.
+
+
+
+&nbsp;
+<a name="config"></a>
+## Lux::Config
+
+Configuration management system for Lux applications.
+
+```ruby
+# Set configuration values
+Lux.config.key = value
+
+# Get configuration values
+Lux.config.key
+
+# Get all config
+Lux.config.all
+
+# Check if key exists
+Lux.config.key?
+```
+
+### Available Configuration Options
+
+```ruby
+# Application timeout in seconds
+Lux.config.app_timeout = 30
+
+# Delay job timeout
+Lux.config.delay_timeout = 30
+
+# Logger configuration
+Lux.config.logger_path_mask = './log/%s.log'
+Lux.config.logger_files_to_keep = 3
+Lux.config.logger_file_max_size = 10_240_000
+
+# Host configuration
+Lux.config.host = 'localhost:3000'
+
+# Secret key base for encryption
+Lux.config.secret_key_base = ENV['SECRET_KEY_BASE']
+
+# Hooks
+Lux.config.on_reload_code { ... }      # Called when code reloads
+Lux.config.on_mail_send { |mail| ... } # Called when mail is sent
+Lux.config.log_exception_via { |err| ... } # Custom exception logging
+```
+
+### Environment-Specific Config
+
+```ruby
+# Development
+Lux.config.no_cache = true       # Disable caching
+Lux.config.show_errors = true    # Show detailed errors
+Lux.config.screen_log = true      # Log to screen
+Lux.config.reload_code = true     # Auto-reload code
+
+# Production
+Lux.config.no_cache = false      # Enable caching
+Lux.config.show_errors = false   # Hide errors
+Lux.config.screen_log = false     # No screen logging
+Lux.config.reload_code = false    # No auto-reload
+```
+
+
+
+&nbsp;
 ## Methods added to base Ruby classes
 
 ### Dir
@@ -1001,3 +1194,30 @@ Rake tasks:
   rake start             # Run local dev server
   rake stat:goaccess     # Goaccess access stat builder
 ```
+
+## Testing
+
+Lux uses RSpec for testing. Run the test suite with:
+
+```bash
+# Run all tests
+bundle exec rspec
+
+# Run specific test file
+bundle exec rspec spec/lux_tests/routes_spec.rb
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+The MIT License (MIT) - Copyright (c) 2017 Dino Reić
+
+See LICENSE file for full details.
+
+## Links
+
+* GitHub: http://github.com/dux/lux-fw
+* Author: Dino Reić (@dux) - rejotl@gmail.com
