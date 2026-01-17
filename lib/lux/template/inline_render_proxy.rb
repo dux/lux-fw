@@ -19,13 +19,13 @@ module Lux
 
       @context.instance_variable_get("@_#{name}")
     end
-  end
 
-  def [] name
-    @context.instance_variable_get("@_#{name}")
-  end
+    def [] name
+      @context.instance_variable_get("@_#{name}")
+    end
 
-  def []= name, value
-    @context.instance_variable_set("@_#{name}", value)
+    def []= name, value
+      @context.instance_variable_set("@_#{name}", value)
+    end
   end
 end

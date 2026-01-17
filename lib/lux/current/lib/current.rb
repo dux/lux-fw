@@ -1,6 +1,6 @@
 class Current
   def self.method_missing mame, *args
-    eval "def Current.#{mame} *list; Lux.current.#{mame} *list; end"
+    Current.define_singleton_method(mame) { |*list| Lux.current.send(mame, *list) }
     Current.send mame, *args
   end
 end

@@ -9,7 +9,7 @@ module Lux
       # flash.info = 'messsage ...'
       def self.add_type name
         define_method(name) { |message| add name, message }
-        eval "alias #{name}= #{name}"
+        alias_method "#{name}=", name
       end
 
       add_type :info

@@ -115,7 +115,7 @@ module Lux
       if default == :_undef
         value
       else
-        value.nil? ? deafult : value
+        value.nil? ? default : value
       end
     end
   end

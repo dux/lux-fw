@@ -49,7 +49,7 @@ module Lux
           path = Lux.current.var.root_template_path.split('/')[1]
           table_name = name.class.name.tableize
           locals[table_name.singularize.to_sym] = name
-          eval "@_#{table_name.singularize} = name"
+          instance_variable_set("@_#{table_name.singularize}", name)
           name = "#{path}/#{table_name}/_#{table_name.singularize}"
         elsif !name.to_s.start_with?('./')
           template_path = Lux.current.var.root_template_path || './app/views'
