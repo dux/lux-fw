@@ -25,10 +25,13 @@ module Lux
     end
 
     def read key
-      return nil if (Lux.current.no_cache? rescue false)
-      key = generate_key key
-      log_get "Cache.read #{key}"
-      @server.get(key)
+      if Lux.current.no_cache?
+        nil
+      else
+        key = generate_key key
+        log_get "Cache.read #{key}"
+        @server.get(key)
+      end
     end
     alias :get :read
 
@@ -69,7 +72,7 @@ module Lux
       return yield(@key) if opts.if.is_a?(FalseClass)
 
       opts.ttl     = opts.ttl.to_i if opts.ttl
-      opts.force ||= Lux.current.try(:no_cache?) unless opts.force.class == FalseClass
+      opts.force ||= Lux.current.no_cache? unless opts.force.class == FalseClass
 
       @server.delete key if opts.force
 

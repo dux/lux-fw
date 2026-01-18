@@ -447,6 +447,10 @@ helper :global
 template_root './apps/admin/views'
 ```
 
+#### action_missing
+
+Called when a controller action is not found. Default implementation looks for a matching template file and renders it if found (requires `Lux.config.use_autoroutes` to be enabled). Can be overridden in controllers for custom fallback logic.
+
 
 
 

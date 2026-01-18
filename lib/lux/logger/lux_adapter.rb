@@ -20,7 +20,6 @@ module Lux
 
   def log what = nil, &block
     return unless Lux.env.screen_log?
-    # return if Lux.current.nav.format && !Lux.current.no_cache?
     what = block.call if block
     print what.to_s + "\n" if what
   end

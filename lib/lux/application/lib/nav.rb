@@ -84,20 +84,25 @@ module Lux
         end
       end
 
-      def path *args
-        if args.first
-          # contruct path
-          # /upload_dialog/is_image:true/model:posts/id:2/field:image_url
-          # = nav.path :model, :id, :field -> /upload_dialog/model:posts/id:2/field:image_url
-          parts  = @original.select {|el| !el.include?(':') }
-          parts += args.map do |el|
-            if value = Lux.current.params[el]
-              [el, value].join(':')
+      def path ref = nil
+        if block_given?
+          # nav path that is parsed as truthy, is stored. available via nav.id and nav.ids
+          # nav.path(:ref) {|el| num = el.split('-').last.to_id; num > 0 ? num : false }
+          # /foo/test-title-123/bar -> ['foo', :ref, 'bar'] -> nav.id == 123 (used by controller to decide should it use :show or :index on glob route map('foo'))
+          unless ref
+            raise ArgumentError.new('Default path not given as argument')
+          end
+
+          @path = @path.map do |el|
+            if result = yield(el)
+              @ids.push result == true ? el : result
+              ref
+            else
+              el
             end
-          end.compact
-          '/' + parts.join('/')
-        elsif block_given?
-          @path = @path.map { _1.gsub('-', '_') }
+          end
+
+          @ids.last
         else
           @path
         end
@@ -105,6 +110,18 @@ module Lux
 
       def path= list
         @path = list
+      end
+
+      def path_id
+        raise "use av.path {...}"
+      end
+
+      def id
+        @ids.last
+      end
+
+      def id= data
+        @ids[0] = data
       end
 
       # removes leading www.
@@ -155,26 +172,6 @@ module Lux
 
       def locale= name
         @locale = name.present? ? name.to_s : nil
-      end
-
-      def id
-        @ids.last
-      end
-
-      # when matched, replace nav path with id,  (works with resourceful routes map 'controler')
-      # nav.path_id { _1.split('-').last.string_id rescue nil }
-      # /foo/test-cbjy/bar -> ['foo', :id, 'bar]
-      def path_id
-        @path = @path.map do |el|
-          if result = yield(el)
-            @ids.push result
-            :id
-          else
-            el
-          end
-        end
-
-        @ids.last
       end
 
       def [] index

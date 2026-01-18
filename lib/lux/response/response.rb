@@ -56,9 +56,9 @@ module Lux
         @headers['etag'] = key
       end
 
-      if !status && !current.no_cache?(true) && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
-        if Lux.env.no_cache?
-          Lux.log " * etag match at #{Lux.app_caller || ':lux'} (skiping for env.no_cache)" unless current.nav.format
+      if !status && !current.no_cache? && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
+        if Lux.env.reload_code?
+          Lux.log " * etag match at #{Lux.app_caller || ':lux'} (skiping for env.reload_code?)" unless current.nav.format
         else
           Lux.log ' * etag match'
           body 'not-modified', status: 304

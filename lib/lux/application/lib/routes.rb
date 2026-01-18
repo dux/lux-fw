@@ -156,11 +156,11 @@ module Lux
           if object.include?('#')
             object, action = object.split('#')
           else
-            action = if nav.root == :id
-              nav.path[1] || :show
-            else
-              nav.path[0] || :index
-            end
+            # simple logic
+            #   /foo -> 'foo#index'
+            #   /foo/:show -> 'foo#show'
+            #   /foo/:show/bar -> 'foo#bar'
+            action = nav.path[1] || nav.root.or(:index)
           end
         when Array
           if object[0].class == Integer && object[1].class == Hash

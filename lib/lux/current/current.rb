@@ -71,15 +71,9 @@ module Lux
     end
 
     # Set Lux.current.can_clear_cache = true in production for admins
-    def no_cache? shallow_check = false
-      check = @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache'
-
-      if check
-        if shallow_check || Lux.env.no_cache?
-          true
-        else
-          can_clear_cache ? true : false
-        end
+    def no_cache?
+      if @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache'
+        can_clear_cache
       else
         false
       end
