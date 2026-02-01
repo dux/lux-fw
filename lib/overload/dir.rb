@@ -13,7 +13,7 @@ class Dir
   # `Dir.files('./app/assets')`
   def self.files dir, opts = {}
     dir = dir.to_s
- 
+
     list = (Dir.entries(dir) - ['.', '..'])
       .sort
       .reject { |el| File.directory?([dir, el].join('/')) }
@@ -98,7 +98,7 @@ class Dir
   def self.require_all folder, opts = {}
     list = Dir.find(folder, ext: :rb)
     list
-      .select{ |o| o.index('.rb') }
+      .select{ |o| o.index('.rb') && !o.index('_spec.rb') && !o.index('/app/views/') }
       .select{ |o| opts[:skip] ? !o.include?(opts[:skip]) : true }
       .each do |ruby_file|
         begin

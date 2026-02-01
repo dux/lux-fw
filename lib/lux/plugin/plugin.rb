@@ -1,3 +1,5 @@
+# define loader.rb in plugin folder for manual loader, loads all *.rb unless defined
+
 module Lux
   module Plugin
     extend self
@@ -9,18 +11,10 @@ module Lux
     # Lux.plugin 'foo/bar'
     # Lux.plugin.folders
     # Lux.plugin(:api).folder
-    def load arg
-      arg = arg.to_s if arg.is_a?(Symbol)
+    def load plugin_name
+      plugin_name = Pathname.new(plugin_name) unless plugin_name.is_a?(Pathname)
 
-      if arg.is_a?(String)
-        arg = arg.include?('/') ? { folder: arg } : { name: arg }
-      end
-
-      opts           = arg.to_hwia :name, :folder, :namespace
-      opts.name    ||= opts.folder.split('/').last
-      opts.name      = opts.name.to_s
-      opts.folder  ||= Lux.fw_root.join('plugins', opts.name).to_s
-      opts.namespace = [opts.namespace] unless opts.namespace.is_a?(Array)
+      opts = { folder: plugin_name.to_s, name: plugin_name.basename.to_s }.to_hwia
 
       return PLUGIN[opts.name] if PLUGIN[opts.name]
 
@@ -28,7 +22,7 @@ module Lux
 
       PLUGIN[opts.name] ||= opts
 
-      base = Pathname.new(opts.folder).join(opts.name, '.rb')
+      base = Pathname.new(opts.folder).join('loader.rb')
 
       if base.exist?
         require base.to_s
@@ -57,9 +51,7 @@ module Lux
 
     # get all folders in a namespace
     def folders namespace=:main
-      list = PLUGIN.values
-      list.select { |it| it.namespace.include?(namespace) }
-      list.map { |it| it.folder }
+      PLUGIN.values.map { |it| it.folder }
     end
   end
 end

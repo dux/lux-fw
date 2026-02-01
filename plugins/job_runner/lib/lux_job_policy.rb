@@ -1,0 +1,2 @@
+class LuxJobPolicy < ModelPolicy
+end

@@ -82,9 +82,9 @@ module Lux
       target = opts.keys.first
       value  = opts.values.first
 
-      return unless request.path.to_s.starts_with?(value)
+      return unless request.path.to_s.start_with?(value)
 
-      call target.call current.env
+      response.rack target
     end
 
     def render_error
