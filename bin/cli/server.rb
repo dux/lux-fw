@@ -39,6 +39,8 @@ LuxCli.class_eval do
       '3000' # development default
     end
 
+    ENV['PORT'] = port_option
+
     ports = parse_ports(port_option)
     base = "RACK_ENV=#{ENV['RACK_ENV']} LUX_ENV=#{ENV['LUX_ENV']} bundle exec puma"
 
