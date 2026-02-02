@@ -47,6 +47,10 @@ class Object
     block.call(self) if self.present?
   end
 
+  def presence
+    self.present? ? self : nil
+  end
+
   def try *args, &block
     if self.class == NilClass
       nil

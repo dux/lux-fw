@@ -14,7 +14,7 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.email       = 'rejotl@gmail.com'
   gem.files       = gem_files
 
-  gem.executables = ['lux']
+  gem.executables = ['lux', 'lux-procfile']
 
   # added by analogy
   gem.add_dependency 'rack'
@@ -53,6 +53,9 @@ Gem::Specification.new 'lux-fw' do |gem|
 
   # sweet cli spinner
   gem.add_dependency 'whirly'
+
+  # interactive terminal prompts (loaded on demand)
+  gem.add_dependency 'tty-prompt'
 
   # formated SQL debugging in development
   gem.add_dependency 'niceql'

@@ -15,7 +15,7 @@ Created by @dux in 2017 - MIT License
 
 ## Installation
 
-First, make sure you have `ruby 2.7+` installed.
+First, make sure you have `ruby 3.0+` installed.
 
 ```bash
 gem install lux-fw
@@ -117,7 +117,7 @@ Lux.delay    # Execute block in background thread
 
 ## Components
 
-Automaticly loaded
+Automatically loaded
 
 
 
@@ -189,7 +189,7 @@ Main application controller and router
 
 #### Class filters
 
-There are a few route filtes
+There are a few route filters
 * `config`      # pre boot app config
 * `boot`        # after rack app boot (web only)
 * `info`        # called by "lux config" cli
@@ -205,7 +205,7 @@ For Lux routing you need to know only few things
 
 * `get?`, `post?`, `delete?`, ... will be true of false based HTTP_REQUEST type
   * `get? { @exec_if_true }` works as well
-* `map"`method accepts block that wraps map calls.
+* `map` method accepts block that wraps map calls.
   * `map :city do ...` will call `city_map` method. it has to return falsey if no match
   * `map 'city' do ...` will check if we are under `/city/*` nav namespace
 
@@ -568,19 +568,19 @@ Lux.error.log(error_object)
 
 ```ruby
 # 400: for bad parameter request or similar
-Lux.error.forbidden foo
+Lux.error.bad_request foo
 
 # 401: for unauthorized access
-Lux.error.forbidden foo
+Lux.error.unauthorized foo
 
-# 403: for unalloed access
+# 403: for forbidden access
 Lux.error.forbidden foo
 
 # 404: for not found pages
 Lux.error.not_found foo
 
 # 503: for too many requests at the same time
-Lux.error.forbidden foo
+Lux.error.too_many_requests foo
 ```
 
 
@@ -654,14 +654,14 @@ Light wrapper arrond [ruby mailer gem](https://github.com/mikel/mail).
 
 #### Example
 
-sugessted usage
+Suggested usage
 
 ```ruby
 Mailer.deliver(:email_login, 'foo@bar.baz')
 Mailer.render(:email_login, 'foo@bar.baz')
 ```
 
-natively works like
+Natively works like
 
 ```
 Mailer.prepare(:email_login, 'foo@bar.baz').deliver
@@ -908,7 +908,7 @@ end
 <a name="secrets"></a>
 ## Lux.secrets (Lux::Secrets)
 
-Access and protext secrets.
+Access and protect secrets.
 
 Secrets can be provided in raw yaml file in `./config/secrets.yaml`
 
@@ -925,7 +925,7 @@ If you have a secret hash defined in `Lux.config.secret_key_base` or `ENV['SECRE
 <a name="view_cell"></a>
 ## Lux::ViewCell
 
-View cells a partial view-part/render/controllers combo.
+View cells are partial view-part/render/controllers combo.
 
 Idea is to have idempotent cell render metod, that can be reused in may places.
 You can think of view cells as rails `render_partial` with localized controller attached.
@@ -1091,7 +1091,7 @@ Get all files in a folder
 
 #### Dir.all_files
 
-Gobs files search into child folders.
+Globs files search into child folders.
 
 All lists are allways sorted with idempotent function response.
 
@@ -1108,7 +1108,7 @@ Requires all found ruby files in a folder, deep search into child folders
 ### Array
 #### @array.to_csv
 
-Aonvert list of lists to CSV
+Convert list of lists to CSV
 
 #### @array.last=
 
@@ -1122,7 +1122,7 @@ Convert list to sentence, Rails like
 
 #### @array.toggle
 
-Toggle existance of an element in array and return true when one added
+Toggle existence of an element in array and return true when one added
 
 `@list.toggle(:foo)`
 
@@ -1148,15 +1148,106 @@ Get all class descendants
 ### Float
 #### @float.as_currency
 
-Convert float to currenct
+Convert float to currency
 
 `@sum.as_currency(pretty: false, symbol: '$')`
 
-## Lux command line helper
+## Development Server
+
+Start the development server with:
+
+```bash
+lux s              # Start on port 3000 (default)
+lux s -p 3001      # Start on specific port
+lux s -p 3001-3003 # Start 3 servers with auto-restart on failure
+lux s -e p         # Start in production mode
+```
+
+### Server Options
+
+```bash
+-p, --port PORT    # Port or port range (e.g., 3001-3003)
+-e, --env ENV      # Environment (test, dev, prod)
+-r, --rerun        # Rerun app on every file change
+-o, --opt OPT      # Lux options (l=log, r=reload, e=errors)
+```
+
+### Port Range Mode
+
+When using a port range like `-p 3001-3003`, Lux starts multiple puma processes:
+- Each runs in a while loop with auto-restart on failure
+- 5 second delay between restarts
+- All processes terminate on Ctrl+C
+
+In development, `PORT` from `.env` is ignored (always uses 3000 unless `-p` given).
+In production (`-e p`), `PORT` from `.env` is used.
+
+
+## Production Deployment (lux sysd)
+
+Lux provides integrated systemd service management for production deployments.
+
+### Setup
+
+Add to your `.env` file:
+
+```bash
+DOMAIN=myapp.com     # Required - your domain
+PORT=3000            # Optional - port or range (e.g., 3000-3003)
+```
+
+### Generate Config Files
+
+```bash
+lux sysd generate
+```
+
+This generates files in `./config/sysd/`:
+
+| File | Description |
+|------|-------------|
+| `lux-web-{app}.service` | Systemd service for web server |
+| `lux-job-{app}.service` | Systemd service for job runner |
+| `caddy.conf` | Caddy reverse proxy config |
+| `nginx-proxy.conf` | Nginx reverse proxy config |
+| `nginx-passenger.conf` | Nginx with Passenger config |
+
+Each file includes install instructions in the header comments.
+
+### Service Management
+
+```bash
+lux sysd tui              # Interactive TUI for service management
+lux sysd list             # List services with status
+lux sysd install [name]   # Show install instructions
+lux sysd start <name>     # Start service
+lux sysd stop <name>      # Stop service
+lux sysd restart <name>   # Restart service
+lux sysd log <name>       # Follow service logs
+lux sysd status [name]    # Show service status
+```
+
+### Quick Install Example
+
+```bash
+# Generate configs
+lux sysd generate
+
+# Install web service (symlink)
+sudo ln -sf $(pwd)/config/sysd/lux-web-myapp.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable lux-web-myapp
+sudo systemctl start lux-web-myapp
+
+# Add Caddy config (import method)
+echo "import $(pwd)/config/sysd/caddy.conf" | sudo tee -a /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+
+## Lux Command Line
 
 You can run command `lux` in your app home folder.
-
-If you have `capistrano` or `mina` installed, you will see linked tasks here as well.
 
 ```bash
 $ lux
@@ -1165,38 +1256,14 @@ Commands:
   lux console         # Start console
   lux erb             # Parse and process *.erb templates
   lux evaluate        # Eval ruby string in context of Lux::Application
-  lux generate        # Genrate models, cells, ...
+  lux generate        # Generate models, cells, ...
   lux get             # Get single page by path "lux get /login"
   lux help [COMMAND]  # Describe available commands or one specific command
   lux routes          # Print routes
   lux secrets         # Edit, show and compile secrets
   lux server          # Start web server
   lux stats           # Print project stats
-
-Rake tasks:
-  rake assets:compile    # Build and generate manifest
-  rake assets:install    # Install example rollup.config.js, package.json and Procfile
-  rake db:am             # Automigrate schema
-  rake db:console        # Run PSQL console
-  rake db:create         # Create database
-  rake db:drop           # Drop database
-  rake db:dump[name]     # Dump database backup
-  rake db:reset          # Reset database (drop, create, auto migrate, seed)
-  rake db:restore[name]  # Restore database backup
-  rake db:seed:gen       # Create seeds from models
-  rake db:seed:load      # Load seeds from db/seeds
-  rake docker:bash       # Get bash to web server while docker-compose up
-  rake docker:build      # Build docker image named stemical
-  rake docker:up         # copose up
-  rake exceptions        # Show exceptions
-  rake exceptions:clear  # Clear all excpetions
-  rake images:reupload   # Reupload images to S3
-  rake job:process       # Process delayed job que tasks (NSQ, Faktory, ...)
-  rake job:start         # Start delayed job que tasks Server (NSQ, Faktory, ...)
-  rake nginx:edit        # Edit nginx config
-  rake nginx:generate    # Generate sample config
-  rake start             # Run local dev server
-  rake stat:goaccess     # Goaccess access stat builder
+  lux sysd            # Manage systemd services and generate config files
 ```
 
 ## Testing
