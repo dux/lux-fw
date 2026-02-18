@@ -28,16 +28,7 @@ Sequel.inflections do |inflect|
   # inflect.plural   'person', 'people'
   inflect.singular /Data$/i, 'Data'
   inflect.uncountable 'news'
-  inflect.irregular 'status', 'statuses'
 end
-
-# ap Sequel.inflections.singulars
-# # ap 'task_status'.method(:singularize).source_location
-# ap 'status'.singularize
-# ap 'task_status'.singularize       # Should return "task_status"
-# ap 'task_status'.classify
-# # ap 'task_status'.sub(/status(es)$/, 'status')
-# exit
 
 # load Tilt parsers
 Haml::Template.options[:escape_html] = false

@@ -48,10 +48,6 @@ module Lux
       def method_missing method_sym, *args
         prepare(method_sym, *args)
       end
-
-      def deliver
-        send(method_name, *args).deliver
-      end
     end
 
     ###

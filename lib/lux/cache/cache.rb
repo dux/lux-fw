@@ -69,7 +69,7 @@ module Lux
       opts = { ttl: opts } unless opts.is_a?(Hash)
       opts = OPTS.new **opts
 
-      return yield(@key) if opts.if.is_a?(FalseClass)
+      return yield(key) if opts.if.is_a?(FalseClass)
 
       opts.ttl     = opts.ttl.to_i if opts.ttl
       opts.force ||= Lux.current.no_cache? unless opts.force.class == FalseClass
@@ -100,7 +100,7 @@ module Lux
       if data = self.read(key)
         data
       else
-        if data = yield(@key)
+        if data = yield(key)
           self.write key, data, opts
         end
       end

@@ -53,10 +53,6 @@ module Lux
       Lux.config.use_autoroutes       = false
       Lux.config.asset_root           = false
       Lux.config[:plugins]           ||= []
-      Lux.config[:error_logger]      ||= Proc.new do |error|
-        Lux.log " * error: Lux.config.error_logger = proc {|err| ... } not configured"
-        Lux.error.screen error
-      end
 
       ###
 

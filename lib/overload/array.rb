@@ -14,7 +14,7 @@ class Array
 
   # Wrap all list elements with a tag
   def wrap name, opts={}
-    map{ |el| opts.tag(name, opts) }
+    map{ |el| el.tag(name, opts) }
   end
 
   # Set last element of an array
@@ -86,7 +86,8 @@ class Array
   def xmap
     count = 0
     map do |el|
-      yield el, ++count
+      count += 1
+      yield el, count
       el
     end
   end

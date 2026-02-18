@@ -20,6 +20,8 @@
 #   # Start the runner (blocks)
 #   LuxJob.run
 
+ENV['PORT_JOB'] ||= '3001'
+
 require_relative 'lib/lux_job'
 require_relative 'lib/lux_job_lock'
 require_relative 'lib/lux_job_web'

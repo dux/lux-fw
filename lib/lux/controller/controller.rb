@@ -66,13 +66,10 @@ module Lux
 
       ivars.each { |k, v| instance_variable_set(k, v) }
 
-      if method_name.is_a?(Symbol)
-        if [:action, :error].include?(method_name)
-          raise Lux.error.internal_server_error('Forbiden action name :%s' % method_name)
-        end
-      else
-        r 'Do I use this? (controller_action_call)'
-        return controller_action_call(method_name, *args)
+      method_name = method_name.to_sym unless method_name.is_a?(Symbol)
+
+      if [:action, :error].include?(method_name)
+        raise Lux.error.internal_server_error('Forbiden action name :%s' % method_name)
       end
 
       method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')

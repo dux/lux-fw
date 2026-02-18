@@ -55,7 +55,7 @@ class LuxJobWeb < Sinatra::Base
     end
   end
 
-  set :port, 3001
+  set :port, ENV.fetch('PORT_JOB').to_i
   set :bind, '0.0.0.0'
   set :protection, false
   set :host_authorization, { allow_if: ->(_env) { true } }

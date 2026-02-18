@@ -1,26 +1,9 @@
 # https://github.com/jeremyevans/sequel/blob/master/doc/schema_modification.rdoc
-
-# class User < ApplicationModel
-#   schema do
-#     name meta: { label: 'Puno ime sa titulom' }
-#     email :email, meta: { unique: 'Email is vec registriran' }
-
-#     timestamps
-#   end
-# end
-
-module Sequel::Plugins::AutoMigrate
-  def self.apply(model)
-    def model.inherited(subclass)
-      if subclass.name && ENV['DB_MIGRATE'] == 'true'
-        AutoMigrate.new(subclass.db).table subclass.to_s.tableize
-      end
-      super
-    end
-  end
-end
-
-Sequel::Model.plugin :auto_migrate
+#
+# Auto-migrates database schema based on Typero model definitions.
+# Triggered by Typero sequel adapter when ENV['DB_MIGRATE'] == 'true'.
+#
+# Usage: rake db:am (sets DB_MIGRATE=true before loading models)
 
 class AutoMigrate
   class << self
@@ -62,11 +45,6 @@ class AutoMigrate
     @fields     = {}
     @table_name = table_name.to_s.tableize.to_sym
     @opts = opts || {}
-
-    # I do not know why this is here
-    if [:categories].include?(@table_name)
-      die 'Table name "%s" is not permited' % table_name
-    end
 
     # create table unless it exists
     unless self.db.table_exists?(@table_name.to_s)
@@ -159,8 +137,13 @@ class AutoMigrate
       unless was_name
         print "Remove colum #{@table_name}.#{field} (y/N): ".light_blue
         if Lux.env.production? || STDIN.gets.chomp.downcase.index('y')
-          self.db.drop_column @table_name, field
-          puts " drop_column #{field}".green
+          begin
+            self.db.drop_column @table_name, field
+            puts " drop_column #{field}".green
+          rescue Sequel::DatabaseError => e
+            raise unless e.message.include?('UndefinedColumn')
+            puts " skip drop #{field} (already removed)".yellow
+          end
         end
       end
     end
@@ -374,9 +357,7 @@ class AutoMigrate
       opts[:scale] ||= 2
       @fields[name.to_sym] = [:decimal, opts]
     else
-      raise "Unknown DB filed type: #{type.to_s.red} (in table: #{@table_name})"
+      raise "Unknown DB field type: #{type.to_s.red} (in table: #{@table_name})"
     end
   end
 end
-
-

@@ -4,6 +4,6 @@ class NilClass
   end
 
   def is? klass
-    true
+    false
   end
 end

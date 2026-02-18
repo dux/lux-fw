@@ -77,7 +77,7 @@ module Lux
         num = 400
       end
 
-      @status ||= num
+      @status = num
       @status
     end
     alias :status= :status
@@ -260,7 +260,7 @@ module Lux
         @body = Lux.env.screen_log? ? JSON.pretty_generate(@body) : JSON.generate(@body)
 
         if current.request.params[:callback]
-          @body = "#{current.request.params[:callback]}(#{ret})"
+          @body = "#{current.request.params[:callback]}(#{@body})"
           @content_type ||= 'text/javascript'
         else
           @content_type ||= 'application/json'

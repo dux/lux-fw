@@ -126,26 +126,23 @@ namespace :db do
 
   desc 'Automigrate schema'
   task :am do
-    ENV['DB_MIGRATE'] = 'true'
+    # ENV['DB_MIGRATE'] should be set in Rakefile before config loads
+    ENV['DB_MIGRATE'] = 'true' unless ENV['DB_MIGRATE'] == 'true'
 
-    load '%s/auto_migrate/auto_migrate.rb' % Lux.plugin(:db).folder
+    # load AutoMigrate class
+    load '%s/auto_migrate/auto_migrate.rb' % Lux::Plugin.get('db').folder
 
-    # Sequel extension and plugin test
+    # verify pg_array extension works (raw SQL to avoid Sequel plugin conflicts)
     DB.run %[DROP TABLE IF EXISTS lux_tests;]
-    DB.run %[CREATE TABLE lux_tests (int_array integer[] default '{}', text_array text[] default '{}');]
-    class LuxTest < Sequel::Model(DB); end;
-    LuxTest.new.save
-    die('"DB.extension :pg_array" not loaded') unless LuxTest.first.int_array.class == Sequel::Postgres::PGArray
+    DB.run %[CREATE TABLE lux_tests (int_array integer[] default '{}');]
+    DB.run %[INSERT INTO lux_tests DEFAULT VALUES;]
+    row = DB[:lux_tests].first
+    die('"DB.extension :pg_array" not loaded') unless row[:int_array].is_a?(Sequel::Postgres::PGArray)
     DB.run %[DROP TABLE IF EXISTS lux_tests;]
 
+    # run app migrations: before -> load models (triggers auto_migrate) -> after
     load_file './db/before.rb'
     load_file './db/auto_migrate.rb'
-
-    # klasses = Typero.schema(type: :model) || raise(StandardError.new('Typero schemas not loaded'))
-    # for klass in klasses
-    #   AutoMigrate.apply_schema klass
-    # end
-
     load_file './db/after.rb', external: true
   end
 end

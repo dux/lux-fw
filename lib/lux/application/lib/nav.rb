@@ -212,7 +212,7 @@ module Lux
         else
           count = 2
           count = 1 if parts.last == 'localhost'
-          count = 3 if parts.last(2).join('.') == 5 # foo.co.uk
+          count = 3 if parts.last(2).join('.').length == 5 # foo.co.uk
 
           @domain    = parts.pop(count).join('.')
           @domain    += ".#{parts.pop}" if @domain.length < 6

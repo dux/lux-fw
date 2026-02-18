@@ -37,9 +37,9 @@ module Lux
         end
 
         hash
-      rescue
-        Lux.log ' Lux::Current::EncryptParams decrypt error'.red
-        {}
+      rescue StandardError => e
+        Lux.log ' Lux::Current::EncryptParams decrypt error: %s'.red % e.message
+        hash
       end
     end
   end

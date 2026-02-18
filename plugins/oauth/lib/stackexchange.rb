@@ -1,7 +1,7 @@
 # https://api.stackexchange.com/docs/authentication
 
 class LuxOauth::Stackexchange < LuxOauth
-  def intialize
+  def initialize
     raise ArgumentError.new('OAUTH_ID needed') unless @opts.id
   end
 
@@ -11,7 +11,7 @@ class LuxOauth::Stackexchange < LuxOauth
 
   def format_response opts
     {
-      stackexchnage_user_id: opts['items'].first['user_id'],
+      stackexchange_user_id: opts['items'].first['user_id'],
       user: opts['items'].first
     }
   end

@@ -75,8 +75,8 @@ module Lux
   end
 end
 
-Lux.config.error_logger = Proc.new do |error|
-  if Lux.env.dev? && !error.class.to_s.include?('Lux::Error')
+Lux::Error.on_error do |error|
+  if Lux.env.dev?
     ap [error.message, error.class, Lux::Error.mark_backtrace(error)]
   end
 

@@ -1,7 +1,7 @@
 module ::Lux
   extend self
 
-  VERSION ||= File.read File.expand_path('../../../.version', __FILE__).chomp
+  VERSION ||= File.read(File.expand_path('../../../.version', __FILE__)).chomp
 
   def root
     @lux_app_root ||= Pathname.new(ENV.fetch('APP_ROOT') { Dir.pwd }).freeze
@@ -51,7 +51,7 @@ module ::Lux
   def run command, get_result = false
     puts command.light_black
     logger(:system_run).info command
-    get_result ? `${command}` : system(command)
+    get_result ? `#{command}` : system(command)
   end
 
   def die text
@@ -76,6 +76,8 @@ module ::Lux
       Timeout::timeout time_to_live do
         yield
       end
+    rescue => e
+      Lux::Error.log e
     end
   end
 end

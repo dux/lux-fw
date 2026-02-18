@@ -110,10 +110,12 @@ Email sending:
 
 ### Lux::Error (`lib/lux/error/error.rb`)
 Error handling with HTTP status codes:
-- `Lux.error.not_found(message)`
-- `Lux.error.forbidden(message)`
-- `Lux.error.unauthorized(message)`
+- `Lux.error.not_found(message)` - 404 error
+- `Lux.error.forbidden(message)` - 403 error
+- `Lux.error.unauthorized(message)` - 401 error
 - `Lux::Error.render(error)` - Error page rendering
+- `Lux::Error.log(error)` - Log exception (skips Lux::Error instances)
+- `Lux::Error.on_error { |e| }` - Define custom error handler for DB/Sentry
 
 ### Lux::Environment (`lib/lux/environment/environment.rb`)
 Environment detection via `Lux.env`:
@@ -128,7 +130,6 @@ Configuration via `Lux.config`:
 - `Lux.config.key = value`
 - `Lux.config.on_reload_code { }` - Code reload hook
 - `Lux.config.on_mail_send { |mail| }` - Mail hook
-- `Lux.config.error_logger` - Error logging proc
 - `Lux.config.use_autoroutes` - Enable template-based routes
 - `Lux.config.serve_static_files` - Static file serving
 

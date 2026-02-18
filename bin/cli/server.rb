@@ -4,7 +4,7 @@
 #   Lux.env.screen_log?   # true
 #   Lux.env.reload_code?  # true
 #
-# lux s -p 3001-3003  # start 3 servers, auto-restart on failure after 5s
+# PORT=3000  # defaults to 3000
 
 # Shortcuts: lux s, lux ss, lux silent
 case ARGV[0]
@@ -18,7 +18,7 @@ end
 
 LuxCli.class_eval do
   desc :server, 'Start web server'
-  method_option :port,  aliases: '-p', default: '3000', desc: 'Port or port range (e.g., 3001-3003)', type: :string
+  method_option :port,  aliases: '-p', desc: 'Port number', type: :string
   method_option :env,   aliases: '-e', desc: 'Environment (test, dev, prod)'
   method_option :rerun, aliases: '-r', default: false, desc: 'Rerun app on every file change', type: :boolean
   method_option :opt,   aliases: '-o', default: 'lre', desc: 'Lux options (l=log, r=reload, e=errors)', type: :string
@@ -28,44 +28,15 @@ LuxCli.class_eval do
     ENV['RACK_ENV'] = options[:env] if options[:env]
     ENV['LUX_ENV'] = options[:opt]
 
-    # In development, always use port 3000 unless -p is explicitly given
-    # In production, use PORT from .env or -p option
-    is_production = ENV['RACK_ENV'].to_s.start_with?('p')
-    port_option = if options[:port] != '3000'
-      options[:port] # -p was explicitly given
-    elsif is_production && ENV['PORT']
-      ENV['PORT'] # production uses .env PORT
-    else
-      '3000' # development default
-    end
+    port = options[:port] || ENV.fetch('PORT', '3000')
+    ENV['PORT'] = port.to_s
 
-    ENV['PORT'] = port_option
-
-    ports = parse_ports(port_option)
     base = "RACK_ENV=#{ENV['RACK_ENV']} LUX_ENV=#{ENV['LUX_ENV']} bundle exec puma"
 
-    if ports.size > 1
-      run_multi(base, ports)
-    elsif options[:rerun]
-      Cli.run "find #{LUX_ROOT} . -name *.rb | entr -r #{base} -p #{ports.first}"
+    if options[:rerun]
+      Cli.run "find #{LUX_ROOT} . -name *.rb | entr -r #{base} -p #{port}"
     else
-      Cli.run "#{base} -p #{ports.first}"
+      Cli.run "#{base} -p #{port}"
     end
-  end
-
-  private
-
-  def parse_ports(port_arg)
-    if port_arg.to_s.include?('-')
-      start_port, end_port = port_arg.split('-').map(&:to_i)
-      (start_port..end_port).to_a
-    else
-      [port_arg.to_i]
-    end
-  end
-
-  def run_multi(base, ports)
-    cmds = ports.map { |p| "(while true; do #{base} -p #{p}; echo 'Restarting port #{p} in 5s...'; sleep 5; done)" }
-    system(cmds.join(' & ') + ' & wait')
   end
 end

@@ -50,7 +50,7 @@ module Lux
       end
 
       def get_multi *args
-        data = @cache.where(key: args).all
+        data = @cache.where(key: args).where(Sequel.lit('valid_to >= ?', Time.now)).all
         data.inject({}) {|t, el| t[el[:key]] = Marshal.load Base64.decode64(el[:value]); t}
       end
 

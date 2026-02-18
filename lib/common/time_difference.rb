@@ -20,18 +20,21 @@ class TimeDifference
       en: 'before',
       hr: 'prije'
     },
-    in_few_econds: {
+    in_few_seconds: {
       en: 'in few seconds',
       hr: 'za par sekundi'
     },
-    just_happend: {
-      en: 'just happend',
+    just_happened: {
+      en: 'just happened',
       hr: 'upravo sada'
     }
   }
 
   def initialize start_date, end_date = nil, klass = nil
-    unless end_date
+    if end_date
+      @start_date = start_date
+      @end_date   = end_date
+    else
       @end_date   = start_date
       @start_date = Time.now
     end
@@ -44,7 +47,7 @@ class TimeDifference
 
     if @klass == Date && diff < TIMES[2][1]
       return locale(:today)
-      # @start_date < @end_date ? locale(:in_few_econds) : locale(:just_happend)
+      # @start_date < @end_date ? locale(:in_few_seconds) : locale(:just_happened)
     end
 
     TIMES.each do |(key, ref)|
@@ -52,7 +55,7 @@ class TimeDifference
       return part(key, value) if value > 0
     end
 
-    @start_date < @end_date ? locale(:in_few_econds) : locale(:just_happend)
+    @start_date < @end_date ? locale(:in_few_seconds) : locale(:just_happened)
   end
 
   # def set_locale key, value

@@ -38,6 +38,7 @@ module Lux
 
       def clear
         @@ram_cache = {}
+        @@ttl_cache = {}
       end
     end
   end

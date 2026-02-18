@@ -546,41 +546,55 @@ The `log` mode is activated when running the server with `bundle exec lux ss`
 
 Error handling module.
 
-```ruby
-# try to execute part of the code, log exeception if fails
-Lux.error.try(name, &block)
-
-# HTML render style for default Lux error
-Lux.error.render(desc)
-
-# show error page
-Lux.error.show(desc)
-
-# show inline error
-Lux.error.inline(name=nil, error_object=nil)
-
-# log exeption via Lux.config.log_exception_via method
-Lux.error.log(error_object)
-```
-
-
-#### defines standard Lux errors and error generating helpers
+#### HTTP Error Helpers
 
 ```ruby
-# 400: for bad parameter request or similar
-Lux.error.bad_request foo
+# 400: for bad parameter request
+Lux.error.bad_request message
 
 # 401: for unauthorized access
-Lux.error.unauthorized foo
+Lux.error.unauthorized message
 
 # 403: for forbidden access
-Lux.error.forbidden foo
+Lux.error.forbidden message
 
 # 404: for not found pages
-Lux.error.not_found foo
+Lux.error.not_found message
 
-# 503: for too many requests at the same time
-Lux.error.too_many_requests foo
+# 500: for internal server error
+Lux.error.internal_server_error message
+```
+
+#### Exception Logging
+
+Real exceptions (not `Lux::Error`) are automatically logged to `./log/exception.log`.
+
+```ruby
+# Log an exception (skips Lux::Error instances)
+Lux::Error.log(error_object)
+
+# Define custom error handler (for DB, Sentry, etc.)
+Lux::Error.on_error do |error|
+  # Log to database
+  ExceptionLog.create(
+    error_class: error.class.to_s,
+    message: error.message,
+    backtrace: error.backtrace&.join("\n")
+  )
+
+  # Or send to Sentry
+  Sentry.capture_exception(error)
+end
+```
+
+#### Rendering
+
+```ruby
+# HTML render style for default Lux error
+Lux::Error.render(error)
+
+# Show inline error
+Lux::Error.inline(error, message)
 ```
 
 
@@ -1052,7 +1066,6 @@ Lux.config.secret_key_base = ENV['SECRET_KEY_BASE']
 # Hooks
 Lux.config.on_reload_code { ... }      # Called when code reloads
 Lux.config.on_mail_send { |mail| ... } # Called when mail is sent
-Lux.config.log_exception_via { |err| ... } # Custom exception logging
 ```
 
 ### Environment-Specific Config
@@ -1172,15 +1185,21 @@ lux s -e p         # Start in production mode
 -o, --opt OPT      # Lux options (l=log, r=reload, e=errors)
 ```
 
+### Environment Variables
+
+```bash
+PORT=3000           # Single port (default: 3000)
+PORT_RANGE=3001-3003 # Port range for multi-server mode (optional)
+```
+
+Priority order: `-p` option > `PORT_RANGE` > `PORT` > default 3000
+
 ### Port Range Mode
 
-When using a port range like `-p 3001-3003`, Lux starts multiple puma processes:
+When using a port range (via `-p` or `PORT_RANGE`), Lux starts multiple puma processes:
 - Each runs in a while loop with auto-restart on failure
 - 5 second delay between restarts
 - All processes terminate on Ctrl+C
-
-In development, `PORT` from `.env` is ignored (always uses 3000 unless `-p` given).
-In production (`-e p`), `PORT` from `.env` is used.
 
 
 ## Production Deployment (lux sysd)
@@ -1192,9 +1211,13 @@ Lux provides integrated systemd service management for production deployments.
 Add to your `.env` file:
 
 ```bash
-DOMAIN=myapp.com     # Required - your domain
-PORT=3000            # Optional - port or range (e.g., 3000-3003)
+DOMAIN=myapp.com      # Required - your domain
+PORT=3000             # Single port (default: 3000)
+PORT_RANGE=3000-3003  # Port range for multi-server mode (optional)
 ```
+
+When `PORT_RANGE` is set, multiple puma processes are started for load balancing.
+The generated nginx/caddy configs will include all ports in the upstream pool.
 
 ### Generate Config Files
 

@@ -202,10 +202,32 @@ module Lux
         end
       end
 
-      def log err
-        if Lux.config.error_logger
-          Lux.config.error_logger.call err
+      # Define custom error handler
+      # Usage: Lux::Error.on_error { |err| MyDB.log(err) }
+      def on_error(&block)
+        if block_given?
+          @on_error_handler = block
+        else
+          @on_error_handler
         end
+      end
+
+      # Log exception (skips Lux::Error instances - they are intentional HTTP errors)
+      def log err
+        return if err.is_a?(Lux::Error)
+
+        screen(err)
+        log_to_file(err)
+        @on_error_handler&.call(err)
+      end
+
+      def log_to_file err
+        return if Lux.env.test?
+
+        url = Lux.current&.request&.url rescue 'N/A'
+        backtrace = mark_backtrace(err).first(10).join(' | ')
+
+        Lux.logger(:exception).error "[#{err.class}] #{err.message} | URL: #{url} | #{backtrace}"
       end
     end
 

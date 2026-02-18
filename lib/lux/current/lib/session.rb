@@ -59,7 +59,7 @@ module Lux
       end
 
       def merge! hash={}
-        @hash.keys.each { |k| self[k] = @hash[k] }
+        hash.each { |k, v| self[k] = v }
       end
 
       def keys

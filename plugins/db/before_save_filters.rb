@@ -14,6 +14,7 @@ module Sequel::Plugins::LuxBeforeSave
       else
         self[:created_by] ||= default_current_user if respond_to?(:created_by)
         self[:created_by_ref] ||= default_current_user if respond_to?(:created_by_ref)
+        self[:creator_ref] ||= default_current_user if respond_to?(:creator_ref)
       end
 
       super

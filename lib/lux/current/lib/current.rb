@@ -1,6 +1,6 @@
 class Current
-  def self.method_missing mame, *args
-    Current.define_singleton_method(mame) { |*list| Lux.current.send(mame, *list) }
-    Current.send mame, *args
+  def self.method_missing name, *args
+    Current.define_singleton_method(name) { |*list| Lux.current.send(name, *list) }
+    Current.send name, *args
   end
 end

@@ -148,7 +148,7 @@ class String
     %[<span style="color: #800;">#{self}</span>]
   end
 
-  # remomove colorize gem string colors
+  # remove colorize gem string colors
   def decolorize
     self.gsub(/\[0;\d\d;\d\dm([^\[]*)\[0m/) { $1 }
   end

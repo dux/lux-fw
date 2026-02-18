@@ -19,7 +19,7 @@ module Sequel::Plugins::LuxLinks
             parent_ref: object.ref
           )
         else
-          raise "Link filed not found"
+          raise "Link field not found"
         end
       else
         self
