@@ -17,8 +17,8 @@ def Paginate set, size: 20, param: :page, page: nil, count: nil, klass: nil
   ret.define_singleton_method(:paginate_param)    do; param ;end
   ret.define_singleton_method(:paginate_page)     do; page; end
   ret.define_singleton_method(:paginate_next)     do; has_next; end
-  ret.define_singleton_method(:paginate_first_id) do; ret.first.id rescue nil; end
-  ret.define_singleton_method(:paginate_last_id)  do; ret.last.id rescue nil; end
+  ret.define_singleton_method(:paginate_first_ref) do; ret.first[:ref] rescue nil; end
+  ret.define_singleton_method(:paginate_last_ref)  do; ret.last[:ref] rescue nil; end
   ret.define_singleton_method(:paginate_opts)     do; ({ param: param, page: page, next: has_next }); end
   ret
 end
@@ -39,8 +39,8 @@ module HtmlHelper
         param:    list.paginate_param,
         page:     list.paginate_page,
         next:     list.paginate_next,
-        last_id:  list.paginate_last_id,
-        first_id: list.paginate_first_id
+        last_ref:  list.paginate_last_ref,
+        first_ref: list.paginate_first_ref
       }
     end
 
@@ -53,7 +53,7 @@ module HtmlHelper
 
     if opts[:page] > 1
       url = Url.current
-      # opts[:page] == 1 ? url.delete(opts[:param]) : url.qs(opts[:param], '%s-d-%s' % [opts[:page]-1, opts[:first_id]])
+      # opts[:page] == 1 ? url.delete(opts[:param]) : url.qs(opts[:param], '%s-d-%s' % [opts[:page]-1, opts[:first_ref]])
       opts[:page] == 1 ? url.delete(opts[:param]) : url.qs(opts[:param], opts[:page]-1)
       ret.push %[<a href="#{url.relative}" data-key="ArrowLeft">&larr;</a>]
     else

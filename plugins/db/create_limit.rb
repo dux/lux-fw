@@ -7,8 +7,8 @@
 # create max 30 objects per day
 # create_limit 30, 1.day
 
-# create max 30 object that have the same :org_id
-# create_limit 30, :org_id
+# create max 30 object that have the same :org_ref
+# create_limit 30, :org_ref
 
 module Sequel::Plugins::LuxCreateLimit
   module ClassMethods
@@ -33,9 +33,9 @@ module Sequel::Plugins::LuxCreateLimit
       return unless defined?(User)
 
       # return if object exists
-      return if self[:id]
+      return unless new?
 
-      return unless db_schema[:created_by] || db_schema[:created_by_ref] || db_schema[:creator_ref]
+      return unless db_schema[:creator_ref] || db_schema[:created_by_ref] || db_schema[:created_by]
 
       if data = cattr.create_limit_data
         unless ::User.try(:current)

@@ -51,11 +51,7 @@ class AutoMigrate
       # http://sequel.jeremyevans.net/rdoc/files/doc/schema_modification_rdoc.html
 
       self.db.create_table(@table_name) do
-        if ENV['DB_USE_REF']
-          String :ref, primary_key: true
-        else
-          Integer :id, primary_key: true
-        end
+        String :ref, primary_key: true
       end
     end
 
@@ -135,8 +131,8 @@ class AutoMigrate
       was_name = @opts.select { _2.dig(:meta, :was) == field }.keys.first
 
       unless was_name
-        print "Remove colum #{@table_name}.#{field} (y/N): ".light_blue
-        if Lux.env.production? || STDIN.gets.chomp.downcase.index('y')
+        print "Remove column #{@table_name}.#{field} (y/N): ".light_blue
+        if !Lux.env.production? && STDIN.gets.chomp.downcase.index('y')
           begin
             self.db.drop_column @table_name, field
             puts " drop_column #{field}".green
@@ -197,7 +193,7 @@ class AutoMigrate
               alter table #{@table_name} alter #{field} set default '{}';
             ]
 
-            puts " Coverted #{@table_name}.#{field} to array type".green
+            puts " Converted #{@table_name}.#{field} to array type".green
           elsif !current[:default]
             # force default for array to be present
             default = type == :string ? "ARRAY[]::character varying[]" : "ARRAY[]::integer[]"
@@ -214,7 +210,7 @@ class AutoMigrate
             alter table #{@table_name} alter #{field} type #{current[:db_type].sub('[]','')} using #{m};
           ]
 
-          puts " Coverted #{@table_name}.#{field}[] to non array type".red
+          puts " Converted #{@table_name}.#{field}[] to non array type".red
         end
 
         # if varchar limit size has changed
@@ -282,32 +278,21 @@ class AutoMigrate
       opts[:null] ||= false
       @fields[:created_at] = [:timestamp, opts]
       @fields[:updated_at] = [:timestamp, opts]
-
-      if ENV['DB_USE_REF']
-        @fields[:created_by_ref] = [:string, opts]
-        @fields[:updated_by_ref] = [:string, opts]
-      else
-        @fields[:created_by] = [:integer, opts]
-        @fields[:updated_by] = [:integer, opts]
-      end
+      @fields[:creator_ref] = [:string, opts]
+      @fields[:updater_ref] = [:string, opts]
     when :polymorphic
-      opts ||= :model
-      @fields["#{name}_id".to_sym]   = [:integer, opts.merge(index: true) ]
-      @fields["#{name}_type".to_sym] = [:string, opts.merge(limit: 100, index: "#{name}_id")]
+      @fields["#{name}_ref".to_sym]  = [:string, opts.merge(limit: 100, index: true)]
+      @fields["#{name}_type".to_sym] = [:string, opts.merge(limit: 100, index: true)]
     when :table
       # table :orgs do |t|
       #   t.table :users do |t|
       #   end
       # end
-      # table :org_users do |t|
-      #   t.integer :org_id, null: false
-      #   t.integer :user_id, null: false
-      # end
       first  = @table_name.to_s.singularize
-      second = args[0].to_s.singularize
+      second = name.to_s.singularize
       t = self.class.new '%s_%s' % [first, second.pluralize]
-      t.integer '%s_id' % first,  null: false
-      t.integer '%s_id' % second, null: false
+      t.string '%s_ref' % first,  null: false
+      t.string '%s_ref' % second, null: false
       yield t
       t.fix_fields
       t.update
@@ -325,14 +310,14 @@ class AutoMigrate
         end
       end
     when :foreign_key
-      local_filed = name.keys.first
+      local_field = name.keys.first
       foreign_table, foreign_id = name.values.first
       constraint_name = "#{@table_name}_#{foreign_table}_fkey"
 
       if self.db.tables.include?(foreign_table) # table can be in different database
         exists = self.db.fetch("SELECT * FROM pg_catalog.pg_constraint where conname='#{constraint_name}' limit 1").to_a
         unless exists.first
-          command = %{ALTER TABLE #{@table_name} ADD CONSTRAINT "#{constraint_name}" FOREIGN KEY ("#{local_filed}") REFERENCES "#{foreign_table}"("#{foreign_id}") ON DELETE CASCADE}
+          command = %{ALTER TABLE #{@table_name} ADD CONSTRAINT "#{constraint_name}" FOREIGN KEY ("#{local_field}") REFERENCES "#{foreign_table}"("#{foreign_id}") ON DELETE CASCADE}
           # ALTER TABLE "public"."sites" ADD CONSTRAINT "orgs_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."orgs"("id") ON DELETE CASCADE;
           self.db.run(command) rescue nil
           puts " added foreign_key #{constraint_name} -> #{foreign_table}.#{foreign_id}"

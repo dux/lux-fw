@@ -1,37 +1,37 @@
-# DB tree structures via postgress array
+# DB tree structures via postgres text array
 
 module ModelTree
   def self.included base
-    expected = 'integer[]'
+    expected = 'text[]'
 
-    unless base.db_schema[:parent_ids][:db_type] == expected
-      die %[Expted #{base}.parent_ids field to be of type "#{expected}"]
+    unless base.db_schema[:parent_refs]&.dig(:db_type) == expected
+      die %[Expected #{base}.parent_refs field to be of type "#{expected}"]
     end
   end
 
   ###
 
   def parent
-    self.class.find(parent_ids[0])
+    self.class.find(parent_refs[0])
   end
 
   def children
-    self.class.order(:name).xwhere('parent_ids[1]=?', id).all
+    self.class.order(:name).xwhere('parent_refs[1]=?', self[:ref]).all
   end
 
-  def children_ids
-    [id] + self.class.xwhere('?=any(parent_ids)', id).ids
+  def children_refs
+    [self[:ref]] + self.class.xwhere('?=any(parent_refs)', self[:ref]).ids
   end
 
   # sets full path
-  def parent_id= val
+  def parent_ref= val
     el   = self.class.find(val)
-    list = [el.id]
+    list = [el[:ref]]
 
     while el = el.parent
-      list.push el.id
+      list.push el[:ref]
     end
 
-    self[:parent_ids] = list
+    self[:parent_refs] = list
   end
 end

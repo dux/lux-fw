@@ -100,6 +100,17 @@ module Lux
       end
     end
 
+    def auto_render
+      path = [cattr.layout] + nav.path
+      if tpl = auto_find_template(path)
+        render tpl
+      else
+        base = '/' + path.join('/')
+        @paths = ["#{base}.haml", "#{base}/root.haml"]
+        render '/error_404', status: 404
+      end
+    end
+
     # Auto export model instance variable by name and ref
     # Finds model by ref, optionally checks permission, sets instance variable
     #

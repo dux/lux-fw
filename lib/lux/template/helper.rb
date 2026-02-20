@@ -57,17 +57,32 @@ module Lux
           name = './app/views' + name if name.starts_with?('/')
         end
 
+        # scope locals per render call - save previous values, restore after render
+        saved = {}
         for k, v in locals
-          instance_variable_set("@_#{k}", v)
+          ivar = "@_#{k}"
+          saved[ivar] = instance_variable_defined?(ivar) ? [true, instance_variable_get(ivar)] : [false]
+          instance_variable_set(ivar, v)
         end
 
-        if block_given?
+        result = if block_given?
           name = "#{name}/layout" unless name.index('/')
 
           Lux::Template.render(self, name) { yield() }
         else
           Lux::Template.render(self, name)
         end
+
+        # restore previous locals so nested/sibling renders don't leak
+        saved.each do |ivar, (existed, old_val)|
+          if existed
+            instance_variable_set(ivar, old_val)
+          else
+            remove_instance_variable(ivar)
+          end
+        end
+
+        result
       end
 
       def cache name = nil, opts = {}, &block

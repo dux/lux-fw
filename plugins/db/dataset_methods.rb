@@ -98,35 +98,29 @@ Sequel::Model.dataset_module do
   end
 
   # Card.last_updated
-  # Card.last_updated epic_ids: @epic.id
+  # Card.last_updated epic_ref: @epic.ref
   def last_updated rules=nil
     field = model.db_schema[:updated_at] && :updated_at
     field ||= model.db_schema[:created_at] && :created_at
-    field ||= :id
+    field ||= :ref
     base = rules ? xwhere(rules) : self
     base.order(Sequel.desc(field)).first
   end
 
   def for obj
-    # column_names
     field_name = "#{obj.class.name.underscore}_ref".to_sym
-    n1 = model.to_s.underscore
     n2 = obj.class.to_s.underscore
 
-    cname = n1[0] < n2[0] ? n1+'_'+n2.pluralize : n2+'_'+n1.pluralize
-
-    if (cname.classify.constantize rescue false)
-      where Sequel.lit 'id in (select %s_id from %s where %s_id=%i)' % [n1, cname, n2, obj.id]
-    elsif model.db_schema[field_name]
+    if model.db_schema[field_name]
       where field_name => obj.ref
     elsif model.db_schema["#{n2}_refs".to_sym]
-      where Sequel.lit '%i=any(%s_refs)' % [obj.ref, n2]
+      where Sequel.lit("'%s'=any(%s_refs)" % [obj.ref.to_s.gsub("'", "''"), n2])
     elsif model.db_schema[:parent_key]
       where(parent_key: obj.key)
     elsif model.db_schema[:parent_type]
       where(parent_type: obj.class.to_s, parent_ref: obj.ref)
     else
-      r "Unknown link for #{obj.class} (probably missing db field)"
+      raise "Unknown link for #{obj.class} (probably missing db field)"
     end
   end
 
@@ -143,20 +137,20 @@ Sequel::Model.dataset_module do
     select_map field
   end
 
-  # Job.active.ids(:org_id) -> distinct array of org_id
-  # Job.active.ids          -> array of id
+  # Job.active.ids(:org_ref) -> distinct array of org_ref
+  # Job.active.ids           -> array of ref
   def ids field = nil
-    field ||= model.db_schema[:ref] ? :ref : :id
-    sql = [:id, :ref].include?(field) ? select(field).sql : select(field).order(nil).distinct(field).sql
+    field ||= :ref
+    sql = field == :ref ? select(field).sql : select(field).order(nil).distinct(field).sql
     db[sql].to_a.map { |it| it[field] }
       .tap do |out|
         type = model.db_schema[field][:db_type]
-        out[0] ||= type == 'text' || type.include?('varying') ? '0' : 0
+        out[0] ||= (type == 'text' || type.include?('varying')) ? '0' : 0
       end
   end
 
   def last num = nil
-    base = xorder('%s desc' % [model.db_schema[:ref] ? :created_at : :id])
+    base = xorder('%s desc' % :created_at)
     num ? base.limit(num).all : base.first
   end
 end

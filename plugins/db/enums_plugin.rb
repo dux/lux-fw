@@ -18,7 +18,7 @@ class Sequel::Model
         }
       end
 
-      opts[:default] ||= opts.first if opts[:values].class == Array
+      opts[:default] ||= opts[:values].first if opts[:values].class == Array
 
       values = opts[:values] || {}.to_hwia.tap { |_| block.call(_) }
       values = values.inject({}.to_hwia) { |h, (k,v)| h[k.to_s] = v; h }
@@ -29,12 +29,12 @@ class Sequel::Model
 
       unless opts[:field].class == FalseClass
         unless opts[:field]
-          opts[:field] = opts[:method].to_s + '_id'
-          opts[:field] = opts[:method].to_s + '_sid' unless db_schema[opts[:field].to_sym]
+          opts[:field] = opts[:method].to_s + '_sid'
+          opts[:field] = opts[:method].to_s + '_id' unless db_schema[opts[:field].to_sym]
         end
 
         unless db_schema[opts[:field].to_sym]
-          Lux.info 'Field %s or %s not found for enums %s' % [opts[:field].to_s.sub('_sid', '_id'), opts[:field], name]
+          Lux.info 'Field %s or %s not found for enums %s' % [opts[:field].to_s.sub('_id', '_sid'), opts[:field], name]
         end
 
         define_method(opts[:field]) do

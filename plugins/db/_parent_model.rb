@@ -1,9 +1,9 @@
 # You put in model
-# * parent_key
-# * or parent_type + parent_id/parent_ref
+# * parent_key  (string "Class/ref" format)
+# * or parent_type + parent_ref
 # @object.parent -> get parent
 # @object.parent= model -> set parent
-# Object.parent(@model) -> search Object
+# Object.for_parent(@model) -> search Object
 
 module Sequel::Plugins::ParentModel
   module DatasetMethods
@@ -22,13 +22,13 @@ module Sequel::Plugins::ParentModel
       if db_schema[:parent_key]
         self[:parent_key] =
         if model.is_a?(String) && model.include?('/')
-          key
+          model
         else
-          '%s/%s' % [model.class, model.id]
+          '%s/%s' % [model.class, model.ref]
         end
       else
         self[:parent_type] = model.class.to_s
-        self[respond_to?(:parent_ref) ? :parent_ref : :parent_id] = model.id
+        self[:parent_ref] = model.ref
       end
 
       @parent = model
@@ -45,8 +45,8 @@ module Sequel::Plugins::ParentModel
         if key = self[:parent_key]
           key = key.split('/')
           key[0].constantize.find(key[1])
-        elsif key = self[:parent_type]
-          key.constantize.find(self[respond_to?(:parent_ref) ? :parent_ref : :parent_id])
+        elsif type = self[:parent_type]
+          type.constantize.find(self[:parent_ref])
         else
           raise ArgumentError, '%s parent key not found.' % self.class
         end
@@ -62,14 +62,10 @@ module Sequel::Plugins::ParentModel
   # Favorite.for_parent(@cards) -> cards in favorites
   module ClassMethods
     def for_parent object
-      if key = db_schema[:parent_key]
+      if db_schema[:parent_key]
         where(parent_key: object.key)
       elsif db_schema[:parent_type]
-        if db_schema[:parent_ref]
-          where(parent_ref: object.ref, parent_type: object.class.to_s)
-        else
-          where(parent_id: object.id, parent_type: object.class.to_s)
-        end
+        where(parent_ref: object.ref, parent_type: object.class.to_s)
       else
         raise ArgumentError, 'parent key not found'
       end

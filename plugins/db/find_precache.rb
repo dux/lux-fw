@@ -1,10 +1,6 @@
-# @list = LinkedUser
-#   .order(Sequel.desc(:updated_at))
-#   .where(user_id: user.id)
-#   .limit(20)
-#   .all
-#   .precache(:job_id)
-#   .precache(:org_id, Organization)
+# find with request-scoped and optional global caching
+# Model.find(ref)   -> cached lookup by ref
+# Model.take(ref)   -> find or nil (no exception)
 
 class Sequel::Model
   module ClassMethods
@@ -24,9 +20,7 @@ class Sequel::Model
       return unless id.present?
 
       key = "#{to_s}/#{id}"
-      hash = db_schema[:ref] ? {ref: id} : {id: id}
-
-      raise "id/ref not given for #{self}" unless id.present?
+      hash = { ref: id }
 
       Lux.current.cache key do
         row =
@@ -48,22 +42,3 @@ class Sequel::Model
   module InstanceMethods
   end
 end
-
-# class Array
-#   # we have to call all on set and then precache
-#   def precache field, klass=nil
-#     list = self
-#       .select{ |it| it && it[field] }
-#       .map{ |it| it[field] }
-#       .uniq
-#       .sort
-
-#     klass ||= field.to_s.sub(/_ids?$/, '').classify.constantize
-
-#     for el in klass.where(id: list).all
-#       Lux.current.cache("#{klass}/#{el.id}") { el.dup }
-#     end
-
-#     self
-#   end
-# end

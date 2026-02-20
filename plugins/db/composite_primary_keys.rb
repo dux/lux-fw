@@ -1,13 +1,13 @@
 # define composite key and check before save
 # class OrgUser < ApplicationModel
-#   primary_keys :org_id, :user_id
+#   primary_keys :org_ref, :user_ref
 # end
 
 module Sequel::Plugins::PrimaryKeys
   module ClassMethods
     def primary_keys(*args)
       unless args[0]
-        return respond_to?(:_primary_keys) ? _primary_keys : [:id]
+        return respond_to?(:_primary_keys) ? _primary_keys : [:ref]
       end
 
       define_singleton_method(:_primary_keys) { args }
@@ -20,17 +20,13 @@ module Sequel::Plugins::PrimaryKeys
 
       if klass.respond_to?(:_primary_keys)
         check = klass._primary_keys.inject(klass.dataset) do |record, field|
-          record = record.where(field =>send(field))
+          record = record.where(field => send(field))
         end
 
-        if respond_to?(:ref) && ref
-          check = check.xwhere('ref<>?', ref)
-        elsif id
-          check = check.xwhere('id<>?', id)
-        end
+        check = check.xwhere('ref<>?', ref) if ref
 
-        if found = check.first
-          raise StandardError, "Record allredy exists"
+        if check.first
+          raise StandardError, "Record already exists"
         end
       end
 

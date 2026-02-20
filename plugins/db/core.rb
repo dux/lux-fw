@@ -67,12 +67,8 @@ class Sequel::Model
     end
 
     def updater
-      v = self[:updated_by_ref] || self[:updated_by]
+      v = self[:updater_ref] || self[:updated_by_ref] || self[:updated_by]
       v ? User.find(v) : nil
-    end
-
-    def parent_model
-      @parent_model ||= model_type.constantize.find(model_id)
     end
 
     # has?(:name, "Name is not defined") -> errors.add("Name is not defined")
@@ -90,7 +86,7 @@ class Sequel::Model
     end
 
     def unique?(field)
-      select(field).xwhere('id<>?', id).count == 0
+      self.class.where(field => self[field]).exclude(ref: self[:ref]).count == 0
     end
 
     def save!
@@ -102,9 +98,9 @@ class Sequel::Model
     end
     alias :pluck :slice
 
-    # @deal.init(:task) -> Task.new(deal_id: 1)
+    # @deal.init(:task) -> Task.new(deal_ref: 'abc')
     def init name, fields={}
-      fields['%s_id' % self.class.to_s.tableize.singularize] = id
+      fields['%s_ref' % self.class.to_s.tableize.singularize] = self[:ref]
       name.to_s.classify.constantize.new(fields)
     end
 

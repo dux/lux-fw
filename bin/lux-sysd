@@ -1,0 +1,294 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'time'
+require 'io/console'
+require 'tty-prompt'
+require 'tty-cursor'
+require 'tty-screen'
+require 'pastel'
+
+class SysdTool
+  CUSTOM_SERVICES_DIR = '/etc/systemd/system'
+
+  def initialize
+    @prompt = TTY::Prompt.new
+    @pastel = Pastel.new
+    @cursor = TTY::Cursor
+  end
+
+  def run
+    loop do
+      clear_screen
+      puts header
+      puts ""
+      services = fetch_services
+      if services.empty?
+        puts @pastel.yellow("  No user-defined services found in #{CUSTOM_SERVICES_DIR}")
+        puts ""
+        @prompt.keypress("Press any key to refresh, or Ctrl+C to exit...")
+        next
+      end
+
+      svc = pick_service(services)
+      break if svc == :quit
+      next  if svc == :refresh
+
+      result = pick_action_for(svc)
+      break if result == :quit
+    end
+  rescue TTY::Reader::InputInterrupt
+    puts "\n" + @pastel.dim("Bye.")
+  end
+
+  private
+
+  def clear_screen
+    print @cursor.clear_screen + @cursor.move_to(0, 0)
+  end
+
+  def header
+    @pastel.bold.cyan("  Systemd Service Manager") +
+      @pastel.dim("  (#{Time.now.strftime('%H:%M:%S')})")
+  end
+
+  def fetch_services
+    # find user-defined .service files (not symlinks to /lib, not dbus aliases)
+    unit_files = Dir.glob("#{CUSTOM_SERVICES_DIR}/*.service")
+      .map { |f| File.basename(f) }
+      .reject { |f| f.start_with?('dbus-') }
+      .sort
+
+    return [] if unit_files.empty?
+
+    # query each service individually to preserve our filename mapping
+    # (systemctl show can resolve aliases, e.g. sshd.service → ssh.service)
+    services = unit_files.map do |unit|
+      raw = `systemctl show #{unit} --property=Id,ActiveState,SubState,ActiveEnterTimestamp,Description 2>/dev/null`
+      props = {}
+      raw.each_line do |line|
+        line.strip!
+        next if line.empty?
+        key, val = line.split('=', 2)
+        props[key] = val
+      end
+      build_service(props, unit)
+    end
+
+    # deduplicate by resolved Id (aliases point to same service)
+    services.uniq { |s| s[:resolved_id] }
+  end
+
+  def build_service(props, original_name = nil)
+    name = original_name || props['Id'] || '?'
+    resolved_id = props['Id'] || name
+    active = props['ActiveState'] || 'unknown'
+    sub = props['SubState'] || 'unknown'
+    desc = props['Description'] || ''
+    ts = props['ActiveEnterTimestamp']
+
+    uptime = if active == 'active' && ts && !ts.empty?
+      started = Time.parse(ts) rescue nil
+      started ? format_duration(Time.now - started) : '-'
+    else
+      '-'
+    end
+
+    { name: name, resolved_id: resolved_id, active: active, sub: sub, uptime: uptime, desc: desc }
+  end
+
+  def format_duration(seconds)
+    seconds = seconds.to_i
+    days = seconds / 86400
+    hours = (seconds % 86400) / 3600
+    mins = (seconds % 3600) / 60
+    secs = seconds % 60
+
+    parts = []
+    parts << "#{days}d" if days > 0
+    parts << "#{hours}h" if hours > 0 || days > 0
+    parts << "#{mins}m" if parts.size < 2
+    parts << "#{secs}s" if parts.size < 2
+    parts.join(' ')
+  end
+
+  def status_badge(active, sub)
+    case active
+    when 'active'
+      sub == 'running' ? @pastel.green.bold('● running') : @pastel.green("● #{sub}")
+    when 'inactive'
+      @pastel.dim("○ stopped")
+    when 'failed'
+      @pastel.red.bold("✖ failed ")
+    else
+      @pastel.yellow("? #{active}")
+    end
+  end
+
+  def service_line(s, name_w)
+    badge = status_badge(s[:active], s[:sub])
+    uptime_w = 10
+    uptime_col = s[:uptime] == '-' ? @pastel.dim('-'.ljust(uptime_w)) : @pastel.white(s[:uptime].ljust(uptime_w))
+
+    name_col = if s[:active] == 'active'
+      @pastel.white.bold(s[:name].gsub('.service', '').ljust(name_w))
+    else
+      @pastel.dim(s[:name].gsub('.service', '').ljust(name_w))
+    end
+
+    "#{name_col}  #{badge}  #{uptime_col}  #{@pastel.dim(s[:desc][0..35])}"
+  end
+
+  def pick_service(services)
+    name_w = [services.map { |s| s[:name].gsub('.service', '').length }.max, 12].max
+
+    # column header (printed above the select)
+    uptime_w = 10
+    status_w = 11
+    puts @pastel.dim("  #{'Service'.ljust(name_w)}  #{'Status'.ljust(status_w)}  #{'Uptime'.ljust(uptime_w)}  Description")
+    puts @pastel.dim("  #{'─' * name_w}  #{'─' * status_w}  #{'─' * uptime_w}  #{'─' * 30}")
+
+    choices = services.map do |s|
+      { name: service_line(s, name_w), value: s[:name] }
+    end
+    choices << { name: @pastel.dim('─── Refresh ───'), value: :refresh }
+    choices << { name: @pastel.dim('─── Quit ───'), value: :quit }
+
+    @prompt.select("", choices, cycle: true, per_page: 20, symbols: { marker: '▸' })
+  end
+
+  ACTIONS = [
+    { label: 'Start',     value: :start },
+    { label: 'Stop',      value: :stop },
+    { label: 'Restart',   value: :restart },
+    { label: 'View logs', value: :logs },
+  ]
+
+  def pick_action_for(service_name)
+    idx = 0
+
+    loop do
+      clear_screen
+      puts header
+      puts ""
+      puts "  Service: #{@pastel.bold(service_name)}"
+      puts @pastel.dim("  ↑↓ navigate  ⏎ select  ← back")
+      puts ""
+
+      ACTIONS.each_with_index do |item, i|
+        marker = i == idx ? @pastel.bold('▸ ') : '  '
+        label  = i == idx ? @pastel.bold(item[:label]) : @pastel.dim(item[:label])
+        puts "  #{marker}#{label}"
+      end
+
+      key = read_key
+      case key
+      when :up    then idx = (idx - 1) % ACTIONS.size
+      when :down  then idx = (idx + 1) % ACTIONS.size
+      when :left  then return nil  # back to list
+      when :enter
+        case ACTIONS[idx][:value]
+        when :start   then do_systemctl('start', service_name)
+        when :stop    then do_systemctl('stop', service_name)
+        when :restart then do_systemctl('restart', service_name)
+        when :logs    then show_logs(service_name)
+        end
+        return nil
+      when :ctrl_c then raise TTY::Reader::InputInterrupt
+      end
+    end
+  end
+
+  def read_key
+    $stdin.raw do |io|
+      c = io.getc
+      if c == "\e"
+        begin
+          seq = io.read_nonblock(2)
+        rescue
+          return :other
+        end
+        case seq
+        when '[A' then return :up
+        when '[B' then return :down
+        when '[D' then return :left
+        end
+      elsif c == "\r" || c == "\n"
+        return :enter
+      elsif c == "\u0003"
+        return :ctrl_c
+      end
+      :other
+    end
+  end
+
+  def do_systemctl(cmd, service)
+    puts ""
+    puts @pastel.cyan("  → sudo systemctl #{cmd} #{service}")
+    output = `sudo systemctl #{cmd} #{service} 2>&1`
+    if $?.success?
+      puts @pastel.green("  ✓ Done")
+    else
+      puts @pastel.red("  ✗ Failed:")
+      output.each_line { |l| puts "    #{l}" }
+    end
+    puts ""
+    @prompt.keypress("  Press any key to continue...")
+  end
+
+  def show_logs(service)
+    clear_screen
+    puts @pastel.bold.cyan("  Logs: #{service}") + @pastel.dim("  (last 40 lines)")
+    puts @pastel.dim("  " + "─" * 60)
+    puts ""
+
+    lines = `sudo journalctl -u #{service} -n 40 --no-pager 2>&1`
+    lines.each_line do |line|
+      # colorize log levels
+      colored = line
+        .gsub(/(error|fail|fatal|panic)/i)  { |m| @pastel.red.bold(m) }
+        .gsub(/(warn|warning)/i)            { |m| @pastel.yellow(m) }
+        .gsub(/(info|notice)/i)             { |m| @pastel.cyan(m) }
+      print "  #{colored}"
+    end
+
+    puts ""
+    puts @pastel.dim("  " + "─" * 60)
+
+    follow = @prompt.select("", [
+      { name: 'Follow logs (live tail)', value: :follow },
+      { name: 'Show more (200 lines)',   value: :more },
+      { name: '← Back',                  value: :back }
+    ], cycle: true)
+
+    case follow
+    when :follow
+      puts ""
+      puts @pastel.yellow("  Following logs... Press Ctrl+C to stop")
+      puts ""
+      begin
+        system("sudo journalctl -u #{service} -f --no-pager")
+      rescue Interrupt
+        # user pressed Ctrl+C, return to menu
+      end
+    when :more
+      clear_screen
+      puts @pastel.bold.cyan("  Logs: #{service}") + @pastel.dim("  (last 200 lines)")
+      puts ""
+      system("sudo journalctl -u #{service} -n 200 --no-pager")
+      puts ""
+      @prompt.keypress("  Press any key to continue...")
+    end
+  end
+end
+
+# ─── entry point ───
+if __FILE__ == $0
+  if ARGV.include?('--help') || ARGV.include?('-h')
+    puts "Usage: sysd_tool.rb"
+    puts "  Interactive TUI for managing user-defined systemd services"
+    puts "  Services are read from #{SysdTool::CUSTOM_SERVICES_DIR}"
+    exit
+  end
+  SysdTool.new.run
+end

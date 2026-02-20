@@ -4,17 +4,25 @@ module Sequel::Plugins::LuxBeforeSave
       return unless defined?(User)
 
       # timestamps
-      self[:created_at] = Time.now.utc if !self.id && respond_to?(:created_at)
+      self[:created_at] = Time.now.utc if new? && respond_to?(:created_at)
       self[:updated_at] = Time.now.utc if respond_to?(:updated_at)
-      self[:updated_by] = default_current_user if respond_to?(:updated_by)
-      self[:updated_by_ref] = default_current_user if respond_to?(:updated_by_ref)
 
-      if self.id
-        Lux.cache.delete "#{self.class}/#{id}"
-      else
-        self[:created_by] ||= default_current_user if respond_to?(:created_by)
-        self[:created_by_ref] ||= default_current_user if respond_to?(:created_by_ref)
-        self[:creator_ref] ||= default_current_user if respond_to?(:creator_ref)
+      # updater audit (prefer new naming, fall back to old)
+      ref = default_current_user_ref
+      if ref
+        self[:updater_ref]    = ref if respond_to?(:updater_ref)
+        self[:updated_by_ref] = ref if respond_to?(:updated_by_ref)
+        self[:updated_by]     = ref if respond_to?(:updated_by)
+      end
+
+      if new?
+        Lux.cache.delete "#{self.class}/#{self[:ref]}" if self[:ref]
+
+        if ref
+          self[:creator_ref]     ||= ref if respond_to?(:creator_ref)
+          self[:created_by_ref]  ||= ref if respond_to?(:created_by_ref)
+          self[:created_by]      ||= ref if respond_to?(:created_by)
+        end
       end
 
       super
@@ -27,10 +35,10 @@ module Sequel::Plugins::LuxBeforeSave
 
     def destroy
       if respond_to?(:is_deleted)
-        opts = {is_deleted: true}
-        opts[:deleted_at] = Time.now if respond_to?(:deleted_at)
-        opts[:deleted_by] = User.current.id if respond_to?(:deleted_by)
-        opts[:deleted_by_ref] = User.current.ref if respond_to?(:deleted_by_ref)
+        opts = { is_deleted: true }
+        opts[:deleted_at]     = Time.now         if respond_to?(:deleted_at)
+        opts[:deleted_by_ref] = User.current.ref if respond_to?(:deleted_by_ref) && User.current
+        opts[:deleted_by]     = User.current.ref if respond_to?(:deleted_by) && User.current
         self.this.update opts
         true
       else
@@ -38,12 +46,11 @@ module Sequel::Plugins::LuxBeforeSave
       end
     end
 
-    # overload to return guest user, when needed
-    def default_current_user
+    # returns current user ref for audit columns
+    def default_current_user_ref
       if User.current
-        User.current.id
+        User.current.ref
       else
-        error 'You have to be registered to save data'
         nil
       end
     end

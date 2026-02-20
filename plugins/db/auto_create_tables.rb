@@ -13,11 +13,7 @@ if ENV['DB_MIGRATE']
         raise unless e.message.include?('UndefinedTable')
         table_name = args.first.is_a?(Symbol) ? args.first : implicit_table_name
         db.create_table(table_name) do
-          if ENV['DB_USE_REF']
-            String :ref, primary_key: true
-          else
-            Integer :id, primary_key: true
-          end
+          String :ref, primary_key: true
         end
         _set_dataset_original(*args, &block)
       end
