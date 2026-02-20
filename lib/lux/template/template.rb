@@ -1,7 +1,5 @@
 module Lux
   class Template
-    @@template_cache = {}
-
     class << self
       def wrap_with_debug_info files, data, opts = {}
         return data unless Lux.env.dev? && Lux.current.request.env['QUERY_STRING'].include?('debug=render')

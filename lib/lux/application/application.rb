@@ -51,7 +51,7 @@ module Lux
 
       run_callback :after, nav.path
       response.render
-    rescue => error
+    rescue StandardError => error
       if respond_to?(:rescue_from)
         catch :done do
           rescue_from error

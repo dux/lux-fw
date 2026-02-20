@@ -13,11 +13,13 @@ module Lux
       end
 
       def get key
-        if ttl_check = @@ttl_cache[key]
-          return nil if ttl_check < Time.now.to_i
-        end
+        @@lock.synchronize do
+          if ttl_check = @@ttl_cache[key]
+            return nil if ttl_check < Time.now.to_i
+          end
 
-        @@ram_cache[key]
+          @@ram_cache[key]
+        end
       end
 
       def fetch key, ttl=nil
@@ -33,12 +35,16 @@ module Lux
       end
 
       def get_multi(*args)
-        @@ram_cache.select{ |k,v| args.index(k) }
+        @@lock.synchronize do
+          @@ram_cache.select{ |k,v| args.index(k) }
+        end
       end
 
       def clear
-        @@ram_cache = {}
-        @@ttl_cache = {}
+        @@lock.synchronize do
+          @@ram_cache = {}
+          @@ttl_cache = {}
+        end
       end
     end
   end

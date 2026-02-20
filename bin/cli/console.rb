@@ -74,7 +74,7 @@ LuxCli.class_eval do
     if args.first
       command = args.join(' ')
 
-      if command.ends_with?('.rb')
+      if command.end_with?('.rb')
         puts 'Load : %s' % command.light_blue
         load command
       else

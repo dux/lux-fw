@@ -42,10 +42,8 @@ module Crypt
 
   def random length = 32
     chars = 'abcdefghjkmnpqrstuvwxyz0123456789'
-    length
-      .times
-      .inject([]) { |t, _| t.push chars[rand(chars.size)] }
-      .join('')
+    bytes = SecureRandom.random_bytes(length)
+    bytes.each_byte.map { |b| chars[b % chars.size] }.join
   end
 
   def bcrypt plain, check = nil
@@ -100,7 +98,7 @@ module Crypt
     check   = nil
     data    = data.sub(/^(.{8})/) { check = $1; ''}
     decoded = Base64.urlsafe_decode64(data)
-    out     = JSON.load decoded
+    out     = JSON.parse decoded
 
     raise ArgumentError.new('Invalid check') unless sha1(decoded + Lux.config.secret)[0,8] == check
     raise ArgumentError.new('Short code expired') if out[1] < Time.now.to_i

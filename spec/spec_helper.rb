@@ -17,7 +17,7 @@ class Object
   end
 end
 
-ENV['RACK_ENV'] = 'e'
+ENV['LUX_ENV'] = 'e'
 
 # basic config
 RSpec.configure do |config|

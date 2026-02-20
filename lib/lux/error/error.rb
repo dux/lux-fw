@@ -99,7 +99,7 @@ module Lux
 
           if self == Lux::Error::AutoRaise
             Lux.current.response.status status
-            Lux.log " error.#{data[:code]} in #{Lux.app_caller}"
+            Lux.log " error.#{data[:short]} in #{Lux.app_caller}"
             raise error
           end
 

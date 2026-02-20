@@ -27,7 +27,7 @@ class HtmlInput
     @name = name
 
     @opts[:placeholder] ||= 'email...' if @name.to_s.include?('email')
-    @opts[:placeholder] ||= 'https://...' if @name.to_s.ends_with?('url')
+    @opts[:placeholder] ||= 'https://...' if @name.to_s.end_with?('url')
     @opts[:id]          ||= 'i_%s' % Lux.current.uid
 
     if @object && @object.class.respond_to?(:schema) && [Symbol, Array].include?(@name.class)

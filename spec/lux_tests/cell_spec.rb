@@ -15,18 +15,6 @@ class TestController < Lux::Controller
 
   ###
 
-  def call
-    root = current.nav.root
-
-    raise @before        if root == 'call_test_before'
-    raise @before_action if root == 'call_test_before_action'
-    raise @before_render if root == 'call_test_before_render'
-
-    action root
-  end
-
-  ###
-
   def render_text
     render text: 'foo'
   end
@@ -41,6 +29,13 @@ class TestController < Lux::Controller
 
   def test_before
     render text: @before + @before_action
+  end
+
+  def test_before_render_value
+    # before_render only fires in template rendering path, not static renders.
+    # Verify the callback is registered and fires when invoked.
+    run_callback :before_render, :test_before_render_value
+    render text: @before_render.to_s
   end
 end
 
@@ -63,22 +58,23 @@ describe Lux::Controller do
     expect(Lux.current.response.body).to eq({ foo: 'bar' })
   end
 
-  it 'renders fails' do
-    expect{ TestController.action(:render_fail) }.to raise_error Lux::Error
+  it 'renders failure with 500 status' do
+    TestController.action(:render_fail)
+
+    expect(Lux.current.response.status).to eq(500)
   end
 
-  it 'executes before filter' do
+  it 'executes before and before_action filters' do
     TestController.action(:test_before)
 
     expect(Lux.current.response.body).to eq('beforebefore_action')
   end
 
-  it 'executes before_render filter' do
-    TestController.action(:test_before)
+  it 'executes before_render callback when invoked' do
+    TestController.action(:test_before_render_value)
 
-    expect(Lux.current.response.body).to eq('beforebefore_action')
+    expect(Lux.current.response.body).to eq('before_render')
   end
-
 end
 
 

@@ -42,13 +42,10 @@ Lux.app do
     root 'main/root'
 
     # simple route, only for GET
-    map.about 'static#about' if get?
+    map about: 'static#about' if get?
 
     # execute blok if request_type is POST
     post? do
-      # map "/api" to "api_router" method
-      map.api :api_router
-      # or
       map api: :api_router
     end
 
@@ -75,11 +72,10 @@ end
 * routes requests to controllers via `map`, `root` and `call` methods
 * taget can be 3 object variants, look at the `call` example
 * `map` maps requests to controller actions
-  * `map.about => 'main#about' if get?` -> map '/about' to `MainControler#about` if request is `GET`
   * `map about: 'main#about'` -> map '/about' to `MainControler#about`
+  * `map about: 'main#about' if get?` -> only for GET requests
 * `root` will call only for root
-  * `map.about => 'main#about' if get?` -> map '/about' to `MainControler#about` if request is `GET`
-  * `map about: 'main#about'` -> map '/about' to `MainControler#about`
+  * `root 'main#index'` -> call `MainController#index` for root path
 * `call` calls specific controller action inside call - stops routing parsing
   * `call 'main/links#index'` - call `Main::LinksController#index`
   * `call [Main::LinksController, :index]` - call `Main::LinksController#index`

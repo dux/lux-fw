@@ -1,6 +1,10 @@
 module Lux
   class Application
     module Routes
+      # Cached controller class lookups: 'main/users' => Main::UsersController
+      # Persists until full process restart.
+      CONTROLLER_CLASS_CACHE = {}
+
       # generate get, get?, post, post? ...
       # get {}
       # get foo: 'main/bar', only: [:show], except: [:index]
@@ -64,7 +68,7 @@ module Lux
       # map [:login, :signup] => 'main/root'
       # map :city do
       # map 'city' do
-      #   map :about
+      #   map about: 'main#about'
       # end
       # ```
       def map route_object = nil, target = nil, &block
@@ -75,8 +79,11 @@ module Lux
         if block_given?
           # map 'admin' do ...
           if test?(route_object)
-            yield nav.root
-            nav.unshift
+            begin
+              yield nav.root
+            ensure
+              nav.unshift
+            end
           end
 
           return
@@ -138,14 +145,16 @@ module Lux
       # call 'main/orgs?list' -> list_index, list_show # provies namespace in controller
       # ```
       def call object=nil, action=nil, opts=nil, &block
-        # log original app caller
-        root      = Lux.root.join('app/').to_s
-        sources   = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
+        # log original app caller (skipped in production - caller() is expensive)
+        if Lux.env.screen_log?
+          root    = Lux.root.join('app/').to_s
+          sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
+          Lux.log { ' Routed from: %s' % sources.join(' ') } if sources.first
+        end
+
         action    = action.gsub('-', '_').to_sym if action && action.is_a?(String)
         namespace = nil
         object  ||= block if block_given?
-
-        Lux.log { ' Routed from: %s' % sources.join(' ') } if sources.first
 
         case object
         when Symbol
@@ -185,7 +194,7 @@ module Lux
         end
 
         if object.is_a?(String)
-          object = ('%s_controller' % object).classify.constantize
+          object = CONTROLLER_CLASS_CACHE[object] ||= ('%s_controller' % object).classify.constantize
         end
 
         if [Module, Class].include?(object.class) && object.respond_to?(:call)
@@ -208,6 +217,9 @@ module Lux
         end
 
         if object.respond_to?(:action)
+          # All instance variables set on the Application instance (e.g. in before
+          # filters or route blocks) are copied into the controller instance. This
+          # allows routes to share data with controllers without explicit passing.
           object.action action.to_sym, ivars: instance_variables_hash
         end
 

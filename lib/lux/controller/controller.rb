@@ -96,6 +96,8 @@ module Lux
           render
         end
       end
+
+      run_callback :after, @lux.action
     rescue => error
       rescue_from error
     end
@@ -110,8 +112,9 @@ module Lux
 
     def rescue_from error
       Lux::Error.log error
+      status = error.respond_to?(:code) ? error.code : 500
       data = Lux.env.show_errors? ? Lux::Error.inline(error) : 'Server error: %s (%s)' % [error.message, error.class]
-      render html: data, status: 400
+      render html: data, status: status
     end
 
     private
@@ -144,10 +147,25 @@ module Lux
     # render :index
     # render 'main/root/index'
     # render text: 'ok'
+    # render json: { a: 1 }
+    # render html: '<h1>hi</h1>', status: 200
     def render name = nil, opts = {}
       return if response.body?
 
-      if name.class == Hash
+      opts = normalize_render_opts(name, opts)
+
+      response.status opts.status if opts.status
+      response.content_type = opts.content_type if opts.content_type
+
+      return if render_static(opts)
+
+      data = opts.cache ? render_cached(opts) : render_template(opts)
+      response.body data
+    end
+
+    # normalize render arguments into a RENDER_OPTS struct
+    def normalize_render_opts name, opts
+      if name.is_a?(Hash)
         opts.merge! name
       else
         opts[:template] = name
@@ -155,11 +173,7 @@ module Lux
 
       opts = RENDER_OPTS.new **opts
 
-      # set response status and content_type
-      response.status opts.status if opts.status
-      response.content_type = opts.content_type if opts.content_type
-
-      # match rails nameing
+      # match rails naming
       opts.text = opts.plain if opts.plain
 
       # copy value from render_cache
@@ -171,39 +185,44 @@ module Lux
       # define which layout we use
       opts.layout ||= @lux.layout.nil? ? self.class.cattr.layout : @lux.layout
 
-      # render static types
+      opts
+    end
+
+    # render static content types directly to response body
+    # returns truthy if a static type was rendered
+    def render_static opts
       for el in [:text, :html, :json, :javascript, :xml]
         if value = opts[el]
           response.body value, content_type: el
+          return true
         end
       end
 
-      data = if cache = opts.cache
-        return if etag(cache)
+      nil
+    end
 
-        add_info = true
-        from_cache = Lux.cache.fetch opts.cache, ttl: 1_000_000 do
-          add_info = false
-          render_template(opts)
-        end
+    # render template with page-level caching and etag support
+    def render_cached opts
+      return if etag(opts.cache)
 
-        if add_info && from_cache
-          response.header['x-lux-cache'] = 'render-cache'
-          from_cache += '<!-- from page cache -->' if from_cache =~ %r{</html>\s*$}
-        end
-
-        from_cache
-      else
+      add_info = true
+      from_cache = Lux.cache.fetch opts.cache, ttl: 1_000_000 do
+        add_info = false
         render_template(opts)
       end
 
-      response.body data
+      if add_info && from_cache
+        response.header['x-lux-cache'] = 'render-cache'
+        from_cache += '<!-- from page cache -->' if from_cache =~ %r{</html>\s*$}
+      end
+
+      from_cache
     end
 
+    # compile and render a template with layout
     def render_template opts
       run_callback :before_render, @lux.action
 
-      # get main helper from options, instance then class
       helper_name = opts.layout || @lux.layout || cattr.layout
       local_helper = self.helper helper_name
 
@@ -276,7 +295,7 @@ module Lux
       if controller_action.is_a?(String)
         object, action = controller_action.split('#') if controller_action.include?('#')
         object = ('%s_controller' % object).classify.constantize
-      elsif object.is_a?(Array)
+      elsif controller_action.is_a?(Array)
         object, action = controller_action
       else
         raise ArgumentError.new('Not supported')

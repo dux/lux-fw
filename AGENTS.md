@@ -173,19 +173,19 @@ Lux.app do
     root 'main#index'  # Root path
 
     # Simple mapping
-    map.about 'main#about' if get?
+    map about: 'main#about' if get?
 
     # Namespace mapping
     map 'admin' do
       root 'admin/dashboard#index'
-      map.users 'admin/users'
+      map users: 'admin/users'
     end
 
     # Dynamic routes
     map '/users/:id' => 'users#show'
 
     # Proc routes
-    map.api proc { [200, {}, ['OK']] }
+    map api: proc { [200, {}, ['OK']] }
   end
 
   after { }            # After all requests

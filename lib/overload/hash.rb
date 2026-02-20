@@ -50,11 +50,7 @@ class Hash
     transform_keys { |key| key.respond_to?(:to_sym) ? key.to_sym : key }
   end
 
-  # Returns hash with only selected keys
-  def slice *keys
-    keys.map! { |key| convert_key(key) } if respond_to?(:convert_key, true)
-    keys.each_with_object(self.class.new) { |k, hash| hash[k] = self[k] if has_key?(k) }
-  end
+  # Hash#slice is built-in since Ruby 2.5 - removed custom implementation.
 
   def slice! *keys
     keys.map! { |key| convert_key(key) } if respond_to?(:convert_key, true)

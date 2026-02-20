@@ -15,7 +15,7 @@ Lux.app do
     root 'main/root#index'
 
     # call action in a controller
-    map.text 'main/root#text'
+    map text: 'main/root#text'
 
     # plain text namespace
     # /foo/bar

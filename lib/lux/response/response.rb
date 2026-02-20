@@ -174,15 +174,17 @@ module Lux
       @status = opts.delete(:status) || 302
       opts.map { |k,v| flash.send(k, v) }
 
+      escaped_where = where.gsub('\\', '\\\\\\\\').gsub("'", "\\\\'").gsub('<', '\\u003c').gsub('>', '\\u003e')
+
       @body = <<~PAGE
         <html>
           <head>
             <title>redirecting</title>
           </head>
           <body>
-            <p>redirecting to #{where}</p>
+            <p>redirecting to #{where.gsub('<', '&lt;').gsub('>', '&gt;')}</p>
             <p>#{opts.values.join("\n")}</p>
-            <script>location.href = '#{where}'</script>
+            <script>location.href = '#{escaped_where}'</script>
           </body>
         </html>
       PAGE

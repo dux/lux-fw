@@ -1,5 +1,3 @@
-# experiment for different nav in rooter
-
 module Lux
   class Application
     class Nav
@@ -49,29 +47,9 @@ module Lux
         end
       end
 
-      # pop element of the path
-      def pop replace_with = nil
-        if block_given?
-          if result = yield(@path.last)
-            @path.pop
-            @path.unshift replace_with if replace_with
-            result
-          end
-        else
-          @path.shift
-        end
-      end
 
       def last
-      #   if block_given?
-      #     # replace root in place if yields not nil
-      #     return unless @path.last.present?
-      #     result = yield(@path.last) || return
-      #     @path.pop
-      #     result
-      #   else
-          @path.last
-      #   end
+        @path.last
       end
 
       # get Url object initialized with request.url - relative
@@ -110,10 +88,6 @@ module Lux
 
       def path= list
         @path = list
-      end
-
-      def path_id
-        raise "use av.path {...}"
       end
 
       def id
@@ -178,12 +152,13 @@ module Lux
         @original[index]
       end
 
-      # path without query params, or test path inclusion
+      # path without colon-params, or test path inclusion
+      # Based on @original (immutable), no memoization needed.
       def pathname ends: nil, has: nil
-        @pathname ||= '/' + original.reject { _1.include?(':') }.join('/')
-        return @pathname.include?("/#{has}") if has
-        return @pathname.end_with?("/#{ends}") if ends
-        @pathname
+        pn = '/' + original.reject { _1.include?(':') }.join('/')
+        return pn.include?("/#{has}") if has
+        return pn.end_with?("/#{ends}") if ends
+        pn
       end
 
       private
@@ -197,11 +172,18 @@ module Lux
         end
       end
 
+      # Known two-part TLDs where the domain is the third-from-last segment
+      TWO_PART_TLDS = %w[
+        co.uk co.nz co.in co.za co.jp co.kr co.il co.th
+        com.au com.br com.sg com.hk com.mx com.ar com.tw
+        org.uk org.au org.nz
+        net.au net.nz
+        ac.uk ac.nz
+        gov.uk edu.au
+      ].freeze
+
       def set_domain request
         begin
-          # NoMethodError
-          # Message undefined method `start_with?' for nil:NilClass
-          # gems/rack-2.2.4/lib/rack/request.rb:567:in `wrap_ipv6'
           parts = request.host.to_s.split('.')
         rescue NoMethodError
           raise Lux::Error.bad_request('Host name error')
@@ -212,7 +194,7 @@ module Lux
         else
           count = 2
           count = 1 if parts.last == 'localhost'
-          count = 3 if parts.last(2).join('.').length == 5 # foo.co.uk
+          count = 3 if TWO_PART_TLDS.include?(parts.last(2).join('.'))
 
           @domain    = parts.pop(count).join('.')
           @domain    += ".#{parts.pop}" if @domain.length < 6

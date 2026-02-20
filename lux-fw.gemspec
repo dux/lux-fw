@@ -7,7 +7,7 @@ gem_files = [:bin, :lib, :tasks]
 Gem::Specification.new 'lux-fw' do |gem|
   gem.version     = File.read('.version')
   gem.summary     = 'Lux - the ruby framework'
-  gem.description = 'Ruby framework optimized for speed and linghtness'
+  gem.description = 'Ruby framework optimized for speed and lightness'
   gem.homepage    = 'http://github.com/dux/lux-fw'
   gem.license     = 'MIT'
   gem.author      = 'Dino Reic'
