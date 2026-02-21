@@ -14,7 +14,7 @@ module Lux
         info = []
 
         config = []
-        %w(reload_code show_errors screen_log).each do |name|
+        %w(reload log).each do |name|
           value = Lux.env.send("#{name}?")
           config.push value ? "#{name} (yes)".colorize(:yellow) : "#{name} (no)".colorize(:green)
         end
@@ -44,6 +44,7 @@ module Lux
       Lux.config.delay_timeout = Lux.env.dev? ? 3600 : 30
 
       # Logger
+      Lux.config.log_level            = Lux.env.log? ? :info : :error
       Lux.config.logger_path_mask     = './log/%s.log'
       Lux.config.logger_files_to_keep = 3
       Lux.config.logger_file_max_size = 10_240_000

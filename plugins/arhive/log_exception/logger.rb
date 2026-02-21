@@ -74,12 +74,3 @@ module Lux
     end
   end
 end
-
-Lux::Error.on_error do |error|
-  if Lux.env.dev?
-    ap [error.message, error.class, Lux::Error.mark_backtrace(error)]
-  end
-
-  Lux::Error::Logger.log error
-end
-

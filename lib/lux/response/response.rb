@@ -57,8 +57,8 @@ module Lux
       end
 
       if !status && !current.no_cache? && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
-        if Lux.env.reload_code?
-          Lux.log " * etag match at #{Lux.app_caller || ':lux'} (skiping for env.reload_code?)" unless current.nav.format
+        if Lux.env.reload?
+          Lux.log " * etag match at #{Lux.app_caller || ':lux'} (skiping for env.reload?)" unless current.nav.format
         else
           Lux.log ' * etag match'
           body 'not-modified', status: 304
@@ -259,7 +259,7 @@ module Lux
 
       # respond as JSON if we recive hash
       if @body.kind_of?(Hash)
-        @body = Lux.env.screen_log? ? JSON.pretty_generate(@body) : JSON.generate(@body)
+        @body = Lux.env.log? ? JSON.pretty_generate(@body) : JSON.generate(@body)
 
         if current.request.params[:callback]
           @body = "#{current.request.params[:callback]}(#{@body})"

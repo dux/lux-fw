@@ -44,7 +44,7 @@ module Lux
       end
 
       def find_layout root, layout_template
-        pointer = Lux.env.reload_code? ? Lux.current.var : Lux.var
+        pointer = Lux.env.reload? ? Lux.current.var : Lux.var
         cache = (pointer[:_cached_layouts] ||= {})
         cache_key = "#{root}/#{layout_template}"
 
@@ -105,7 +105,7 @@ module Lux
 
     def compile_template template
       pointer =
-      if Lux.env.reload_code?
+      if Lux.env.reload?
         Lux.current.var
       else
         Lux.var

@@ -19,7 +19,7 @@ module TimeOptions
         tz = TZInfo::Timezone.get(time_zone)
         tz.utc_to_local utc
       rescue TZInfo::InvalidTimezoneIdentifier => e
-        Lux.logger(:time_zone).error '%s (%s)' % [e.message, time_zone]
+        Lux.logger.error '%s (%s)' % [e.message, time_zone]
         self
       end
     else

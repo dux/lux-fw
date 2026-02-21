@@ -1,45 +1,43 @@
 ## Lux.logger
 
-Lux logger is logging helper module.
+Unified logging for the Lux framework.
 
-It has 2 basic methods, get pointer to a logger `Lux.logger(:name).info msg` and log to screen `Lux.log msg`
+### Default logger
 
-Uses default [Ruby logger](https://ruby-doc.org/stdlib/libdoc/logger/rdoc/Logger.html)
+`Lux.logger` returns a single `Logger` instance configured per environment:
 
-### Options
-
-#### Lux.config.logger_path_mask
-
-Defaults to `./log/%s.log`.
-
-#### Lux.config.logger_formatter
-
-If defined it will be assigned to all logs created by `Lux#logger`
-
-#### Lux.config.logger_default
-
-Default system logger output location called via `Lux#log`.
-
-Defauls to `STDOUT` in development and `nil` in production (no render output log)
-
-#### Lux.config.logger_files_to_keep = 3
-
-By default keep 3 log files
-
-#### Lux.config.logger_file_max_size = 10_240_000
-
-10 MB per file log file
-
-### Defaults and example
+- **Development**: logs to STDOUT at `:info` level, clean formatter (no timestamps)
+- **Production**: logs to `./log/error.log` at `:error` level, standard formatter
 
 ```ruby
-# defaults
-Lux.config.logger_path_mask     = './tmp/%s.log'
-Lux.config.logger_default       = Lux.env.dev? ? STDOUT : nil
-Lux.config.logger_files_to_keep = 3
-Lux.config.logger_file_max_size = 10_240_000
+Lux.logger.info 'request processed'
+Lux.logger.error 'something broke'
+```
 
-# example
-# by default writes in ./log/%s.log, log rotation 3 files, 10 MB each.
-Lux.logger(:foo).info 'hello'
+### Convenience shortcut
+
+`Lux.log` is a shortcut for `Lux.logger.info`:
+
+```ruby
+Lux.log 'message'
+Lux.log { 'lazy evaluated message' }
+```
+
+### Named file loggers
+
+`Lux.logger(:name)` returns a named `Logger` writing to `./log/{name}.log` with rotation.
+Available for app/plugin use.
+
+```ruby
+Lux.logger(:foo).info 'hello'  # writes to ./log/foo.log
+```
+
+### Configuration
+
+```ruby
+# Named logger settings
+Lux.config.logger_path_mask     = './log/%s.log'  # path pattern
+Lux.config.logger_files_to_keep = 3               # rotation count
+Lux.config.logger_file_max_size = 10_240_000       # 10 MB per file
+Lux.config.logger_formatter     = nil              # custom formatter for named loggers
 ```

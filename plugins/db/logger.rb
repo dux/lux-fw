@@ -31,7 +31,7 @@ if ENV['RAKE_ENV'] != 'test' || ENV['DB_LOG'] == 'true'
     db.loggers << logger
   end
 
-  if Lux.env.screen_log?
+  if Lux.env.log?
     Lux.app do
       before do
         Thread.current[:db_q] = { time: 0.0, cnt: 0, list:{} }

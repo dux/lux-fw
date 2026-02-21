@@ -79,11 +79,5 @@ describe Lux::Environment do
     end
   end
 
-  describe 'LUX_ENV flags' do
-    it 'detects show_errors from LUX_ENV' do
-      env = Lux::Environment.new('test')
-      # LUX_ENV is set to 'e' in spec_helper
-      expect(env.show_errors?).to be true
-    end
-  end
+
 end

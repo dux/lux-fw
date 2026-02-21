@@ -18,8 +18,10 @@ module ::Lux
       app.render_base || raise('No RACK response given')
     end
   rescue => err
-    if Lux.env.show_errors?
-      raise err
+    Lux.logger.error Lux::Error.format(err, message: true)
+
+    if Lux.env.log?
+      raise
     else
       [500, {}, ['Server error: %s' % err.message]]
     end
@@ -41,20 +43,17 @@ module ::Lux
     if text.class == Array
       text.each {|line| self.info line }
     else
-      puts '* %s' % text.colorize(:magenta)
+      puts '* %s' % text.to_s.colorize(:magenta)
     end
   end
 
-  # Cdn.run has maybe better runner, inspect
   def run command, get_result = false
-    puts command.colorize(:light_black)
-    logger(:system_run).info command
+    Lux.logger.info command
     get_result ? `#{command}` : system(command)
   end
 
   def die text
-    puts "Lux FATAL: #{text}".colorize(:red)
-    logger(:system_die).error text
+    Lux.logger.fatal "Lux FATAL: #{text}"
     exit
   end
 
@@ -75,7 +74,7 @@ module ::Lux
         yield
       end
     rescue => e
-      Lux::Error.log e
+      Lux.logger.error e
     end
   end
 end
@@ -96,6 +95,8 @@ end
 
 require_relative 'environment/environment'
 require_relative 'environment/lux_adapter'
+
+require_relative 'logger/lux_adapter'
 
 require_relative 'config/config'
 require_relative 'config/lux_adapter'

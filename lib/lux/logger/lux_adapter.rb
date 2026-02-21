@@ -3,24 +3,43 @@ require 'logger'
 module Lux
   LOGGER_CACHE ||= {}
 
-  # Lux.logger(:foo).warn 'bar'
+  # Lux.logger — default logger (STDOUT in dev, ./log/error.log in prod)
+  # Lux.logger(:foo) — named file logger (writes to ./log/foo.log)
   def logger name = nil
-    raise "Logger name is required" unless name
+    return default_logger unless name
 
     LOGGER_CACHE[name] ||= begin
       output_location = Lux.config.logger_path_mask % name
-      LOGGER_CACHE[name] = Logger.new output_location,  Lux.config.logger_files_to_keep, Lux.config.logger_file_max_size
+      logger = Logger.new output_location, Lux.config.logger_files_to_keep, Lux.config.logger_file_max_size
 
       if Lux.config.logger_formatter
-        LOGGER_CACHE[name].formatter = Lux.config.logger_formatter
+        logger.formatter = Lux.config.logger_formatter
       end
-      LOGGER_CACHE[name]
+
+      logger
     end
   end
 
+  # Lux.log 'message' or Lux.log { 'lazy message' }
+  # convenience shortcut for Lux.logger.info
   def log what = nil, &block
-    return unless Lux.env.screen_log?
     what = block.call if block
-    print what.to_s + "\n" if what
+    Lux.logger.info(what) if what
+  end
+
+  private
+
+  def default_logger
+    @default_logger ||= begin
+      if Lux.env.production?
+        l = Logger.new('./log/error.log', Lux.config.logger_files_to_keep, Lux.config.logger_file_max_size)
+      else
+        l = Logger.new(STDOUT)
+        l.formatter = proc { |_, _, _, msg| "#{msg}\n" }
+      end
+
+      l.level = Lux.config.log_level == :info ? Logger::INFO : Logger::ERROR
+      l
+    end
   end
 end

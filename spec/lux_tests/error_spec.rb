@@ -104,47 +104,27 @@ describe Lux::Error do
     end
   end
 
-  describe '.log' do
-    it 'skips logging for Lux::Error instances' do
-      error = Lux::Error.new(404)
-      # should not raise, just skip
-      expect { Lux::Error.log(error) }.not_to raise_error
-    end
-
-    it 'logs non-Lux errors' do
-      error = StandardError.new('test error')
-      error.set_backtrace(caller)
-      expect { Lux::Error.log(error) }.not_to raise_error
-    end
-  end
-
-  describe '.split_backtrace' do
-    it 'splits backtrace into class/message, app lines, and gem lines' do
+  describe '.format' do
+    it 'formats backtrace with error class, message, and indented paths' do
       error = StandardError.new('test')
       error.set_backtrace([
         "#{Lux.root}/app/controllers/main.rb:10:in `index'",
         "/Users/user/.gem/gems/rack-2.2.4/lib/rack/request.rb:20:in `call'"
       ])
 
-      result = Lux::Error.split_backtrace(error)
-      expect(result).to be_an(Array)
-      expect(result.length).to eq(3)
-      expect(result[0]).to eq([StandardError, 'test'])
-      expect(result[1].first).to start_with('./')   # app lines
-      expect(result[2].first).not_to start_with('./') # gem lines
+      result = Lux::Error.format(error)
+      expect(result).to be_a(String)
+      lines = result.split("\n")
+      expect(lines[0]).to eq('[StandardError] test')
+      expect(lines[1]).to start_with('  ./')   # indented local app line
+      expect(lines[2]).to start_with('  /')    # indented global gem line
+    end
+
+    it 'returns message when no backtrace' do
+      error = StandardError.new('test')
+      expect(Lux::Error.format(error)).to eq(['no backtrace present'])
     end
   end
 
-  describe '.on_error' do
-    it 'registers and invokes custom error handler' do
-      called_with = nil
-      Lux::Error.on_error { |e| called_with = e }
 
-      error = RuntimeError.new('custom handler test')
-      error.set_backtrace(caller)
-      Lux::Error.log(error)
-
-      expect(called_with).to eq(error)
-    end
-  end
 end

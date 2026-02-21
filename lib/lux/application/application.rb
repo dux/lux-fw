@@ -21,7 +21,7 @@ module Lux
     def render_base
       run_callback :before, nav.path
 
-      if Lux.env.reload_code? && Lux.env.web?
+      if Lux.env.reload? && Lux.env.web?
         Lux.config.on_reload_code.call
       end
 
@@ -51,8 +51,9 @@ module Lux
 
       run_callback :after, nav.path
       response.render
-    rescue StandardError => error
-      rescue_from error
+    rescue StandardError => err
+      Lux.logger.error Lux::Error.format(err, message: true, gems: false)
+      respond_to?(:app_rescue_from) ? app_rescue_from(err) : rescue_from(err)
       response.render
     end
 
@@ -61,7 +62,7 @@ module Lux
     #     render '/main/error_500', status: 500
     #   end
     def self.rescue_from &block
-      define_method(:rescue_from) { |error| instance_exec(error, &block) }
+      define_method(:app_rescue_from) { |error| instance_exec(error, &block) }
     end
 
     # default error handler — renders Lux-branded error page
@@ -113,13 +114,6 @@ module Lux
       return unless request.path.to_s.start_with?(value)
 
       response.rack target
-    end
-
-    def render_error
-      err = Lux.current.error ||= $!
-      Lux.info "Unhandled error (define render_error in routes): [#{err.class}] #{err.message}"
-      Lux.error.log err
-      raise err
     end
 
     def favicon path

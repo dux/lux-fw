@@ -155,8 +155,7 @@ module Lux
               yield *args
             end
           rescue => e
-            Lux.error.log e
-            Lux.log ['Lux.current.delay error: %s' % e.message, e.backtrace].join($/)
+            Lux.logger.error ['Lux.current.delay error: %s' % e.message, e.backtrace].join($/)
           end
         end
       else

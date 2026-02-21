@@ -141,93 +141,42 @@ module Lux
           [object, object.message]
         end
 
-        error_key = error ? log(error) : nil
+        Lux.logger.error("[#{error.class}] #{error.message}") if error && !error.is_a?(Lux::Error)
         message = message.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
 
         HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|
-          n.h3 '%s : %s' % [error.class, message]
-          n.p msg if msg
-          n.p 'Key: %s' % error_key if error_key
-          n.p 'Description: %s' % error.description if error && error.respond_to?(:description) && error.description
-
-          if error && Lux.env.show_errors?
-            n.hr
-            n.push mark_backtrace(error, html: true).join("\n")
+          if error && Lux.env.log?
+            n.push format(error, html: true, message: true)
           end
         end
       end
 
-      # prepare backtrace for better render
-      def split_backtrace error
-        # split app log rest of the log
-        dmp = [[error.class, error.message], [], []]
-
-        root = Lux.root.to_s
-
-        (error.backtrace || caller).each do |line|
-          line = line.sub(root, '.')
-          dmp[line[0,1] == '.' ? 1 : 2].push line
-        end
-
-        dmp
-      end
-
-      def mark_backtrace error, html: false
+      # Format error backtrace for CLI/screen output
+      # Local app lines start with ./ , gem/global lines keep full path
+      # format error, html: true, message: true, gems: true
+      def format error, opts = {}
         return ['no backtrace present'] unless error && error.backtrace
 
         root = Lux.root.to_s
 
-        error
+        lines = ["[#{error.class}] #{error.message}"]
+        lines += error
           .backtrace
-          .map do |line|
-            path = line
-              .split(':in').first
-              .sub(Lux.root.to_s, '.')
-              .sub(ENV['HOME'], '~')
-            path = path.sub(/^(\.\/[^\:]+)/, "<b>\\1</b>") if html
-            path
-          end
-      end
+          .map {|line| '  ' + line.sub(root, '.') }
+          .select {|line| opts[:gems] == false ? line[0, 3] == '  .' : true }
 
-      # show in stdout
-      def log_to_stdout error
-        return unless Lux.env.show_errors?
-
-        data = split_backtrace(error)
-        if error.class == Lux::Error
-          Lux.info "Lux error: #{error.message} (#{error.code}) - #{data[1][0]}"
-        else
-          data[2] = data[2][0,5]
-          ap data
+        if opts[:html]
+          lines[0] = "<b>%s</b>\n" % lines[0]
+          lines.map! {|line| line[0, 3] == '  .' ? "<b>#{line}</b>" : line}
         end
-      end
 
-      # Define custom error handler
-      # Usage: Lux::Error.on_error { |err| MyDB.log(err) }
-      def on_error(&block)
-        if block_given?
-          @on_error_handler = block
-        else
-          @on_error_handler
+        unless opts[:message] == true
+          lines.shift
         end
+
+        lines.join($/)
       end
 
-      # Log exception (skips Lux::Error instances - they are intentional HTTP errors)
-      def log err
-        return if err.is_a?(Lux::Error)
-        log_to_stdout(err)
-        log_to_file(err)
-        @on_error_handler&.call(err)
-      end
-
-      def log_to_file err
-        return if Lux.env.test?
-
-        url = Lux.current&.request&.url rescue 'N/A'
-        backtrace = mark_backtrace(err).first(10).join(' | ')
-
-        Lux.logger(:exception).error "[#{err.class}] #{err.message} | URL: #{url} | #{backtrace}"
-      end
     end
 
     ###

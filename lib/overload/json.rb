@@ -1,7 +1,7 @@
 module LuxJson
   # to json smart - pretty in dev
   def to_jsons
-    Lux.env.screen_log? ? to_jsonp : to_json
+    Lux.env.log? ? to_jsonp : to_json
   end
 
   # to json pretty

@@ -324,7 +324,7 @@ module Lux
 
       message = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, nav]
 
-      if Lux.env.show_errors?
+      if Lux.env.log?
         defined_methods = (methods - Lux::Controller.instance_methods).map(&:to_s)
         defined = '<br /><br />Defined methods %s' % defined_methods.sort.to_ul
 

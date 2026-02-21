@@ -21,28 +21,6 @@ Lux.error.not_found message
 Lux.error.internal_server_error message
 ```
 
-### Exception Logging
-
-Real exceptions (not `Lux::Error`) are automatically logged to `./log/exception.log`.
-
-```ruby
-# Log an exception (skips Lux::Error instances)
-Lux::Error.log(error_object)
-
-# Define custom error handler (for DB, Sentry, etc.)
-Lux::Error.on_error do |error|
-  # Log to database
-  ExceptionLog.create(
-    error_class: error.class.to_s,
-    message: error.message,
-    backtrace: error.backtrace&.join("\n")
-  )
-
-  # Or send to Sentry
-  Sentry.capture_exception(error)
-end
-```
-
 ### Rendering
 
 ```ruby

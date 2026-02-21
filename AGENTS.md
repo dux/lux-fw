@@ -121,7 +121,7 @@ Environment detection via `Lux.env`:
 - `Lux.env.production?` / `Lux.env.prod?`
 - `Lux.env.test?`
 - `Lux.env.web?` / `Lux.env.cli?`
-- `Lux.env.show_errors?`, `Lux.env.reload_code?`, `Lux.env.screen_log?`
+- `Lux.env.show_errors?`, `Lux.env.reload?`, `Lux.env.log?`
 
 ### Lux::Config (`lib/lux/config/config.rb`)
 Configuration via `Lux.config`:

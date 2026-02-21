@@ -151,7 +151,7 @@ module Lux
       # ```
       def call object=nil, action=nil, opts=nil, &block
         # log original app caller (skipped in production - caller() is expensive)
-        if Lux.env.screen_log?
+        if Lux.env.log?
           root    = Lux.root.join('app/').to_s
           sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
           Lux.log { ' Routed from: %s' % sources.join(' ') } if sources.first
@@ -210,11 +210,11 @@ module Lux
         action ||= nav.path.last || :index
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
-          Lux.error.not_found Lux.env.show_errors? ? "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" : nil
+          Lux.error.not_found "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}"
         end
 
         if opts[:except] && opts[:except].include?(action.to_sym)
-          Lux.error.not_found Lux.env.show_errors? ? "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" : nil
+          Lux.error.not_found "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}"
         end
 
         if object.respond_to?(:action)

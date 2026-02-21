@@ -1,8 +1,8 @@
 # RACK_ENV = test dev/development prod/production
 #   live acts as production. RACK_ENV=live; Lux.env.prod? # true
 # LUX_ENV  = lre - add any for dev env options. Emit all -> production settings
-#   Lux.env.screen_log?   # true
-#   Lux.env.reload_code?  # true
+#   Lux.env.log?     # true -> sets Lux.config.log_level = :info
+#   Lux.env.reload?  # true
 #
 # PORT=3000  # defaults to 3000
 
@@ -21,7 +21,7 @@ LuxCli.class_eval do
   method_option :port,  aliases: '-p', desc: 'Port number', type: :string
   method_option :env,   aliases: '-e', desc: 'Environment (test, dev, prod)'
   method_option :rerun, aliases: '-r', default: false, desc: 'Rerun app on every file change', type: :boolean
-  method_option :opt,   aliases: '-o', default: 'lre', desc: 'Lux options (l=log, r=reload, e=errors)', type: :string
+  method_option :opt,   aliases: '-o', default: 'lr', desc: 'Lux options (l=log, r=reload)', type: :string
   def server
     trap("SIGINT") { Cli.die 'ctrl+c exit' }
 
