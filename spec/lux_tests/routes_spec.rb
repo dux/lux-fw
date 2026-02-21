@@ -33,10 +33,6 @@ end
 ###
 
 Lux.app do
-  def city_map
-    nav.root == 'zagreb'
-  end
-
   routes do
     root 'routes_test#root'
 
@@ -44,7 +40,7 @@ Lux.app do
     map %r{^@} => [RoutesTestController, :user]
     map %r{^~} => RoutesTestController
 
-    map :city do
+    map 'city' do
       root 'routes_test#city'
       map user: 'routes_test#user'
     end
@@ -84,8 +80,8 @@ Lux.app do
 
     it 'should get namespace routes' do
       expect(Lux.render.get('/zagreb').body).to eq 'zagreb'
-      # expect(Lux.render.get('/zagreb/user').body).to eq 'user'
-      # expect(Lux.render.get('/zagreb/xxx').status).to eq 404
+      expect(Lux.render.get('/city').body).to eq 'zagreb'
+      expect(Lux.render.get('/city/user').body).to eq 'user'
     end
 
     it 'should get bad routes' do

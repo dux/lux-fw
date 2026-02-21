@@ -31,7 +31,7 @@ module Lux
 
       Lux.log do
         arguments = args.present? ? args.to_json : ''
-        ' Delayed job execute: @%s.%s(%s)'.cyan % [object.class.to_s.tableize.singularize, m, arguments]
+        ' Delayed job execute: @%s.%s(%s)'.colorize(:cyan) % [object.class.to_s.tableize.singularize, m, arguments]
       end
 
       object.send(m, *args)

@@ -66,7 +66,7 @@ LuxCli.class_eval do
       puts ErbParser.parse(file)
     else
       commmand = "find . -type file | grep --color=never \\.cerb$"
-      puts commmand.gray
+      puts commmand.colorize(:gray)
       files = `#{commmand}`
         .split($/)
         .reject { |f| f.include?('/views/') }
@@ -83,7 +83,7 @@ LuxCli.class_eval do
         out.push ErbParser.parse(local)
         File.write(target, out.join("\n\n"))
 
-        puts 'Assets compile: %s -> %s (%s)' % [local.green, target, File.size(target).to_filesize]
+        puts 'Assets compile: %s -> %s (%s)' % [local.colorize(:green), target, File.size(target).to_filesize]
       end
     end
   end

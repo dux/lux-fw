@@ -75,8 +75,8 @@ class AutoMigrate
     begin
       self.db.run 'BEGIN; %s ;COMMIT;' % text
     rescue
-      puts caller[1].red
-      puts text.yellow
+      puts caller[1].colorize(:red)
+      puts text.colorize(:yellow)
       raise $!
     end
   end
@@ -92,7 +92,7 @@ class AutoMigrate
   end
 
   def log_run what
-    puts ' %s' % what.green
+    puts ' %s' % what.colorize(:green)
     transaction_do what
   end
 
@@ -124,21 +124,21 @@ class AutoMigrate
   end
 
   def update
-    puts "Table #{@table_name.to_s.yellow}, #{@fields.keys.length} fields in #{self.db.uri.split('/').last}"
+    puts "Table #{@table_name.to_s.colorize(:yellow)}, #{@fields.keys.length} fields in #{self.db.uri.split('/').last}"
 
     # remove extra fields
     for field in (@object.keys - @fields.keys - [:id, :ref])
       was_name = @opts.select { _2.dig(:meta, :was) == field }.keys.first
 
       unless was_name
-        print "Remove column #{@table_name}.#{field} (y/N): ".light_blue
+        print "Remove column #{@table_name}.#{field} (y/N): ".colorize(:light_blue)
         if !Lux.env.production? && STDIN.gets.chomp.downcase.index('y')
           begin
             self.db.drop_column @table_name, field
-            puts " drop_column #{field}".green
+            puts " drop_column #{field}".colorize(:green)
           rescue Sequel::DatabaseError => e
             raise unless e.message.include?('UndefinedColumn')
-            puts " skip drop #{field} (already removed)".yellow
+            puts " skip drop #{field} (already removed)".colorize(:yellow)
           end
         end
       end
@@ -172,7 +172,7 @@ class AutoMigrate
           end
         end
 
-        puts " add_column #{field}, #{db_type}, #{opts.to_json}".green
+        puts " add_column #{field}, #{db_type}, #{opts.to_json}".colorize(:green)
       end
 
       if current = @object[field]
@@ -193,7 +193,7 @@ class AutoMigrate
               alter table #{@table_name} alter #{field} set default '{}';
             ]
 
-            puts " Converted #{@table_name}.#{field} to array type".green
+            puts " Converted #{@table_name}.#{field} to array type".colorize(:green)
           elsif !current[:default]
             # force default for array to be present
             default = type == :string ? "ARRAY[]::character varying[]" : "ARRAY[]::integer[]"
@@ -210,19 +210,19 @@ class AutoMigrate
             alter table #{@table_name} alter #{field} type #{current[:db_type].sub('[]','')} using #{m};
           ]
 
-          puts " Converted #{@table_name}.#{field}[] to non array type".red
+          puts " Converted #{@table_name}.#{field}[] to non array type".colorize(:red)
         end
 
         # if varchar limit size has changed
         if type == :string && !opts[:array] && current[:max_length] != opts[:limit]
           transaction_do "ALTER TABLE #{@table_name} ALTER COLUMN #{field} TYPE varchar(#{opts[:limit]});"
-          puts " #{field} limit, #{current[:max_length]}-> #{opts[:limit]}".green
+          puts " #{field} limit, #{current[:max_length]}-> #{opts[:limit]}".colorize(:green)
         end
 
         # covert from varchar to text
         if type == :text && current[:max_length]
           transaction_do "ALTER TABLE #{@table_name} ALTER COLUMN #{field} SET DATA TYPE text"
-          puts " #{field} limit from  #{current[:max_length]} to no limit (text type)".green
+          puts " #{field} limit from  #{current[:max_length]} to no limit (text type)".colorize(:green)
         end
 
         # null true or false
@@ -246,7 +246,7 @@ class AutoMigrate
           # skip for arrays
           next if opts[:array]
           next if current[:default].to_s.index('{}') and opts[:default] == []
-          next if current[:default].to_s.starts_with?("'#{opts[:default]}':")
+          next if current[:default].to_s.start_with?("'#{opts[:default]}':")
 
           if opts[:default].to_s.blank?
             log_run "ALTER TABLE #{@table_name} ALTER COLUMN #{field} drop default"
@@ -303,10 +303,10 @@ class AutoMigrate
       if type && !@db_indexes.include?(field.to_s)
         if type.index('[]')
           db.run %[CREATE INDEX if not exists #{@table_name}_#{field}_gin_index on "#{@table_name}" USING GIN ("#{field}");]
-          puts " * added array GIN index on #{field}".green
+          puts " * added array GIN index on #{field}".colorize(:green)
         else
           db.add_index @table_name, field.to_sym, if_not_exists: true
-          puts " * added index on #{field}".green
+          puts " * added index on #{field}".colorize(:green)
         end
       end
     when :foreign_key
@@ -324,7 +324,7 @@ class AutoMigrate
         end
       end
     else
-      puts " unknown special DB type: #{type.to_s.red} (in #{@table_name})"
+      puts " unknown special DB type: #{type.to_s.colorize(:red)} (in #{@table_name})"
     end
   end
 
@@ -342,7 +342,7 @@ class AutoMigrate
       opts[:scale] ||= 2
       @fields[name.to_sym] = [:decimal, opts]
     else
-      raise "Unknown DB field type: #{type.to_s.red} (in table: #{@table_name})"
+      raise "Unknown DB field type: #{type.to_s.colorize(:red)} (in table: #{@table_name})"
     end
   end
 end

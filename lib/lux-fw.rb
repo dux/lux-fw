@@ -4,7 +4,6 @@ Dotenv.load
 
 require 'amazing_print'
 require 'as-duration'
-require 'colorize'
 require 'json'
 require 'jwt'
 require 'haml'
@@ -16,6 +15,7 @@ require 'class-cattr'
 require 'class-callbacks'
 
 require_relative './overload/object'
+require_relative './overload/string'
 require_relative './loader'
 
 # pollutes ApplicationHelper, need to load after Lux is loaded

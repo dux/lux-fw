@@ -119,10 +119,6 @@ class String
     end
   end
 
-  def to_a
-    self.split(/\s*,\s*/)
-  end
-
   def attribute_safe
     self.gsub('"', '').gsub("'", '')
   end
@@ -131,9 +127,7 @@ class String
     self.gsub(/[^0-9a-zA-Z_]/, '')
   end
 
-  def starts_with? prefix
-    prefix.respond_to?(:to_str) && self[0, prefix.length] == prefix
-  end
+  # starts_with? removed - use Ruby's built-in start_with? instead.
 
   def span_green
     %[<span style="color: #080;">#{self}</span>]
@@ -143,9 +137,18 @@ class String
     %[<span style="color: #800;">#{self}</span>]
   end
 
-  # remove colorize gem string colors
+  ANSI_COLORS = {
+    black: 30, red: 31, green: 32, yellow: 33, blue: 34,
+    magenta: 35, cyan: 36, white: 37, gray: 90,
+    light_black: 90, light_blue: 94
+  }
+
+  def colorize color
+    "\e[#{ANSI_COLORS[color] || 0}m#{self}\e[0m"
+  end
+
   def decolorize
-    self.gsub(/\[0;\d\d;\d\dm([^\[]*)\[0m/) { $1 }
+    gsub(/\e\[\d+m/, '')
   end
 
   def escape

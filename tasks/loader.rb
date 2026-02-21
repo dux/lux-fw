@@ -1,22 +1,22 @@
 require 'whirly'
 
 def invoke task, *args
-  puts task.light_black
+  puts task.colorize(:light_black)
   Rake::Task[task].invoke(*args)
 end
 
 def run what
-  puts what.yellow
+  puts what.colorize(:yellow)
   system what
 end
 
 def die what
-  puts '%s (%s)' % [what.red, caller[0]]
+  puts '%s (%s)' % [what.colorize(:red), caller[0]]
   exit
 end
 
 def info text
-  puts '* %s' % text.yellow
+  puts '* %s' % text.colorize(:yellow)
 end
 
 def tpool list, parallel=6, &block

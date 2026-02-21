@@ -28,6 +28,18 @@ module Lux
         new.action(*args, **kwargs)
       end
 
+      # render a template in this controller's scope without action dispatch
+      # skips before/after callbacks — just renders template with layout and helpers
+      # MainController.render_template(:error_404)
+      # MainController.render_template(:error_404, self)
+      def render_template template, scope = nil
+        ctrl = new
+        if scope
+          scope.instance_variables_hash.each { |k, v| ctrl.instance_variable_set(k, v) }
+        end
+        ctrl.send(:render, template.to_sym)
+      end
+
       # create mock function, to enable template rendering
       # mock :index, :login
       def mock *args
@@ -36,12 +48,6 @@ module Lux
         end
       end
 
-      # syntax sugar
-      def rescue_from &block
-        define_method :rescue_from do |err = nil|
-          instance_exec err, &block
-        end
-      end
     end
 
     ### INSTANCE METHODS
@@ -75,7 +81,7 @@ module Lux
       method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
 
       # dev console log
-      Lux.log { ' %s#%s (action)'.light_blue % [self.class, method_name] }
+      Lux.log { ' %s#%s (action)'.colorize(:light_blue) % [self.class, method_name] }
       # Lux.log { ' %s' % self.class.source_location }
 
       @lux.action = method_name.to_sym
@@ -98,8 +104,6 @@ module Lux
       end
 
       run_callback :after, @lux.action
-    rescue => error
-      rescue_from error
     end
 
     def timeout seconds
@@ -110,18 +114,9 @@ module Lux
       response.flash
     end
 
-    def rescue_from error
-      Lux::Error.log error
-      status = error.respond_to?(:code) ? error.code : 500
-      data = Lux.env.show_errors? ? Lux::Error.inline(error) : 'Server error: %s (%s)' % [error.message, error.class]
-      render html: data, status: status
-    end
-
     private
 
-    # delegated to current
-    define_method(:get?)          { request.request_method == 'GET' }
-    define_method(:post?)         { request.request_method == 'POST' }
+    # delegated to current — use request.get?, request.post?, etc. for HTTP method checks
     define_method(:etag)          { |*args| current.response.etag *args }
     define_method(:layout)        { |arg = :_nil| arg == :_nil ? @lux.layout : (@lux.layout = arg) }
     define_method(:cache_control) { |arg| response.headers['cache-control'] = arg }
@@ -226,7 +221,13 @@ module Lux
       helper_name = opts.layout || @lux.layout || cattr.layout
       local_helper = self.helper helper_name
 
-      page_template = cattr.template_root + opts.template.to_s
+      template = (opts.template || @lux.action).to_s.sub(/^\//, '')
+      page_template = if template.include?('/')
+        [cattr.template_root, template].join('/')
+      else
+        [cattr.template_root, helper_name, template].compact.join('/')
+      end
+      Lux.current.var['views_root'] ||= cattr.template_root
       Lux.current.var.root_template_path = page_template.sub(%r{/[\w]+$}, '')
       data = opts.inline || Lux::Template.render(local_helper, {template: page_template, dev_info: "Helper: #{helper_name.to_s.classify}Helper, Template: #{page_template}" })
 
@@ -313,7 +314,7 @@ module Lux
         end
 
         self.class.define_method(name) {}
-        Lux.log ' created method %s#%s | found template %s'.yellow % [self.class, name, template]
+        Lux.log ' created method %s#%s | found template %s'.colorize(:yellow) % [self.class, name, template]
         return true
       else
         # if called via super from `action_missing', return false,

@@ -52,8 +52,8 @@ Lux.app do
     # map "/foo/dux/baz" route to MainController#foo with params[:bar] == 'dux'
     map '/foo/:bar/baz'  => 'main#foo'
 
-    # call method "city_map", if it returns true, proceed
-    map :city do
+    # if we match '/city' namespace
+    map 'city' do
       # call MainController#city if request.method == 'GET'
       map 'main#city'
     end
@@ -100,6 +100,5 @@ For Lux routing you need to know only few things
 * `get?`, `post?`, `delete?`, ... will be true of false based HTTP_REQUEST type
   * `get? { @exec_if_true }` works as well
 * `map"`method accepts block that wraps map calls.
-  * `map :city do ...` will call `city_map` method. it has to return falsey if no match
-  * `map 'city' do ...` will check if we are under `/city/*` nav namespace
+  * `map :city do ...` or `map 'city' do ...` will check if we are under `/city/*` nav namespace
 

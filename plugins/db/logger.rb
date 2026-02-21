@@ -7,7 +7,7 @@ logger = Logger.new STDOUT
 logger.formatter = proc do |severity, datetime, progname, msg|
   elms = msg.split(/\(|s\)\s/, 3)
   time = (elms[1].to_f * 1000).round(1)
-  formated = " DB: #{elms[2].to_s.cyan} (#{time} ms, #{Lux.app_caller})"
+  formated = " DB: #{elms[2].to_s.colorize(:cyan)} (#{time} ms, #{Lux.app_caller})"
 
   if c = Thread.current[:db_q]
     if c && c[:last] != msg

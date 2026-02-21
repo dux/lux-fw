@@ -1,8 +1,4 @@
 class Hash
-  def blank?
-    self.keys.count == 0
-  end
-
   def to_query namespace=nil
     keys = self.keys.sort
 
@@ -42,42 +38,8 @@ class Hash
     self.select{ |k,v| string_args.index(k.to_s) }
   end
 
-  def stringify_keys
-    transform_keys { |key| key.to_s }
-  end
-
-  def symbolize_keys
-    transform_keys { |key| key.respond_to?(:to_sym) ? key.to_sym : key }
-  end
-
-  # Hash#slice is built-in since Ruby 2.5 - removed custom implementation.
-
-  def slice! *keys
-    keys.map! { |key| convert_key(key) } if respond_to?(:convert_key, true)
-    omit = slice(*self.keys - keys)
-    hash = slice(*keys)
-    hash.default      = default
-    hash.default_proc = default_proc if default_proc
-    replace(hash)
-    omit
-  end
-
-  # Returns a hash that includes everything but the given keys.
-  #    hash = { a: true, b: false, c: nil}
-  #    hash.except(:c) # => { a: true, b: false}
-  #    hash # => { a: true, b: false, c: nil}
-  #
-  # This is useful for limiting a set of parameters to everything but a few known toggles:
-  #    @person.update(params[:person].except(:admin))
-  def except(*keys)
-    dup.except!(*keys)
-  end
-
-  # Hash#except in place, modifying current hash
-  def except!(*keys)
-    keys.each { |key| delete(key.to_s); delete(key.to_sym)  }
-    self
-  end
+  # Hash#stringify_keys, #symbolize_keys, #slice, #slice!, #except, #except!,
+  # #transform_keys - removed; all built-in since Ruby 2.5–3.0.
 
   def remove_empty covert_to_s = false
     self.keys.inject({}) do |t, el|
@@ -94,18 +56,7 @@ class Hash
     data
   end
 
-  def transform_keys &block
-    if block
-      Hash.new.tap do |result|
-        for key, value in self
-          value = value.transform_keys(&block) if value.is_a?(Hash)
-          result[block.call(key)] = value
-        end
-      end
-    else
-      enum_for(:transform_keys)
-    end
-  end
+
 
   # clean empty values from hash, deep
   def deep_compact value = nil

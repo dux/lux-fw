@@ -8,18 +8,18 @@ LuxCli.class_eval do
     Lux.config.sort.each do |key , value|
       value = case value
       when TrueClass
-        'true'.green
+        'true'.colorize(:green)
       when FalseClass
-        'false'.red
+        'false'.colorize(:red)
       when String
-        "#{value.white}"
+        "#{value.colorize(:white)}"
       when Proc
         'proc { ... }'
       else
         value.inspect
       end
 
-      name = '  Lux.config.%s' % key.to_s.white
+      name = '  Lux.config.%s' % key.to_s.colorize(:white)
       print name.ljust(47)
       puts '= %s' % value
     end
@@ -31,7 +31,7 @@ LuxCli.class_eval do
     puts
     puts 'plugins:'
     Lux.plugin.keys.each do |key|
-      puts '  Lux.plugin.%s - %s' % [key.ljust(22).white, Lux.plugin.get(key).folder]
+      puts '  Lux.plugin.%s - %s' % [key.ljust(22).colorize(:white), Lux.plugin.get(key).folder]
     end
   end
 end

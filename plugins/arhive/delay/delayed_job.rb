@@ -60,7 +60,7 @@ module Lux
           end
         end
       else
-        Lux.log 'Error: nsq method "%s" not defined'.red % func
+        Lux.log 'Error: nsq method "%s" not defined'.colorize(:red) % func
       end
     end
   end

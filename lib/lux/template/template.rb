@@ -44,16 +44,20 @@ module Lux
       end
 
       def find_layout root, layout_template
-        path = Lux.cache.fetch "layout-path-#{root}-#{layout_template}" do
-          base1 = '%s/layouts/%s.*' % [root, layout_template]
-          base2 = '%s/%s/layout.*' % [root, layout_template]
-          path = Dir[base1][0] || Dir[base2][0]
+        pointer = Lux.env.reload_code? ? Lux.current.var : Lux.var
+        cache = (pointer[:_cached_layouts] ||= {})
+        cache_key = "#{root}/#{layout_template}"
 
-          if path
-            path.sub /\.[\w]+$/, ''
-          else
-            raise Lux::Error.not_found(%[Layout path for #{layout_template} not found. Looked in #{base1} & #{base2}])
-          end
+        return cache[cache_key] if cache[cache_key]
+
+        base1 = '%s/layouts/%s.*' % [root, layout_template]
+        base2 = '%s/%s/layout.*' % [root, layout_template]
+        path = Dir[base1][0] || Dir[base2][0]
+
+        if path
+          cache[cache_key] = path.sub(/\.[\w]+$/, '')
+        else
+          raise Lux::Error.not_found(%[Layout path for #{layout_template} not found. Looked in #{base1} & #{base2}])
         end
       end
     end

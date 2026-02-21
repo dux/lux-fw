@@ -28,7 +28,7 @@ module Lux
       request_method = request.request_method
 
       Lux.log ''
-      Lux.log { [request_method.white, request.url].join(' ') }
+      Lux.log { [request_method.colorize(:white), request.url].join(' ') }
 
       if request.post?
         Lux.log { request.params.to_h.to_jsonp }
@@ -52,19 +52,47 @@ module Lux
       run_callback :after, nav.path
       response.render
     rescue StandardError => error
-      if respond_to?(:rescue_from)
-        catch :done do
-          rescue_from error
-        end
-        response.render
+      rescue_from error
+      response.render
+    end
+
+    # override in Lux.app do ... end block:
+    #   rescue_from do |error|
+    #     render '/main/error_500', status: 500
+    #   end
+    def self.rescue_from &block
+      define_method(:rescue_from) { |error| instance_exec(error, &block) }
+    end
+
+    # default error handler — renders Lux-branded error page
+    def rescue_from error
+      Lux::Error.render error
+    end
+
+    # render text: 'ok'
+    # render json: { error: 'not found' }, status: 404
+    # render html: '<h1>Error</h1>', status: 500
+    def render opts = {}
+      if opts.keys.length == 0
+        # no args → full page render proxy
+        render_page
       else
-        raise error
+        types = [:text, :html, :json, :javascript, :xml]
+        for type in types
+          if value = opts[type]
+            response.status opts[:status] if opts[:status]
+            response.body value, content_type: type
+            return
+          end
+        end
+
+        raise ArgumentError.new("Router render supports only #{types.keys.join(', ')}")
       end
     end
 
-    # to get root page body
-    # Lux.app.new('/').render.body
-    def render
+    # full page render — returns response hash
+    # Lux.app.new('/').render_page.body
+    def render_page
       out  = @response_render ||= render_base
       body = out[2].join('')
       body = JSON.parse body if out[1]['content-type'].index('/json')

@@ -128,7 +128,7 @@ Generated files:
 
     domain = ENV['DOMAIN']
     unless domain
-      puts "Error: DOMAIN not defined in .env".red
+      puts "Error: DOMAIN not defined in .env".colorize(:red)
       puts "Add DOMAIN=yourdomain.com to .env"
       exit 1
     end
@@ -453,7 +453,7 @@ server {
 
   def sysd_list
     unless Dir.exist?(SYSD_DIR)
-      puts "No service directory found at #{SYSD_DIR}".yellow
+      puts "No service directory found at #{SYSD_DIR}".colorize(:yellow)
       puts "Run 'lux sysd generate' first"
       return
     end
@@ -461,12 +461,12 @@ server {
     service_files = Dir.glob("#{SYSD_DIR}/*.service")
 
     if service_files.empty?
-      puts "No service files found in #{SYSD_DIR}".yellow
+      puts "No service files found in #{SYSD_DIR}".colorize(:yellow)
       puts "Run 'lux sysd generate' first"
       return
     end
 
-    puts "Services in #{SYSD_DIR}:".green
+    puts "Services in #{SYSD_DIR}:".colorize(:green)
     puts
 
     service_files.each do |file|
@@ -482,19 +482,19 @@ server {
     if installed
       status_output = `systemctl is-active #{service_name} 2>/dev/null`.strip
       case status_output
-      when 'active' then 'running'.green
-      when 'inactive' then 'stopped'.yellow
-      when 'failed' then 'failed'.red
+      when 'active' then 'running'.colorize(:green)
+      when 'inactive' then 'stopped'.colorize(:yellow)
+      when 'failed' then 'failed'.colorize(:red)
       else status_output
       end
     else
-      'not installed'.gray
+      'not installed'.colorize(:gray)
     end
   end
 
   def sysd_install(service)
     unless Dir.exist?(SYSD_DIR)
-      puts "No service directory found at #{SYSD_DIR}".yellow
+      puts "No service directory found at #{SYSD_DIR}".colorize(:yellow)
       puts "Run 'lux sysd generate' first"
       return
     end
@@ -504,7 +504,7 @@ server {
       file = "#{SYSD_DIR}/lux-#{service}.service" unless File.exist?(file)
 
       unless File.exist?(file)
-        puts "Service file not found: #{file}".red
+        puts "Service file not found: #{file}".colorize(:red)
         return
       end
 
@@ -519,7 +519,7 @@ server {
   end
 
   def show_install_instructions(file)
-    puts "Install instructions for #{File.basename(file)}:".green
+    puts "Install instructions for #{File.basename(file)}:".colorize(:green)
     puts
 
     # Extract header comments (install instructions)
@@ -539,51 +539,51 @@ server {
     end.compact
 
     if services.empty?
-      puts "No services found matching #{pattern}".yellow
+      puts "No services found matching #{pattern}".colorize(:yellow)
       return
     end
 
-    puts "Found #{services.size} service(s):".yellow
+    puts "Found #{services.size} service(s):".colorize(:yellow)
     services.each { |s| puts "  - #{s}" }
     puts
 
     services.each do |service|
-      puts "Stopping #{service}...".yellow
+      puts "Stopping #{service}...".colorize(:yellow)
       system('sudo', 'systemctl', 'stop', service)
 
-      puts "Disabling #{service}...".yellow
+      puts "Disabling #{service}...".colorize(:yellow)
       system('sudo', 'systemctl', 'disable', service)
 
       service_file = "/etc/systemd/system/#{service}.service"
       if File.exist?(service_file) || File.symlink?(service_file)
-        puts "Removing #{service_file}...".yellow
+        puts "Removing #{service_file}...".colorize(:yellow)
         system('sudo', 'rm', '-f', service_file)
       end
       puts
     end
 
-    puts "Reloading systemd...".yellow
+    puts "Reloading systemd...".colorize(:yellow)
     system('sudo', 'systemctl', 'daemon-reload')
 
     puts
-    puts "Done. #{services.size} service(s) uninstalled.".green
+    puts "Done. #{services.size} service(s) uninstalled.".colorize(:green)
   end
 
   def sysd_action(action, service)
     unless service
-      puts "Error: Service name required".red
+      puts "Error: Service name required".colorize(:red)
       puts "Usage: lux sysd #{action} <service>"
       return
     end
 
-    puts "#{action.capitalize}ing #{service}...".yellow
+    puts "#{action.capitalize}ing #{service}...".colorize(:yellow)
     system('sudo', 'systemctl', action, service)
     system('sudo', 'systemctl', 'status', service, '--no-pager') if action != 'stop'
   end
 
   def sysd_log(service)
     unless service
-      puts "Error: Service name required".red
+      puts "Error: Service name required".colorize(:red)
       puts "Usage: lux sysd log <service>"
       return
     end
@@ -749,14 +749,14 @@ server {
       when 'install'
         file = "#{SYSD_DIR}/#{service}.service"
         if File.exist?(file)
-          puts "Install instructions:".green
+          puts "Install instructions:".colorize(:green)
           puts
           File.readlines(file).each do |line|
             break unless line.start_with?('#')
             puts "  #{line}"
           end
         else
-          puts "Service file not found in #{SYSD_DIR}/".yellow
+          puts "Service file not found in #{SYSD_DIR}/".colorize(:yellow)
         end
       else
         system('sudo', 'systemctl', action, service)

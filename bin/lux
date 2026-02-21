@@ -9,12 +9,12 @@ if File.exist?('lux-fw.gemspec')
 end
 
 require 'thor'
-require 'colorize'
 require 'optparse'
 require 'amazing_print'
 require 'dotenv'
 require 'whirly'
 require_relative '../lib/overload/thread_simple'
+require_relative '../lib/overload/string'
 
 Dotenv.load
 
@@ -28,17 +28,17 @@ module Cli
   extend self
 
   def run what
-    puts what.light_black
+    puts what.colorize(:light_black)
     system what
   end
 
   def die text
-    puts text.red
+    puts text.colorize(:red)
     exit
   end
 
   def info text
-    puts '* %s' % text.magenta
+    puts '* %s' % text.colorize(:magenta)
   end
 end
 
@@ -49,13 +49,13 @@ require 'pry'
 AmazingPrint.pry!
 # nice object dump in console
 Pry.config.print = Proc.new do |output, data|
-  puts data.class.to_s.gray
+  puts data.class.to_s.colorize(:gray)
 
   out =
   if data.is_a?(Hash)
-    JSON.pretty_generate(data).gsub(/"([\w\-]+)":/) { '"%s":' % $1.yellow }
+    JSON.pretty_generate(data).gsub(/"([\w\-]+)":/) { '"%s":' % $1.colorize(:yellow) }
   elsif data.is_a?(String)
-    if data.downcase.starts_with?('select')
+    if data.downcase.start_with?('select')
       require 'niceql'
       Niceql::Prettifier.prettify_sql data
     # elsif data.is_a?(String) && data.include?('</body>')

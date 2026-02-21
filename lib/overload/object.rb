@@ -3,7 +3,7 @@ class Object
 
   def self.const_missing klass, path=nil
     unless LUX_AUTO_LOAD.keys.first
-      for file in `find ./app -type f -name '*.rb'`.split($/)
+      for file in Dir.glob('./app/**/*.rb').sort
         klass_file = file
           .split('/')
           .last
@@ -39,18 +39,6 @@ class Object
     self.blank? || self == 0 ? (block ? block.call : _or) : self
   end
 
-  def nil _or = nil, &block
-    self.nil? ? (block ? block.call : _or) : self
-  end
-
-  def and &block
-    block.call(self) if self.present?
-  end
-
-  def presence
-    self.present? ? self : nil
-  end
-
   def try *args, &block
     if self.class == NilClass
       nil
@@ -62,10 +50,14 @@ class Object
     end
   end
 
+  def presence
+    self.present? ? self : nil
+  end
+
   def die desc=nil, exp_object=nil
     desc ||= 'died without desc'
     desc = '%s: %s' % [exp_object.class, desc] if exp_object
-    puts desc.red
+    puts desc.colorize(:red)
     puts caller.slice(0, 10)
     raise desc
   end

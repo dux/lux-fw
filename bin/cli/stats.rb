@@ -2,7 +2,7 @@ class LuxStat
   attr_accessor :dir
 
   def call name, title=nil
-    puts (title || name.to_s.capitalize).yellow
+    puts (title || name.to_s.capitalize).colorize(:yellow)
     send name
     puts
   end
@@ -33,7 +33,7 @@ class LuxStat
       puts ' ' + data
     end
 
-    puts " #{desc} and #{mcnt.pluralize(:method)}".blue
+    puts " #{desc} and #{mcnt.pluralize(:method)}".colorize(:blue)
   end
 
   def views
@@ -44,7 +44,7 @@ class LuxStat
 
     for dir in view_dirs
       files = `find app/views/#{dir}/ -type f`.count($/)
-      puts " #{files.pluralize(:file).rjust(9).white} in #{dir.blue}"
+      puts " #{files.pluralize(:file).rjust(9).colorize(:white)} in #{dir.colorize(:blue)}"
 
     end
   end
@@ -68,7 +68,7 @@ class LuxStat
     for ext, (files, lines) in exts.sort
       next if lines == 0
       next if %w(conf app webloc ru xml edit json lock rake svg txt yaml yml).include?(ext)
-      puts "#{ext.to_s.rjust(8).white} #{lines.pluralize(:line).rjust(14)} in #{files.pluralize(:files).white}"
+      puts "#{ext.to_s.rjust(8).colorize(:white)} #{lines.pluralize(:line).rjust(14)} in #{files.pluralize(:files).colorize(:white)}"
     end
   end
 
@@ -106,7 +106,7 @@ class LuxStat
 
       n_methods += list.length
 
-      prefix = ' ' + klass.to_s.ljust(max + 2).white
+      prefix = ' ' + klass.to_s.ljust(max + 2).colorize(:white)
 
       while data = get_line(list, 100 - max)
         print prefix
@@ -115,7 +115,7 @@ class LuxStat
       end
     end
 
-    puts " #{n_methods.pluralize('method')} in #{classes.length.pluralize('classes')}".blue
+    puts " #{n_methods.pluralize('method')} in #{classes.length.pluralize('classes')}".colorize(:blue)
   end
 end
 

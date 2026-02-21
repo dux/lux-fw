@@ -29,9 +29,9 @@ class ExtendedTestController < Lux::Controller
   end
 
   def get_only
-    if get?
+    if request.get?
       render text: 'get response'
-    elsif post?
+    elsif request.post?
       render text: 'post response'
     end
   end
@@ -55,10 +55,6 @@ class MockableController < Lux::Controller
 end
 
 class RescueController < Lux::Controller
-  rescue_from do |err|
-    render text: "rescued: #{err.message}", status: 422
-  end
-
   def explode
     raise 'boom'
   end
@@ -106,11 +102,9 @@ describe 'Lux::Controller extended' do
     end
   end
 
-  describe 'rescue_from' do
-    it 'catches errors with custom handler' do
-      RescueController.action(:explode)
-      expect(Lux.current.response.body).to eq('rescued: boom')
-      expect(Lux.current.response.status).to eq(422)
+  describe 'error propagation' do
+    it 'propagates errors from controller actions (no controller-level rescue)' do
+      expect { RescueController.action(:explode) }.to raise_error(RuntimeError, 'boom')
     end
   end
 
@@ -147,28 +141,22 @@ describe 'Lux::Controller extended' do
   end
 
   describe 'forbidden action names' do
-    it 'rejects :action as an action name with 500 status' do
-      # rescue_from catches the error and sets 500
-      ExtendedTestController.action(:action)
-      expect(Lux.current.response.status).to eq(500)
+    it 'raises on :action as an action name' do
+      expect { ExtendedTestController.action(:action) }.to raise_error(Lux::Error)
     end
 
-    it 'rejects :error as an action name with 500 status' do
-      ExtendedTestController.action(:error)
-      expect(Lux.current.response.status).to eq(500)
+    it 'raises on :error as an action name' do
+      expect { ExtendedTestController.action(:error) }.to raise_error(Lux::Error)
     end
   end
 
   describe 'blank action name' do
-    it 'handles blank action with error status' do
-      # rescue_from catches the ArgumentError
-      ExtendedTestController.action('')
-      expect(Lux.current.response.status).to eq(500)
+    it 'raises on blank action' do
+      expect { ExtendedTestController.action('') }.to raise_error(ArgumentError)
     end
 
-    it 'handles nil action with error status' do
-      ExtendedTestController.action(nil)
-      expect(Lux.current.response.status).to eq(500)
+    it 'raises on nil action' do
+      expect { ExtendedTestController.action(nil) }.to raise_error(ArgumentError)
     end
   end
 

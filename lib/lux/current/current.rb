@@ -136,7 +136,7 @@ module Lux
       if @files_in_use.include?(file)
         true
       else
-        Lux.log ' ' + file.sub('//', '/').magenta
+        Lux.log ' ' + file.sub('//', '/').colorize(:magenta)
 
         @files_in_use.add file
         yield(file) if block_given?

@@ -58,10 +58,8 @@ describe Lux::Controller do
     expect(Lux.current.response.body).to eq({ foo: 'bar' })
   end
 
-  it 'renders failure with 500 status' do
-    TestController.action(:render_fail)
-
-    expect(Lux.current.response.status).to eq(500)
+  it 'raises on invalid render options' do
+    expect { TestController.action(:render_fail) }.to raise_error(ArgumentError)
   end
 
   it 'executes before and before_action filters' do

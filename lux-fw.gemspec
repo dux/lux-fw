@@ -79,9 +79,6 @@ Gem::Specification.new 'lux-fw' do |gem|
   # best ORM mapper for ruby/postgres
   gem.add_dependency 'sequel_pg'
 
-  # nice colorized output
-  gem.add_dependency 'colorize'
-
   # because it is awesome
   gem.add_dependency 'amazing_print'
 

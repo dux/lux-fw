@@ -36,26 +36,32 @@ module Lux
         proc { |*args| "#{yield(*args)}" }
       end
 
-      # renders just template but it is called
+      # renders template by name, resolves relative to current template's directory
       # = render :_link, link:link
       # = render 'main/links/_link', link:link
       def render name = nil, locals = {}
         if !name
           return InlineRenderProxy.new(self)
-        elsif name.is_array?
-          return name.map { |b| render(b) }.join("\n")
-        elsif name.respond_to?(:db_schema)
-          raise 'not supported'
-          path = Lux.current.var.root_template_path.split('/')[1]
-          table_name = name.class.name.tableize
-          locals[table_name.singularize.to_sym] = name
-          instance_variable_set("@_#{table_name.singularize}", name)
-          name = "#{path}/#{table_name}/_#{table_name.singularize}"
-        elsif !name.to_s.start_with?('./')
-          template_path = Lux.current.var.root_template_path || './app/views'
-          name = Pathname.new(template_path).join(name.to_s).to_s
-          name = './app/views' + name if name.starts_with?('/')
         end
+
+        name = name.to_s
+
+        unless name.start_with?('./')
+          if name.include?('/')
+            # path with directory (e.g., 'shared/_widget') → resolve from views root
+            views_root = Lux.current.var.views_root || './app/views'
+            name = Pathname.new(views_root).join(name.delete_prefix('/')).to_s
+          else
+            # simple name (e.g., :_partial) → resolve relative to current template
+            template_path = Lux.current.var.root_template_path || './app/views'
+            name = Pathname.new(template_path).join(name).to_s
+          end
+        end
+
+        # update root_template_path to this template's directory so nested
+        # render calls resolve relative to the template that calls them
+        previous_root = Lux.current.var.root_template_path
+        Lux.current.var.root_template_path = name.sub(%r{/[^/]+$}, '')
 
         # scope locals per render call - save previous values, restore after render
         saved = {}
@@ -81,6 +87,9 @@ module Lux
             remove_instance_variable(ivar)
           end
         end
+
+        # restore previous root so sibling renders still resolve correctly
+        Lux.current.var.root_template_path = previous_root
 
         result
       end

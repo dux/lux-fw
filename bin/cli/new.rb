@@ -17,7 +17,7 @@ LuxCli.class_eval do
     end
 
     puts
-    puts 'Success! now:'.green
+    puts 'Success! now:'.colorize(:green)
     puts 'cd %s' % app_folder
     puts 'lux s'
   end

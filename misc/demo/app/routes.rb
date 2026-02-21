@@ -1,14 +1,5 @@
 Lux.app do
 
-  # define proc for dinamic routes
-  def city_map
-    if ['zagreb', 'munich'].include?(nav.root)
-      @city = nav.root.capitalize
-    else
-      false
-    end
-  end
-
   routes do
     call 'application#on_error'
 
@@ -24,12 +15,11 @@ Lux.app do
       map bar: proc { body = 'foo/bar match OK' }
     end
 
-    # dynamic rooute call demo
-    # /zabreb/foo
-    # /munich/foo
-    map :city do
-      root     proc { body = 'City %s root OK' % @city }
-      map foo: proc { body = 'foo/bar match in %s OK' % @city }
+    # namespace route demo
+    # /city/foo
+    map 'city' do
+      root     proc { body = 'City root OK' }
+      map foo: proc { body = 'city/foo match OK' }
     end
   end
 

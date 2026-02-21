@@ -11,7 +11,7 @@ task :exceptions do
   end
 
   show = ARGV[1] ? ARGV[1].to_i : nil
-  puts 'Add error number as last argument to show full erros, "clear" to clear all'.light_blue unless show
+  puts 'Add error number as last argument to show full erros, "clear" to clear all'.colorize(:light_blue) unless show
 
   cnt = 0
 
@@ -23,7 +23,7 @@ task :exceptions do
     cnt += 1
     next if show && show != cnt
 
-    puts '%s. %s, %s (%s)' % [cnt.to_s.rjust(2), ex[:age].yellow, ex[:desc], ex[:code]]
+    puts '%s. %s, %s (%s)' % [cnt.to_s.rjust(2), ex[:age].colorize(:yellow), ex[:desc], ex[:code]]
 
     if show
       puts "\n" + File.read(ex[:file])
@@ -36,6 +36,6 @@ namespace :exceptions do
   desc 'Clear all excpetions'
   task :clear do
     Lux::Error::Logger.clear
-    puts 'Cleared from %s' % Lux::Error::Logger::ERROR_FOLDER.yellow
+    puts 'Cleared from %s' % Lux::Error::Logger::ERROR_FOLDER.colorize(:yellow)
   end
 end

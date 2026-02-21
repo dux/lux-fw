@@ -24,8 +24,8 @@ module LuxGenerate
     @object  = object
     @objects = objects || @object.pluralize
 
-    puts "Singular  : #{@object.yellow}"
-    puts "Plural    : #{@objects.yellow}"
+    puts "Singular  : #{@object.colorize(:yellow)}"
+    puts "Plural    : #{@objects.colorize(:yellow)}"
 
     def parse_vars(data)
       object  = @object
@@ -43,7 +43,7 @@ module LuxGenerate
         data = parse_vars(File.read("#{template_dir}/#{el}"))
       rescue
         puts '-'
-        puts "File error: #{el.red}: #{$!.message}"
+        puts "File error: #{el.colorize(:red)}: #{$!.message}"
         exit
       end
       type = el[0,1]
@@ -55,8 +55,8 @@ module LuxGenerate
       templates[type].push [path, data]
     end
 
-    # # puts  "Lux::Templates : #{templates.keys.sort.map{ |el| tpl_desc[el.to_sym] ? tpl_desc[el.to_sym].sub(el, el.upcase.yellow) : el.yellow }.join(', ')}"
-    puts  "Templates : #{templates.keys.map{ |el| "#{tpl_desc[el.to_sym]}(#{el.yellow})" }.join(', ')}"
+    # # puts  "Lux::Templates : #{templates.keys.sort.map{ |el| tpl_desc[el.to_sym] ? tpl_desc[el.to_sym].sub(el, el.upcase.colorize(:yellow)) : el.colorize(:yellow) }.join(', ')}"
+    puts  "Templates : #{templates.keys.map{ |el| "#{tpl_desc[el.to_sym]}(#{el.colorize(:yellow)})" }.join(', ')}"
     print "Execute   : "
 
     parse_templates = STDIN.gets.chomp
@@ -66,11 +66,11 @@ module LuxGenerate
       for el in templates[type]
         file, data = *el
         if File.exist?(file)
-          print 'exists'.yellow.rjust(20)
+          print 'exists'.colorize(:yellow).rjust(20)
         else
           FileUtils.mkdir_p(file.sub(/\/[^\/]+$/,'')) rescue false
           File.open(file, 'w') { |f| f.write(data) }
-          print 'created'.green.rjust(20)
+          print 'created'.colorize(:green).rjust(20)
         end
         puts "  #{file}"
       end

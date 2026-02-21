@@ -2,14 +2,13 @@ module Lux
   class Application
     class Nav
       attr_accessor :format
-      attr_reader :original, :domain, :subdomain, :querystring, :ids
+      attr_reader :original, :domain, :subdomain, :ids
 
       # acepts path as a string
       def initialize request
         @path        = request.path.split('/').slice(1, 100) || []
         @original    = @path.dup
         @request     = request
-        @querystring = {}.to_hwia
         @ids         = []
         @shifted     = []
 
@@ -167,7 +166,6 @@ module Lux
         # convert /foo/bar:baz to /foo?bar=baz
         while @path.last&.include?(':')
           key, val = @path.pop.split(':', 2)
-          @querystring[key] = val
           Lux.current.params[key.to_sym] ||= val
         end
       end

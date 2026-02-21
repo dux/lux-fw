@@ -158,7 +158,7 @@ describe Lux::Application::Nav do
     end
   end
 
-  describe 'querystring variables from path' do
+  describe 'colon-param variables from path' do
     it 'extracts colon-separated params from path' do
       nav = nav_for('/users/page:3')
       expect(Lux.current.params[:page]).to eq('3')

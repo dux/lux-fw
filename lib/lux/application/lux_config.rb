@@ -7,7 +7,7 @@ Lux.config.on_reload_code do |source = nil|
 
   if watched_files.first
     for file in watched_files
-      Lux.log ' Reloaded: %s' % file.sub(Lux.root.to_s, '.').yellow
+      Lux.log ' Reloaded: %s' % file.sub(Lux.root.to_s, '.').colorize(:yellow)
       load file
     end
   else

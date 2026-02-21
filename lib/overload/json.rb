@@ -7,7 +7,7 @@ module LuxJson
   # to json pretty
   def to_jsonp colorize_keys = false
     out = JSON.pretty_generate(self)
-    colorize_keys ? out.gsub(/(\n\s|)"([\w\-]+)":/) { '%s"%s":' % [$1, $2.yellow] } : out
+    colorize_keys ? out.gsub(/(\n\s|)"([\w\-]+)":/) { '%s"%s":' % [$1, $2.colorize(:yellow)] } : out
   end
 
   # to json compact (for javascript)

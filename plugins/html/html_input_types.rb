@@ -122,7 +122,7 @@ class HtmlInput
         name: @opts.delete(:name),
         type: :checkbox,
         value: value,
-        checked: @object && @object.send(@filed_name).to_a.include?(value) ? 'true' : nil
+        checked: @object && Array(@object.send(@filed_name)).include?(value) ? 'true' : nil
       }.compact.tag(:input)
     else
       id = Lux.current.uid

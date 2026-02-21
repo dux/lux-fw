@@ -16,22 +16,22 @@ module Lux
         config = []
         %w(reload_code show_errors screen_log).each do |name|
           value = Lux.env.send("#{name}?")
-          config.push value ? "#{name} (yes)".yellow : "#{name} (no)".green
+          config.push value ? "#{name} (yes)".colorize(:yellow) : "#{name} (no)".colorize(:green)
         end
         info.push "Lux env: #{config.join(', ')}"
 
         if $lux_start_time.class == Array
           # $lux_start_time ||= Time.now added to Gemfile
           speed = 'in %s sec (%s gems, %s app)' % [
-            time_diff($lux_start_time[0]).white,
+            time_diff($lux_start_time[0]).colorize(:white),
             time_diff($lux_start_time[0], $lux_start_time[1]),
             time_diff($lux_start_time[1]),
           ]
         else
-          speed = 'in %s sec' % time_diff($lux_start_time).white
+          speed = 'in %s sec' % time_diff($lux_start_time).colorize(:white)
         end
 
-        info.push "* Lux loaded in #{ENV['RACK_ENV']} mode, #{speed}, uses #{ram.to_s.white} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.white} gems in spec"
+        info.push "* Lux loaded in #{ENV['RACK_ENV']} mode, #{speed}, uses #{ram.to_s.colorize(:white)} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.colorize(:white)} gems in spec"
         info.join($/)
       end
     end

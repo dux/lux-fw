@@ -75,7 +75,7 @@ class PageMeta
   def image url
     return unless url.present?
 
-    url = "#{Lux.current.nav.base}#{url}" if url.starts_with?('/')
+    url = "#{Lux.current.nav.base}#{url}" if url.start_with?('/')
 
     @meta['og:image'] = url
     @meta['twitter:image'] = url
@@ -137,7 +137,7 @@ class PageMeta
     for k,v in @meta
       if v
         v = v.gsub('"', '&quot;')
-        name = k.starts_with?('og:') ? :property : :name
+        name = k.start_with?('og:') ? :property : :name
         meta.push %[<meta #{name}="#{k}" content="#{v}" />]
       end
     end

@@ -118,10 +118,10 @@ module Lux
 
         Lux.current.response.body(
           HtmlTag.html do |n|
-            n.head do |n|
+            n.tag(:head) do |n|
               n.title 'Lux error'
             end
-            n.body style: "margin: 20px 20px 20px 140px; background-color:#fdd; font-size: 14pt; font-family: sans-serif;" do |n|
+            n.tag(:body, style: "margin: 20px 20px 20px 140px; background-color:#fdd; font-size: 14pt; font-family: sans-serif;") do |n|
               n.img src: "https://i.imgur.com/Zy7DLXU.png", style: "width: 100px; position: absolute; margin-left: -120px;"
               n.h4 do |n|
                 n.push %[HTTP Error &mdash; <a href="https://httpstatuses.com/#{code}" target="http_error">#{code}</a>]
@@ -190,7 +190,7 @@ module Lux
       end
 
       # show in stdout
-      def screen error
+      def log_to_stdout error
         return unless Lux.env.show_errors?
 
         data = split_backtrace(error)
@@ -215,8 +215,7 @@ module Lux
       # Log exception (skips Lux::Error instances - they are intentional HTTP errors)
       def log err
         return if err.is_a?(Lux::Error)
-
-        screen(err)
+        log_to_stdout(err)
         log_to_file(err)
         @on_error_handler&.call(err)
       end

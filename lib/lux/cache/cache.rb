@@ -44,7 +44,7 @@ module Lux
       ttl = ttl[:ttl] || ttl[:expires_at] if ttl.class == Hash
       ttl = ttl.to_i if ttl
       key = generate_key key
-      Lux.log %[ Cache.write "#{key}", at: #{Lux.app_caller}].yellow
+      Lux.log %[ Cache.write "#{key}", at: #{Lux.app_caller}].colorize(:yellow)
       @server.set(key, data, ttl)
     end
     alias :set :write
@@ -54,7 +54,7 @@ module Lux
 
       Lux.log do
         if Lux.config[:show_cache_log]
-          %[ Cache.delete "#{key}", at: #{Lux.app_caller}].yellow
+          %[ Cache.delete "#{key}", at: #{Lux.app_caller}].colorize(:yellow)
         end
       end
 
@@ -81,7 +81,7 @@ module Lux
 
       data = @server.fetch key, opts.ttl do
         opts.speed = Lux.speed { data = yield }
-        Lux.log " #{log_key_name}, at: #{Lux.app_caller}".yellow
+        Lux.log " #{log_key_name}, at: #{Lux.app_caller}".colorize(:yellow)
         Marshal.dump data
       end
 
@@ -174,10 +174,10 @@ module Lux
         end
 
         if Lux.config[:show_cache_log]
-          Lux.log " Cache.get #{name}, at: #{Lux.app_caller}".green
+          Lux.log " Cache.get #{name}, at: #{Lux.app_caller}".colorize(:green)
         else
           if Lux.current.once(:show_cache_log)
-            Lux.log " Cache.get info is suppressed: enable? -> #{Lux.current.nav.base}#{Lux.current.request.path}?lux_show_cache_get=true".green
+            Lux.log " Cache.get info is suppressed: enable? -> #{Lux.current.nav.base}#{Lux.current.request.path}?lux_show_cache_get=true".colorize(:green)
           end
         end
       end

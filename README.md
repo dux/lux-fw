@@ -205,8 +205,7 @@ For Lux routing you need to know only few things
 * `get?`, `post?`, `delete?`, ... will be true of false based HTTP_REQUEST type
   * `get? { @exec_if_true }` works as well
 * `map` method accepts block that wraps map calls.
-  * `map :city do ...` will call `city_map` method. it has to return falsey if no match
-  * `map 'city' do ...` will check if we are under `/city/*` nav namespace
+  * `map :city do ...` or `map 'city' do ...` will check if we are under `/city/*` nav namespace
 
 ```ruby
 Lux.app do
@@ -255,8 +254,8 @@ Lux.app do
     # map "/foo/dux/baz" route to MainController#foo with params[:bar] == 'dux'
     map '/foo/:bar/baz'  => 'main#foo'
 
-    # call method "city_map", if it returns true, proceed
-    map :city do
+    # if we match '/city' namespace
+    map 'city' do
       # call MainController#city if request.method == 'GET'
       map 'main#city'
     end
@@ -561,27 +560,6 @@ Lux.error.not_found message
 Lux.error.internal_server_error message
 ```
 
-#### Exception Logging
-
-Real exceptions (not `Lux::Error`) are automatically logged to `./log/exception.log`.
-
-```ruby
-# Log an exception (skips Lux::Error instances)
-Lux::Error.log(error_object)
-
-# Define custom error handler (for DB, Sentry, etc.)
-Lux::Error.on_error do |error|
-  # Log to database
-  ExceptionLog.create(
-    error_class: error.class.to_s,
-    message: error.message,
-    backtrace: error.backtrace&.join("\n")
-  )
-
-  # Or send to Sentry
-  Sentry.capture_exception(error)
-end
-```
 
 #### Rendering
 
@@ -592,8 +570,6 @@ Lux::Error.render(error)
 # Show inline error
 Lux::Error.inline(error, message)
 ```
-
-
 
 
 &nbsp;

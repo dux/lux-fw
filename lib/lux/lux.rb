@@ -18,8 +18,6 @@ module ::Lux
       app.render_base || raise('No RACK response given')
     end
   rescue => err
-    Lux::Error.log err
-
     if Lux.env.show_errors?
       raise err
     else
@@ -43,19 +41,19 @@ module ::Lux
     if text.class == Array
       text.each {|line| self.info line }
     else
-      puts '* %s' % text.magenta
+      puts '* %s' % text.colorize(:magenta)
     end
   end
 
   # Cdn.run has maybe better runner, inspect
   def run command, get_result = false
-    puts command.light_black
+    puts command.colorize(:light_black)
     logger(:system_run).info command
     get_result ? `#{command}` : system(command)
   end
 
   def die text
-    puts "Lux FATAL: #{text}".red
+    puts "Lux FATAL: #{text}".colorize(:red)
     logger(:system_die).error text
     exit
   end

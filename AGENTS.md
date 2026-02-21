@@ -114,8 +114,6 @@ Error handling with HTTP status codes:
 - `Lux.error.forbidden(message)` - 403 error
 - `Lux.error.unauthorized(message)` - 401 error
 - `Lux::Error.render(error)` - Error page rendering
-- `Lux::Error.log(error)` - Log exception (skips Lux::Error instances)
-- `Lux::Error.on_error { |e| }` - Define custom error handler for DB/Sentry
 
 ### Lux::Environment (`lib/lux/environment/environment.rb`)
 Environment detection via `Lux.env`:
@@ -198,7 +196,7 @@ end
 ```ruby
 class UsersController < ApplicationController
   layout :application
-  template_root './app/views'
+  # template_root './app/views' # default, do not change
 
   before { @user = User.current }
   before_action { |action| authorize!(action) }

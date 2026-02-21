@@ -13,7 +13,7 @@ module Lux
         data = `rake #{name}info 2>&1`
 
         unless data.include?('rake aborted!')
-          puts "rake #{name}".gray
+          puts "rake #{name}".colorize(:gray)
           puts data
           puts '---'
         end

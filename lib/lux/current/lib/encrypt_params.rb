@@ -23,7 +23,7 @@ module Lux
       # decrypts params starting with _data_
       def decrypt hash
         for key in hash.keys
-          next unless key.starts_with?('_data_')
+          next unless key.start_with?('_data_')
           data = Crypt.decrypt(hash.delete(key))
           data, value = data.split('#', 2)
           data = data.split('::')
@@ -38,7 +38,7 @@ module Lux
 
         hash
       rescue StandardError => e
-        Lux.log ' Lux::Current::EncryptParams decrypt error: %s'.red % e.message
+        Lux.log ' Lux::Current::EncryptParams decrypt error: %s'.colorize(:red) % e.message
         hash
       end
     end

@@ -25,7 +25,7 @@ class Object
   def m object, mtd = nil
     if mtd
       info = object.method(mtd)
-      puts info.source_location.or([]).join(':').yellow
+      puts info.source_location.or([]).join(':').colorize(:yellow)
       puts '-'
       puts info.source
       nil
@@ -75,10 +75,10 @@ LuxCli.class_eval do
       command = args.join(' ')
 
       if command.end_with?('.rb')
-        puts 'Load : %s' % command.light_blue
+        puts 'Load : %s' % command.colorize(:light_blue)
         load command
       else
-        puts 'Command : %s' % command.light_blue
+        puts 'Command : %s' % command.colorize(:light_blue)
         data = eval command
         puts '-'
         Pry.config.print.call $stdout, data

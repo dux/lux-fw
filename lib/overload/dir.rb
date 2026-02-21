@@ -43,32 +43,14 @@ class Dir
       dir_path = dir_path.to_s.sub('#', '/')
     end
 
-    glob = []
-    glob.push 'echo'
+    pattern = opts[:shallow] ? "#{dir_path}/*" : "#{dir_path}/**/*"
 
-    folders = ['%s/*' % dir_path]
-
-    unless opts[:shallow]
-      folders.push '%s/*/*'           % dir_path
-      folders.push '%s/*/*/*'         % dir_path
-      folders.push '%s/*/*/*/*'       % dir_path
-      folders.push '%s/*/*/*/*/*'     % dir_path
-      folders.push '%s/*/*/*/*/*/*'   % dir_path
-      folders.push '%s/*/*/*/*/*/*/*' % dir_path
-    end
-
-    folders = folders.reverse if opts[:invert]
-
-    glob += folders
-
-    glob.push "| tr ' ' '\n'"
-
-    files = `cd #{Dir.pwd} && #{glob.join(' ')}`
-      .split("\n")
-      .reject { |_| _.include?('/*') }
-      .select { |_| _ =~ /\.\w+$/ }
-      .select { |_| opts[:ext].first ? opts[:ext].include?(_.split('.').last) : true }
-      .map { |_| opts[:root] ? _.sub(opts[:root], '') : _ }
+    files = Dir.glob(pattern)
+      .select { |f| File.file?(f) }
+      .select { |f| f =~ /\.\w+$/ }
+      .select { |f| opts[:ext].first ? opts[:ext].include?(f.split('.').last) : true }
+      .sort_by { |f| [opts[:invert] ? -f.count('/') : f.count('/'), f] }
+      .map { |f| opts[:root] ? f.sub(opts[:root], '') : f }
 
     if opts[:hash]
       files = files.map do |full|

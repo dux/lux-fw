@@ -59,7 +59,7 @@ module Lux
       end
 
       # Main routing object, maps path part to target
-      # if path part is positively matched with `test?` method, target is called with `call` method
+      # Matches nav.root against route, shifts on match, then calls target
       # ```
       # map api: ApiController
       # map api: 'api'
@@ -78,7 +78,8 @@ module Lux
 
         if block_given?
           # map 'admin' do ...
-          if test?(route_object)
+          if route_match?(route_object)
+            nav.shift
             begin
               yield nav.root
             ensure
@@ -111,7 +112,8 @@ module Lux
           if route.class == Array
             # map [:foo, :bar] => 'root'
             for route_action in route
-              if test?(route_action)
+              if route_match?(route_action)
+                nav.shift
                 call klass, route_action
               end
             end
@@ -128,7 +130,10 @@ module Lux
           Lux.error 'Unsupported route type "%s"' % route_object.class
         end
 
-        test?(route) ? call(klass, nil, opts) : nil
+        if route_match?(route)
+          nav.shift
+          call(klass, nil, opts)
+        end
       end
 
       # Calls target action in a controller, if no action is given, defaults to :call
@@ -162,14 +167,10 @@ module Lux
         when Hash
           object = [object.keys.first, object.values.first]
         when String
-          if object.include?('#')
+           if object.include?('#')
             object, action = object.split('#')
           else
-            # simple logic
-            #   /foo -> 'foo#index'
-            #   /foo/:show -> 'foo#show'
-            #   /foo/:show/bar -> 'foo#bar'
-            action = nav.path[1] || nav.root.or(:index)
+            action = nav.root.or(:index)
           end
         when Array
           if object[0].class == Integer && object[1].class == Hash
@@ -226,25 +227,16 @@ module Lux
         throw :done if response.body?
       end
 
-      # Tests current root against the string to get a mach.
-      # Used by map function
-      def test? route
+      # Pure predicate: checks if nav.root matches the given route (no side effects)
+      def route_match? route
         root = nav.root.to_s
-
-        ok = case route
-        when String
-          root == route.sub(/^\//,'')
-        when Symbol
-          route.to_s == root
-        when Regexp
-          !!(route =~ root)
-        when Array
-          !!route.map(&:to_s).include?(root)
-        else
-          false
+        case route
+        when String then root == route.sub(/^\//,'')
+        when Symbol then route.to_s == root
+        when Regexp then !!(route =~ root)
+        when Array  then !!route.map(&:to_s).include?(root)
+        else false
         end
-
-        nav.shift if ok
       end
     end
   end

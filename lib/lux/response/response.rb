@@ -221,7 +221,7 @@ module Lux
         log_data  = " #{@status}, #{@data.to_s.length}, #{(@body.bytesize.to_f/1024).round(1)}kb, #{@headers['x-lux-speed']}"
         log_data += " (#{current.request.url})" if current.nav.format
 
-        [200, 304].include?(@status) ? log_data : log_data.magenta
+        [200, 304].include?(@status) ? log_data : log_data.colorize(:magenta)
       end
 
       if current.request.request_method == 'HEAD'

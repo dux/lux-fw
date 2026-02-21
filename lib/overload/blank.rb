@@ -3,10 +3,6 @@ class Object
     !self
   end
 
-  def empty?
-    blank?
-  end
-
   def present?
     !blank?
   end
