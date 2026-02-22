@@ -9,9 +9,10 @@ module Lux
     include Routes
     include Shared
 
-    define_callback :before    # before any page load
-    define_callback :routes    # routes resolve
-    define_callback :after     # after any page load
+    define_callback :before       # before any page load
+    define_callback :routes       # routes resolve
+    # define_callback :before_after # after any page load
+    define_callback :after        # after any page load
 
     def initialize env, opts={}
       Lux::Current.new env, opts
@@ -49,8 +50,7 @@ module Lux
 
       Lux.error.not_found unless response.body?
 
-      run_callback :after, nav.path
-      response.render
+      response.render self
     rescue StandardError => err
       Lux.logger.error Lux::Error.format(err, message: true, gems: false)
       respond_to?(:app_rescue_from) ? app_rescue_from(err) : rescue_from(err)
@@ -107,10 +107,13 @@ module Lux
       }.to_hwia
     end
 
-    def mount app, at:
-      return unless request.path.to_s.start_with?(at)
+    def mount opts
+      target = opts.keys.first
+      value  = opts.values.first
 
-      response.rack app, mount_at: at
+      return unless request.path.to_s.start_with?(value)
+
+      response.rack target, mount_at: value
     end
 
     def favicon path

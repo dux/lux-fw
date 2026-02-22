@@ -22,6 +22,8 @@ logger.formatter = proc do |severity, datetime, progname, msg|
       Lux.log formated
     end
   end
+
+  nil
 end
 
 if ENV['RAKE_ENV'] != 'test' || ENV['DB_LOG'] == 'true'

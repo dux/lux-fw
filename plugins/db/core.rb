@@ -62,12 +62,12 @@ class Sequel::Model
     alias :to_h :attributes
 
     def creator
-      v = self[:creator_ref] || self[:created_by_ref] || self[:created_by]
+      v = self[:creator_ref]
       v ? User.find(v) : nil
     end
 
     def updater
-      v = self[:updater_ref] || self[:updated_by_ref] || self[:updated_by]
+      v = self[:updater_ref]
       v ? User.find(v) : nil
     end
 

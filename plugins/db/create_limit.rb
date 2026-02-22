@@ -35,7 +35,7 @@ module Sequel::Plugins::LuxCreateLimit
       # return if object exists
       return unless new?
 
-      return unless db_schema[:creator_ref] || db_schema[:created_by_ref] || db_schema[:created_by]
+      return unless db_schema[:creator_ref]
 
       if data = cattr.create_limit_data
         unless ::User.try(:current)

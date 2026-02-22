@@ -7,21 +7,17 @@ module Sequel::Plugins::LuxBeforeSave
       self[:created_at] = Time.now.utc if new? && respond_to?(:created_at)
       self[:updated_at] = Time.now.utc if respond_to?(:updated_at)
 
-      # updater audit (prefer new naming, fall back to old)
+      # updater audit
       ref = default_current_user_ref
       if ref
-        self[:updater_ref]    = ref if respond_to?(:updater_ref)
-        self[:updated_by_ref] = ref if respond_to?(:updated_by_ref)
-        self[:updated_by]     = ref if respond_to?(:updated_by)
+        self[:updater_ref] = ref if respond_to?(:updater_ref)
       end
 
       if new?
         Lux.cache.delete "#{self.class}/#{self[:ref]}" if self[:ref]
 
         if ref
-          self[:creator_ref]     ||= ref if respond_to?(:creator_ref)
-          self[:created_by_ref]  ||= ref if respond_to?(:created_by_ref)
-          self[:created_by]      ||= ref if respond_to?(:created_by)
+          self[:creator_ref] ||= ref if respond_to?(:creator_ref)
         end
       end
 

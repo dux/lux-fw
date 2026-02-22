@@ -101,7 +101,7 @@ module Lux
         unless @body
           opts ||= {}
           opts.is!(Hash).each {|k,v| self.send k, *v }
-          @body = data
+          @body = data.is_a?(Hash) ? JSON.generate(data) : data
         end
       else
         @body
@@ -211,7 +211,7 @@ module Lux
       body message || 'HTTP 401 Authorization needed', status: 401
     end
 
-    def render
+    def render app = nil
       write_response_body
       write_response_header
 
@@ -226,6 +226,10 @@ module Lux
 
       if current.request.request_method == 'HEAD'
         @body = ''
+      end
+
+      if app
+        app.run_callback :after
       end
 
       [@status, @headers.to_h, [@body]]

@@ -11,9 +11,7 @@ case ARGV[0]
 when 's'
   ARGV[0] = 'server'
 when 'ss' # only log and errors dump, no code reload
-  ARGV[0..0] = ['server', '-o', 'le']
-when 'silent' # no screen logging
-  ARGV[0..0] = ['server', '-o', 're']
+  ARGV[0..0] = ['server', '-o', 'x']
 end
 
 LuxCli.class_eval do

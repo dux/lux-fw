@@ -134,11 +134,11 @@ class SqliteModel
 
     if @values[:id]
       copy[:updated_at] = Time.now if respond_to?(:updated_at)
-      copy[:updated_by] = User.current.id if respond_to?(:updated_by)
+      copy[:updater_ref] = User.current.id if respond_to?(:updater_ref)
       dataset.update copy.except(:id)
     else
       copy[:created_at] = Time.now if respond_to?(:created_at)
-      copy[:created_by] = User.current.id if respond_to?(:created_by)
+      copy[:creator_ref] = User.current.id if respond_to?(:creator_ref)
       @values[:id] = dataset.insert copy
     end
 

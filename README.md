@@ -49,9 +49,9 @@ Lux provides a complete web development stack with the following features:
 * **Fast & Lightweight** - Minimal overhead with optimal memory usage
 * **Explicit Routing** - Clear, predictable routing system
 * **Component-Based** - Modular architecture with pluggable components
-* **Built-in Caching** - Support for memory, memcached, and SQLite caching
+* **Built-in Caching** - Support for memory and memcached caching
 * **Email Support** - Integrated mailer built on the mail gem
-* **Template Engine** - HAML support out of the box with Tilt
+* **Template Engine** - HAML support out of the box via Tilt
 * **Session Management** - JWT-based encrypted sessions
 * **Error Handling** - Comprehensive error handling and logging
 * **CLI Tools** - Rich command-line interface for development
@@ -71,6 +71,7 @@ lux-fw/
 │   │   ├── current/       # Request context (session, cookies, etc.)
 │   │   ├── environment/   # Environment detection and helpers
 │   │   ├── error/         # Error handling
+│   │   ├── logger/        # Logging adapter
 │   │   ├── mailer/        # Email sending
 │   │   ├── plugin/        # Plugin system
 │   │   ├── render/        # Template rendering
@@ -80,6 +81,7 @@ lux-fw/
 │   ├── common/        # Common utilities
 │   └── loader.rb      # Framework loader
 ├── misc/             # Demo app and configuration examples
+├── plugins/          # Framework plugins
 ├── spec/             # Test suite
 └── tasks/            # Rake tasks
 ```
@@ -89,12 +91,11 @@ lux-fw/
 Lux requires the following key dependencies:
 
 * **rack** - Web server interface
-* **haml** - Template engine
+* **haml** - Template engine (pulls in tilt)
 * **mail** - Email sending
 * **sequel_pg** - PostgreSQL ORM
 * **jwt** - Session encryption
 * **thor** - CLI tools
-* **colorize** - Terminal coloring
 * **amazing_print** - Debug output
 
 See `lux-fw.gemspec` for the complete list.
@@ -112,6 +113,8 @@ Lux.run      # run a command on a server and log it
 Lux.die      # stop execution of a program and log
 Lux.call env # Main rack entry point
 Lux.delay    # Execute block in background thread
+Lux.log      # Logging helper
+Lux.logger   # Named logger instance
 ```
 
 
@@ -125,7 +128,6 @@ Automatically loaded
 * [Lux.cache (Lux::Cache)](#cache) &sdot; [&rarr;](./lib/lux/cache)
 * [Lux::Controller](#controller) &sdot; [&rarr;](./lib/lux/controller)
 * [Lux.current (Lux::Current)](#current) &sdot; [&rarr;](./lib/lux/current)
-* [Lux.delay (Lux::DelayedJob)](#delay) &sdot; [&rarr;](./lib/lux/delay)
 * [Lux.env (Lux::Environment)](#environment) &sdot; [&rarr;](./lib/lux/environment)
 * [Lux.error (Lux::Error)](#error) &sdot; [&rarr;](./lib/lux/error)
 * [Lux.logger](#logger) &sdot; [&rarr;](./lib/lux/logger)
@@ -133,8 +135,6 @@ Automatically loaded
 * [Lux.plugin (Lux::Plugin)](#plugin) &sdot; [&rarr;](./lib/lux/plugin)
 * [Lux.render](#render) &sdot; [&rarr;](./lib/lux/render)
 * [Lux.current.response (Lux::Response)](#response) &sdot; [&rarr;](./lib/lux/response)
-* [Lux.secrets (Lux::Secrets)](#secrets) &sdot; [&rarr;](./lib/lux/secrets)
-* [Lux::ViewCell](#view_cell) &sdot; [&rarr;](./lib/lux/view_cell)
 * [Lux::Template](#template) &sdot; [&rarr;](./lib/lux/template)
 * [Lux::Config](#config) &sdot; [&rarr;](./lib/lux/config)
 
@@ -469,6 +469,10 @@ current.var             # CleaHash to store global variables
 current[:user]          # current.var.user
 current.uid             # new unique ID in a page, per response
 current.secure_token    # Get or check current session secure token
+current.ip              # Client IP address
+current.host            # Current host
+current.robot?          # Bot detection
+current.mobile?         # Mobile device detection
 
 # Execute only once in current scope
 current.once { @data }
@@ -476,6 +480,13 @@ current.once(key, @data)
 
 # Cache in current response scope
 current.cache(key) {}
+
+# Encrypt/decrypt in request scope
+current.encrypt(data)
+current.decrypt(token)
+
+# Execute block in background thread
+current.delay { ... }
 
 # Set current.can_clear_cache = true if user is able to clear cache with SHIFT+refresh
 current.no_cache?              # false
@@ -489,12 +500,11 @@ current.no_cache?              # true if env['HTTP_CACHE_CONTROL'] == 'no-cache'
 
 
 &nbsp;
-<a name="delay"></a>
-## Lux.delay (Lux::DelayedJob)
+## Lux.delay
 
-Simplified access to range of delayed job operations
+Simplified access to delayed job operations.
 
-In default mode when you pass a block, it will execute it new Thread, but in the same context it previously was.
+In default mode when you pass a block, it will execute it in a new Thread, but in the same context it previously was.
 
 ```ruby
 Lux.delay do
@@ -510,27 +520,30 @@ end
 
 Module provides access to environment settings.
 
+Three valid environments are supported: `development`, `production`, `test` (set via `RACK_ENV` or `LUX_ENV`).
+
 ```ruby
-Lux.env.development? # true in development and test
-Lux.env.production?  # true in production and log
-Lux.env.test?        # true for test
-Lux.env.log?         # true for log
-Lux.env.rake?        # true if run in rake
-Lux.env.cli?         # true if not run under web server
+Lux.env.development? # true when NOT production (includes test)
+Lux.env.production?  # true only in production
+Lux.env.test?        # true for test or when run via rspec
+Lux.env.web?         # true when running under Rack/Puma
+Lux.env.cli?         # true when NOT running as web server
+Lux.env.rake?        # true when run via rake
+Lux.env.live?        # true when ENV['LUX_LIVE'] == 'true'
+Lux.env.local?       # inverse of live?
+Lux.env.reload?      # true when LUX_ENV includes 'r' flag
+Lux.env.log?         # true when LUX_ENV includes 'l' flag
 
 # aliases
 Lux.env.dev?  # Lux.env.development?
 Lux.env.prod? # Lux.env.production?
+
+# comparison
+Lux.env == :dev
 ```
 
-Lux provides 4 environment modes that are set via `ENV['RACK_ENV']` or `ENV['LUX_ENV']`:
-
-* **development** - Development mode with debugging enabled
-* **production** - Production mode optimized for performance
-* **test** - Test mode (returns true for both `test?` and `development?`)
-* **log** - Production mode with logging enabled (returns true for both `log?` and `production?`)
-
-The `log` mode is activated when running the server with `bundle exec lux ss`
+Note: `reload` and `log` are flags within `LUX_ENV`, not separate environment modes.
+The `lux ss` command sets `LUX_ENV=le` (log + errors).
 
 
 
@@ -550,14 +563,26 @@ Lux.error.bad_request message
 # 401: for unauthorized access
 Lux.error.unauthorized message
 
+# 402: for payment required
+Lux.error.payment_required message
+
 # 403: for forbidden access
 Lux.error.forbidden message
 
 # 404: for not found pages
 Lux.error.not_found message
 
+# 405: for method not allowed
+Lux.error.method_not_allowed message
+
+# 406: for not acceptable
+Lux.error.not_acceptable message
+
 # 500: for internal server error
 Lux.error.internal_server_error message
+
+# 501: for not implemented
+Lux.error.not_implemented message
 ```
 
 
@@ -569,6 +594,9 @@ Lux::Error.render(error)
 
 # Show inline error
 Lux::Error.inline(error, message)
+
+# Format backtrace (supports html:, message:, gems: options)
+Lux::Error.format(error, opts)
 ```
 
 
@@ -824,6 +852,14 @@ Lux.render.controller('main/cities#bar') { @city = City.last_updated }.body
 ```
 
 
+### Render ViewCells
+
+ViewCells are provided by the external `view-cell` gem.
+
+```ruby
+Lux.render.cell(:city, @city)
+```
+
 
 
 
@@ -880,6 +916,9 @@ response.send_file './tmp/local/location.pdf', inline: true
 response.redirect_to '/foo'
 response.redirect_to :back, error: 'Bad user name or pass'
 
+# permanent redirect (301)
+response.permanent_redirect_to '/new-path'
+
 # basic http auth
 response.auth do |user, pass|
   [user, pass] == ['foo', 'bar']
@@ -889,75 +928,11 @@ end
 
 
 
-
-&nbsp;
-<a name="secrets"></a>
-## Lux.secrets (Lux::Secrets)
-
-Access and protect secrets.
-
-Secrets can be provided in raw yaml file in `./config/secrets.yaml`
-
-#### Protecting secrets file
-
-If you have a secret hash defined in `Lux.config.secret_key_base` or `ENV['SECRET_KEY_BASE']`,
-* you can use `bundle exec lux secrets` to compile and secure secrets file (`./config/secrets.yaml`).
-* copy of the original file will be placed in `./tmp/secrets.yaml`
-* vim editor will be used to edit the secrets file
-
-
-
-&nbsp;
-<a name="view_cell"></a>
-## Lux::ViewCell
-
-View cells are partial view-part/render/controllers combo.
-
-Idea is to have idempotent cell render metod, that can be reused in may places.
-You can think of view cells as rails `render_partial` with localized controller attached.
-
-```ruby
-class CityCell < ViewCell
-
-  # template_root './apps/cities/cells/views/cities'
-
-  before do
-    @skill = parent { @skill }
-  end
-
-  ###
-
-  def skills
-    @city
-      .jobs
-      .skills[0,3]
-      .map{ |it| it[:name].wrap(:span, class: 'skill' ) }
-      .join(' ')
-  end
-
-  def render city
-    @city    = city
-    @country = city.country
-
-    template :city
-  end
-end
-```
-
-And call them in templates like this
-
-```ruby
-cell.city.skills
-cell.city.render @city
-```
-
-
-
 &nbsp;
 <a name="template"></a>
 ## Lux::Template
 
-Template rendering engine built on top of Tilt.
+Template rendering engine built on top of Tilt (loaded transitively via haml).
 
 Supports multiple template formats including HAML, ERB, and others.
 
@@ -1001,6 +976,9 @@ Template caching is enabled in production mode for better performance.
 
 Configuration management system for Lux applications.
 
+`Lux.config` returns a hash (with indifferent access) loaded from `config/config.yaml`.
+`Lux.secrets` is an alias for `Lux.config`.
+
 ```ruby
 # Set configuration values
 Lux.config.key = value
@@ -1010,50 +988,43 @@ Lux.config.key
 
 # Get all config
 Lux.config.all
-
-# Check if key exists
-Lux.config.key?
 ```
 
-### Available Configuration Options
+### Default Configuration Values
 
 ```ruby
-# Application timeout in seconds
-Lux.config.app_timeout = 30
-
-# Delay job timeout
+# Delay job timeout (3600 dev / 30 prod)
 Lux.config.delay_timeout = 30
 
 # Logger configuration
+Lux.config.log_level = :info           # or :error
 Lux.config.logger_path_mask = './log/%s.log'
 Lux.config.logger_files_to_keep = 3
 Lux.config.logger_file_max_size = 10_240_000
 
-# Host configuration
-Lux.config.host = 'localhost:3000'
+# Enable template-based routes (default: false)
+Lux.config.use_autoroutes = false
 
-# Secret key base for encryption
-Lux.config.secret_key_base = ENV['SECRET_KEY_BASE']
+# Static file serving (default: true)
+Lux.config.serve_static_files = true
+
+# Asset root path
+Lux.config.asset_root = false
+
+# Application timeout
+Lux.config.app_timeout = 30
 
 # Hooks
 Lux.config.on_reload_code { ... }      # Called when code reloads
 Lux.config.on_mail_send { |mail| ... } # Called when mail is sent
 ```
 
-### Environment-Specific Config
+### Session Configuration
 
 ```ruby
-# Development
-Lux.config.no_cache = true       # Disable caching
-Lux.config.show_errors = true    # Show detailed errors
-Lux.config.screen_log = true      # Log to screen
-Lux.config.reload_code = true     # Auto-reload code
-
-# Production
-Lux.config.no_cache = false      # Enable caching
-Lux.config.show_errors = false   # Hide errors
-Lux.config.screen_log = false     # No screen logging
-Lux.config.reload_code = false    # No auto-reload
+Lux.config[:session_cookie_name]       # Cookie name
+Lux.config[:session_cookie_max_age]    # Cookie max age
+Lux.config[:session_forced_validity]   # Force session validity
 ```
 
 
@@ -1074,15 +1045,11 @@ Get all files in a folder
 
 `Dir.files('./app/assets')`
 
-#### Dir.all_files
+#### Dir.find
 
-Globs files search into child folders.
+Deep file search with filtering options.
 
-All lists are allways sorted with idempotent function response.
-
-Example: get all js and coffee in ./app/assets and remove ./app
-
-`Dir.all_files('./app/assets', ext: [:js, :coffee], root: './app')`
+`Dir.find('./app/assets', ext: [:js, :coffee], root: './app')`
 
 #### Dir.require_all
 
@@ -1093,7 +1060,7 @@ Requires all found ruby files in a folder, deep search into child folders
 ### Array
 #### @array.to_csv
 
-Convert list of lists to CSV
+Convert list of lists to CSV (semicolon-delimited)
 
 #### @array.last=
 
@@ -1133,9 +1100,43 @@ Get all class descendants
 ### Float
 #### @float.as_currency
 
-Convert float to currency
+Convert float to currency (European style)
 
 `@sum.as_currency(pretty: false, symbol: '$')`
+
+### Integer
+#### @int.pluralize
+
+Smart pluralization
+
+`5.pluralize(:cat) # "5 cats"`
+
+#### @int.to_filesize
+
+Human-readable file size
+
+`1024.to_filesize # "1.0 KB"`
+
+### String
+#### @str.parameterize / @str.to_url
+
+URL-safe string (max 50 chars)
+
+#### @str.trim
+
+Truncate with ellipsis
+
+`'hello world'.trim(5) # "hello&hellip;"`
+
+#### @str.sha1 / @str.md5
+
+Hash digests
+
+#### @str.colorize / @str.decolorize
+
+ANSI terminal colors
+
+`'hello'.colorize(:green)`
 
 ## Development Server
 
@@ -1247,18 +1248,22 @@ You can run command `lux` in your app home folder.
 ```bash
 $ lux
 Commands:
+  lux benchmark       # Benchmark app boot time
+  lux cerb            # Parse .cerb (CLI ERB) templates
   lux config          # Show server config
   lux console         # Start console
-  lux erb             # Parse and process *.erb templates
   lux evaluate        # Eval ruby string in context of Lux::Application
   lux generate        # Generate models, cells, ...
   lux get             # Get single page by path "lux get /login"
   lux help [COMMAND]  # Describe available commands or one specific command
-  lux routes          # Print routes
-  lux secrets         # Edit, show and compile secrets
+  lux memory          # Profile memory usage
+  lux new APP         # Create new Lux application
+  lux plugin          # Show loaded plugins
+  lux secrets         # Display ENV and secrets
   lux server          # Start web server
   lux stats           # Print project stats
   lux sysd            # Manage systemd services and generate config files
+  lux template        # Parse file with ENV variable substitution
 ```
 
 ## Testing
@@ -1279,11 +1284,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-The MIT License (MIT) - Copyright (c) 2017 Dino Reić
+The MIT License (MIT) - Copyright (c) 2017 Dino Reic
 
 See LICENSE file for full details.
 
 ## Links
 
 * GitHub: http://github.com/dux/lux-fw
-* Author: Dino Reić (@dux) - rejotl@gmail.com
+* Author: Dino Reic (@dux) - rejotl@gmail.com
