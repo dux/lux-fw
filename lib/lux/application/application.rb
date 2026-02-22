@@ -107,13 +107,10 @@ module Lux
       }.to_hwia
     end
 
-    def mount opts
-      target = opts.keys.first
-      value  = opts.values.first
+    def mount app, at:
+      return unless request.path.to_s.start_with?(at)
 
-      return unless request.path.to_s.start_with?(value)
-
-      response.rack target
+      response.rack app, mount_at: at
     end
 
     def favicon path

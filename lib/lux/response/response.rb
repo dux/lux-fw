@@ -231,10 +231,17 @@ module Lux
       [@status, @headers.to_h, [@body]]
     end
 
-    def rack klass
-      data = klass.call current.env
+    def rack klass, mount_at: nil
+      env = current.env
+      if mount_at
+        env = env.merge(
+          'SCRIPT_NAME' => mount_at,
+          'PATH_INFO'   => env['PATH_INFO'].delete_prefix(mount_at).then { |p| p.empty? ? '/' : p }
+        )
+      end
+      data = klass.call env
       @headers.merge data[1]
-      body data[2].first, status:data[0]
+      body data[2].first, status: data[0]
     end
 
     def public?

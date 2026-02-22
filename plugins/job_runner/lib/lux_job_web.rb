@@ -1,23 +1,19 @@
 # Sinatra web interface for LuxJob
 # Standalone: rake job_runner:web[password]
-# Mounted in Lux: mount LuxJobWeb.mounted('/job-runner', 'password') => '/job-runner'
+# Mounted in Lux:
+#   LuxJobWeb.password = 'password'
+#   mount LuxJobWeb, at: '/sys-runner'
 
 require 'sinatra/base'
 
 class LuxJobWeb < Sinatra::Base
   class << self
-    attr_accessor :password, :prefix
-
-    def mounted(prefix, password)
-      self.prefix = prefix
-      self.password = password
-      self
-    end
+    attr_accessor :password
   end
 
   helpers do
     def prefix
-      self.class.prefix || ''
+      request.script_name
     end
 
     def time_ago(time)
@@ -60,10 +56,6 @@ class LuxJobWeb < Sinatra::Base
   set :protection, false
   set :host_authorization, { allow_if: ->(_env) { true } }
 
-  class << self
-    attr_accessor :password
-  end
-
   before do
     if self.class.password
       auth = Rack::Auth::Basic::Request.new(request.env)
@@ -74,78 +66,76 @@ class LuxJobWeb < Sinatra::Base
     end
   end
 
-  # Routes - work with and without /job-runner prefix
-  ['/job-runner', ''].each do |pfx|
-    get "#{pfx}/?" do
-      @jobs = LuxJob::JOBS.map do |name, opts|
-        db_job = LuxJob.first(name: name.to_s)
-        {
-          name: name,
-          every: opts[:every],
-          last_run: db_job&.updated_at,
-          next_run: db_job&.run_at,
-          status: db_job&.status,
-          response: db_job&.response
-        }
-      end
-
-      @recent_runs = `tail -n 100 ./log/lux_job.log 2>/dev/null`.split("\n").reverse
-      @last_id = @recent_runs.first&.match(/\[(\d{4}-\d{2}-\d{2}T[\d:\.]+)/)[1] rescue nil
-
-      erb :index
+  # Routes - prefix is handled by Lux mount via SCRIPT_NAME
+  get '/?' do
+    @jobs = LuxJob::JOBS.map do |name, opts|
+      db_job = LuxJob.first(name: name.to_s)
+      {
+        name: name,
+        every: opts[:every],
+        last_run: db_job&.updated_at,
+        next_run: db_job&.run_at,
+        status: db_job&.status,
+        response: db_job&.response
+      }
     end
 
-    get "#{pfx}/job/:name" do
-      @name = params[:name]
-      @job_info = LuxJob::JOBS[@name.to_sym]
-      halt 404, "Job not found" unless @job_info
+    @recent_runs = `tail -n 100 ./log/lux_job.log 2>/dev/null`.split("\n").reverse
+    @last_id = @recent_runs.first&.match(/\[(\d{4}-\d{2}-\d{2}T[\d:\.]+)/)[1] rescue nil
 
-      @db_job = LuxJob.first(name: @name)
-      @log_lines = `grep -i '\\[#{@name}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1000`.split("\n").reverse
-      @last_id = @log_lines.first&.match(/\[(\d{4}-\d{2}-\d{2}T[\d:\.]+)/)[1] rescue nil
+    erb :index
+  end
 
-      erb :job
+  get '/job/:name' do
+    @name = params[:name]
+    @job_info = LuxJob::JOBS[@name.to_sym]
+    halt 404, "Job not found" unless @job_info
+
+    @db_job = LuxJob.first(name: @name)
+    @log_lines = `grep -i '\\[#{@name}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1000`.split("\n").reverse
+    @last_id = @log_lines.first&.match(/\[(\d{4}-\d{2}-\d{2}T[\d:\.]+)/)[1] rescue nil
+
+    erb :job
+  end
+
+  get '/poll' do
+    content_type :json
+    job_name = params[:job].to_s.empty? ? nil : params[:job]
+
+    last_line = if job_name
+      `grep -i '\\[#{job_name}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1`.strip
+    else
+      `tail -n 1 ./log/lux_job.log 2>/dev/null`.strip
     end
 
-    get "#{pfx}/poll" do
-      content_type :json
-      job_name = params[:job].to_s.empty? ? nil : params[:job]
+    last_id = last_line.match(/\[(\d{4}-\d{2}-\d{2}T[\d:\.]+)/)[1] rescue nil
+    changed = params[:last_id].to_s.empty? || last_id != params[:last_id]
 
-      last_line = if job_name
-        `grep -i '\\[#{job_name}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1`.strip
-      else
-        `tail -n 1 ./log/lux_job.log 2>/dev/null`.strip
-      end
+    { changed: changed, last_id: last_id }.to_json
+  end
 
-      last_id = last_line.match(/\[(\d{4}-\d{2}-\d{2}T[\d:\.]+)/)[1] rescue nil
-      changed = params[:last_id].to_s.empty? || last_id != params[:last_id]
+  get '/log/:job_name' do
+    content_type 'text/plain'
+    `grep -i '\\[#{params[:job_name]}\\]' ./log/lux_job.log 2>/dev/null | tail -n 10000`
+  end
 
-      { changed: changed, last_id: last_id }.to_json
+  # POST /job/:name - trigger job with JSON payload
+  post '/job/:name' do
+    content_type :json
+    name = params[:name]
+
+    unless LuxJob::JOBS[name.to_sym]
+      halt 404, { error: "Job '#{name}' not found" }.to_json
     end
 
-    get "#{pfx}/log/:job_name" do
-      content_type 'text/plain'
-      `grep -i '\\[#{params[:job_name]}\\]' ./log/lux_job.log 2>/dev/null | tail -n 10000`
+    opts = {}
+    if request.content_type&.include?('application/json') && request.body.size > 0
+      request.body.rewind
+      opts = JSON.parse(request.body.read, symbolize_names: true) rescue {}
     end
 
-    # POST /job/:name - trigger job with JSON payload
-    post "#{pfx}/job/:name" do
-      content_type :json
-      name = params[:name]
-
-      unless LuxJob::JOBS[name.to_sym]
-        halt 404, { error: "Job '#{name}' not found" }.to_json
-      end
-
-      opts = {}
-      if request.content_type&.include?('application/json') && request.body.size > 0
-        request.body.rewind
-        opts = JSON.parse(request.body.read, symbolize_names: true) rescue {}
-      end
-
-      job = LuxJob.add(name, opts)
-      { ok: true, job_id: job.id, name: name, opts: opts }.to_json
-    end
+    job = LuxJob.add(name, opts)
+    { ok: true, job_id: job.id, name: name, opts: opts }.to_json
   end
 
   template :layout do
@@ -222,7 +212,7 @@ class LuxJobWeb < Sinatra::Base
 
             let lastId = logBox.dataset.lastId || '';
             const job = logBox.dataset.job || '';
-            const prefix = window.location.pathname.includes('/job-runner') ? '/job-runner' : '';
+            const prefix = '<%= request.script_name %>';
 
             setInterval(async () => {
               const url = prefix + '/poll?last_id=' + encodeURIComponent(lastId) + (job ? '&job=' + job : '');
