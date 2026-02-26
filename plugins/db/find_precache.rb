@@ -11,7 +11,7 @@ class Sequel::Model
 
     def take id
       find id
-    rescue
+    rescue RuntimeError, Sequel::Error
       nil
     end
 

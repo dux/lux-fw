@@ -12,18 +12,22 @@ class AutoMigrate
       schema = Typero.schema(klass)
 
       am = new klass.db
+      puts "-> #{klass}"
       am.table klass, schema.rules do |f|
         for args in schema.db_schema
-          if args.first != :db_rule!
-            f.send args[1], args[0], args[2]
-          else
+          if args.first == :db_rule!
             args.shift
             f.db_rule *args
+          elsif %i[add_index timestamps polymorphic table foreign_key].include?(args.first)
+            f.db_rule *args
+          else
+            f.send args[1], args[0], args[2]
           end
         end
       end
 
       klass.db.schema(klass.to_s.tableize, reload: true)
+      klass.set_dataset(klass.to_s.tableize.to_sym)
       klass
     end
   end
@@ -273,6 +277,8 @@ class AutoMigrate
   end
 
   def db_rule type, name = nil, opts = {}
+    puts ">>> db_rule #{type} - #{name}"
+
     case type.to_sym
     when :timestamps
       opts[:null] ||= false

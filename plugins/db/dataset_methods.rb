@@ -23,7 +23,7 @@ Sequel::Model.dataset_module do
     return where(Sequel.lit(hash_or_string, *args))                  if hash_or_string.is_a?(String)
 
     # check if we do where in a array
-    if hash_or_string.class == Hash
+    if hash_or_string.is_a?(Hash)
       key = hash_or_string.keys.first
 
       if model.db_schema[key][:db_type].include?('[]')
@@ -63,12 +63,13 @@ Sequel::Model.dataset_module do
 
   def xlike search, *args
     unless search.blank?
-      search = search.to_s.gsub(/'/,"''").downcase
-      where_str = []
+      search = search.to_s.downcase
+      conditions = []
+      params = []
 
       for str in search.split(/\s+/).select(&:present?)
         and_str = []
-        str = "%#{str}%".downcase
+        pattern = "%#{str}%"
 
         for el in args
           schema = model.db_schema[el]
@@ -77,22 +78,25 @@ Sequel::Model.dataset_module do
           raise ArgumentError.new('Database field "%s" not found (xlike)' % el) unless schema
 
           if schema[:db_type] == 'jsonb'
-            like_sql = "lower(CAST(#{el} -> '#{Locale.current}' as text)) ilike '#{str}'"
+            like_sql = "lower(CAST(#{el} -> ? as text)) ilike ?"
+            params.push Locale.current.to_s, pattern
 
-            if Locale::DEFAULT != Locale.current
-              and_str << "(#{like_sql}) or lower(CAST(#{el} -> '#{Locale::DEFAULT}' as text) ilike '#{str}')"
+            if defined?(Locale::DEFAULT) && Locale::DEFAULT != Locale.current
+              and_str << "(#{like_sql}) or lower(CAST(#{el} -> ? as text) ilike ?)"
+              params.push Locale::DEFAULT.to_s, pattern
             else
               and_str << like_sql
             end
           else
-            and_str << "lower((#{el})::text) ilike '#{str}'"
+            and_str << "lower((#{el})::text) ilike ?"
+            params.push pattern
           end
         end
 
-        where_str.push '('+and_str.join(' or ')+')'
+        conditions.push '(' + and_str.join(' or ') + ')'
       end
 
-      return where(Sequel.lit(where_str.join(' and ')))
+      return where(Sequel.lit(conditions.join(' and '), *params))
     end
     self
   end
@@ -108,13 +112,13 @@ Sequel::Model.dataset_module do
   end
 
   def for obj
-    field_name = "#{obj.class.name.underscore}_ref".to_sym
-    n2 = obj.class.to_s.underscore
+    n2 = obj.class.name.underscore
+    field_name = "#{n2}_ref".to_sym
 
     if model.db_schema[field_name]
       where field_name => obj.ref
     elsif model.db_schema["#{n2}_refs".to_sym]
-      where Sequel.lit("'%s'=any(%s_refs)" % [obj.ref.to_s.gsub("'", "''"), n2])
+      where Sequel.lit("?=any(#{n2}_refs)", obj.ref.to_s)
     elsif model.db_schema[:parent_key]
       where(parent_key: obj.key)
     elsif model.db_schema[:parent_type]

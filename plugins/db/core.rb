@@ -53,10 +53,8 @@ class Sequel::Model
     end
 
     def attributes
-      {}.tap do |ret|
-        for el in columns
-          ret[el.to_s] = send(el.to_s)
-        end
+      columns.each_with_object({}) do |el, ret|
+        ret[el.to_s] = send(el)
       end
     end
     alias :to_h :attributes
@@ -86,7 +84,7 @@ class Sequel::Model
     end
 
     def unique?(field)
-      self.class.where(field => self[field]).exclude(ref: self[:ref]).count == 0
+      self.class.where(field => self[field]).exclude(ref: self[:ref]).empty?
     end
 
     def save!

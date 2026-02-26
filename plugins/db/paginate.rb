@@ -1,10 +1,35 @@
-# ovo sam ovako da mogu koristiti za sqlite i za pg
+class PaginatedArray < Array
+  attr_reader :paginate_param, :paginate_page, :paginate_next
+
+  def initialize(items, param:, page:, has_next:)
+    super(items)
+    @paginate_param = param
+    @paginate_page  = page
+    @paginate_next  = has_next
+  end
+
+  def paginate_first_ref
+    first[:ref] rescue nil
+  end
+
+  def paginate_last_ref
+    last[:ref] rescue nil
+  end
+
+  def paginate_opts
+    { param: @paginate_param, page: @paginate_page, next: @paginate_next }
+  end
+
+  def paginate **args
+    self
+  end
+end
+
 def Paginate set, size: 20, param: :page, page: nil, count: nil, klass: nil
   page = Lux.current.params[param] if Lux.current.params[param].respond_to?(:to_i)
   page = page.to_i
   page = 1 if page < 1
 
-  # ret = paginate(page, size).all
   ret = set.offset((page-1) * size).limit(size+1).all
 
   has_next = ret.length == size + 1
@@ -14,13 +39,7 @@ def Paginate set, size: 20, param: :page, page: nil, count: nil, klass: nil
     ret = ret.map { klass.new _1 }
   end
 
-  ret.define_singleton_method(:paginate_param)    do; param ;end
-  ret.define_singleton_method(:paginate_page)     do; page; end
-  ret.define_singleton_method(:paginate_next)     do; has_next; end
-  ret.define_singleton_method(:paginate_first_ref) do; ret.first[:ref] rescue nil; end
-  ret.define_singleton_method(:paginate_last_ref)  do; ret.last[:ref] rescue nil; end
-  ret.define_singleton_method(:paginate_opts)     do; ({ param: param, page: page, next: has_next }); end
-  ret
+  PaginatedArray.new(ret, param: param, page: page, has_next: has_next)
 end
 
 module HtmlHelper

@@ -112,7 +112,7 @@ describe Lux::Error do
         "/Users/user/.gem/gems/rack-2.2.4/lib/rack/request.rb:20:in `call'"
       ])
 
-      result = Lux::Error.format(error)
+      result = Lux::Error.format(error, message: true)
       expect(result).to be_a(String)
       lines = result.split("\n")
       expect(lines[0]).to eq('[StandardError] test')

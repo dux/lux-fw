@@ -22,10 +22,10 @@ Sequel::Model.dataset_module do
     if data.present?
       data = [data] unless data.is_a?(Array)
 
-      xwhere(data.map do |what|
-        what = what.to_s.gsub(/[^\w\-]+/, '')
-        "'#{what}'=any(#{field})"
-      end.join(' or '))
+      clauses = data.map { '?=any(%s)' % field }
+      params  = data.map { |v| v.to_s }
+
+      where(Sequel.lit(clauses.join(' or '), *params))
     else
       self
     end

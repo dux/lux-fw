@@ -32,9 +32,13 @@ module Sequel::Plugins::LuxBeforeSave
     def destroy
       if respond_to?(:is_deleted)
         opts = { is_deleted: true }
-        opts[:deleted_at]     = Time.now         if respond_to?(:deleted_at)
-        opts[:deleted_by_ref] = User.current.ref if respond_to?(:deleted_by_ref) && User.current
-        opts[:deleted_by]     = User.current.ref if respond_to?(:deleted_by) && User.current
+        opts[:deleted_at] = Time.now if respond_to?(:deleted_at)
+
+        if (cur = User.current)
+          opts[:deleted_by_ref] = cur.ref if respond_to?(:deleted_by_ref)
+          opts[:deleted_by]     = cur.ref if respond_to?(:deleted_by)
+        end
+
         self.this.update opts
         true
       else
@@ -44,11 +48,7 @@ module Sequel::Plugins::LuxBeforeSave
 
     # returns current user ref for audit columns
     def default_current_user_ref
-      if User.current
-        User.current.ref
-      else
-        nil
-      end
+      User.current&.ref
     end
   end
 

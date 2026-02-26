@@ -5,8 +5,10 @@ module Sequel::Plugins::LuxHooks
 
   module InstanceMethods
     def before_update_exec k, m
-      hash = HOOK_METHODS.dig(self.class, k, m) || {}
-      hash.values.each do |proc|
+      hooks = HOOK_METHODS.dig(self.class, k, m)
+      return unless hooks
+
+      hooks.each_value do |proc|
         instance_exec m, k, &proc
       end
     end
@@ -53,23 +55,22 @@ module Sequel::Plugins::LuxHooks
       :after_update,
       :before_destroy,
       :after_destroy
-    ].each do |el|
-      eval %[
-        def #{el} &block
-          define_method :#{el} do
-            if :#{el} != :validate && caller[0].include?('gems/sequel')
-              raise "#{el} called directly, you need to call via proxy. Example: before(:cu) { ... }"
-            end
-
-            instance_exec &block
-            super()
+    ].each do |hook_name|
+      define_method(hook_name) do |&block|
+        define_method(hook_name) do
+          if hook_name != :validate && caller_locations(1, 1)[0]&.path.to_s.include?('gems/sequel')
+            raise "#{hook_name} called directly, you need to call via proxy. Example: before(:cu) { ... }"
           end
+
+          instance_exec(&block)
+          super()
         end
-      ]
+      end
     end
 
     def before_and_after_define kind, what, &block
-      src = caller[1].split('/').last.split(':in').first
+      loc = caller_locations(2, 1)[0]
+      src = loc ? "#{File.basename(loc.path)}:#{loc.lineno}" : 'unknown'
       HOOK_METHODS[self] ||= {}
       HOOK_METHODS[self][kind] ||= {}
       what.to_s.split('').each do |m|

@@ -55,7 +55,7 @@ describe Lux::Controller do
   it 'renders json' do
     TestController.action(:render_json)
 
-    expect(Lux.current.response.body).to eq({ foo: 'bar' })
+    expect(Lux.current.response.body).to eq('{"foo":"bar"}')
   end
 
   it 'raises on invalid render options' do

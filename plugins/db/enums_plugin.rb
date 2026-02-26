@@ -11,14 +11,14 @@ class Sequel::Model
     # enums :steps, values: { 'o'=>'Open', 'w'=>'Waiting' }
     # enums :kinds, ['string', 'boolean', 'textarea']
     def enums name, opts={}, &block
-      if opts.class == Array
+      if opts.is_a?(Array)
         opts = {
           values: opts,
           field: false
         }
       end
 
-      opts[:default] ||= opts[:values].first if opts[:values].class == Array
+      opts[:default] ||= opts[:values].first if opts[:values].is_a?(Array)
 
       values = opts[:values] || {}.to_hwia.tap { |_| block.call(_) }
       values = values.inject({}.to_hwia) { |h, (k,v)| h[k.to_s] = v; h }
@@ -27,7 +27,7 @@ class Sequel::Model
       opts[:default]   = values.keys.first unless opts.key?(:default)
       opts[:default]   = opts[:default].to_s
 
-      unless opts[:field].class == FalseClass
+      unless opts[:field] == false
         unless opts[:field]
           opts[:field] = opts[:method].to_s + '_sid'
           opts[:field] = opts[:method].to_s + '_id' unless db_schema[opts[:field].to_sym]
