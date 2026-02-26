@@ -124,13 +124,14 @@ namespace :db do
     system "psql '%s'" % Lux.config.db_url
   end
 
-  desc 'Automigrate schema'
-  task :am do
+  desc 'Automigrate schema (pass y to auto-confirm column drops: db:am[y])'
+  task :am, [:confirm] do |_, args|
     # ENV['DB_MIGRATE'] should be set in Rakefile before config loads
     ENV['DB_MIGRATE'] = 'true' unless ENV['DB_MIGRATE'] == 'true'
 
     # load AutoMigrate class
     load '%s/auto_migrate/auto_migrate.rb' % Lux::Plugin.get('db').folder
+    AutoMigrate.auto_confirm = args[:confirm] == 'y'
 
     # verify pg_array extension works (raw SQL to avoid Sequel plugin conflicts)
     DB.run %[DROP TABLE IF EXISTS lux_tests;]
