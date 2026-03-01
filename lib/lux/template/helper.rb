@@ -1,6 +1,24 @@
 module Lux
   class Template
     module Helper
+      def self.new scope, *names
+        obj = Object.new
+        obj.extend self
+        obj.extend ApplicationHelper if defined?(ApplicationHelper)
+
+        names.flatten.compact.each do |name|
+          mod = "#{name.to_s.classify}Helper"
+          obj.extend mod.constantize if mod.constantize?
+        end
+
+        local_vars = scope.class == Hash ? scope : scope.instance_variables_hash
+        local_vars.each do |k, v|
+          obj.instance_variable_set("@#{k.to_s.sub('@', '')}", v)
+        end
+
+        obj
+      end
+
       define_method(:current) { Lux.current }
       define_method(:request) { Lux.current.request }
       define_method(:params)  { Lux.current.params }

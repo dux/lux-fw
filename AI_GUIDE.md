@@ -504,6 +504,46 @@ rake exceptions         # List logged exceptions
 rake exceptions:clear   # Clear exception logs
 ```
 
+## Model Associations (`link`)
+
+The `link` method (provided by the `lux_links` plugin) defines model associations via `_ref` columns:
+
+```ruby
+class Task < ApplicationModel
+  schema do
+    link :board       # DB: board_ref column + index + foreign key
+  end
+
+  link :board         # Ruby: task.board -> Board.find(board_ref)
+  link :comments      # Ruby: task.comments -> Comment.where(task_ref: ref)
+end
+```
+
+`link` is used in two contexts:
+- **Inside `schema do`** (typero) - defines the database column, index, and foreign key constraint
+- **At class level** (lux_links) - defines the Ruby association method
+
+Variants:
+- `link :user` - singular, belongs_to via `user_ref` column
+- `link :users` - plural, has_many via `user_refs[]` array or reverse lookup
+- `link :user, class: 'OrgUser'` - custom class
+- `link :user, field: 'owner_ref'` - custom field
+
+Dataset helper:
+- `Task.where_ref(@board)` - scope dataset to parent object
+
+## Dirty Tracking (`on_change`)
+
+Instance method on `Sequel::Model` (requires `:dirty` plugin). Yields previous and current values when a column has changed; does nothing if unchanged.
+
+```ruby
+# on_change :field do |prev_val, next_val| ...
+user.on_change(:name)  { |prev, cur| ... }  # strings, integers, booleans
+user.on_change(:tags)  { |prev, cur| ... }  # pg arrays
+```
+
+Covers add (nil to value), remove (value to nil), and replace (value to value) for both primitive columns and PostgreSQL array columns.
+
 ## Important Patterns for Agents
 
 1. **Request Context**: Always access via `Lux.current` or `current` helper

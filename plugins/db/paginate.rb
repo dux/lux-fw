@@ -26,7 +26,7 @@ class PaginatedArray < Array
 end
 
 def Paginate set, size: 20, param: :page, page: nil, count: nil, klass: nil
-  page = Lux.current.params[param] if Lux.current.params[param].respond_to?(:to_i)
+  page = Lux.current.params[param] if Lux.current.params[param].to_s =~ /\A\d+\z/
   page = page.to_i
   page = 1 if page < 1
 

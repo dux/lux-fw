@@ -95,7 +95,7 @@ namespace :db do
     require './config/app'
 
     load_file './db/seed.rb' do
-      for file in Dir['db/seeds/*'].sort
+      for file in Dir['db/seeds/*.rb'].sort
         puts 'Seed: %s' % file.colorize(:green)
         # Lux.run "bundle exec lux e #{file}"
         load file

@@ -1,7 +1,7 @@
-# ref-based model associations
+# link-based model associations
 #
-# ref :user         -> belongs_to via user_ref column
-# ref :users        -> has_many via user_refs array or reverse lookup
+# link :user         -> belongs_to via user_ref column
+# link :users        -> has_many via user_refs array or reverse lookup
 # Task.where_ref(@board) -> dataset scoped to parent
 
 module Sequel::Plugins::LuxLinks
@@ -34,11 +34,11 @@ module Sequel::Plugins::LuxLinks
       dataset.where_ref(model)
     end
 
-    # ref :user         -> singular, belongs_to via user_ref
-    # ref :users        -> plural, has_many via user_refs[] or reverse lookup
-    # ref :user, class: 'OrgUser' -> custom class
-    # ref :user, field: 'owner_ref' -> custom field
-    def ref name = :_nil, opts = {}
+    # link :user         -> singular, belongs_to via user_ref
+    # link :users        -> plural, has_many via user_refs[] or reverse lookup
+    # link :user, class: 'OrgUser' -> custom class
+    # link :user, field: 'owner_ref' -> custom field
+    def link name = :_nil, opts = {}
       opts = opts.to_hwia :class, :field, :cache
 
       if name == :_nil
@@ -50,7 +50,7 @@ module Sequel::Plugins::LuxLinks
       field = (opts[:field] || "#{name}_ref").to_s
 
       if name == name.singularize
-        # ref :user (user_ref)
+        # link :user (user_ref)
         field = db_schema[field.to_sym] ? field : :parent_ref
         class_eval <<-STR, __FILE__, __LINE__ + 1
           def #{name}
@@ -58,14 +58,14 @@ module Sequel::Plugins::LuxLinks
           end
 
           def #{name}= object
-            self[:#{name}_ref] = object.ref
+            self[:#{field}] = object.ref
           end
         STR
       else
         field = "#{name.to_s.singularize}_refs".to_sym
 
         if db_schema[field.to_sym]
-          # ref :users (user_refs [])
+          # link :users (user_refs [])
           class_eval <<-STR, __FILE__, __LINE__ + 1
             def #{name}
               #{field}.or([]).map { #{klass}.find(_1) }
@@ -89,6 +89,7 @@ module Sequel::Plugins::LuxLinks
         end
       end
     end
+    alias :ref :link
   end
 end
 

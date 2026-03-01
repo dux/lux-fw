@@ -761,7 +761,26 @@ Lux.plugin.folder(:foo) # /home/app/...
 Lux.plugin :db
 ```
 
+### Model Associations (lux_links plugin)
 
+The `link` method defines model associations via `_ref` columns:
+
+```ruby
+class Task < ApplicationModel
+  schema do
+    link :board       # DB: board_ref column + index + foreign key
+  end
+
+  link :board         # Ruby: task.board -> Board.find(board_ref)
+  link :comments      # Ruby: task.comments -> Comment.where(task_ref: ref)
+end
+```
+
+* `link :user` - singular, belongs_to via `user_ref` column
+* `link :users` - plural, has_many via `user_refs[]` array or reverse lookup
+* `link :user, class: 'OrgUser'` - custom class
+* `link :user, field: 'owner_ref'` - custom field
+* `Task.where_ref(@board)` - scope dataset to parent object
 
 
 &nbsp;

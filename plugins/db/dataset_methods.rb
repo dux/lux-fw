@@ -26,7 +26,7 @@ Sequel::Model.dataset_module do
     if hash_or_string.is_a?(Hash)
       key = hash_or_string.keys.first
 
-      if model.db_schema[key][:db_type].include?('[]')
+      if model.db_schema[key]&.dig(:db_type)&.include?('[]')
         value = hash_or_string.values.first
 
         if value.is_a?(Array)
@@ -82,7 +82,7 @@ Sequel::Model.dataset_module do
             params.push Locale.current.to_s, pattern
 
             if defined?(Locale::DEFAULT) && Locale::DEFAULT != Locale.current
-              and_str << "(#{like_sql}) or lower(CAST(#{el} -> ? as text) ilike ?)"
+              and_str << "(#{like_sql}) or lower(CAST(#{el} -> ? as text)) ilike ?"
               params.push Locale::DEFAULT.to_s, pattern
             else
               and_str << like_sql

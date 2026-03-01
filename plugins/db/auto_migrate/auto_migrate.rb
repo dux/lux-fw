@@ -6,8 +6,52 @@
 # Usage: rake db:am (sets DB_MIGRATE=true before loading models)
 
 class AutoMigrate
-  SIMPLE_TYPES  = %i[string integer text boolean datetime date geography timestamp bytea].freeze
-  DECIMAL_TYPES = %i[decimal float].freeze
+  SIMPLE_TYPES  ||= %i[string integer text boolean datetime date geography timestamp bytea].freeze
+  DECIMAL_TYPES ||= %i[decimal float].freeze
+
+  # Type conversion table: [from, to] => { using: SQL template, safe: bool }
+  # safe: true  = no data loss possible, runs automatically
+  # safe: false = may lose data, prompts for confirmation
+  # using: nil  = PostgreSQL can cast implicitly
+  TYPE_CONVERSIONS = {
+    # string/text → numeric/boolean/json
+    [:string, :integer]   => { using: '%s::integer',                       safe: false },
+    [:string, :decimal]   => { using: '%s::numeric',                       safe: false },
+    [:string, :float]     => { using: '%s::numeric',                       safe: false },
+    [:string, :boolean]   => { using: "(%s IN ('true','t','1','yes'))",    safe: false },
+    [:string, :jsonb]     => { using: '%s::jsonb',                         safe: false },
+    [:text, :integer]     => { using: '%s::integer',                       safe: false },
+    [:text, :decimal]     => { using: '%s::numeric',                       safe: false },
+    [:text, :float]       => { using: '%s::numeric',                       safe: false },
+    [:text, :boolean]     => { using: "(%s IN ('true','t','1','yes'))",    safe: false },
+    [:text, :jsonb]       => { using: '%s::jsonb',                         safe: false },
+    [:text, :string]      => { using: nil,                                 safe: false },
+    # numeric/boolean → string/text
+    [:integer, :string]   => { using: nil, safe: true },
+    [:integer, :text]     => { using: nil, safe: true },
+    [:decimal, :string]   => { using: '%s::text', safe: true },
+    [:decimal, :text]     => { using: '%s::text', safe: true },
+    [:float, :string]     => { using: '%s::text', safe: true },
+    [:float, :text]       => { using: '%s::text', safe: true },
+    [:boolean, :string]   => { using: '%s::text', safe: true },
+    [:boolean, :text]     => { using: '%s::text', safe: true },
+    # numeric ↔ numeric
+    [:integer, :decimal]  => { using: nil, safe: true },
+    [:integer, :float]    => { using: nil, safe: true },
+    [:decimal, :integer]  => { using: '%s::integer', safe: false },
+    [:float, :integer]    => { using: '%s::integer', safe: false },
+    # boolean ↔ integer
+    [:integer, :boolean]  => { using: '(%s != 0)',    safe: true },
+    [:boolean, :integer]  => { using: '%s::integer',  safe: true },
+    # date/time conversions
+    [:string, :date]      => { using: '%s::date',      safe: false },
+    [:string, :datetime]  => { using: '%s::timestamp', safe: false },
+    [:string, :timestamp] => { using: '%s::timestamp', safe: false },
+    [:date, :timestamp]   => { using: nil, safe: true },
+    [:date, :datetime]    => { using: nil, safe: true },
+    [:timestamp, :date]   => { using: '%s::date', safe: false },
+    [:datetime, :date]    => { using: '%s::date', safe: false },
+  }.freeze
 
   attr_accessor :fields
 
@@ -81,6 +125,8 @@ class AutoMigrate
       @fields["#{name}_type".to_sym] = [:string, opts.merge(limit: 100, index: true)]
     when :table
       create_join_table(name) { |t| yield t if block_given? }
+    when :unlogged
+      set_table_unlogged
     when :add_index
       add_index_for name
     when :foreign_key
@@ -124,6 +170,44 @@ class AutoMigrate
   end
 
   private
+
+  # --- type helpers ---
+
+  # Map schema DSL type to PostgreSQL type string
+  def pg_type_for type, opts = {}
+    case type
+    when :string            then "varchar(#{opts[:limit] || 255})"
+    when :text              then 'text'
+    when :integer           then 'integer'
+    when :boolean           then 'boolean'
+    when :decimal, :float   then "decimal(#{opts[:precision] || 8},#{opts[:scale] || 2})"
+    when :date              then 'date'
+    when :datetime, :timestamp then 'timestamp'
+    when :jsonb             then 'jsonb'
+    when :bytea             then 'bytea'
+    when :geography         then 'geography'
+    else type.to_s
+    end
+  end
+
+  # Normalize Sequel's schema type to match our DSL types
+  # Sequel reports :string for both varchar and text, so we check db_type
+  def current_base_type current
+    db_type = current[:db_type].to_s.sub('[]', '')
+    case db_type
+    when /^character varying/, /^varchar/ then :string
+    when 'text'                           then :text
+    when 'integer', 'smallint', 'bigint'  then :integer
+    when 'boolean'                        then :boolean
+    when /^numeric/, /^decimal/           then :decimal
+    when 'double precision', /^float/, /^real/ then :float
+    when 'date'                           then :date
+    when /^timestamp/                     then :timestamp
+    when 'jsonb'                          then :jsonb
+    when 'bytea'                          then :bytea
+    else current[:type]
+    end
+  end
 
   # --- setup ---
 
@@ -245,10 +329,10 @@ class AutoMigrate
 
   def alter_column field, type, opts, current, db_type
     alter_array_type field, type, opts, current
+    alter_column_type field, type, opts, current
     alter_varchar_limit field, type, opts, current
     alter_text_conversion field, type, current
     alter_null_constraint field, opts, current
-    alter_string_to_date field, type, current
     alter_default field, type, opts, current
     db_rule(:add_index, field) if opts[:index]
   end
@@ -275,6 +359,28 @@ class AutoMigrate
         alter table #{@table_name} alter #{field} type #{current[:db_type].sub('[]', '')} using #{cast};
       ]
       puts " Converted #{@table_name}.#{field}[] to non array type".colorize(:red)
+    elsif opts[:array] && current[:db_type].include?('[]')
+      # both are arrays — check if base type changed (e.g., text[] → integer[])
+      from = current_base_type(current)
+      to   = type
+      return if from == to
+
+      conv = TYPE_CONVERSIONS[[from, to]]
+      unless conv
+        puts " Cannot auto-convert array #{@table_name}.#{field} from #{from}[] to #{to}[]".colorize(:red)
+        return
+      end
+
+      target = pg_type_for(to, opts)
+      using = conv[:using] ? "ARRAY(SELECT #{conv[:using] % "unnest(#{field})"})" : nil
+
+      transaction_do "ALTER TABLE #{@table_name} ALTER COLUMN #{field} DROP DEFAULT"
+      sql = "ALTER TABLE #{@table_name} ALTER COLUMN #{field} TYPE #{target}[]"
+      sql += " USING #{using}" if using
+      run_sql sql
+      default = to == :string ? "ARRAY[]::character varying[]" : "ARRAY[]::#{target}[]"
+      transaction_do "ALTER TABLE #{@table_name} ALTER COLUMN #{field} SET DEFAULT #{default}"
+      puts " Converted #{@table_name}.#{field} from #{from}[] to #{to}[]".colorize(:green)
     end
   end
 
@@ -292,6 +398,47 @@ class AutoMigrate
     puts " #{field} limit from  #{current[:max_length]} to no limit (text type)".colorize(:green)
   end
 
+  # General type conversion using TYPE_CONVERSIONS table
+  def alter_column_type field, type, opts, current
+    # Skip array columns (handled by alter_array_type)
+    return if opts[:array] || current[:db_type].include?('[]')
+
+    from = current_base_type(current)
+    to   = type
+
+    # Normalize datetime/timestamp equivalence
+    return if from == to
+    return if from == :timestamp && to == :datetime
+    return if from == :datetime && to == :timestamp
+
+    # Skip string↔string (handled by alter_varchar_limit / alter_text_conversion)
+    return if from == :string && to == :string
+    return if from == :string && to == :text   # handled by alter_text_conversion via varchar_limit
+    return if from == :text && to == :text
+
+    conv = TYPE_CONVERSIONS[[from, to]]
+
+    unless conv
+      puts " Cannot auto-convert #{@table_name}.#{field} from #{from} to #{to}".colorize(:red)
+      return
+    end
+
+    unless conv[:safe]
+      label = "Convert #{@table_name}.#{field} from #{from} to #{to} (may lose data)"
+      if AutoMigrate.auto_confirm
+        puts " #{label} (auto-confirmed)".colorize(:light_blue)
+      else
+        print " #{label} (y/N): ".colorize(:light_blue)
+        return if Lux.env.production? || !STDIN.gets.chomp.downcase.index('y')
+      end
+    end
+
+    target = pg_type_for(to, opts)
+    sql = "ALTER TABLE #{@table_name} ALTER COLUMN #{field} TYPE #{target}"
+    sql += " USING #{conv[:using] % field}" if conv[:using]
+    run_sql sql
+  end
+
   def alter_null_constraint field, opts, current
     return if current[:allow_null] == opts[:null]
 
@@ -301,13 +448,6 @@ class AutoMigrate
 
     action = opts[:null] ? 'DROP' : 'SET'
     run_sql "ALTER TABLE #{@table_name} ALTER COLUMN #{field} #{action} NOT NULL"
-  end
-
-  def alter_string_to_date field, type, current
-    return unless current[:type] == :string && [:date, :datetime].include?(type)
-
-    pg_type = type == :datetime ? :timestamp : type
-    run_sql "ALTER TABLE #{@table_name} ALTER COLUMN #{field} TYPE #{pg_type.to_s.upcase} using #{field}::#{pg_type};"
   end
 
   def alter_default field, type, opts, current
@@ -338,6 +478,17 @@ class AutoMigrate
       t.string "#{first}_ref",  null: false
       t.string "#{second}_ref", null: false
       yield t if block_given?
+    end
+  end
+
+  def set_table_unlogged
+    is_unlogged = db
+      .fetch("SELECT relpersistence = 'u' as unlogged FROM pg_class WHERE relname = '#{@table_name}'")
+      .first&.dig(:unlogged)
+
+    unless is_unlogged
+      db.run "ALTER TABLE #{@table_name} SET UNLOGGED"
+      puts " * set table #{@table_name} to UNLOGGED".colorize(:green)
     end
   end
 

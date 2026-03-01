@@ -1,6 +1,8 @@
 # LuxJob.init
 # Thread.new { LuxJob.run }
 
+require 'timeout'
+
 class LuxJob < ApplicationModel
   schema do
     name
@@ -19,11 +21,16 @@ class LuxJob < ApplicationModel
 
   JOBS ||= {}
 
+  MAX_RETRIES     = 7
+  RETRY_BASE_WAIT = 60  # seconds, grows by 60% each retry
+  DEFAULT_TIMEOUT = 60  # seconds
+
   class << self
-    def define name, every: nil, &block
+    def define name, every: nil, timeout: nil, &block
       JOBS[name] = { proc: block }
       JOBS[name][:name] = name.to_s
       JOBS[name][:every] = every if every
+      JOBS[name][:timeout] = timeout || DEFAULT_TIMEOUT
     end
 
     def init
@@ -58,14 +65,6 @@ class LuxJob < ApplicationModel
           end
         end
         puts
-
-        unless verbose
-          puts "Not showing spinner because LUX_LIVE=true"
-          puts
-        end
-
-        spinner = %w[| / - \\]
-        spinner_idx = 0
 
         loop do
           sleep 3
@@ -102,8 +101,9 @@ class LuxJob < ApplicationModel
         next_run = opts[:every] ? Time.now + opts[:every] : Time.now + 1.hour
         job.update status_sid: 'r', run_at: next_run
 
-        response = opts[:proc].call job.opts.to_hwia
-        if response.class == String && response.length < 255
+        timeout = opts[:timeout] || DEFAULT_TIMEOUT
+        response = Timeout.timeout(timeout) { opts[:proc].call job.opts.to_hwia }
+        if response.is_a?(String) && response.length < 255
           job.response = response
         else
           job.response = ''
@@ -112,7 +112,7 @@ class LuxJob < ApplicationModel
         job.retry_count = 0
 
         log_data = job.response.or('done')
-        log_data += " - #{job.opts.to_json}" if job.opts.keys.length > 0
+        log_data += " - #{job.opts.to_json}" if job.opts.any?
         job.log log_data, verbose: verbose
 
         if opts[:every]
@@ -124,17 +124,28 @@ class LuxJob < ApplicationModel
       rescue => error
         msg = "ERROR: #{error.message} (#{error.class}) #{error.backtrace[0]}"
         job.response = msg
-        job.log msg, verbose: verbose
         job.retry_count += 1
-        job.run_at = Time.now + job.retry_count.minutes
-        job.status_sid = 'f'
+
+        if job.retry_count >= MAX_RETRIES
+          job.status_sid = 'x'
+          job.log "PERMANENTLY FAILED after #{MAX_RETRIES} retries: #{msg}", verbose: verbose
+        else
+          delay = RETRY_BASE_WAIT * (1.6 ** (job.retry_count - 1))
+          job.run_at = Time.now + delay
+          job.status_sid = 'f'
+          job.log msg, verbose: verbose
+        end
+
         job.save
-        puts "[#{Time.now.strftime('%H:%M:%S')}] #{job.name}: #{msg}" if verbose
       end
     end
 
     def process_jobs verbose: false
-      jobs = LuxJob.where { run_at < Time.now }.exclude(name: LuxJobLock::LOCK_NAME).all
+      jobs = LuxJob
+        .where { run_at < Time.now }
+        .exclude(name: LuxJobLock::LOCK_NAME)
+        .exclude(status_sid: ['r', 'x'])
+        .all
       jobs.each do |job|
         run_job job, verbose: verbose
       end
@@ -146,6 +157,7 @@ class LuxJob < ApplicationModel
     t[:r] = 'Running'
     t[:f] = 'Failed'
     t[:d] = 'Done'
+    t[:x] = 'Permanently failed'
   end
 
   ###
@@ -170,6 +182,7 @@ class LuxJob < ApplicationModel
   end
 
   def log_lines
-    `grep -i '\\[#{name}\\]' ./log/lux_job.log | tac | tail -n 100`
+    safe_name = name.to_s.gsub(/[^a-zA-Z0-9_\-]/, '')
+    `grep -i '\\[#{safe_name}\\]' ./log/lux_job.log | tac | tail -n 100`
   end
 end

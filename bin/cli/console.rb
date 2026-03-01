@@ -13,7 +13,7 @@ class Object
   # prettify last sql command
   def sql! sql=nil
     require 'niceql'
-    puts Niceql::Prettifier.prettify_sql sql || $last_sql_command
+    puts Niceql::Prettifier.prettify_sql sql || Thread.current[:last_sql_command]
   end
 
   def c

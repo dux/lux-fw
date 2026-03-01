@@ -27,8 +27,11 @@ module ModelTree
   def parent_ref= val
     el   = self.class.find(val)
     list = [el[:ref]]
+    seen = Set.new(list)
 
     while el = el.parent
+      break if seen.include?(el[:ref])
+      seen.add(el[:ref])
       list.push el[:ref]
     end
 

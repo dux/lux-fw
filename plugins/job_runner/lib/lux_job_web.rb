@@ -41,6 +41,15 @@ class LuxJobWeb < Sinatra::Base
       past ? "#{val} ago" : "in #{val}"
     end
 
+    def status_css(status)
+      return '' unless status
+      "status-#{status.downcase.gsub(/\s+/, '-')}"
+    end
+
+    def safe_job_name(name)
+      name.to_s.gsub(/[^a-zA-Z0-9_\-]/, '')
+    end
+
     def parse_log_line(line)
       if line =~ /\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.\d+ #\d+\]\s+\w+ -- : (.+)/
         time = Time.parse($1) rescue nil
@@ -73,6 +82,7 @@ class LuxJobWeb < Sinatra::Base
       {
         name: name,
         every: opts[:every],
+        timeout: opts[:timeout] || LuxJob::DEFAULT_TIMEOUT,
         last_run: db_job&.updated_at,
         next_run: db_job&.run_at,
         status: db_job&.status,
@@ -92,7 +102,7 @@ class LuxJobWeb < Sinatra::Base
     halt 404, "Job not found" unless @job_info
 
     @db_job = LuxJob.first(name: @name)
-    @log_lines = `grep -i '\\[#{@name}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1000`.split("\n").reverse
+    @log_lines = `grep -i '\\[#{safe_job_name(@name)}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1000`.split("\n").reverse
     @last_id = @log_lines.first&.match(/\[(\d{4}-\d{2}-\d{2}T[\d:\.]+)/)[1] rescue nil
 
     erb :job
@@ -103,7 +113,7 @@ class LuxJobWeb < Sinatra::Base
     job_name = params[:job].to_s.empty? ? nil : params[:job]
 
     last_line = if job_name
-      `grep -i '\\[#{job_name}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1`.strip
+      `grep -i '\\[#{safe_job_name(job_name)}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1`.strip
     else
       `tail -n 1 ./log/lux_job.log 2>/dev/null`.strip
     end
@@ -116,7 +126,7 @@ class LuxJobWeb < Sinatra::Base
 
   get '/log/:job_name' do
     content_type 'text/plain'
-    `grep -i '\\[#{params[:job_name]}\\]' ./log/lux_job.log 2>/dev/null | tail -n 10000`
+    `grep -i '\\[#{safe_job_name(params[:job_name])}\\]' ./log/lux_job.log 2>/dev/null | tail -n 10000`
   end
 
   # POST /job/:name - trigger job with JSON payload
@@ -171,10 +181,11 @@ class LuxJobWeb < Sinatra::Base
           }
           th { background: #f8f8f8; font-weight: 600; }
           tr:hover { background: #fafafa; }
-          .status-Done { color: #28a745; }
-          .status-Running { color: #007bff; }
-          .status-Failed { color: #dc3545; }
-          .status-Scheduled { color: #6c757d; }
+          .status-done { color: #28a745; }
+          .status-running { color: #007bff; }
+          .status-failed { color: #dc3545; }
+          .status-scheduled { color: #6c757d; }
+          .status-permanently-failed { color: #6c757d; text-decoration: line-through; }
           .log-box {
             background: #1e1e1e;
             color: #d4d4d4;
@@ -227,7 +238,7 @@ class LuxJobWeb < Sinatra::Base
                   Idiomorph.morph(document.querySelector('.container'), doc.querySelector('.container'));
                   lastId = data.last_id || '';
                 }
-              } catch (e) { console.error('Poll error:', e, resp?.status); }
+              } catch (e) { console.error('Poll error:', e); }
             }, 3000);
           })();
         </script>
@@ -245,6 +256,7 @@ class LuxJobWeb < Sinatra::Base
         <tr>
           <th>Name</th>
           <th>Schedule</th>
+          <th>Timeout</th>
           <th>Last Run</th>
           <th>Next Run</th>
           <th>Status</th>
@@ -260,9 +272,10 @@ class LuxJobWeb < Sinatra::Base
                 on demand
               <% end %>
             </td>
+            <td><%= job[:timeout] %>s</td>
             <td><% if job[:last_run] %><%= job[:last_run].strftime('%Y-%m-%d %H:%M:%S') %> (<%= time_relative(job[:last_run]) %>)<% else %>-<% end %></td>
             <td><% if job[:next_run] %><%= job[:next_run].strftime('%Y-%m-%d %H:%M:%S') %> (<%= time_relative(job[:next_run]) %>)<% else %>-<% end %></td>
-            <td class="status-<%= job[:status] %>"><%= job[:status] || '-' %></td>
+            <td class="<%= status_css(job[:status]) %>"><%= job[:status] || '-' %></td>
             <td><%= job[:response] ? job[:response][0, 50] : '-' %></td>
           </tr>
         <% end %>
@@ -297,8 +310,9 @@ class LuxJobWeb < Sinatra::Base
             <% end %>
           </td>
         </tr>
+        <tr><th>Timeout</th><td><%= @job_info[:timeout] || LuxJob::DEFAULT_TIMEOUT %>s</td></tr>
         <% if @db_job %>
-          <tr><th>Status</th><td class="status-<%= @db_job.status %>"><%= @db_job.status %></td></tr>
+          <tr><th>Status</th><td class="<%= status_css(@db_job.status) %>"><%= @db_job.status %></td></tr>
           <tr><th>Last Run</th><td><% if @db_job.updated_at %><%= @db_job.updated_at.strftime('%Y-%m-%d %H:%M:%S') %> (<%= time_relative(@db_job.updated_at) %>)<% else %>-<% end %></td></tr>
           <tr><th>Next Run</th><td><% if @db_job.run_at %><%= @db_job.run_at.strftime('%Y-%m-%d %H:%M:%S') %> (<%= time_relative(@db_job.run_at) %>)<% else %>-<% end %></td></tr>
           <tr><th>Response</th><td><%= @db_job.response %></td></tr>

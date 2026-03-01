@@ -12,13 +12,13 @@ class LuxJobsApi < ModelApi
     end
 
     def restart
-      @lux_job.this.update run_at: Time.now
-      'Sheduled to run now'
+      @lux_job.this.update run_at: Time.now, status_sid: 's', retry_count: 0
+      'Scheduled to run now'
     end
 
     def run
       Thread.new { LuxJob.run_job @lux_job }
-      'Running in backkground'
+      'Running in background'
     end
   end
 end

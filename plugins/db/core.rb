@@ -23,14 +23,16 @@ class Sequel::Model
 
     def first_or_new filter
       object = where(filter).first || new(filter)
-      yield object if block_given? && !object.id
+      yield object if block_given? && object.new?
       object
     end
 
-    def first_or_create filter, &block
-      object = first_or_new(filter, &block)
-      yield object if block_given?
-      object.save
+    def first_or_create filter
+      object = where(filter).first || new(filter)
+      if object.new?
+        yield object if block_given?
+        object.save
+      end
       object
     end
   end
@@ -61,12 +63,12 @@ class Sequel::Model
 
     def creator
       v = self[:creator_ref]
-      v ? User.find(v) : nil
+      v && defined?(User) ? User.find(v) : nil
     end
 
     def updater
       v = self[:updater_ref]
-      v ? User.find(v) : nil
+      v && defined?(User) ? User.find(v) : nil
     end
 
     # has?(:name, "Name is not defined") -> errors.add("Name is not defined")
@@ -84,7 +86,9 @@ class Sequel::Model
     end
 
     def unique?(field)
-      self.class.where(field => self[field]).exclude(ref: self[:ref]).empty?
+      check = self.class.where(field => self[field])
+      check = check.exclude(ref: self[:ref]) if self[:ref]
+      check.empty?
     end
 
     def save!
@@ -94,7 +98,6 @@ class Sequel::Model
     def slice *args
       args.inject({}) { |t, el| t[el] = self.send(el); t }
     end
-    alias :pluck :slice
 
     # @deal.init(:task) -> Task.new(deal_ref: 'abc')
     def init name, fields={}

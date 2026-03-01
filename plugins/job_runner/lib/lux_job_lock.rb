@@ -35,13 +35,13 @@ class LuxJobLock
 
     if existing
       if stale?(existing)
+        old_owner = existing.opts['locked_by'] || existing.opts[:locked_by]
         existing.update(
           opts: { locked_by: @lock_id },
           run_at: Time.now,
           updated_at: Time.now
         )
-        locked_by = existing.opts['locked_by'] || existing.opts[:locked_by]
-        Lux.info "LuxJobLock: Took over stale lock from #{locked_by}"
+        Lux.info "LuxJobLock: Took over stale lock from #{old_owner}"
       else
         locked_by = existing.opts['locked_by'] || existing.opts[:locked_by]
         raise "Job runner already running (#{locked_by} since #{existing.created_at})"

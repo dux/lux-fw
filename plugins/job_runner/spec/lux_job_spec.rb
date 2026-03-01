@@ -20,6 +20,18 @@ RSpec.describe LuxJob do
 
       expect(LuxJob::JOBS[:recurring_job][:every]).to eq(1.hour)
     end
+
+    it 'uses default timeout when none specified' do
+      LuxJob.define(:no_timeout) { 'done' }
+
+      expect(LuxJob::JOBS[:no_timeout][:timeout]).to eq(LuxJob::DEFAULT_TIMEOUT)
+    end
+
+    it 'accepts custom timeout' do
+      LuxJob.define(:custom_timeout, timeout: 300) { 'done' }
+
+      expect(LuxJob::JOBS[:custom_timeout][:timeout]).to eq(300)
+    end
   end
 
   describe '.add' do
@@ -57,7 +69,7 @@ RSpec.describe LuxJob do
       expect(job.run_at).to be > Time.now
     end
 
-    it 'handles job failures with retry' do
+    it 'handles job failures with retry and 60% backoff' do
       LuxJob.define(:failing_job) { raise 'oops' }
       job = LuxJob.create(name: 'failing_job', run_at: Time.now - 1.minute)
 
@@ -66,7 +78,49 @@ RSpec.describe LuxJob do
 
       expect(job.status_sid).to eq('f')
       expect(job.retry_count).to eq(1)
-      expect(job.run_at).to be > Time.now
+      # First retry: RETRY_BASE_WAIT * 1.6^0 = 60s
+      expect(job.run_at).to be_within(5).of(Time.now + LuxJob::RETRY_BASE_WAIT)
+    end
+
+    it 'increases retry delay by 60% each attempt' do
+      LuxJob.define(:backoff_job) { raise 'fail' }
+      job = LuxJob.create(name: 'backoff_job', run_at: Time.now - 1.minute, retry_count: 3)
+
+      LuxJob.run_job(job)
+      job.reload
+
+      # retry_count is now 4, delay = 60 * 1.6^3 = 245.76s
+      expected_delay = LuxJob::RETRY_BASE_WAIT * (1.6 ** 3)
+      expect(job.run_at).to be_within(5).of(Time.now + expected_delay)
+      expect(job.status_sid).to eq('f')
+    end
+
+    it 'permanently fails after MAX_RETRIES' do
+      LuxJob.define(:doomed_job) { raise 'always fails' }
+      job = LuxJob.create(
+        name: 'doomed_job',
+        run_at: Time.now - 1.minute,
+        retry_count: LuxJob::MAX_RETRIES - 1
+      )
+
+      LuxJob.run_job(job)
+      job.reload
+
+      expect(job.status_sid).to eq('x')
+      expect(job.status).to eq('Permanently failed')
+      expect(job.retry_count).to eq(LuxJob::MAX_RETRIES)
+    end
+
+    it 'times out jobs that exceed their timeout' do
+      LuxJob.define(:slow_job, timeout: 1) { sleep 5 }
+      job = LuxJob.create(name: 'slow_job', run_at: Time.now - 1.minute)
+
+      LuxJob.run_job(job)
+      job.reload
+
+      expect(job.status_sid).to eq('f')
+      expect(job.retry_count).to eq(1)
+      expect(job.response).to include('Timeout')
     end
 
     it 'deletes undefined jobs' do
@@ -91,6 +145,25 @@ RSpec.describe LuxJob do
       expect(LuxJob.count).to eq(1)
       expect(LuxJob.first.name).to eq('job2')
     end
+
+    it 'skips running jobs' do
+      LuxJob.define(:running_job) { 'done' }
+      LuxJob.create(name: 'running_job', run_at: Time.now - 1.minute, status_sid: 'r')
+
+      LuxJob.process_jobs
+
+      # Job still exists and still marked as running (not picked up again)
+      expect(LuxJob.first.status_sid).to eq('r')
+    end
+
+    it 'skips permanently failed jobs' do
+      LuxJob.define(:dead_job) { 'done' }
+      LuxJob.create(name: 'dead_job', run_at: Time.now - 1.minute, status_sid: 'x')
+
+      LuxJob.process_jobs
+
+      expect(LuxJob.first.status_sid).to eq('x')
+    end
   end
 
   describe 'status enum' do
@@ -106,6 +179,9 @@ RSpec.describe LuxJob do
 
       job.status_sid = 'd'
       expect(job.status).to eq('Done')
+
+      job.status_sid = 'x'
+      expect(job.status).to eq('Permanently failed')
     end
   end
 

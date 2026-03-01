@@ -11,7 +11,7 @@ class Sequel::Model
 
     def take id
       find id
-    rescue RuntimeError, Sequel::Error
+    rescue Sequel::Error
       nil
     end
 
@@ -33,7 +33,7 @@ class Sequel::Model
         end
 
         row || begin
-          raise(%[Record "#{id}" not found in #{to_s}])
+          raise Sequel::Error, %[Record "#{id}" not found in #{to_s}]
         end
       end
     end

@@ -151,7 +151,7 @@ class Task < Sequel::Model
   plugin :parent_model
   plugin :lux_links
 
-  ref :user
+  link :user
 end
 
 class Comment < Sequel::Model
@@ -179,7 +179,7 @@ class Project < Sequel::Model
   unrestrict_primary_key
 
   plugin :lux_links
-  ref :users  # plural, array-based (user_refs text[])
+  link :users  # plural, array-based (user_refs text[])
 end
 
 class Note < Sequel::Model
@@ -195,12 +195,12 @@ class Note < Sequel::Model
   create_limit 3, 1.hour
 end
 
-# Add plural reverse-lookup ref after both classes exist
+# Add plural reverse-lookup link after both classes exist
 Comment.scope(:default) { self }
 Task.plugin :lux_links
-Task.class_eval { ref :comments }
+Task.class_eval { link :comments }
 
-# Singular ref setter was untested – Task already has `ref :user`
+# Singular link setter was untested - Task already has `link :user`
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -402,7 +402,7 @@ describe 'plugins/db/core.rb', :db_plugin do
       end
     end
 
-    describe '#slice / #pluck (instance)' do
+    describe '#slice' do
       it 'returns a hash of requested fields' do
         h = user.slice(:name, :email)
         expect(h).to eq({ name: 'Alice', email: 'a@b.c' })
@@ -422,16 +422,146 @@ describe 'plugins/db/core.rb', :db_plugin do
     end
 
     describe '#on_change' do
-      it 'yields previous and new values when column changed' do
+      # -- Primitives: replace, add, remove ---------------------------------
+
+      it 'yields previous and new values when string replaced' do
         user.name = 'Zara'
         yielded = nil
         user.on_change(:name) { |prev, cur| yielded = [prev, cur] }
         expect(yielded).to eq(['Alice', 'Zara'])
       end
 
+      it 'yields when value added (nil -> value)' do
+        # create user with nil email
+        r = new_ref
+        DB[:users].insert(ref: r, name: 'NoEmail', email: nil)
+        u = User[r]
+
+        u.email = 'new@test.com'
+        yielded = nil
+        u.on_change(:email) { |prev, cur| yielded = [prev, cur] }
+        expect(yielded).to eq([nil, 'new@test.com'])
+      end
+
+      it 'yields when value removed (value -> nil)' do
+        user.name = nil
+        yielded = nil
+        user.on_change(:name) { |prev, cur| yielded = [prev, cur] }
+        expect(yielded).to eq(['Alice', nil])
+      end
+
+      it 'yields when integer replaced' do
+        user.age = 40
+        yielded = nil
+        user.on_change(:age) { |prev, cur| yielded = [prev, cur] }
+        expect(yielded).to eq([30, 40])
+      end
+
+      it 'yields when boolean replaced' do
+        user.is_active = false
+        yielded = nil
+        user.on_change(:is_active) { |prev, cur| yielded = [prev, cur] }
+        expect(yielded).to eq([true, false])
+      end
+
       it 'does not yield when column unchanged' do
         yielded = false
         user.on_change(:name) { yielded = true }
+        expect(yielded).to be false
+      end
+
+      # -- Arrays: add, remove, replace, set, clear --------------------------
+
+      it 'yields when array element added' do
+        r = new_ref
+        DB[:users].insert(ref: r, name: 'Tagged', tags: Sequel.pg_array(['ruby']))
+        u = User[r]
+
+        u.tags = Sequel.pg_array(['ruby', 'js'])
+        yielded = nil
+        u.on_change(:tags) { |prev, cur| yielded = [prev, cur] }
+        expect(yielded[0]).to eq(['ruby'])
+        expect(yielded[1]).to eq(['ruby', 'js'])
+      end
+
+      it 'yields when array element removed' do
+        r = new_ref
+        DB[:users].insert(ref: r, name: 'Tagged', tags: Sequel.pg_array(['ruby', 'js']))
+        u = User[r]
+
+        u.tags = Sequel.pg_array(['ruby'])
+        yielded = nil
+        u.on_change(:tags) { |prev, cur| yielded = [prev, cur] }
+        expect(yielded[0]).to eq(['ruby', 'js'])
+        expect(yielded[1]).to eq(['ruby'])
+      end
+
+      it 'yields when array element replaced' do
+        r = new_ref
+        DB[:users].insert(ref: r, name: 'Tagged', tags: Sequel.pg_array(['ruby']))
+        u = User[r]
+
+        u.tags = Sequel.pg_array(['go'])
+        yielded = nil
+        u.on_change(:tags) { |prev, cur| yielded = [prev, cur] }
+        expect(yielded[0]).to eq(['ruby'])
+        expect(yielded[1]).to eq(['go'])
+      end
+
+      it 'yields when array set from empty' do
+        r = new_ref
+        DB[:users].insert(ref: r, name: 'Empty', tags: Sequel.pg_array([], :text))
+        u = User[r]
+
+        u.tags = Sequel.pg_array(['ruby'])
+        yielded = nil
+        u.on_change(:tags) { |prev, cur| yielded = [prev, cur] }
+        expect(yielded[0]).to eq([])
+        expect(yielded[1]).to eq(['ruby'])
+      end
+
+      it 'yields when array cleared' do
+        r = new_ref
+        DB[:users].insert(ref: r, name: 'Tagged', tags: Sequel.pg_array(['ruby']))
+        u = User[r]
+
+        u.tags = Sequel.pg_array([], :text)
+        yielded = nil
+        u.on_change(:tags) { |prev, cur| yielded = [prev, cur] }
+        expect(yielded[0]).to eq(['ruby'])
+        expect(yielded[1]).to eq([])
+      end
+
+      it 'does not yield when array unchanged' do
+        r = new_ref
+        DB[:users].insert(ref: r, name: 'Tagged', tags: Sequel.pg_array(['ruby']))
+        u = User[r]
+
+        yielded = false
+        u.on_change(:tags) { yielded = true }
+        expect(yielded).to be false
+      end
+
+      # -- Multiple fields ---------------------------------------------------
+
+      it 'yields independently for each changed field' do
+        user.name = 'Bob'
+        user.age = 99
+
+        name_change = nil
+        age_change = nil
+        user.on_change(:name) { |prev, cur| name_change = [prev, cur] }
+        user.on_change(:age) { |prev, cur| age_change = [prev, cur] }
+
+        expect(name_change).to eq(['Alice', 'Bob'])
+        expect(age_change).to eq([30, 99])
+      end
+
+      it 'does not yield for unchanged field when other fields changed' do
+        user.name = 'Bob'
+
+        yielded = false
+        user.on_change(:age) { yielded = true }
         expect(yielded).to be false
       end
     end
@@ -682,7 +812,7 @@ describe 'plugins/db/find_precache.rb', :db_plugin do
     end
 
     it 'raises when not found' do
-      expect { User.find('nonexistent') }.to raise_error(RuntimeError, /not found/)
+      expect { User.find('nonexistent') }.to raise_error(Sequel::Error, /not found/)
     end
 
     it 'returns nil for blank id' do
@@ -1285,7 +1415,7 @@ describe 'plugins/db/link_objects.rb – plural ref', :db_plugin do
     DB[:projects].delete
   end
 
-  describe 'ref :users (array-based has_many via user_refs[])' do
+  describe 'link :users (array-based has_many via user_refs[])' do
     let(:u1_ref) { new_ref }
     let(:u2_ref) { new_ref }
 
@@ -1321,7 +1451,7 @@ describe 'plugins/db/link_objects.rb – plural ref', :db_plugin do
     end
   end
 
-  describe 'ref :comments (reverse-lookup has_many)' do
+  describe 'link :comments (reverse-lookup has_many)' do
     let(:task_ref) { new_ref }
 
     before do
@@ -1548,6 +1678,254 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         note = Note.new(ref: new_ref, body: 'From other', creator_ref: other_user.ref)
         expect(note.valid?).to be true
       end
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # AutoMigrate – type conversions
+  # ---------------------------------------------------------------------------
+
+  describe 'AutoMigrate type conversions' do
+    let(:table_name) { :am_type_test }
+
+    before(:all) do
+      load File.expand_path('../../plugins/db/auto_migrate/auto_migrate.rb', __dir__)
+      AutoMigrate.auto_confirm = true
+    end
+
+    before(:each) do
+      DB.drop_table?(table_name)
+    end
+
+    after(:all) do
+      DB.drop_table?(:am_type_test)
+      AutoMigrate.auto_confirm = false
+    end
+
+    def col_type field
+      DB.schema(table_name).to_h[field][:db_type]
+    end
+
+    def run_migrate &block
+      am = AutoMigrate.new(DB)
+      am.table(table_name, &block)
+      DB.schema(table_name, reload: true)
+    end
+
+    it 'converts string to integer' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        String :count
+      end
+      DB[table_name].insert(ref: 'r1', count: '42')
+
+      run_migrate do |f|
+        f.integer :count
+      end
+
+      expect(col_type(:count)).to eq('integer')
+      expect(DB[table_name].first[:count]).to eq(42)
+    end
+
+    it 'converts string to boolean' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        String :active
+      end
+      DB[table_name].insert(ref: 'r1', active: 'true')
+      DB[table_name].insert(ref: 'r2', active: 'no')
+
+      run_migrate do |f|
+        f.boolean :active
+      end
+
+      expect(col_type(:active)).to eq('boolean')
+      rows = DB[table_name].order(:ref).all
+      expect(rows[0][:active]).to eq(true)
+      expect(rows[1][:active]).to eq(false)
+    end
+
+    it 'converts integer to string' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        Integer :code
+      end
+      DB[table_name].insert(ref: 'r1', code: 123)
+
+      run_migrate do |f|
+        f.string :code, limit: 50
+      end
+
+      expect(col_type(:code)).to eq('character varying(50)')
+      expect(DB[table_name].first[:code]).to eq('123')
+    end
+
+    it 'converts integer to boolean' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        Integer :flag
+      end
+      DB[table_name].insert(ref: 'r1', flag: 1)
+      DB[table_name].insert(ref: 'r2', flag: 0)
+
+      run_migrate do |f|
+        f.boolean :flag
+      end
+
+      expect(col_type(:flag)).to eq('boolean')
+      rows = DB[table_name].order(:ref).all
+      expect(rows[0][:flag]).to eq(true)
+      expect(rows[1][:flag]).to eq(false)
+    end
+
+    it 'converts boolean to integer' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        TrueClass :flag, default: false
+      end
+      DB[table_name].insert(ref: 'r1', flag: true)
+      DB[table_name].insert(ref: 'r2', flag: false)
+
+      run_migrate do |f|
+        f.integer :flag
+      end
+
+      expect(col_type(:flag)).to eq('integer')
+      rows = DB[table_name].order(:ref).all
+      expect(rows[0][:flag]).to eq(1)
+      expect(rows[1][:flag]).to eq(0)
+    end
+
+    it 'converts decimal to integer (truncates)' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        BigDecimal :price, size: [8, 2]
+      end
+      DB[table_name].insert(ref: 'r1', price: 3.14)
+
+      run_migrate do |f|
+        f.integer :price
+      end
+
+      expect(col_type(:price)).to eq('integer')
+      expect(DB[table_name].first[:price]).to eq(3)
+    end
+
+    it 'converts integer to decimal' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        Integer :amount
+      end
+      DB[table_name].insert(ref: 'r1', amount: 100)
+
+      run_migrate do |f|
+        f.decimal :amount
+      end
+
+      expect(col_type(:amount)).to include('numeric')
+      expect(DB[table_name].first[:amount].to_f).to eq(100.0)
+    end
+
+    it 'converts string to date' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        String :born_on
+      end
+      DB[table_name].insert(ref: 'r1', born_on: '2025-06-15')
+
+      run_migrate do |f|
+        f.date :born_on
+      end
+
+      expect(col_type(:born_on)).to eq('date')
+      expect(DB[table_name].first[:born_on]).to eq(Date.new(2025, 6, 15))
+    end
+
+    it 'converts string to timestamp' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        String :happened_at
+      end
+      DB[table_name].insert(ref: 'r1', happened_at: '2025-06-15 10:30:00')
+
+      run_migrate do |f|
+        f.datetime :happened_at
+      end
+
+      expect(col_type(:happened_at)).to include('timestamp')
+      expect(DB[table_name].first[:happened_at]).to be_a(Time)
+    end
+
+    it 'converts date to timestamp' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        Date :started
+      end
+      DB[table_name].insert(ref: 'r1', started: Date.new(2025, 1, 1))
+
+      run_migrate do |f|
+        f.datetime :started
+      end
+
+      expect(col_type(:started)).to include('timestamp')
+    end
+
+    it 'converts timestamp to date (truncates time)' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        DateTime :started
+      end
+      DB[table_name].insert(ref: 'r1', started: Time.new(2025, 6, 15, 14, 30, 0))
+
+      run_migrate do |f|
+        f.date :started
+      end
+
+      expect(col_type(:started)).to eq('date')
+      expect(DB[table_name].first[:started]).to eq(Date.new(2025, 6, 15))
+    end
+
+    it 'converts string to decimal' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        String :price
+      end
+      DB[table_name].insert(ref: 'r1', price: '19.99')
+
+      run_migrate do |f|
+        f.decimal :price
+      end
+
+      expect(col_type(:price)).to include('numeric')
+      expect(DB[table_name].first[:price].to_f).to eq(19.99)
+    end
+
+    it 'converts array base type (text[] to integer[])' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        column :ids, 'text[]', default: Sequel.lit("'{}'")
+      end
+      DB[table_name].insert(ref: 'r1', ids: Sequel.pg_array(['1', '2', '3']))
+
+      run_migrate do |f|
+        f.integer :ids, array: true
+      end
+
+      expect(col_type(:ids)).to eq('integer[]')
+      expect(DB[table_name].first[:ids]).to eq([1, 2, 3])
+    end
+
+    it 'prints warning for unknown conversion' do
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        TrueClass :flag, default: false
+      end
+
+      expect {
+        run_migrate do |f|
+          f.date :flag
+        end
+      }.to output(/Cannot auto-convert/).to_stdout
     end
   end
 end

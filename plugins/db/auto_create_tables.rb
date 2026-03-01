@@ -10,7 +10,7 @@ if ENV['DB_MIGRATE']
       def set_dataset(*args, &block)
         _set_dataset_original(*args, &block)
       rescue Sequel::DatabaseError => e
-        raise unless e.message.include?('UndefinedTable')
+        raise unless e.wrapped_exception.is_a?(PG::UndefinedTable)
         table_name = args.first.is_a?(Symbol) ? args.first : implicit_table_name
         db.create_table(table_name) do
           String :ref, primary_key: true

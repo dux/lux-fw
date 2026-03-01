@@ -4,10 +4,10 @@ Database-backed job queue with cron-like scheduling for Lux framework.
 
 ## Setup
 
-Require the plugin in your app:
+Load the plugin in your app:
 
 ```ruby
-require 'job_runner/job_runner'
+Lux.plugin 'job_runner'
 ```
 
 ## Usage
@@ -26,6 +26,11 @@ LuxJob.class_eval do
   define :send_email do |opts|
     Mailer.send(opts[:to], opts[:subject], opts[:body])
     "sent to #{opts[:to]}"
+  end
+
+  # Job with custom timeout (default is 60s)
+  define :long_report, every: 1.day, timeout: 300 do
+    Report.generate_all
   end
 end
 
@@ -52,6 +57,20 @@ Or programmatically:
 LuxJob.run  # blocks and polls every 3 seconds
 ```
 
+### Web Dashboard
+
+```bash
+rake job_runner:web[password]
+```
+
+Or mount in your Lux app:
+
+```ruby
+require 'job_runner/lib/lux_job_web'
+LuxJobWeb.password = 'secret'
+mount LuxJobWeb, at: '/sys-runner'
+```
+
 ## Schema
 
 | Field | Type | Description |
@@ -59,15 +78,26 @@ LuxJob.run  # blocks and polls every 3 seconds
 | name | String | Job identifier |
 | opts | Hash | Job arguments |
 | run_at | Time | Next scheduled run |
-| status_sid | String | s=Scheduled, r=Running, f=Failed, d=Done |
+| status_sid | String | s=Scheduled, r=Running, f=Failed, d=Done, x=Permanently failed |
 | retry_count | Integer | Number of retries after failure |
 | response | String | Last execution result/error |
 
+## Constants
+
+| Constant | Default | Description |
+|----------|---------|-------------|
+| MAX_RETRIES | 7 | Max retry attempts before permanent failure |
+| RETRY_BASE_WAIT | 60 | Base retry delay in seconds, grows by 60% each attempt |
+| DEFAULT_TIMEOUT | 60 | Default per-job timeout in seconds |
+
 ## Error Handling
 
-Failed jobs are automatically rescheduled with exponential backoff:
-- 1st failure: retry in 1 minute
-- 2nd failure: retry in 2 minutes
-- etc.
+Failed jobs are automatically rescheduled with 60% exponential backoff:
+- 1st retry: 60s
+- 2nd retry: 96s
+- 3rd retry: ~154s
+- ...up to 7 retries (~43 min total), then marked as permanently failed.
+
+Jobs that exceed their timeout are treated as failures and follow the same retry logic.
 
 Logs are written to `./log/lux_job.log`
