@@ -30,6 +30,13 @@ Sequel.inflections do |inflect|
   inflect.uncountable 'news'
 end
 
+# String and Sequel have separate inflection stores.
+# String#singularize uses String::Inflections, not Sequel::Inflections.
+String.inflections do |inflect|
+  inflect.singular /(status)$/i, '\1'
+  inflect.singular /(bonus)$/i, '\1'
+end
+
 # load Tilt parsers
 Haml::Template.options[:escape_html] = false
 # Tilt.register Tilt::ERBTemplate, 'erb'

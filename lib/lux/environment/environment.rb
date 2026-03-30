@@ -31,8 +31,8 @@ module Lux
     end
 
     def live?
-      value = ENV['LUX_LIVE'] || Lux.die('ENV LUX_LIVE not defined')
-      value == 'true'
+      return false if cli?
+      ENV['LUX_LIVE'] == 'true' || Lux.current.request.port < 450
     end
 
     def local?

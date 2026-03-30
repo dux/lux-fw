@@ -1,120 +1,86 @@
 # https://gist.github.com/dux/466507a5e86cadd2c4714381a1f06cf4
 
 class Thread::Simple
+  STOP ||= :__stop__
+
   # Thread::Simple.run do |t|
   #   for foo in bar
   #     t.add { ... }
   #   end
   # end
-  def self.run **args
+  def self.run(**args)
     ts = new(**args)
     yield ts
     ts.run
     ts
   end
 
-  # upload in 3 separate threads
-  # Thread::Simple.each(data., size: 3) do |source, target|
-  #   ::Cdn.cdn_upload "./public/assets/#{source}", "assets/#{target}"
+  # run block for each item in parallel
+  # Thread::Simple.each(files, size: 3) do |file|
+  #   upload(file)
   # end
-  def self.each list, **args, &block
+  def self.each(list, **args, &block)
     ts = new(**args)
-    list.send list.class == Hash ? :each : :each_with_index, &block
+    if list.is_a?(Hash)
+      list.each { |k, v| ts.add { block.call(k, v) } }
+    else
+      list.each { |item| ts.add { block.call(item) } }
+    end
     ts.run
     ts
   end
 
   ###
 
-  attr_accessor :que, :size
+  attr_reader :size
 
-  def initialize size: 5, sleep: 0.05
-    @sync     = Mutex.new
-    @sleep    = sleep
+  def initialize(size: 5)
     @size     = size
-    @que      = []
+    @queue    = Thread::Queue.new
     @threads  = []
+    @mutex    = Mutex.new
     @name_val = {}
   end
 
-  def add name = nil, &block
-    @sync.synchronize do
-      if name
-        @que << proc do
-          value = block.call
-          @sync.synchronize { @name_val[name] = value }
-        end
-      else
-        @que << block
+  def add(name = nil, &block)
+    if name
+      @queue << proc do
+        value = block.call
+        @mutex.synchronize { @name_val[name] = value }
       end
+    else
+      @queue << block
     end
   end
 
-  def run endless: false
+  def run(endless: false)
     @endless = endless
 
     @size.times do
       @threads << Thread.new do
-        task = nil
-
-        while active?
-          @sync.synchronize { task = @que.pop }
-          task.call if task
-          sleep @sleep
+        while (task = @queue.pop) != STOP
+          task.call
         end
       end
     end
 
     unless @endless
+      # signal each worker to stop, then wait
+      @size.times { @queue << STOP }
       @threads.each(&:join)
     end
   end
 
   def stop
-    @endless = false
+    @size.times { @queue << STOP }
+    @threads.each(&:join)
   end
 
-  def [] name
-    @sync.synchronize { @name_val[name] }
+  def [](name)
+    @mutex.synchronize { @name_val[name] }
   end
 
-  # Read-only accessor for named results
   def named
-    @sync.synchronize { @name_val.dup }
-  end
-
-  private
-
-  def active?
-    @endless || @sync.synchronize { !@que.empty? }
+    @mutex.synchronize { @name_val.dup }
   end
 end
-
-###
-
-# pool = Thread::Simple.new
-
-# 1.upto(20) do |i|
-#   pool.add i do
-#     print '.'
-#     time = rand
-#     sleep time
-#     'Integer: %s (%s - %s)' % [i, pool.que.size, time]
-#   end
-# end
-
-# Thread.new do
-#   sleep 5
-#   pool.stop
-# end
-
-# pool.run endless: true
-
-# puts
-
-# for key in pool.named.keys.sort
-#   puts '%s -> %s' % [key, pool.named[key]]
-# end
-
-# puts
-# puts pool[10]

@@ -7,6 +7,6 @@ end
 # exposes lux shortcut anywhere
 class Object
   def lux
-    Lux.current
+    Thread.current[:lux]
   end
 end

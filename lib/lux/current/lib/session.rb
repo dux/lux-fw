@@ -16,8 +16,10 @@ module Lux
         Lux.config[:session_forced_validity] ||= 15.minutes.to_i
         Lux.config[:session_cookie_max_age]  ||= 1.month.to_i
 
-        # name of the session cookie
-        @cookie_name = Lux.config[:session_cookie_name] ||= 'lux_' + Crypt.sha1(Lux.config.secret)[0,4].downcase
+        # name of the session cookie, encodes Accept-Language and CF country for immediate invalidation
+        base = Lux.config[:session_cookie_name] || 'lux'
+        identity = request.env['HTTP_ACCEPT_LANGUAGE'].to_s + request.env['HTTP_CF_IPCOUNTRY'].to_s
+        @cookie_name = base + '_' + Crypt.sha1(Lux.config.secret + identity)[0,6].downcase
         @cookie_name += "_#{request.port}" # we do not want http and https cookie name conflicts
         @request     = request
         @hash        = JSON.parse(Crypt.decrypt(request.cookies[@cookie_name] || '{}')) rescue {}
@@ -71,8 +73,7 @@ module Lux
       end
 
       def security_string
-        base = @request.env['HTTP_CF_IPCOUNTRY'] || Lux.current.ip.split('.').first(3).join('.')
-        base + @request.env['HTTP_USER_AGENT'].to_s
+        Lux.current.ip + @request.env['HTTP_USER_AGENT'].to_s
       end
 
       private
@@ -84,12 +85,17 @@ module Lux
         # force type array
         @hash.delete(key) unless @hash[key].class == Array
 
-        # allow 10 mins delay for IP change
-        if @hash[key] && (@hash[key][0] != check && @hash[key][1].to_i < Time.now.to_i - Lux.config.session_forced_validity)
-          @hash = {}
+        if @hash[key] && @hash[key][0] != check
+          # IP or browser changed - check grace period from last valid request
+          if @hash[key][1].to_i < Time.now.to_i - Lux.config.session_forced_validity
+            @hash = {}
+          end
+
+          # don't update timestamp so grace period counts down from last matching request
+          return
         end
 
-        # add new time stamp to every request
+        # check passed or new session - update timestamp
         @hash[key] = [check, Time.now.to_i]
       end
     end

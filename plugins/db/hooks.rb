@@ -11,6 +11,13 @@ module Sequel::Plugins::LuxHooks
       hooks.each_value do |proc|
         instance_exec m, k, &proc
       end
+
+      raise Sequel::ValidationFailed.new(errors) if k == :b && errors.any?
+    end
+
+    def validate
+      before_update_exec :b, :v
+      super
     end
 
     def before_create

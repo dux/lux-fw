@@ -1,6 +1,7 @@
 # You put in model
 # * parent_key  (string "Class/ref" format)
-# * or parent_type + parent_ref
+# * or parent_model + parent_ref (preferred)
+# * or parent_type + parent_ref (legacy alias)
 # @object.parent -> get parent
 # @object.parent= model -> set parent
 # Object.for_parent(@model) -> search Object
@@ -10,8 +11,18 @@ module Sequel::Plugins::ParentModel
     def where_parent object
       if model.db_schema[:parent_key]
         where(parent_key: object.key)
-      else
-        where(parent_type: object.class.to_s, parent_ref: object.ref)
+      elsif col = parent_model_col
+        where(col => object.class.to_s, parent_ref: object.ref)
+      end
+    end
+
+    private
+
+    def parent_model_col
+      if model.db_schema[:parent_model]
+        :parent_model
+      elsif model.db_schema[:parent_type]
+        :parent_type
       end
     end
   end
@@ -27,7 +38,7 @@ module Sequel::Plugins::ParentModel
           '%s/%s' % [model.class, model.ref]
         end
       else
-        self[:parent_type] = model.class.to_s
+        self[parent_model_col] = model.class.to_s
         self[:parent_ref] = model.ref
       end
 
@@ -45,7 +56,7 @@ module Sequel::Plugins::ParentModel
         if key = self[:parent_key]
           key = key.split('/')
           key[0].constantize.find(key[1])
-        elsif type = self[:parent_type]
+        elsif type = (self[:parent_model] || self[:parent_type])
           type.constantize.find(self[:parent_ref])
         else
           raise ArgumentError, '%s parent key not found.' % self.class
@@ -55,7 +66,19 @@ module Sequel::Plugins::ParentModel
 
     # check if parent is present
     def parent?
-      db_schema[:parent_key] || db_schema[:parent_type]
+      db_schema[:parent_key] || db_schema[:parent_model] || db_schema[:parent_type]
+    end
+
+    private
+
+    def parent_model_col
+      if db_schema[:parent_model]
+        :parent_model
+      elsif db_schema[:parent_type]
+        :parent_type
+      else
+        raise ArgumentError, 'parent column not found for %s' % self.class
+      end
     end
   end
 
@@ -64,10 +87,20 @@ module Sequel::Plugins::ParentModel
     def for_parent object
       if db_schema[:parent_key]
         where(parent_key: object.key)
-      elsif db_schema[:parent_type]
-        where(parent_ref: object.ref, parent_type: object.class.to_s)
+      elsif col = parent_model_col
+        where(parent_ref: object.ref, col => object.class.to_s)
       else
         raise ArgumentError, 'parent key not found'
+      end
+    end
+
+    private
+
+    def parent_model_col
+      if db_schema[:parent_model]
+        :parent_model
+      elsif db_schema[:parent_type]
+        :parent_type
       end
     end
   end

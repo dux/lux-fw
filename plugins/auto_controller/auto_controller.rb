@@ -61,28 +61,33 @@ module Lux
       return unless block_given?
 
       @filter_depth ||= 0
+      return if @filter_matched_depth && @filter_depth <= @filter_matched_depth
+
       path = nav.path.drop(@filter_depth).map { _1.to_s.gsub('-', '_') }
       segments = segments.map { _1.to_s.gsub('-', '_') }
 
       # Check if remaining path starts with segments
       return unless path[0, segments.length] == segments
 
+      @filter_matched_depth = @filter_depth
       @filter_depth += segments.length
       instance_eval(&block)
       @filter_depth -= segments.length
     end
 
+    AUTO_TEMPLATE_EXTS = %w[haml md erb].freeze
+
     # Find template by path, returns nil if not found
-    # Tries: /path.haml then /path/root.haml
+    # Tries: /path.{haml,md,erb} then /path/root.{haml,md,erb}
     #
     # Examples:
     #   auto_find_template(['main', 'notes'])
-    #   # tries ./app/views/main/notes.haml
-    #   # then  ./app/views/main/notes/root.haml
+    #   # tries ./app/views/main/notes.haml, .md, .erb
+    #   # then  ./app/views/main/notes/root.haml, .md, .erb
     #
     #   auto_find_template(['main', 'boards', 'ref', 'kanban'])
-    #   # tries ./app/views/main/boards/ref/kanban.haml
-    #   # then  ./app/views/main/boards/ref/kanban/root.haml
+    #   # tries ./app/views/main/boards/ref/kanban.haml, .md, .erb
+    #   # then  ./app/views/main/boards/ref/kanban/root.haml, .md, .erb
     #
     #   # typical usage in controller
     #   tpl = auto_find_template([root] + nav.path)
@@ -94,7 +99,9 @@ module Lux
       AUTO_PATH_CACHE[tpl_root] = nil if Lux.env.dev?
       AUTO_PATH_CACHE[tpl_root] ||= begin
         for check in [tpl_root, "#{tpl_root}/root"]
-          return check if File.exist?("./app/views#{check}.haml")
+          for ext in AUTO_TEMPLATE_EXTS
+            return check if File.exist?("./app/views#{check}.#{ext}")
+          end
         end
         nil
       end
@@ -106,7 +113,8 @@ module Lux
         render tpl
       else
         base = '/' + path.join('/')
-        @paths = ["#{base}.haml", "#{base}/root.haml"]
+        exts = AUTO_TEMPLATE_EXTS.map { |e| ".#{e}" }.join(', ')
+        @paths = ["#{base}{#{exts}}", "#{base}/root{#{exts}}"]
         render '/error_404', status: 404
       end
     end
@@ -136,6 +144,17 @@ module Lux
         instance_variable_set "@#{name}".to_sym, @object
       else
         raise Lux.error.not_found "Object not found"
+      end
+    end
+
+    # /org/foobar123 -> @object = @org = Org.find('foobar123')
+    def auto_load_object
+      if nav.id
+        model = nav.path[0].classify
+        if Object.const_defined?(model)
+          @object = model.constantize.find(nav.id)
+          instance_variable_set "@#{@object.class.to_s.underscore}".to_sym, @object
+        end
       end
     end
   end

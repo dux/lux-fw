@@ -14,7 +14,7 @@ class RoutesTestController < Lux::Controller
   end
 
   def foo
-    render text: params[:foo]
+    render text: lux.params[:foo]
   end
 
   def city
@@ -36,7 +36,7 @@ Lux.app do
   routes do
     root 'routes_test#root'
 
-    map :plain => proc { response.body 'plain' }
+    map :plain => proc { lux.response.body 'plain' }
     map %r{^@} => [RoutesTestController, :user]
     map %r{^~} => RoutesTestController
 
@@ -55,7 +55,7 @@ Lux.app do
       map 'foo-nested' => 'routes_test#nested'
     end
 
-    response.body 'not found', status: 404
+    lux.response.body 'not found', status: 404
   end
 
   ###

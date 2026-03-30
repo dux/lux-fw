@@ -29,9 +29,9 @@ class ExtendedTestController < Lux::Controller
   end
 
   def get_only
-    if request.get?
+    if lux.request.get?
       render text: 'get response'
-    elsif request.post?
+    elsif lux.request.post?
       render text: 'post response'
     end
   end
@@ -42,7 +42,7 @@ class ExtendedTestController < Lux::Controller
   end
 
   def redirect_test
-    response.redirect_to '/target', info: 'Moved'
+    lux.response.redirect_to '/target', info: 'Moved'
   end
 end
 

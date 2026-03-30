@@ -181,6 +181,14 @@ module Lux
       Crypt.decrypt(token, opts)
     end
 
+    def session_sid
+      User.current&[:session_sid]
+    end
+
+    def user
+      User.current
+    end
+
     # Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
     private
 

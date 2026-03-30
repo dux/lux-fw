@@ -9,6 +9,11 @@ namespace :job_runner do
     LuxJob.run
   end
 
+  desc 'Restarts job server'
+  task :restart do
+    # job-runner-soho_tasks
+  end
+
   desc 'Start job runner web interface on port 3001'
   task :web, [:password] => :app do |_, args|
     unless args[:password]

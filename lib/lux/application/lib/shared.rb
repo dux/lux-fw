@@ -1,46 +1,17 @@
+# Backward compatibility module - delegates to lux.*
 module Lux
   class Application
     module Shared
-      def current
-        Lux.current
-      end
-
-      def request
-        Lux.current.request
-      end
-
-      def response
-        Lux.current.response
-      end
-
-      def session
-        Lux.current.session
-      end
-
-      def params opts=nil, &block
-        if block_given?
-          Typero.schema(&block).validate Lux.current.request.params, opts do |field, error|
-            error 'Parameter "%s" error: %s' % [field, error]
-          end
-        end
-
-        Lux.current.params
-      end
-
-      def nav
-        Lux.current.nav
-      end
-
-      def body?
-        Lux.current.response.body?
-      end
+      def request;     lux.request;  end
+      def response;    lux.response; end
+      def session;     lux.session;  end
+      def params;      lux.params;   end
+      def nav;         lux.nav;      end
+      def current;     lux;          end
+      def user;        lux.user;     end
 
       def redirect_to where, flash = {}
-        Lux.current.response.redirect_to where, flash
-      end
-
-      def user
-        User.current
+        lux.response.redirect_to where, flash
       end
     end
   end

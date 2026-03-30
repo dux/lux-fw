@@ -17,34 +17,63 @@ module CdnAsset
   #   = Cdn.url '/assets.js', dynamic: true
   def url name, opts = {}
     if name.include?('//') || name.start_with?('/') || opts.delete(:dynamic)
-      asset_tag name, opts
+      nil
     else
       if root = Lux.secrets[:cdn_root]
-        hash = manifest[name]
-        file = hash ? hashed_name(name, hash) : name
+        hash = manifest[name] || return
+        file = hashed_name(name, hash)
         name = '%s/assets/%s' % [root, file]
       else
+        return unless File.exist?("./public/assets/#{name}")
         tim_stamp = Lux.env.reload? ? get_time_stamp : TIME_STAMP
         name = '/assets/%s?%s' % [name, tim_stamp]
       end
-
-      asset_tag name, opts
     end
+
+    asset_tag name, opts
   end
 
   def upload
     cdn_url = Lux.config.production.cdn_root
     data = manifest
+    failed = []
 
     Thread::Simple.each(Dir.files('./public/assets')) do |file|
       data[file] = Digest::MD5.hexdigest(File.read("./public/assets/#{file}"))[0, 8]
       target = hashed_name(file, data[file])
-      ::Cdn.cdn_upload "./public/assets/#{file}", "assets/#{target}"
-      puts "* #{file} -> #{cdn_url}/assets/#{target}"
+      local_path = "./public/assets/#{file}"
+      remote_key = "assets/#{target}"
+
+      ok = ::Cdn.cdn_upload(local_path, remote_key, production: true)
+      unless ok
+        # retry once
+        sleep 1
+        ok = ::Cdn.cdn_upload(local_path, remote_key, production: true)
+      end
+
+      if ok
+        puts "* #{file} -> #{cdn_url}/#{remote_key}"
+      else
+        failed.push file
+        puts "* FAIL #{file} -> #{cdn_url}/#{remote_key}"
+      end
+    end
+
+    if failed.any?
+      abort "CDN upload failed for: #{failed.join(', ')}"
     end
 
     File.write('./public/manifest.json', data.to_jsonp)
     nil
+  end
+
+  # = CdnAsset.auto :shared, :fez, :app
+  def auto *list
+    list.inject([]) do |t, el|
+      t.push url("auto-#{el}.js")
+      t.push url("auto-#{el}.css")
+      t
+    end.compact.join("\n")
   end
 
   private
@@ -66,7 +95,7 @@ module CdnAsset
   end
 
   def asset_tag name, opts={}
-    opts[:crossorigin] = 'anonymous' if name.include?('http')
+    # crossorigin not needed - CDN bucket has CORS configured
     as = opts.delete :as
     as ||= :js if name.include?('.js')
     as ||= :css if name.include?('css')

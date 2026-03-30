@@ -7,12 +7,20 @@ module Lux
   class Application
     include ClassCallbacks
     include Routes
-    include Shared
 
     define_callback :before       # before any page load
     define_callback :routes       # routes resolve
     # define_callback :before_after # after any page load
     define_callback :after        # after any page load
+
+    # convenience methods delegating to lux.*
+    define_method(:current)     { Lux.current }
+    define_method(:request)     { lux.request }
+    define_method(:response)    { lux.response }
+    define_method(:params)      { lux.params }
+    define_method(:nav)         { lux.nav }
+    define_method(:session)     { lux.session }
+    define_method(:user)        { lux.user }
 
     def initialize env, opts={}
       Lux::Current.new env, opts
@@ -20,19 +28,19 @@ module Lux
 
     # main render called by Lux.call
     def render_base
-      run_callback :before, nav.path
+      run_callback :before, lux.nav.path
 
       if Lux.env.reload? && Lux.env.web?
         Lux.config.on_reload_code.call
       end
 
-      request_method = request.request_method
+      request_method = lux.request.request_method
 
       Lux.log ''
-      Lux.log { [request_method.colorize(:white), request.url].join(' ') }
+      Lux.log { [request_method.colorize(:white), lux.request.url].join(' ') }
 
-      if request.post?
-        Lux.log { request.params.to_h.to_jsonp }
+      if lux.request.post?
+        Lux.log { lux.request.params.to_h.to_jsonp }
       end
 
       if request_method == 'OPTIONS'
@@ -46,15 +54,15 @@ module Lux
         Lux::Response::File.deliver_from_current
       end
 
-      resolve_routes unless response.body?
+      resolve_routes unless lux.response.body?
 
-      Lux.error.not_found unless response.body?
+      Lux.error.not_found unless lux.response.body?
 
-      response.render self
+      lux.response.render self
     rescue StandardError => err
       Lux.logger.error Lux::Error.format(err, message: true, gems: false)
       respond_to?(:app_rescue_from) ? app_rescue_from(err) : rescue_from(err)
-      response.render
+      lux.response.render
     end
 
     # override in Lux.app do ... end block:
@@ -81,8 +89,8 @@ module Lux
         types = [:text, :html, :json, :javascript, :xml]
         for type in types
           if value = opts[type]
-            response.status opts[:status] if opts[:status]
-            response.body value, content_type: type
+            lux.response.status opts[:status] if opts[:status]
+            lux.response.body value, content_type: type
             return
           end
         end
@@ -102,7 +110,7 @@ module Lux
         body:    body,
         time:    out[1]['x-lux-speed'],
         status:  out[0],
-        session: current.session.hash,
+        session: lux.session.hash,
         headers: out[1]
       }.to_hwia
     end
@@ -111,20 +119,20 @@ module Lux
       target = opts.keys.first
       value  = opts.values.first
 
-      return unless request.path.to_s.start_with?(value)
+      return unless lux.request.path.to_s.start_with?(value)
 
-      response.rack target, mount_at: value
+      lux.response.rack target, mount_at: value
     end
 
     def favicon path
-      cpath = request.path.downcase
+      cpath = lux.request.path.downcase
 
-      if !response.body? && (cpath.start_with?('/favicon') || cpath.start_with?('/apple-touch-icon'))
-        response.max_age = 600 if response.max_age.to_i == 0
+      if !lux.response.body? && (cpath.start_with?('/favicon') || cpath.start_with?('/apple-touch-icon'))
+        lux.response.max_age = 600 if lux.response.max_age.to_i == 0
 
         icon = Lux.root.join(path)
         if icon.exist?
-          response.send_file(icon, inline: true)
+          lux.response.send_file(icon, inline: true)
         else
           Lux.error.not_found '%s not found' % path
         end
@@ -134,7 +142,7 @@ module Lux
     # internall call to resolve the routes
     def resolve_routes
       catch :done do
-        run_callback :routes, nav.path
+        run_callback :routes, lux.nav.path
       end
     end
   end

@@ -15,6 +15,11 @@ module Sequel::Plugins::LuxLinks
         elsif model.db_schema[:parent_key]
           key = '%s/%s' % [object.class, object.ref]
           where(parent_key: key)
+        elsif model.db_schema[:parent_model]
+          where(
+            parent_model: object.class.to_s,
+            parent_ref: object.ref
+          )
         elsif model.db_schema[:parent_ref]
           where(
             parent_type: object.class.to_s,

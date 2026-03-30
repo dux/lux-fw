@@ -1,34 +1,38 @@
 class Object
   LUX_AUTO_LOAD ||= {}
+  LUX_AUTO_LOAD_MUTEX ||= Monitor.new
 
   def self.const_missing klass, path=nil
-    unless LUX_AUTO_LOAD.keys.first
-      for file in Dir.glob('./app/**/*.rb').sort
-        klass_file = file
-          .split('/')
-          .last
-          .sub('.rb', '')
-          .classify
-        LUX_AUTO_LOAD[klass_file] ||= [false, file]
+    LUX_AUTO_LOAD_MUTEX.synchronize do
+      # return if another thread already loaded it
+      return Object.const_get(klass) if Object.const_defined?(klass)
+
+      unless LUX_AUTO_LOAD.keys.first
+        for file in Dir.glob('./app/**/*.rb').sort
+          klass_file = file
+            .split('/')
+            .last
+            .sub('.rb', '')
+            .classify
+          LUX_AUTO_LOAD[klass_file] ||= [false, file]
+        end
       end
-    end
 
-    klass = klass.to_s if klass.class == Symbol
-    path  = LUX_AUTO_LOAD[klass] || LUX_AUTO_LOAD[klass.classify] # this is because 'status'.classify -> 'Statu' and not 'Status'
-    error = %{Can't find and autoload module/class "%s"} % klass.classify
+      klass = klass.to_s if klass.class == Symbol
+      path  = LUX_AUTO_LOAD[klass] || LUX_AUTO_LOAD[klass.classify] # this is because 'status'.classify -> 'Statu' and not 'Status'
+      error = %{Can't find and autoload module/class "%s"} % klass.classify
 
-    # rr [klass, klass.classify] if klass != klass.classify
-
-    if path
-      if path[0]
-        raise NameError.new('%s, found file "%s" is not defineing it.' % [error, path[1]])
+      if path
+        if path[0]
+          raise NameError.new('%s, found file "%s" is not defineing it.' % [error, path[1]])
+        else
+          path[0] = true
+          require path[1].sub('.rb', '')
+          Object.const_get(klass)
+        end
       else
-        path[0] = true
-        require path[1].sub('.rb', '')
-        Object.const_get(klass)
+        raise NameError.new('%s. Scanned all files in ./app folder' % error)
       end
-    else
-      raise NameError.new('%s. Scanned all files in ./app folder' % error)
     end
   end
 

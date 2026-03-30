@@ -4,7 +4,6 @@
 module Lux
   class Controller
     include ClassCallbacks
-    include ::Lux::Application::Shared
 
     # define master layout
     # string is template, symbol is method pointer and lambda is lambda
@@ -89,7 +88,7 @@ module Lux
       run_callback :before, @lux.action
 
       catch :done do
-        unless response.body?
+        unless lux.response.body?
           run_callback :before_action, @lux.action
 
           # if action not found
@@ -111,19 +110,32 @@ module Lux
     end
 
     def flash
-      response.flash
+      lux.response.flash
     end
+
+    # convenience methods delegating to lux.*
+    define_method(:current)     { Lux.current }
+    define_method(:request)     { lux.request }
+    define_method(:response)    { lux.response }
+    define_method(:params)      { lux.params }
+    define_method(:nav)         { lux.nav }
+    define_method(:session)     { lux.session }
+    define_method(:user)        { lux.user }
 
     private
 
-    # delegated to current — use request.get?, request.post?, etc. for HTTP method checks
-    define_method(:etag)          { |*args| current.response.etag *args }
+    def redirect_to where, flash = {}
+      lux.response.redirect_to where, flash
+    end
+
+    # delegated to current — use lux.request.get?, lux.request.post?, etc. for HTTP method checks
+    define_method(:etag)          { |*args| lux.response.etag *args }
     define_method(:layout)        { |arg = :_nil| arg == :_nil ? @lux.layout : (@lux.layout = arg) }
-    define_method(:cache_control) { |arg| response.headers['cache-control'] = arg }
+    define_method(:cache_control) { |arg| lux.response.headers['cache-control'] = arg }
 
     # send file to browser
     def send_file file, opts = {}
-      response.send_file(file, opts)
+      lux.response.send_file(file, opts)
     end
 
     # does not set the body, returns body string
@@ -145,17 +157,17 @@ module Lux
     # render json: { a: 1 }
     # render html: '<h1>hi</h1>', status: 200
     def render name = nil, opts = {}
-      return if response.body?
+      return if lux.response.body?
 
       opts = normalize_render_opts(name, opts)
 
-      response.status opts.status if opts.status
-      response.content_type = opts.content_type if opts.content_type
+      lux.response.status opts.status if opts.status
+      lux.response.content_type = opts.content_type if opts.content_type
 
       return if render_static(opts)
 
       data = opts.cache ? render_cached(opts) : render_template(opts)
-      response.body data
+      lux.response.body data
     end
 
     # normalize render arguments into a RENDER_OPTS struct
@@ -175,7 +187,7 @@ module Lux
       opts.cache = @lux.render_cache if @lux.render_cache
 
       # we do not want to cache pages that have flashes in response
-      opts.cache = nil if response.flash.present?
+      opts.cache = nil if lux.response.flash.present?
 
       # define which layout we use
       opts.layout ||= @lux.layout.nil? ? self.class.cattr.layout : @lux.layout
@@ -188,7 +200,7 @@ module Lux
     def render_static opts
       for el in [:text, :html, :json, :javascript, :xml]
         if value = opts[el]
-          response.body value, content_type: el
+          lux.response.body value, content_type: el
           return true
         end
       end
@@ -207,7 +219,7 @@ module Lux
       end
 
       if add_info && from_cache
-        response.header['x-lux-cache'] = 'render-cache'
+        lux.response.header['x-lux-cache'] = 'render-cache'
         from_cache += '<!-- from page cache -->' if from_cache =~ %r{</html>\s*$}
       end
 
@@ -265,14 +277,14 @@ module Lux
     # respond_to do |format| ...
     def respond_to ext=nil
       if ext
-        if ext == nav.format
+        if ext == lux.nav.format
           yield if block_given?
           true
-        elsif nav.format
-          Lux.error.not_found '%s document Not Found' % nav.format.to_s.upcase
+        elsif lux.nav.format
+          Lux.error.not_found '%s document Not Found' % lux.nav.format.to_s.upcase
         end
       else
-        yield nav.format
+        yield lux.nav.format
       end
     end
 
@@ -322,7 +334,7 @@ module Lux
         return false if caller[0].include?("`action_missing'")
       end
 
-      message = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, nav]
+      message = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, lux.nav]
 
       if Lux.env.log?
         defined_methods = (methods - Lux::Controller.instance_methods).map(&:to_s)

@@ -10,7 +10,7 @@ module Lux
       # get foo: 'main/bar', only: [:show], except: [:index]
       %w{get head post delete put patch}.each do |m|
         define_method('%s?' % m) do |*args, &block|
-          cm = current.request.request_method
+          cm = lux.request.request_method
           cm = 'GET' if cm == 'HEAD'
           return unless cm == m.upcase
 
@@ -32,7 +32,7 @@ module Lux
       # root 'main#index'
       # ```
       def root target
-        call target unless nav.root
+        call target unless lux.nav.root
       end
 
       # standard route match
@@ -42,9 +42,9 @@ module Lux
 
         base.each_with_index do |el, i|
           if el[0,1] == ':'
-            params[el.sub(':','').to_sym] = nav.path[i]
+            lux.params[el.sub(':','').to_sym] = lux.nav.path[i]
           else
-            return unless el == nav.path[i]
+            return unless el == lux.nav.path[i]
           end
         end
 
@@ -53,7 +53,7 @@ module Lux
 
       # Matches given subdomain name
       def subdomain name
-        return unless nav.subdomain == name.to_s
+        return unless lux.nav.subdomain == name.to_s
         yield
         Lux.error.not_found 'Subdomain "%s" matched but nothing called' % name
       end
@@ -72,18 +72,18 @@ module Lux
       # end
       # ```
       def map route_object = nil, target = nil, &block
-        return if response.body?
+        return if lux.response.body?
 
         route_object = [route_object, target] if target
 
         if block_given?
           # map 'admin' do ...
           if route_match?(route_object)
-            nav.shift
+            lux.nav.shift
             begin
-              yield nav.root
+              yield lux.nav.root
             ensure
-              nav.unshift
+              lux.nav.unshift
             end
           end
 
@@ -98,7 +98,7 @@ module Lux
         case route_object
         when String
           # map 'root#call'
-          nav.shift
+          lux.nav.shift
           catch(:done) { call route_object }
         when Hash
           route  = route_object.keys.first
@@ -113,7 +113,7 @@ module Lux
             # map [:foo, :bar] => 'root'
             for route_action in route
               if route_match?(route_action)
-                nav.shift
+                lux.nav.shift
                 call klass, route_action
               end
             end
@@ -131,7 +131,7 @@ module Lux
         end
 
         if route_match?(route)
-          nav.shift
+          lux.nav.shift
           call(klass, nil, opts)
         end
       end
@@ -170,27 +170,27 @@ module Lux
            if object.include?('#')
             object, action = object.split('#')
           else
-            action = nav.root.or(:index)
+            action = lux.nav.root.or(:index)
           end
         when Array
           if object[0].class == Integer && object[1].class == Hash
             # [200, {}, 'ok']
             for key, value in object[1]
-              response.header key, value
+              lux.response.header key, value
             end
 
-            response.status object[0]
-            response.body object[2].is_a?(Array) ? object[2].first : object[2]
+            lux.response.status object[0]
+            lux.response.body object[2].is_a?(Array) ? object[2].first : object[2]
           else
             object, action = object
           end
         when Proc
           case data = object.call
           when Array
-            response.status = data.first
-            response.body data[2].is_a?(Array) ? data[2][0] : data[2]
+            lux.response.status = data.first
+            lux.response.body data[2].is_a?(Array) ? data[2][0] : data[2]
           else
-            response.body data
+            lux.response.body data
           end
         end
 
@@ -199,15 +199,15 @@ module Lux
         end
 
         if [Module, Class].include?(object.class) && object.respond_to?(:call)
-          response.rack object
+          lux.response.rack object
         end
 
         if object.respond_to?(:source_location)
-          current.files_in_use object.source_location
+          lux.files_in_use object.source_location
         end
 
         opts   ||= {}
-        action ||= nav.path.last || :index
+        action ||= lux.nav.path.last || :index
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
           Lux.error.not_found "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}"
@@ -224,12 +224,12 @@ module Lux
           object.action action.to_sym, ivars: instance_variables_hash
         end
 
-        throw :done if response.body?
+        throw :done if lux.response.body?
       end
 
-      # Pure predicate: checks if nav.root matches the given route (no side effects)
+      # Pure predicate: checks if lux.nav.root matches the given route (no side effects)
       def route_match? route
-        root = nav.root.to_s
+        root = lux.nav.root.to_s
         case route
         when String then root == route.sub(/^\//,'')
         when Symbol then route.to_s == root

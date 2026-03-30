@@ -14,7 +14,7 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.email       = 'rejotl@gmail.com'
   gem.files       = gem_files
 
-  gem.executables = ['lux', 'lux-procfile']
+  gem.executables = ['lux', 'lux-sysd']
 
   # added by analogy
   gem.add_dependency 'rack'

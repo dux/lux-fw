@@ -1061,6 +1061,93 @@ describe 'plugins/db/hooks.rb', :db_plugin do
       t.update(name: 'C')
       expect(fired.count(:before_cu)).to eq(1) # update
     end
+
+    it 'fires before(:v) before validation' do
+      fired = []
+      Task.before(:v) { fired << :before_validate }
+      create_task(name: 'Hook')
+      expect(fired).to include(:before_validate)
+    end
+
+    it 'fires before(:v) before before(:c)' do
+      order = []
+      Task.before(:v) { order << :validate }
+      Task.before(:c) { order << :create }
+      create_task(name: 'Order')
+      expect(order).to eq([:validate, :create])
+    end
+
+    it 'fires before(:v) on update too' do
+      fired = []
+      Task.before(:v) { fired << :before_validate }
+      t = create_task(name: 'Hook')
+      fired.clear
+      t.update(name: 'Updated')
+      expect(fired).to include(:before_validate)
+    end
+
+    it 'supports before(:vc) combined hook' do
+      fired = []
+      Task.before(:vc) { fired << :before_vc }
+      create_task(name: 'Combined')
+      expect(fired).to include(:before_vc)
+    end
+  end
+
+  describe 'before hooks with errors prevent save' do
+    before(:each) do
+      Sequel::Plugins::LuxHooks::HOOK_METHODS.delete(Task)
+    end
+
+    it 'before(:c) errors prevent record creation' do
+      Task.before(:c) { errors.add(:name, 'is invalid') }
+      expect {
+        create_task(name: 'Blocked')
+      }.to raise_error(Sequel::ValidationFailed, /is invalid/)
+      expect(DB[:tasks].count).to eq(0)
+    end
+
+    it 'before(:u) errors prevent record update' do
+      t = create_task(name: 'Original')
+      Task.before(:u) { errors.add(:name, 'cannot change') }
+      expect {
+        t.update(name: 'Changed')
+      }.to raise_error(Sequel::ValidationFailed, /cannot change/)
+      expect(t.reload.name).to eq('Original')
+    end
+
+    it 'before(:d) errors prevent record destruction' do
+      t = create_task(name: 'Keep')
+      Task.before(:d) { errors.add(:base, 'cannot delete') }
+      expect {
+        t.destroy
+      }.to raise_error(Sequel::ValidationFailed, /cannot delete/)
+      expect(DB[:tasks].count).to eq(1)
+    end
+
+    it 'before(:v) errors prevent save via standard validation' do
+      Task.before(:v) { errors.add(:name, 'bad name') }
+      expect {
+        create_task(name: 'Blocked')
+      }.to raise_error(Sequel::ValidationFailed, /bad name/)
+      expect(DB[:tasks].count).to eq(0)
+    end
+
+    it 'error messages are preserved in the exception' do
+      Task.before(:c) { errors.add(:name, 'too short'); errors.add(:name, 'is blank') }
+      begin
+        create_task(name: 'Fail')
+      rescue Sequel::ValidationFailed => e
+        expect(e.errors[:name]).to include('too short')
+        expect(e.errors[:name]).to include('is blank')
+      end
+    end
+
+    it 'after hooks do not trigger validation check' do
+      Task.after(:c) { errors.add(:name, 'should not matter') }
+      expect { create_task(name: 'OK') }.not_to raise_error
+      expect(DB[:tasks].count).to eq(1)
+    end
   end
 end
 

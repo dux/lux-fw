@@ -13,7 +13,7 @@ class AutoMigrate
   # safe: true  = no data loss possible, runs automatically
   # safe: false = may lose data, prompts for confirmation
   # using: nil  = PostgreSQL can cast implicitly
-  TYPE_CONVERSIONS = {
+  TYPE_CONVERSIONS ||= {
     # string/text → numeric/boolean/json
     [:string, :integer]   => { using: '%s::integer',                       safe: false },
     [:string, :decimal]   => { using: '%s::numeric',                       safe: false },

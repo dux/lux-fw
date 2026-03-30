@@ -19,11 +19,13 @@ module Lux
         obj
       end
 
-      define_method(:current) { Lux.current }
-      define_method(:request) { Lux.current.request }
-      define_method(:params)  { Lux.current.params }
-      define_method(:nav)     { Lux.current.nav }
       define_method(:get)     { |name| instance_variable_get('@%s' % name) }
+      define_method(:current) { Lux.current }
+      define_method(:request) { lux.request }
+      define_method(:params)  { lux.params }
+      define_method(:nav)     { lux.nav }
+      define_method(:session) { lux.session }
+      define_method(:user)    { lux.user }
 
       def no_white_space
         yield.gsub(/>\s+</,'><')
@@ -145,7 +147,7 @@ module Lux
       end
 
       def flash
-        Lux.current.response.flash
+        lux.response.flash
       end
     end
   end

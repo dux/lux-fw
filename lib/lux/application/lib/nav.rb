@@ -90,7 +90,7 @@ module Lux
       end
 
       def id
-        @ids.last
+        @ids[0]
       end
 
       def id= data

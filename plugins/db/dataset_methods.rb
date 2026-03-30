@@ -121,6 +121,8 @@ Sequel::Model.dataset_module do
       where Sequel.lit("?=any(#{n2}_refs)", obj.ref.to_s)
     elsif model.db_schema[:parent_key]
       where(parent_key: obj.key)
+    elsif model.db_schema[:parent_model]
+      where(parent_model: obj.class.to_s, parent_ref: obj.ref)
     elsif model.db_schema[:parent_type]
       where(parent_type: obj.class.to_s, parent_ref: obj.ref)
     else
