@@ -93,7 +93,7 @@ module Lux
     #   tpl = auto_find_template([root] + nav.path)
     #   tpl ? render(tpl) : render('/errors/404', status: 404)
     def auto_find_template path
-      path = path.flatten
+      path = path.flatten.map { _1.to_s.gsub('-', '_') }
       tpl_root = '/' + path.join('/')
 
       AUTO_PATH_CACHE[tpl_root] = nil if Lux.env.dev?

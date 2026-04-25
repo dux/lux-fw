@@ -30,5 +30,16 @@ Sequel::Model.dataset_module do
       self
     end
   end
+
+  # Filter records that have ALL specified tags (AND logic)
+  # Example: Job.where_all(['ruby', 'remote'], :tags)
+  def where_all data, field = :tags
+    if data.present?
+      data = [data] unless data.is_a?(Array)
+      where(Sequel.lit("#{field} @> ?", Sequel.pg_array(data)))
+    else
+      self
+    end
+  end
 end
 

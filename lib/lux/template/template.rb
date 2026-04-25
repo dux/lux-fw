@@ -89,7 +89,7 @@ module Lux
 
       Lux::Template.wrap_with_debug_info @template, data
 
-    rescue => error
+    rescue Exception => error
       if Lux.env.dev? && @dev_info
         msg = error.message
         dev_info = @dev_info
@@ -98,7 +98,7 @@ module Lux
         end
       end
 
-      raise error
+      return Lux::Error.inline(error)
     end
 
     private

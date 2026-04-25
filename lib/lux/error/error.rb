@@ -141,7 +141,7 @@ module Lux
           [object, object.message]
         end
 
-        Lux.logger.error("[#{error.class}] #{error.message}") if error && !error.is_a?(Lux::Error)
+        # Lux.logger.error("[#{error.class}] #{error.message}") if error && !error.is_a?(Lux::Error)
         message = message.to_s.gsub('","',%[",\n "]).gsub('<','&lt;')
 
         HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|

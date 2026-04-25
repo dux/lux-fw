@@ -24,7 +24,7 @@ class HtmlInput
   # .render settings: :key # @object.settings[key]
   def render name, opts = {}
     @opts.merge! opts
-    @name = name
+    @name = @input_name = name
 
     @opts[:placeholder] ||= 'email...' if @name.to_s.include?('email')
     @opts[:placeholder] ||= 'https://...' if @name.to_s.end_with?('url')
@@ -41,6 +41,8 @@ class HtmlInput
       end
 
       if rules = schema.rules[@name]
+        @schema = rules
+
         for k, v in rules[:meta].or({})
           v = @object.instance_exec &v if v.is_a?(Proc)
           @opts[k] = v unless @opts.key?(k)

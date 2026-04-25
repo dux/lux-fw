@@ -387,6 +387,16 @@ class AutoMigrate
   def alter_varchar_limit field, type, opts, current
     return unless type == :string && !opts[:array] && current[:max_length] != opts[:limit]
 
+    # when shrinking, truncate existing data that exceeds the new limit
+    if opts[:limit] && current[:max_length] && opts[:limit] < current[:max_length]
+      truncate_sql = "UPDATE #{@table_name} SET #{field} = LEFT(#{field}, #{opts[:limit]}) WHERE LENGTH(#{field}) > #{opts[:limit]}"
+      count = db["SELECT COUNT(*) AS cnt FROM #{@table_name} WHERE LENGTH(#{field}) > #{opts[:limit]}"].first[:cnt]
+      if count > 0
+        transaction_do truncate_sql
+        puts " #{field}: truncated #{count} rows to #{opts[:limit]} chars".colorize(:yellow)
+      end
+    end
+
     transaction_do "ALTER TABLE #{@table_name} ALTER COLUMN #{field} TYPE varchar(#{opts[:limit]});"
     puts " #{field} limit, #{current[:max_length]}-> #{opts[:limit]}".colorize(:green)
   end

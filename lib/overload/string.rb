@@ -62,6 +62,7 @@ class String
     data = self.dup[0,len]+'&hellip;'
     data
   end
+  alias :truncate :trim
 
   def first
     self[0,1]

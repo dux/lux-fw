@@ -1363,6 +1363,32 @@ describe 'plugins/db/array_search.rb', :db_plugin do
       expect(User.dataset.where_any('', :tags).count).to eq(3)
     end
   end
+
+  describe '.where_all' do
+    before do
+      DB[:users].insert(ref: new_ref, name: 'A', tags: Sequel.pg_array(['ruby', 'js', 'react']))
+      DB[:users].insert(ref: new_ref, name: 'B', tags: Sequel.pg_array(['ruby', 'python']))
+      DB[:users].insert(ref: new_ref, name: 'C', tags: Sequel.pg_array(['ruby']))
+    end
+
+    it 'finds records with all matching tags' do
+      expect(User.dataset.where_all(['ruby', 'js'], :tags).count).to eq(1)
+      expect(User.dataset.where_all(['ruby', 'js'], :tags).first[:name]).to eq('A')
+    end
+
+    it 'works with single tag' do
+      expect(User.dataset.where_all('ruby', :tags).count).to eq(3)
+    end
+
+    it 'returns empty when no records match all tags' do
+      expect(User.dataset.where_all(['ruby', 'go'], :tags).count).to eq(0)
+    end
+
+    it 'returns self when data is blank' do
+      expect(User.dataset.where_all(nil, :tags).count).to eq(3)
+      expect(User.dataset.where_all('', :tags).count).to eq(3)
+    end
+  end
 end
 
 # =========================================================================

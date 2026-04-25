@@ -3,6 +3,8 @@
 
 require 'timeout'
 
+class LuxJobError < StandardError; end
+
 class LuxJob < ApplicationModel
   schema do
     name
@@ -89,6 +91,10 @@ class LuxJob < ApplicationModel
       LuxJob.create name: name, opts: opts, run_at: Time.now - 1.day
     end
 
+    def error msg
+      raise LuxJobError, msg
+    end
+
     def run_job job, verbose: false
       opts = JOBS[job.name.to_sym] || begin
         Lux.info "LuxJob ERROR: Job [#{job.name}] not defined"
@@ -121,8 +127,16 @@ class LuxJob < ApplicationModel
           job.delete
         end
 
-      rescue => error
-        msg = "ERROR: #{error.message} (#{error.class}) #{error.backtrace[0]}"
+      rescue LuxJobError => e
+        job.response = "ERROR: #{e.message}"
+        job.status_sid = 'f'
+        job.log "#{e.message}", verbose: verbose
+        job.save
+
+      rescue => e
+        Lux.config.error_logger&.call(e)
+
+        msg = "UNHANDLED: #{e.message} (#{e.class}) #{e.backtrace&.first}"
         job.response = msg
         job.retry_count += 1
 

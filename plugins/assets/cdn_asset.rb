@@ -44,11 +44,11 @@ module CdnAsset
       local_path = "./public/assets/#{file}"
       remote_key = "assets/#{target}"
 
-      ok = ::Cdn.cdn_upload(local_path, remote_key, production: true)
+      ok = ::Cdn.upload(local_path, target, path: 'assets', dev: false)
       unless ok
         # retry once
         sleep 1
-        ok = ::Cdn.cdn_upload(local_path, remote_key, production: true)
+        ok = ::Cdn.upload(local_path, target, path: 'assets', dev: false)
       end
 
       if ok
