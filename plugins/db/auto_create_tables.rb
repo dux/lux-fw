@@ -1,8 +1,6 @@
-# When DB_MIGRATE is set (rake db:am), auto-create missing tables
-# so that Sequel model classes can load without PG::UndefinedTable errors.
-# AutoMigrate will add the real columns afterwards.
+db_rake_task = ENV['DB_MIGRATE'] || ARGV.any? { |a| a.start_with?('db:') }
 
-if ENV['DB_MIGRATE']
+if db_rake_task
   Sequel::Model.class_eval do
     class << self
       alias_method :_set_dataset_original, :set_dataset

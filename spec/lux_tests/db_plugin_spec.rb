@@ -2,9 +2,11 @@ require 'spec_helper'
 
 # ---------------------------------------------------------------------------
 # Database bootstrap – standalone test DB so we never touch real data
+# Connect directly via Sequel (not Lux::Db) since we manage our own test DB.
 # ---------------------------------------------------------------------------
 
-DB = Sequel.connect('postgres:///lux_fw_test') unless defined?(DB)
+Object.send(:remove_const, :DB) if defined?(DB)
+DB ||= Sequel.connect('postgres:///lux_fw_test')
 DB.extension :pg_array
 Sequel.extension :pg_array_ops
 

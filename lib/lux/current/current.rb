@@ -170,6 +170,11 @@ module Lux
       '127.0.0.1'
     end
 
+    def bearer_token
+      auth = request.env['HTTP_AUTHORIZATION'].to_s
+      auth.start_with?('Bearer ') ? auth[7..].presence : nil
+    end
+
     def encrypt data, opts={}
       opts[:password] ||= self.ip
       opts[:ttl]      ||= 10.minutes

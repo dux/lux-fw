@@ -1,6 +1,8 @@
 # http://ricostacruz.com/cheatsheets/sequel.html
 # http://sequel.jeremyevans.net/rdoc/files/doc/model_plugins_rdoc.html
 
+Sequel::Model.plugin :dirty
+
 class Sequel::Model
   module ClassMethods
     def find_by what

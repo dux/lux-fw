@@ -1,6 +1,3 @@
-# Logs DB queries in console
-# to active just load the file
-
 require 'logger'
 
 logger = Logger.new STDOUT
@@ -27,9 +24,7 @@ logger.formatter = proc do |severity, datetime, progname, msg|
 end
 
 if ENV['RAKE_ENV'] != 'test' || ENV['DB_LOG'] == 'true'
-  # error logger to stdout
-  Lux.config.sequel_dbs = [] unless Lux.config[:sequel_dbs]
-  Lux.config.sequel_dbs.each do |db|
+  Lux::Db.connections.each do |db|
     db.loggers << logger
   end
 

@@ -128,6 +128,7 @@ Automatically loaded
 * [Lux.cache (Lux::Cache)](#cache) &sdot; [&rarr;](./lib/lux/cache)
 * [Lux::Controller](#controller) &sdot; [&rarr;](./lib/lux/controller)
 * [Lux.current (Lux::Current)](#current) &sdot; [&rarr;](./lib/lux/current)
+* [Lux.db (Lux::Db)](#database-luxdb) &sdot; [&rarr;](./lib/lux/db)
 * [Lux.env (Lux::Environment)](#environment) &sdot; [&rarr;](./lib/lux/environment)
 * [Lux.error (Lux::Error)](#error) &sdot; [&rarr;](./lib/lux/error)
 * [Lux.logger](#logger) &sdot; [&rarr;](./lib/lux/logger)
@@ -137,6 +138,46 @@ Automatically loaded
 * [Lux.current.response (Lux::Response)](#response) &sdot; [&rarr;](./lib/lux/response)
 * [Lux::Template](#template) &sdot; [&rarr;](./lib/lux/template)
 * [Lux::Config](#config) &sdot; [&rarr;](./lib/lux/config)
+
+
+### Database (Lux::Db)
+
+Lux provides built-in database connection management via `Lux::Db`. Databases are configured in `config/config.yaml` under the `db:` key.
+
+```yaml
+# config/config.yaml
+default:
+  # simple form - single main database
+  db: postgresql://localhost/myapp
+
+  # or hash form - multiple named databases
+  db:
+    main: postgresql://localhost/myapp
+    log: postgresql://localhost/myapp_log
+
+production:
+  db:
+    main: postgres://user:pass@host:5432/myapp
+```
+
+ENV overrides: `DB_MAIN`, `DB_LOG`, etc. For backwards compat `DB_URL` resolves as `:main`.
+
+```ruby
+# Access databases
+Lux.db              # Sequel::Database for :main
+Lux.db(:log)        # Sequel::Database for :log
+DB                   # lazy proxy to Lux.db(:main)
+
+# Management
+Lux::Db.connections      # all active Sequel::Database instances
+Lux::Db.url_for(:main)  # resolved URL string
+Lux::Db.configured_names # [:main, :log] from config
+Lux::Db.disconnect_all
+```
+
+Connections are created lazily on first access. On boot (`Lux.plugin :db`), all configured databases are connected eagerly with error reporting.
+
+Rake tasks: `db:info`, `db:create`, `db:drop`, `db:am` (auto-migrate), `db:backup`, `db:restore`, `db:seed`, `db:console`.
 
 
 ### Plugin System

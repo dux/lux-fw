@@ -23,7 +23,7 @@ module Lux
     alias :prod? :production?
 
     def test?
-      $0.end_with?('/rspec') || @env_name == 'test'
+      @env_name == 'test' || $0.end_with?('/rspec') || $0.end_with?('/minitest') || $0.include?('minitest')
     end
 
     def rake?
