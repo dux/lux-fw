@@ -63,7 +63,7 @@ class HtmlInput
       # default value for as
       @opts[:as]    ||= calculate_type
       @opts[:id]    ||= Lux.current.uid
-      @opts[:value] ||= @object.send(@name) if @object && @name.is_a?(Symbol)
+      @opts[:value] ||= @object.send(@input_name) if @object && @input_name.is_a?(Symbol)
       @opts[:value]   = @opts[:default] if @opts[:value].blank?
 
       # convert decimal numbers to float
