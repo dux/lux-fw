@@ -1,9 +1,15 @@
 # filters stack for call - before, before_action, :action, after
 # if action is missing capture it via def action_missing name
 
+require 'erb'
+require_relative '../lifecycle'
+
 module Lux
   class Controller
     include ClassCallbacks
+    include Lifecycle
+
+    DEFAULT_ERROR_TEMPLATE ||= ERB.new(File.read(File.expand_path('error_page.html.erb', __dir__)))
 
     # define master layout
     # string is template, symbol is method pointer and lambda is lambda
@@ -47,6 +53,30 @@ module Lux
         end
       end
 
+      # Sugar for defining the :error action via a block.
+      # The block receives the exception as an argument; @error and @status
+      # are already set as ivars by Application#render_error before it runs.
+      #   rescue_from do |err|
+      #     render :error_500
+      #   end
+      def rescue_from &block
+        define_method(:error) { instance_exec(@error, &block) }
+      end
+
+      # Self-contained HTML error page (no template lookup). Used by the default
+      # Lux::Controller#error action; can be called directly from a custom :error
+      # to wrap the framework chrome around your own content.
+      def default_error_page status, error
+        name      = ::Rack::Utils::HTTP_STATUS_CODES[status] || 'Error'
+        message   = error.message.to_s.gsub('<', '&lt;').gsub('>', '&gt;')
+        show_dev  = Lux.env.dev? || Lux.env.log?
+        backtrace = (show_dev && error.respond_to?(:backtrace) && error.backtrace) ?
+                    error.backtrace.first(40).join("\n").gsub('<', '&lt;').gsub('>', '&gt;') : nil
+        color     = status >= 500 ? '#dc2626' : status >= 400 ? '#d97706' : '#374151'
+
+        DEFAULT_ERROR_TEMPLATE.result(binding)
+      end
+
     end
 
     ### INSTANCE METHODS
@@ -73,7 +103,7 @@ module Lux
 
       method_name = method_name.to_sym unless method_name.is_a?(Symbol)
 
-      if [:action, :error].include?(method_name)
+      if method_name == :action
         raise Lux.error.internal_server_error('Forbiden action name :%s' % method_name)
       end
 
@@ -113,14 +143,19 @@ module Lux
       lux.response.flash
     end
 
-    # convenience methods delegating to lux.*
-    define_method(:current)     { Lux.current }
-    define_method(:request)     { lux.request }
-    define_method(:response)    { lux.response }
-    define_method(:params)      { lux.params }
-    define_method(:nav)         { lux.nav }
-    define_method(:session)     { lux.session }
-    define_method(:user)        { lux.user }
+    # Default :error action — renders a self-contained HTML page (no template lookup).
+    # Override on any controller (def error) or via the rescue_from class macro.
+    # Reads @error and @status set by Application#render_error before dispatch.
+    def error
+      @status ||= (lux.response.status.to_i >= 400 ? lux.response.status : 500)
+      lux.response.status @status
+
+      if lux.nav.format.to_s == 'json' || request.content_type.to_s.include?('json')
+        render json: { status: @status, error: @error.message }
+      else
+        render html: self.class.default_error_page(@status, @error)
+      end
+    end
 
     private
 
@@ -159,14 +194,14 @@ module Lux
     def render name = nil, opts = {}
       return if lux.response.body?
 
-      opts = normalize_render_opts(name, opts)
+      opt = normalize_render_opts(name, opts)
 
-      lux.response.status opts.status if opts.status
-      lux.response.content_type = opts.content_type if opts.content_type
+      lux.response.status opt.status if opt.status
+      lux.response.content_type = opt.content_type if opt.content_type
 
-      return if render_static(opts)
+      return if render_static(opt)
 
-      data = opts.cache ? render_cached(opts) : render_template(opts)
+      data = opt.cache ? render_cached(opt) : render_template(opt)
       lux.response.body data
     end
 
@@ -178,28 +213,19 @@ module Lux
         opts[:template] = name
       end
 
-      opts = RENDER_OPTS.new **opts
-
-      # match rails naming
-      opts.text = opts.plain if opts.plain
-
-      # copy value from render_cache
-      opts.cache = @lux.render_cache if @lux.render_cache
-
-      # we do not want to cache pages that have flashes in response
-      opts.cache = nil if lux.response.flash.present?
-
-      # define which layout we use
-      opts.layout ||= @lux.layout.nil? ? self.class.cattr.layout : @lux.layout
-
-      opts
+      opt = RENDER_OPTS.new **opts
+      opt.text = opt.plain if opt.plain
+      opt.cache = @lux.render_cache if @lux.render_cache
+      opt.cache = nil if lux.response.flash.present?
+      opt.layout ||= @lux.layout.nil? ? self.class.cattr.layout : @lux.layout
+      opt
     end
 
     # render static content types directly to response body
     # returns truthy if a static type was rendered
-    def render_static opts
+    def render_static opt
       for el in [:text, :html, :json, :javascript, :xml]
-        if value = opts[el]
+        if value = opt[el]
           lux.response.body value, content_type: el
           return true
         end
@@ -209,13 +235,13 @@ module Lux
     end
 
     # render template with page-level caching and etag support
-    def render_cached opts
-      return if etag(opts.cache)
+    def render_cached opt
+      return if etag(opt.cache)
 
       add_info = true
-      from_cache = Lux.cache.fetch opts.cache, ttl: 1_000_000 do
+      from_cache = Lux.cache.fetch opt.cache, ttl: 1_000_000 do
         add_info = false
-        render_template(opts)
+        render_template(opt)
       end
 
       if add_info && from_cache
@@ -227,13 +253,13 @@ module Lux
     end
 
     # compile and render a template with layout
-    def render_template opts
+    def render_template opt
       run_callback :before_render, @lux.action
 
-      helper_name = opts.layout || @lux.layout || cattr.layout
+      helper_name = opt.layout || @lux.layout || cattr.layout
       local_helper = self.helper helper_name
 
-      template = (opts.template || @lux.action).to_s.sub(/^\//, '')
+      template = (opt.template || @lux.action).to_s.sub(/^\//, '')
       page_template = if template.include?('/')
         [cattr.template_root, template].join('/')
       else
@@ -241,10 +267,10 @@ module Lux
       end
       Lux.current.var['views_root'] ||= cattr.template_root
       Lux.current.var.root_template_path = page_template.sub(%r{/[\w]+$}, '')
-      data = opts.inline || Lux::Template.render(local_helper, {template: page_template, dev_info: "Helper: #{helper_name.to_s.classify}Helper, Template: #{page_template}" })
+      data = opt.inline || Lux::Template.render(local_helper, {template: page_template, dev_info: "Helper: #{helper_name.to_s.classify}Helper, Template: #{page_template}" })
 
-      if opts.layout
-        path = Lux::Template.find_layout cattr.template_root, opts.layout
+      if opt.layout
+        path = Lux::Template.find_layout cattr.template_root, opt.layout
         data = Lux::Template.render(local_helper, path) { data }
       end
 
@@ -302,21 +328,6 @@ module Lux
       end
     end
 
-    def controller_action_call controller_action, *args
-      object, action = nil
-
-      if controller_action.is_a?(String)
-        object, action = controller_action.split('#') if controller_action.include?('#')
-        object = ('%s_controller' % object).classify.constantize
-      elsif controller_action.is_a?(Array)
-        object, action = controller_action
-      else
-        raise ArgumentError.new('Not supported')
-      end
-
-      object.action action.to_sym, *args
-    end
-
     def action_missing name
       path = [cattr.template_root, @lux.template_suffix, name].join('/')
 
@@ -350,7 +361,7 @@ module Lux
         end
       end
 
-      raise Lux::Error.not_found [message, defined].join(' ')
+      Lux.error 404, [message, defined].join(' ')
     end
   end
 end

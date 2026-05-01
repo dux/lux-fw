@@ -1,5 +1,27 @@
 require 'spec_helper'
 
+class ExplodingController < Lux::Controller
+  def boom
+    raise 'BOOM!'
+  end
+
+  def boom_via_call
+    raise 'BOOM2'
+  end
+end
+
+class AfterMutateController < Lux::Controller
+  def show
+    render text: 'hello'
+  end
+end
+
+class AppRescueRenderController < Lux::Controller
+  def show
+    render text: 'APP-CATCH(%d): %s' % [@status, @error.message]
+  end
+end
+
 class RoutesTestController < Lux::Controller
   def root
     render text: 'root'
@@ -33,6 +55,20 @@ end
 ###
 
 Lux.app do
+  after do
+    if request.path == '/after-mutate'
+      response.body { |b| b.gsub('hello', 'GREETINGS-FRIEND') }
+    end
+  end
+
+  rescue_from do |err|
+    if request.path == '/exploding-via-call'
+      call 'app_rescue_render#show'
+    else
+      map 'app_rescue_render#show'
+    end
+  end
+
   routes do
     root 'routes_test#root'
 
@@ -54,6 +90,10 @@ Lux.app do
     map 'routes_test' do
       map 'foo-nested' => 'routes_test#nested'
     end
+
+    map 'exploding' => 'exploding#boom'
+    map 'exploding-via-call' => 'exploding#boom_via_call'
+    map 'after-mutate' => 'after_mutate#show'
 
     lux.response.body 'not found', status: 404
   end
@@ -91,6 +131,25 @@ Lux.app do
 
     it 'should render js route' do
       expect(Lux.render.get('/routes_test/foo-nested.js').body[:a]).to eq(1)
+    end
+
+    it 'dispatches errors through Application rescue_from when defined (always wins)' do
+      res = Lux.render.get('/exploding')
+      expect(res.status).to eq(500)
+      expect(res.body).to eq('APP-CATCH(500): BOOM!')
+    end
+
+    it 'tolerates throw :done from `call` inside the rescue_from block' do
+      # rescue_from in spec uses map; verify same-shape direct call also works
+      res = Lux.render.get('/exploding-via-call')
+      expect(res.status).to eq(500)
+      expect(res.body).to eq('APP-CATCH(500): BOOM2')
+    end
+
+    it 'fires Application :after BEFORE headers, so content-length matches the mutated body' do
+      res = Lux.render.get('/after-mutate')
+      expect(res.body).to eq('GREETINGS-FRIEND')
+      expect(res.headers['content-length']).to eq('GREETINGS-FRIEND'.bytesize.to_s)
     end
   end
 end

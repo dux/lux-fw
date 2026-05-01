@@ -210,7 +210,7 @@ Plugins are loaded from the `plugins/` directory in the framework root and can b
 
 Main application controller and router
 
-* can capture errors with `rescue_from` class method
+* catches errors and dispatches `:error` to the active controller (every controller inherits a default `error` action from `Lux::Controller`; override per controller for custom rendering)
 * calls `before`, `routes` and `after` class filters on every request
 
 #### Instance methods
@@ -236,7 +236,8 @@ There are a few route filters
 * `before`      # before any page load
 * `routes`      # routes resolve
 * `after`       # after any page load
-* `rescue_from` # on routing error
+
+Errors raised anywhere in the routing/action pipeline are caught by `Application#render_error`, which dispatches the `:error` action to whichever controller was active. Every controller inherits a default `error` from `Lux::Controller`; override on any controller (e.g. `MainController#error`, `Api::BaseController#error`) for custom rendering.
 
 
 #### Router example
@@ -262,15 +263,6 @@ Lux.app do
 
   after do
     error 404
-  end
-
-  rescue_from :all do |error|
-    case error
-    when PG::ConnectionBad
-      # ...
-    when Lux::Error
-      # ...
-    else
   end
 
   ###
@@ -385,7 +377,8 @@ Lux.cache.generate_key(caller.first, User, Product.find(3), 'data')
 
 Similar to Rails Controllers
 
-* `before`, `before_action`, `after` and `rescue_from` class methods supportd
+* `before`, `before_action`, `before_render` and `after` class callbacks supported
+* default `error` action inherited from `Lux::Controller` — override per controller for custom error rendering (Application dispatches to it on raise)
 * calls templates as default action, behaves as Rails controller.
 
 ```ruby

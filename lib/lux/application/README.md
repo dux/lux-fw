@@ -2,7 +2,7 @@
 
 Main application controller and router
 
-* can capture errors with `rescue_from` class method
+* catches errors and dispatches to the active controller's `:error` action — every controller inherits a default one from `Lux::Controller`; override on any controller (e.g. `MainController#error`, `Api::BaseController#error`) for custom rendering
 * calls `before`, `routes` and `after` class filters on every request
 
 ```ruby
@@ -19,15 +19,6 @@ Lux.app do
 
   after do
     error 404
-  end
-
-  rescue_from :all do |error|
-    case error
-    when PG::ConnectionBad
-      # ...
-    when Lux::Error
-      # ...
-    else
   end
 
   ###
@@ -90,7 +81,8 @@ There are a few route filtes
 * `before`      # before any page load
 * `routes`      # routes resolve
 * `after`       # after any page load
-* `rescue_from` # on routing error
+
+Errors anywhere in the routing/action pipeline are caught by `Application#render_error` and dispatched to the active controller's `:error` action. The action receives `@error` (the exception) and `@status` (resolved HTTP status code) as instance variables. Override `error` on any controller (or on a base class like `Api::BaseController`) to customise.
 
 
 #### Router example

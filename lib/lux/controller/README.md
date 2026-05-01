@@ -2,7 +2,28 @@
 
 Similar to Rails Controllers
 
-* `before`, `before_action`, `after` and `rescue_from` class methods supportd
+* `before`, `before_action`, `before_render` and `after` class callbacks supported
+* default `error` action inherited from `Lux::Controller` — override per controller for custom error rendering. When invoked, `@error` (the exception) and `@status` (resolved HTTP status code) are set as instance variables.
+
+Two equivalent ways to override:
+
+```ruby
+class MainController < Lux::Controller
+  def error
+    case @error
+    when Lux::Error then render @status == 404 ? :error_404 : :error_500
+    else                 render :error_500
+    end
+  end
+end
+
+# Or via the rescue_from class macro (sugar — defines :error for you):
+class Api::BaseController < Lux::Controller
+  rescue_from do |err|
+    render json: { error: err.message, status: @status }
+  end
+end
+```
 * calls templates as default action, behaves as Rails controller.
 
 ```ruby

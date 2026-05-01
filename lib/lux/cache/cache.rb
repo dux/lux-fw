@@ -1,7 +1,6 @@
 module Lux
-  OPTS ||= Struct.new 'LuxCacheOpts', :ttl, :force, :if, :unless, :speed, :delete_if_empty
-
   class Cache
+    OPTS ||= Struct.new 'LuxCacheOpts', :ttl, :force, :if, :unless, :speed, :delete_if_empty
     def initialize server_name = nil
       self.server= server_name || :memory
     end
@@ -67,26 +66,26 @@ module Lux
       key = generate_key key
 
       opts = { ttl: opts } unless opts.is_a?(Hash)
-      opts = OPTS.new **opts
+      opt = OPTS.new **opts
 
-      return yield(key) if opts.if.is_a?(FalseClass)
+      return yield(key) if opt.if.is_a?(FalseClass)
 
-      opts.ttl     = opts.ttl.to_i if opts.ttl
-      opts.force ||= Lux.current.no_cache? unless opts.force.class == FalseClass
+      opt.ttl     = opt.ttl.to_i if opt.ttl
+      opt.force ||= Lux.current.no_cache? unless opt.force.class == FalseClass
 
-      @server.delete key if opts.force
+      @server.delete key if opt.force
 
-      log_key_name = "Cache.fetch.get #{opts.compact.to_jsonc}:#{key.trim(30)}"
+      log_key_name = "Cache.fetch.get #{opt.compact.to_jsonc}:#{key.trim(30)}"
       log_get log_key_name
 
-      data = @server.fetch key, opts.ttl do
-        opts.speed = Lux.speed { data = yield }
+      data = @server.fetch key, opt.ttl do
+        opt.speed = Lux.speed { data = yield }
         Lux.log " #{log_key_name}, at: #{Lux.app_caller}".colorize(:yellow)
         Marshal.dump data
       end
 
       Marshal.load(data).tap do |out|
-        if opts.delete_if_empty && out.empty?
+        if opt.delete_if_empty && out.empty?
           @server.delete key
         end
       end

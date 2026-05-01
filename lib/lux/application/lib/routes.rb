@@ -218,6 +218,10 @@ module Lux
         end
 
         if object.respond_to?(:action)
+          # Record the controller class so render_error can dispatch the :error
+          # action to the right place if something raises mid-action.
+          lux.var[:active_controller] = object if object.is_a?(Class)
+
           # All instance variables set on the Application instance (e.g. in before
           # filters or route blocks) are copied into the controller instance. This
           # allows routes to share data with controllers without explicit passing.

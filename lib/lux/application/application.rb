@@ -1,26 +1,17 @@
 # Main application router
 
-require_relative './lib/shared'
+require_relative '../lifecycle'
 require_relative './lib/routes'
 
 module Lux
   class Application
     include ClassCallbacks
+    include Lifecycle
     include Routes
 
     define_callback :before       # before any page load
     define_callback :routes       # routes resolve
-    # define_callback :before_after # after any page load
     define_callback :after        # after any page load
-
-    # convenience methods delegating to lux.*
-    define_method(:current)     { Lux.current }
-    define_method(:request)     { lux.request }
-    define_method(:response)    { lux.response }
-    define_method(:params)      { lux.params }
-    define_method(:nav)         { lux.nav }
-    define_method(:session)     { lux.session }
-    define_method(:user)        { lux.user }
 
     def initialize env, opts={}
       Lux::Current.new env, opts
@@ -60,43 +51,59 @@ module Lux
 
       lux.response.render self
     rescue StandardError => err
-      Lux.logger.error Lux::Error.format(err, message: true, gems: false)
-      respond_to?(:app_rescue_from) ? app_rescue_from(err) : rescue_from(err)
-      lux.response.render
+      render_error err
     end
 
-    # override in Lux.app do ... end block:
-    #   rescue_from do |error|
-    #     render '/main/error_500', status: 500
+    # Router-level catch-all error block, defined inside Lux.app do ... end.
+    # The block is instance_exec'd on the Application instance, so it has access
+    # to the routing DSL (`map`, `call`, etc.) — typically used to forward to a
+    # controller that renders the error page:
+    #   rescue_from do |err|
+    #     ExceptionDb.add err
+    #     map 'promo#app_error'   # router map; ivars (incl. @error) auto-pass
     #   end
     def self.rescue_from &block
       define_method(:app_rescue_from) { |error| instance_exec(error, &block) }
     end
 
-    # default error handler — renders Lux-branded error page
-    def rescue_from error
-      Lux::Error.render error
+    # Default fallback when no controller-level :error and no Lux.app rescue_from
+    # are defined. Renders the Lux-branded error page.
+    def rescue_from err
+      Lux::Error.render err
     end
 
-    # render text: 'ok'
-    # render json: { error: 'not found' }, status: 404
-    # render html: '<h1>Error</h1>', status: 500
-    def render opts = {}
-      if opts.keys.length == 0
-        # no args → full page render proxy
-        render_page
-      else
-        types = [:text, :html, :json, :javascript, :xml]
-        for type in types
-          if value = opts[type]
-            lux.response.status opts[:status] if opts[:status]
-            lux.response.body value, content_type: type
-            return
-          end
-        end
+    # Error sink. Resolution order:
+    #   1. Lux.app rescue_from is registered → run it (always wins when present;
+    #      typically dispatches to a controller via `map 'foo#error'`)
+    #   2. Active controller defines :error → use it directly
+    #   3. Framework default → Lux::Error.render (server-dump style)
+    # If anything in 1 or 2 raises, Lux.call's outer rescue returns a low-level Rack tuple.
+    def render_error err
+      Lux.logger.error Lux::Error.format(err, message: true, gems: false)
+      # Lux.error helpers set lux.response.status before raising; honour that.
+      # Anything else (raw StandardError) defaults to 500.
+      status = lux.response.status.to_i
+      status = 500 unless status >= 400
+      lux.response.status status
 
-        raise ArgumentError.new("Router render supports only #{types.keys.join(', ')}")
+      @error  = err
+      @status = status
+
+      klass = lux.var[:active_controller]
+
+      # catch :done so the rescue/render path can use any router primitive
+      # (`call`, `map`) without the throw escaping back up to Lux.call's outer rescue.
+      catch :done do
+        if respond_to?(:app_rescue_from)
+          app_rescue_from err
+        elsif klass && klass.method_defined?(:error)
+          klass.action :error, ivars: { '@error' => err, '@status' => status }
+        else
+          rescue_from err
+        end
       end
+
+      lux.response.render
     end
 
     # full page render — returns response hash

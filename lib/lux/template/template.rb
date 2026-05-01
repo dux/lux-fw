@@ -57,7 +57,7 @@ module Lux
         if path
           cache[cache_key] = path.sub(/\.[\w]+$/, '')
         else
-          raise Lux::Error.not_found(%[Layout path for #{layout_template} not found. Looked in #{base1} & #{base2}])
+          Lux.error 404, %[Layout path for #{layout_template} not found. Looked in #{base1} & #{base2}]
         end
       end
     end
@@ -128,8 +128,7 @@ module Lux
       end
 
       unless @template
-        msg = %[Lux::Template "#{template}.{erb,haml}" not found]
-        raise Lux::Error.not_found(msg)
+        Lux.error 404, %[Lux::Template "#{template}.{erb,haml}" not found]
       end
 
       @tilt = Tilt.new(@template, escape_html: false)

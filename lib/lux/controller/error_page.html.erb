@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title><%= status %> <%= name %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;color:#111827;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
+    .card{max-width:720px;width:100%;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.04);overflow:hidden}
+    .hdr{padding:2.5rem 2.5rem 1.5rem;border-bottom:1px solid #f3f4f6}
+    .status{font-size:4rem;font-weight:700;line-height:1;color:<%= color %>;letter-spacing:-.04em}
+    .name{font-size:1.25rem;font-weight:500;color:#6b7280;margin-top:.5rem}
+    .msg{padding:1.5rem 2.5rem;font-size:1rem;color:#374151;line-height:1.5;word-wrap:break-word}
+    .bt{padding:1rem 2.5rem 2rem;background:#f9fafb;border-top:1px solid #f3f4f6}
+    .bt h3{font-size:.75rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}
+    .bt pre{font-family:ui-monospace,"SF Mono",Menlo,Monaco,monospace;font-size:.8125rem;line-height:1.5;color:#4b5563;overflow-x:auto;white-space:pre-wrap;word-break:break-all}
+    .ftr{padding:.75rem 2.5rem;font-size:.75rem;color:#9ca3af;background:#fff;border-top:1px solid #f3f4f6;text-align:right;font-weight:500;letter-spacing:.05em}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="hdr">
+      <div class="status"><%= status %></div>
+      <div class="name"><%= name %></div>
+    </div>
+    <div class="msg"><%= message %></div>
+    <% if backtrace %>
+    <div class="bt"><h3>Backtrace</h3><pre><%= backtrace %></pre></div>
+    <% end %>
+    <div class="ftr">LUX</div>
+  </div>
+</body>
+</html>

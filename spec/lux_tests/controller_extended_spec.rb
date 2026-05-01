@@ -144,9 +144,39 @@ describe 'Lux::Controller extended' do
     it 'raises on :action as an action name' do
       expect { ExtendedTestController.action(:action) }.to raise_error(Lux::Error)
     end
+  end
 
-    it 'raises on :error as an action name' do
-      expect { ExtendedTestController.action(:error) }.to raise_error(Lux::Error)
+  describe 'default :error action' do
+    it 'renders a self-contained HTML page with status and message' do
+      err = Lux::Error.new('missing thing')
+      ExtendedTestController.action(:error, ivars: { '@error' => err, '@status' => 404 })
+      expect(Lux.current.response.status).to eq(404)
+      expect(Lux.current.response.body).to include('404')
+      expect(Lux.current.response.body).to include('Not Found')
+      expect(Lux.current.response.body).to include('missing thing')
+      expect(Lux.current.response.body).to include('<!DOCTYPE html>')
+    end
+
+    it 'derives status from response.status when @status is not set' do
+      Lux.current.response.status 422
+      err = Lux::Error.new('unprocessable')
+      ExtendedTestController.action(:error, ivars: { '@error' => err })
+      expect(Lux.current.response.status).to eq(422)
+    end
+
+    it 'defaults to 500 when neither @status nor response.status is set' do
+      err = Lux::Error.new('boom')
+      ExtendedTestController.action(:error, ivars: { '@error' => err })
+      expect(Lux.current.response.status).to eq(500)
+    end
+
+    it 'renders JSON when nav.format is json' do
+      Lux::Current.new('http://testing/x.json')
+      err = Lux::Error.new('boom')
+      ExtendedTestController.action(:error, ivars: { '@error' => err, '@status' => 500 })
+      expect(Lux.current.response.body).to include('"error"')
+      expect(Lux.current.response.body).to include('boom')
+      expect(Lux.current.response.body).to include('500')
     end
   end
 
@@ -175,4 +205,5 @@ describe 'Lux::Controller extended' do
       expect(ctrl.instance_variable_get(:@custom)).to eq('value')
     end
   end
+
 end

@@ -2,6 +2,8 @@ require 'set'
 
 module Lux
   class Current
+    OPTS ||= Struct.new 'LuxCurrentOpts', :params, :post, :http_method, :session, :cookies, :query_string
+
     # set to true if user is admin and you want him to be able to clear caches in production
     attr_accessor :can_clear_cache
 
@@ -13,26 +15,24 @@ module Lux
       @env     = ::Rack::MockRequest.env_for(env) if env.is_a?(String)
       @request = ::Rack::Request.new @env
 
-      # fix params if defined
+      @opt = OPTS.new
       if opts.keys.length > 0
-        opts = opts.to_hwia :params, :post, :method, :session, :cookies, :query_string
-
-        if opts[:post]
-          opts[:method] = 'POST'
-          opts[:params] = opts[:post]
+        @opt = OPTS.new **opts.slice(:params, :post, :session, :cookies, :query_string).merge(
+          opts.key?(:method) ? { http_method: opts[:method] } : {}
+        )
+        if @opt.post
+          @opt.http_method = 'POST'
+          @opt.params = @opt.post
         end
       end
 
       # reset page cache
       Thread.current[:lux] = self
 
-      # overload request method
-      @request.env['REQUEST_METHOD'] = opts[:method].to_s.upcase if opts[:method]
+      @request.env['REQUEST_METHOD'] = @opt.http_method.to_s.upcase if @opt.http_method
+      @request.cookies.merge @opt.cookies if @opt.cookies
 
-      # set cookies
-      @request.cookies.merge opts[:cookies] if opts[:cookies]
-
-      prepare_params opts
+      prepare_params
 
       # base vars
       @files_in_use = Set.new
@@ -41,7 +41,7 @@ module Lux
       @nav          = Lux::Application::Nav.new @request
       @var          = { cache: {} }.to_hwia
 
-      opts[:session].or({}).each {|k,v| @session[k] = v }
+      @opt.session.or({}).each {|k,v| @session[k] = v }
     end
 
     def [] name
@@ -197,13 +197,9 @@ module Lux
     # Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
     private
 
-    def prepare_params opts
-      # patch params to support indiferent access 😈
-      # request.instance_variable_set(:@params, request.params.to_hwia) if request.params.keys.length > 0
-
-      # merge qs if present
+    def prepare_params
       @params = (@request.params.dup || {}).to_hwia
-      @params.merge! opts[:query_string] if opts[:query_string]
+      @params.merge! @opt.query_string if @opt.query_string
 
       # remove empty parametars in GET request
       if request.request_method == 'GET'

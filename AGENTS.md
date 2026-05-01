@@ -57,7 +57,8 @@ Ruby web framework - Rack-based, Sequel ORM, PostgreSQL.
 ### Lux::Application (`lib/lux/application/`)
 
 Router and request lifecycle:
-* Class callbacks: `config`, `boot`, `info`, `before`, `routes`, `after`, `rescue_from`
+* Class callbacks: `before`, `routes`, `after`; class DSL: `config`, `boot`, `info`, `rescue_from`
+* Error sink in `render_base` → `render_error`. Resolution order: (1) `Lux.app rescue_from { ... }` block if registered (typically uses `map 'foo#error'` to forward), (2) active controller's `:error` action (every `Lux::Controller` ships a default), (3) `Lux::Error.render` floor.
 * Routing methods: `root`, `map`, `call`, `match`
 * `mount app_class => '/path'` - Mount Rack applications
 * `favicon(path)` - Serve favicon.ico and apple-touch-icon files
@@ -88,6 +89,7 @@ URL navigation helper accessible via `current.nav`:
 
 Request controllers with Rails-like interface:
 * Callbacks: `before`, `before_action`, `before_render`, `after`
+* Class DSL: `rescue_from { |err| ... }` - sugar for defining the `:error` action via block
 * Class attributes: `layout`, `template_root`
 * `mock :show, :edit` - Create empty actions for template-only rendering (accepts multiple)
 * `action_missing` - Called when action not found; default looks for matching template (requires `Lux.config.use_autoroutes`)
@@ -96,7 +98,7 @@ Request controllers with Rails-like interface:
   - `render_to_string(name, opts)` - Render template without setting response body
   - `timeout(seconds)` - Set custom app timeout for this action
   - `namespace` - Get controller namespace as symbol
-  - `controller_action_call(controller_action, *args)` - Call another controller action
+  - `error` - Default error action (override per controller for custom error rendering)
 
 ### Lux::Current (`lib/lux/current/`)
 
@@ -180,8 +182,9 @@ HTTP response handling:
 
 ### Lux::Error (`lib/lux/error/error.rb`)
 
-Error methods generated from CODE_LIST (common ones):
-* `Lux.error.bad_request(msg)` - 400
+Thin exception class (`Lux::Error < StandardError`). HTTP status is set on response, not carried on the exception.
+* `Lux.error(code, msg)` - Set status on response and raise `Lux::Error` (canonical form)
+* `Lux.error.bad_request(msg)` - 400 (shortcuts via `Lux::ErrorProxy` in `lux_adapter.rb`)
 * `Lux.error.unauthorized(msg)` - 401
 * `Lux.error.payment_required(msg)` - 402
 * `Lux.error.forbidden(msg)` - 403
@@ -190,7 +193,7 @@ Error methods generated from CODE_LIST (common ones):
 * `Lux.error.not_acceptable(msg)` - 406
 * `Lux.error.internal_server_error(msg)` - 500
 * `Lux.error.not_implemented(msg)` - 501
-* `Lux::Error.render(error)` - Error page rendering
+* `Lux::Error.render(error)` - Last-resort error page (only reached when no rescue_from and no controller :error)
 * `Lux::Error.inline(object, msg)` - Inline error display
 * `Lux::Error.format(error, opts)` - Format backtrace (supports `html:`, `message:`, `gems:`)
 
@@ -366,7 +369,15 @@ Lux.app do
   end
 
   after { }
-  rescue_from { |e| }
+end
+```
+
+For custom error handling, override `error` on the relevant controller:
+```ruby
+class MainController < Lux::Controller
+  def error
+    render @status == 404 ? :error_404 : :error_500
+  end
 end
 ```
 

@@ -119,7 +119,7 @@ module Lux
       in_type = :js if in_type == :javascript
 
       if in_type.is_a?(Symbol)
-        type = Lux::Response::File::MIME_TYPES[in_type]
+        type = ::Rack::Mime.mime_type(".#{in_type}", nil)
         raise ArgumentError.new('Bad content type: %s' % in_type) unless type
       else
         type = in_type
@@ -213,6 +213,14 @@ module Lux
 
     def render app = nil
       write_response_body
+
+      # Fire Application#after BEFORE headers are written so callbacks can mutate
+      # @body (translations, HTML rewrites, etc.) and content-length / etag are
+      # computed against the final body. Flash added in :after also makes the cookie.
+      if app
+        app.run_callback :after
+      end
+
       write_response_header
 
       @status ||= 200
@@ -226,10 +234,6 @@ module Lux
 
       if current.request.request_method == 'HEAD'
         @body = ''
-      end
-
-      if app
-        app.run_callback :after
       end
 
       [@status, @headers.to_h, [@body]]
