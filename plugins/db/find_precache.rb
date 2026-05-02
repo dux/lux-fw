@@ -9,18 +9,18 @@ class Sequel::Model
       super
     end
 
-    def take id
-      find id
+    def take ref
+      find ref
     rescue Sequel::Error
       nil
     end
 
     # find will cache all finds in a scope
-    def find id
-      return unless id.present?
+    def find ref
+      return unless ref.present?
 
-      key = "#{to_s}/#{id}"
-      hash = { ref: id }
+      key = "#{to_s}/#{ref}"
+      hash = { ref: ref }
 
       Lux.current.cache key do
         row =
@@ -33,7 +33,7 @@ class Sequel::Model
         end
 
         row || begin
-          raise Sequel::Error, %[Record "#{id}" not found in #{to_s}]
+          raise Sequel::Error, %[Record "#{ref}" not found in #{to_s}]
         end
       end
     end

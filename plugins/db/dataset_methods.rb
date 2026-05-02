@@ -112,6 +112,8 @@ Sequel::Model.dataset_module do
   end
 
   def for obj
+    return self unless obj
+
     n2 = obj.class.name.underscore
     field_name = "#{n2}_ref".to_sym
 
@@ -123,12 +125,12 @@ Sequel::Model.dataset_module do
       where(parent_key: obj.key)
     elsif model.db_schema[:parent_model]
       where(parent_model: obj.class.to_s, parent_ref: obj.ref)
-    elsif model.db_schema[:parent_type]
-      where(parent_type: obj.class.to_s, parent_ref: obj.ref)
     else
       raise "Unknown link for #{obj.class} (probably missing db field)"
     end
   end
+  alias :where_for :for
+  alias :where_ref :for
 
   def desc field = nil
     field ||= :created_at
@@ -159,5 +161,65 @@ Sequel::Model.dataset_module do
     base = xorder('%s desc' % :created_at)
     num ? base.limit(num).all : base.first
   end
-end
 
+  def refs cnt = nil
+    select(:ref).limit(cnt || 1000).all.map(&:ref)
+  end
+
+  def latest
+    order(Sequel.desc(:updated_at))
+  end
+
+  # Bucket.can.all_tags -> all_tags mora biti zadnji
+  def all_tags opts = {}
+    opts = {tags: opts} if opts.class == Symbol
+    limit = opts[:limit] || 20
+    field = opts[:tags] || :tags
+    sqlq = sql.split(' FROM ')[1]
+    sqlq = "select lower(unnest(#{field})) as tag FROM " + sqlq
+    sqlq = "select tag as name, count(tag) as cnt from (#{sqlq}) as tags group by tag order by cnt desc limit #{limit}"
+    DB.fetch(sqlq).map(&:to_hwia).or([])
+  end
+
+  # Example: Job.where_any(@location.id, :location_ids).count
+  def where_any data, field = :tags
+    if data.present?
+      data = [data] unless data.is_a?(Array)
+
+      clauses = data.map { '?=any(%s)' % field }
+      params  = data.map { |v| v.to_s }
+
+      where(Sequel.lit(clauses.join(' or '), *params))
+    else
+      self
+    end
+  end
+
+  # Filter records that have ALL specified tags (AND logic)
+  # Example: Job.where_all(['ruby', 'remote'], :tags)
+  def where_all data, field = :tags
+    if data.present?
+      data = [data] unless data.is_a?(Array)
+      where(Sequel.lit("#{field} @> ?", Sequel.pg_array(data)))
+    else
+      self
+    end
+  end
+
+  # not_deleted / deleted / activated / deactivated scopes
+  def not_deleted
+    model.db_schema[:is_deleted] ? xwhere("#{model.to_s.tableize}.is_deleted = false") : self
+  end
+
+  def deleted
+    model.db_schema[:is_deleted] ? xwhere("#{model.to_s.tableize}.is_deleted = true") : self
+  end
+
+  def activated
+    model.db_schema[:is_active] ? xwhere("#{model.to_s.tableize}.is_active = true") : self
+  end
+
+  def deactivated
+    model.db_schema[:is_active] ? xwhere("#{model.to_s.tableize}.is_active = false") : self
+  end
+end

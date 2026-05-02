@@ -1,7 +1,7 @@
-# You put in model
-# * parent_key  (string "Class/ref" format)
-# * or parent_model + parent_ref (preferred)
-# * or parent_type + parent_ref (legacy alias)
+# Polymorphic parent support:
+# * parent_key (single string "Class/ref" format)
+# * parent_model + parent_ref (two columns)
+#
 # @object.parent -> get parent
 # @object.parent= model -> set parent
 # Object.for_parent(@model) -> search Object
@@ -11,44 +11,25 @@ module Sequel::Plugins::ParentModel
     def where_parent object
       if model.db_schema[:parent_key]
         where(parent_key: object.key)
-      elsif col = parent_model_col
-        where(col => object.class.to_s, parent_ref: object.ref)
-      end
-    end
-
-    private
-
-    def parent_model_col
-      if model.db_schema[:parent_model]
-        :parent_model
-      elsif model.db_schema[:parent_type]
-        :parent_type
+      else
+        where(parent_model: object.class.to_s, parent_ref: object.ref)
       end
     end
   end
 
   module InstanceMethods
-    # apply parent attributes
     def parent= model
       if db_schema[:parent_key]
-        self[:parent_key] =
-        if model.is_a?(String) && model.include?('/')
-          model
-        else
-          '%s/%s' % [model.class, model.ref]
-        end
+        self[:parent_key] = '%s/%s' % [model.class, model.ref]
       else
-        self[parent_model_col] = model.class.to_s
+        self[:parent_model] = model.class.to_s
         self[:parent_ref] = model.ref
       end
-
       @parent = model
     end
 
-    # @board.parent -> @list
     def parent obj = nil
       if obj
-        # OrgUser.new.parent(@org)
         self.parent = obj
         self
       else
@@ -56,51 +37,25 @@ module Sequel::Plugins::ParentModel
         if key = self[:parent_key]
           key = key.split('/')
           key[0].constantize.find(key[1])
-        elsif type = (self[:parent_model] || self[:parent_type])
+        elsif type = self[:parent_model]
           type.constantize.find(self[:parent_ref])
         else
-          raise ArgumentError, '%s parent key not found.' % self.class
+          raise ArgumentError, '%s parent not set.' % self.class
         end
       end
     end
 
-    # check if parent is present
     def parent?
-      db_schema[:parent_key] || db_schema[:parent_model] || db_schema[:parent_type]
-    end
-
-    private
-
-    def parent_model_col
-      if db_schema[:parent_model]
-        :parent_model
-      elsif db_schema[:parent_type]
-        :parent_type
-      else
-        raise ArgumentError, 'parent column not found for %s' % self.class
-      end
+      !!(db_schema[:parent_key] || db_schema[:parent_model])
     end
   end
 
-  # Favorite.for_parent(@cards) -> cards in favorites
   module ClassMethods
     def for_parent object
       if db_schema[:parent_key]
         where(parent_key: object.key)
-      elsif col = parent_model_col
-        where(parent_ref: object.ref, col => object.class.to_s)
       else
-        raise ArgumentError, 'parent key not found'
-      end
-    end
-
-    private
-
-    def parent_model_col
-      if db_schema[:parent_model]
-        :parent_model
-      elsif db_schema[:parent_type]
-        :parent_type
+        where(parent_model: object.class.to_s, parent_ref: object.ref)
       end
     end
   end

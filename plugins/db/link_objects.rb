@@ -5,38 +5,9 @@
 # Task.where_ref(@board) -> dataset scoped to parent
 
 module Sequel::Plugins::LuxLinks
-  module DatasetMethods
-    # Task.where_ref(@board)
-    def where_ref object
-      if object
-        f = "#{object.class.to_s.underscore}_ref".to_sym
-        if model.db_schema[f]
-          where(f => object.ref)
-        elsif model.db_schema[:parent_key]
-          key = '%s/%s' % [object.class, object.ref]
-          where(parent_key: key)
-        elsif model.db_schema[:parent_model]
-          where(
-            parent_model: object.class.to_s,
-            parent_ref: object.ref
-          )
-        elsif model.db_schema[:parent_ref]
-          where(
-            parent_type: object.class.to_s,
-            parent_ref: object.ref
-          )
-        else
-          raise "Link field not found for #{model} -> #{object.class}"
-        end
-      else
-        self
-      end
-    end
-  end
-
   module ClassMethods
     def where_ref(model)
-      dataset.where_ref(model)
+      dataset.for(model)
     end
 
     # link :user         -> singular, belongs_to via user_ref

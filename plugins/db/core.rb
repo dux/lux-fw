@@ -17,7 +17,7 @@ class Sequel::Model
     end
 
     # instance scope, same as scope but runs on instance
-    # iscope(:notes)   { Note.where(created_by:id) }
+    # iscope(:notes)   { Note.where(created_by: ref) }
     def iscope name, body=nil, &block
       block ||= body
       define_method(name, &block)
@@ -41,14 +41,14 @@ class Sequel::Model
 
   module InstanceMethods
     def key namespace = nil
-      v = "%s/%s" % [self.class, self[:ref] || self[:id]]
+      v = "%s/%s" % [self.class, self[:ref]]
       namespace ? "#{v}/#{namespace}" : v
     end
 
     def cache_key namespace = nil
       key =
       if self[:updated_at]
-        "%s/%s-%s" % [self.class, self.id, self[:updated_at].to_f]
+        "%s/%s-%s" % [self.class, self[:ref], self[:updated_at].to_f]
       else
         self.key
       end
@@ -121,16 +121,4 @@ class Sequel::Model
       end
     end
   end
-
-  module DatasetMethods
-    def refs cnt = nil
-      select(:ref).limit(cnt || 1000).all.map(&:ref)
-    end
-
-    def latest
-      order(Sequel.desc(:updated_at))
-    end
-  end
 end
-
-

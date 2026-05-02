@@ -28,13 +28,10 @@ class Sequel::Model
       opts[:default]   = opts[:default].to_s
 
       unless opts[:field] == false
-        unless opts[:field]
-          opts[:field] = opts[:method].to_s + '_sid'
-          opts[:field] = opts[:method].to_s + '_id' unless db_schema[opts[:field].to_sym]
-        end
+        opts[:field] ||= opts[:method].to_s + '_sid'
 
         unless db_schema[opts[:field].to_sym]
-          Lux.info 'Field %s or %s not found for enums %s' % [opts[:field].to_s.sub('_id', '_sid'), opts[:field], name]
+          Lux.info 'Field %s not found for enums %s' % [opts[:field], name]
         end
 
         define_method(opts[:field]) do

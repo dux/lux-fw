@@ -21,8 +21,8 @@ module Sequel::Plugins::LuxHooks
     end
 
     def before_create
+      before_update_exec :b, :c unless @is_new
       @is_new = true
-      before_update_exec :b, :c unless self.id
       super
     end
 

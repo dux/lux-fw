@@ -265,7 +265,7 @@ class AutoMigrate
   end
 
   def remove_extra_columns
-    extra = @current_schema.keys - @fields.keys - [:id, :ref]
+    extra = @current_schema.keys - @fields.keys - [:ref]
 
     extra.each do |field|
       # skip if another field declares meta: { was: :this_field } — will be renamed

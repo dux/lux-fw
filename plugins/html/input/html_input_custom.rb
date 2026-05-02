@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 class HtmlInput
-
   def as_string
     @opts[:type] = 'text'
     @opts[:autocomplete] ||= 'off'
@@ -97,7 +96,7 @@ class HtmlInput
     val = @opts.delete(:value) || ''
     val = val.join($/) if val.is_array?
 
-    App.tag 's-input-textarea', {
+    {
       name: @opts[:name],
       id: @opts[:id],
       value: val,
@@ -106,7 +105,7 @@ class HtmlInput
       max: @opts[:max],
       wrap: @opts[:wrap],
       placeholder: @opts[:placeholder],
-    }
+    }.tag('input-textarea')
   end
 
   def as_memo
@@ -122,7 +121,7 @@ class HtmlInput
         name: @opts.delete(:name),
         type: :checkbox,
         value: value,
-        checked: @object && Array(@object.send(@filed_name)).include?(value) ? 'true' : nil
+        checked: @object && Array(@object.send(@field_name)).include?(value) ? 'true' : nil
       }.compact.tag(:input)
     else
       id = Lux.current.uid

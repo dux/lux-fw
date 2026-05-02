@@ -1,0 +1,2 @@
+--pattern {spec,plugins}/**/*_spec.rb
+--exclude-pattern plugins/job_runner/**/*_spec.rb
