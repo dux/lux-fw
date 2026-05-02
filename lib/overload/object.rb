@@ -160,5 +160,10 @@ class Object
   rescue ArgumentError
     false
   end
+
+  def in? collection
+    collection.include?(self)
+  end
+  alias :inside? :in?
 end
 

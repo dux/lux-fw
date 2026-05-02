@@ -13,6 +13,23 @@ class Integer
     self.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1.').reverse
   end
 
+  def ordinalize
+    abs_num = self.abs
+    mod100 = abs_num % 100
+    suffix = if mod100 >= 11 && mod100 <= 13
+      'th'
+    else
+      case abs_num % 10
+      when 1 then 'st'
+      when 2 then 'nd'
+      when 3 then 'rd'
+      else 'th'
+      end
+    end
+    "#{self}#{suffix}"
+  end
+  alias :to_ordinal :ordinalize
+
   def to_filesize
     base = 1024
     out = lambda do

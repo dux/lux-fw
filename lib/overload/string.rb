@@ -186,4 +186,9 @@ class String
     gsub(/[[:space:]]+/, " ")
     .strip
   end
+
+  def indent amount = 2, char = ' '
+    prefix = char * amount
+    gsub(/^/, prefix)
+  end
 end

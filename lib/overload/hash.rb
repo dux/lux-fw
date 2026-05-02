@@ -78,6 +78,16 @@ class Hash
     (value || {}).deep_compact
   end
 
+  def reverse_merge other
+    other.merge(self)
+  end
+  alias :with_defaults :reverse_merge
+
+  def reverse_merge! other
+    replace(other.merge(self))
+  end
+  alias :with_defaults! :reverse_merge!
+
   def html_safe key
     if data = self[key]
       self[key] = data.html_safe

@@ -91,4 +91,16 @@ class Array
       el
     end
   end
+
+  def in_groups_of num, fill = nil
+    each_slice(num).map do |group|
+      group << fill while group.length < num if fill != false
+      group
+    end.to_a
+  end
+
+  def excluding *elements
+    self - elements.flatten
+  end
+  alias :without :excluding
 end
