@@ -4,7 +4,15 @@ module Sequel::Plugins::LuxHooks
   HOOK_METHODS = {}
 
   module InstanceMethods
+    def save(opts = Sequel::OPTS)
+      @_lux_skip_filters = opts[:validate] == false
+      super
+    ensure
+      @_lux_skip_filters = false
+    end
+
     def before_update_exec k, m
+      return if @_lux_skip_filters
       hooks = HOOK_METHODS.dig(self.class, k, m)
       return unless hooks
 
