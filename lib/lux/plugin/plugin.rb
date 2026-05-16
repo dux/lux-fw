@@ -1,12 +1,19 @@
-# define loader.rb in plugin folder for manual loader, loads all *.rb unless defined
+# Plugin layout (canonical):
+#   plugins/<name>/
+#     loader.rb     # OPTIONAL. Boot logic, required first.
+#     load/         # OPTIONAL. All *.rb auto-required after loader.rb.
+#     Hammerfile    # OPTIONAL. Single-file CLI tasks.
+#     hammer/       # OPTIONAL. *_hammer.rb CLI tasks.
+#     mount/        # RESERVED for future auto-mount.
+#
+# A plugin must have at least loader.rb or load/, otherwise it is empty.
 
 module Lux
   module Plugin
     extend self
 
-    PLUGIN = {}
+    PLUGIN ||= {}
 
-    # load specific plugin
     # Lux.plugin :foo
     # Lux.plugin 'foo/bar'
     # Lux.plugin.folders
@@ -18,17 +25,21 @@ module Lux
 
       return PLUGIN[opts.name] if PLUGIN[opts.name]
 
-      die(%{Plugin "#{opts.name}" not found in "#{opts.folder}"}) unless Dir.exist?(opts.folder)
+      root = Pathname.new(opts.folder)
+
+      die(%{Plugin "#{opts.name}" not found in "#{root}"}) unless root.directory?
+
+      loader   = root.join('loader.rb')
+      load_dir = root.join('load')
+
+      unless loader.exist? || load_dir.directory?
+        die(%{Plugin "#{opts.name}" has neither loader.rb nor load/ in "#{root}"})
+      end
 
       PLUGIN[opts.name] ||= opts
 
-      base = Pathname.new(opts.folder).join('loader.rb')
-
-      if base.exist?
-        require base.to_s
-      else
-        Dir.require_all(opts.folder)
-      end
+      require loader.to_s            if loader.exist?
+      Dir.require_all load_dir.to_s  if load_dir.directory?
 
       PLUGIN[opts.name]
     end
@@ -38,7 +49,7 @@ module Lux
     end
 
     def loaded
-       PLUGIN.values
+      PLUGIN.values
     end
 
     def keys

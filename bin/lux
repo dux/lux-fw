@@ -22,6 +22,12 @@ Hammer.run ARGV do
   load LUX_ROOT
   load Dir.pwd if Dir.pwd != LUX_ROOT
 
+  # Plugin Hammerfiles (single-file CLI tasks) are not matched by the
+  # recursive *_hammer.rb walk above - load them explicitly.
+  [LUX_ROOT, Dir.pwd].uniq.each do |root|
+    Dir.glob(File.join(root, 'plugins', '*', 'Hammerfile')).each { |f| load f }
+  end
+
   # Hidden helpers - plugins use `needs :env` (rake-style) so config/env
   # loads once per top-level invocation regardless of how many defines pull it in.
   task :env do

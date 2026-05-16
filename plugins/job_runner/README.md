@@ -48,7 +48,7 @@ LuxJob.add :send_email, { to: 'user@example.com', subject: 'Hello' }
 ### Start the Runner
 
 ```bash
-rake job_runner:start
+lux job_runner:start
 ```
 
 Or programmatically:
@@ -60,7 +60,7 @@ LuxJob.run  # blocks and polls every 3 seconds
 ### Web Dashboard
 
 ```bash
-rake job_runner:web[password]
+lux job_runner:web <password>
 ```
 
 Or mount in your Lux app:
@@ -101,3 +101,18 @@ Failed jobs are automatically rescheduled with 60% exponential backoff:
 Jobs that exceed their timeout are treated as failures and follow the same retry logic.
 
 Logs are written to `./log/lux_job.log`
+
+## Layout
+
+```
+plugins/job_runner/
+  loader.rb                  # sets ENV['PORT_JOB'], requires LuxJob + lock
+  lib/
+    lux_job.rb
+    lux_job_lock.rb
+    lux_job_api.rb
+    lux_job_policy.rb
+    lux_job_web.rb           # mountable Sinatra dashboard
+    lux_job_exporter.rb
+  Hammerfile                 # `lux job_runner:*` tasks
+```

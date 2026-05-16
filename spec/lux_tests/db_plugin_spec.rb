@@ -20,7 +20,7 @@ Sequel::Model.plugin :dirty
 # Load all DB plugins under test
 # ---------------------------------------------------------------------------
 
-plugin_dir = File.expand_path('../../plugins/db', __dir__)
+plugin_dir = File.expand_path('../../plugins/db/load', __dir__)
 
 # core + dataset_methods first (others may rely on them)
 load File.join(plugin_dir, 'core.rb')

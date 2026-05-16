@@ -1,5 +1,5 @@
 require 'spec_helper'
-require_relative '../../plugins/auto_controller/auto_controller'
+require_relative '../../plugins/auto_controller/load/auto_controller'
 
 class AutoControllerTestController < Lux::Controller
   include Lux::AutoController

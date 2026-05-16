@@ -8,13 +8,22 @@ Ruby web framework - Rack-based, Sequel ORM, PostgreSQL.
 * `lib/overload/` - Ruby core class extensions (18 files)
 * `lib/common/` - shared utilities (Crypt, StringBase, StructOpts, TimeDifference)
 * `plugins/` - framework plugins loaded via `Lux.plugin :name`
-  - `plugins/db/` - database (Sequel model extensions, auto-migrate, rake tasks)
-  - `plugins/assets/` - CDN asset pipeline (cdn_asset, assets.rake, lux_helper)
-  - `plugins/html/` - HTML builders (html_input, html_table, html_menu, html_filter, page_meta, time_zones)
-  - `plugins/job_runner/` - background job queue (LuxJob - database-backed with cron scheduling)
-  - `plugins/lux_logger/` - structured database logger (LuxLogger model)
+  - Canonical layout per plugin (all folders optional):
+    - `loader.rb` - boot logic, required first if present
+    - `load/` - auto-required after loader (recursive, *_spec.rb / *_hammer.rb skipped)
+    - `Hammerfile` or `hammer/*_hammer.rb` - CLI tasks for the `lux` command
+    - `mount/` - reserved for future auto-mount of Rack apps
+    - Anything else (`lib/`, `views/`, `spec/`, ...) is plain convention, never auto-loaded
+  - A plugin must have at least `loader.rb` or `load/`
+  - `plugins/db/` - database (Sequel model extensions, auto-migrate)
+  - `plugins/assets/` - CDN asset pipeline (cdn_asset, lux_helper)
+  - `plugins/html/` - HTML builders (form, input, table, menu, paginate, filter, page_meta, time_zones)
+  - `plugins/job_runner/` - background job queue (LuxJob)
+  - `plugins/lux_logger/` - structured database logger (LuxLogger)
   - `plugins/oauth/` - OAuth integration
   - `plugins/auto_controller/` - auto controller routing
+  - `plugins/authcog/` - central-auth landing controller
+  - `plugins/exception_logger/` - PG-backed exception logger + mountable viewer
 * `spec/` - RSpec tests (`spec/lib_tests/`, `spec/lux_tests/`)
 * `bin/` - CLI (`lux` command, `bin/cli/` has 15+ subcommands)
 * `tasks/` - Rake tasks
@@ -29,8 +38,8 @@ Ruby web framework - Rack-based, Sequel ORM, PostgreSQL.
   - `Lux::Db.configured_names` - list of configured DB names
   - `Lux::Db.disconnect_all` - disconnect and clear all connections
 * Models use `ref` (string) as primary key, not integer `id`
-* Sequel plugins registered under `plugins/db/` (hooks, links, parent_model, enums, etc.)
-* `Lux.plugin :db` triggers `loader.rb` which calls `Lux::Db.boot!` then loads all plugin files
+* Sequel plugins registered under `plugins/db/load/` (hooks, links, parent_model, enums, etc.)
+* `Lux.plugin :db` runs `loader.rb` (calls `Lux::Db.boot!`), then auto-requires every file under `load/`
 
 ## Conventions
 

@@ -110,3 +110,15 @@ Existing records with `is_resolved` set to `nil` are treated as unresolved.
 | `ip` | String | Request IP |
 | `env` | Text | Sanitized request environment JSON |
 | `created_at` | Time | Occurrence time |
+
+## Layout
+
+```
+plugins/exception_logger/
+  loader.rb                  # wires Lux.config.error_logger
+  lib/
+    lux_exception.rb         # grouping + add/get/query API
+    lux_exception_log.rb     # per-occurrence record
+    lux_exception_web.rb     # mountable Sinatra viewer
+  views/                     # web viewer templates
+```
