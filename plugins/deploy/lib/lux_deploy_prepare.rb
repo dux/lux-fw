@@ -73,6 +73,9 @@ module LuxDeploy
           rm -f "$TMP_KEYS"
         fi
 
+        # --- apps root (~/lux-apps) owned by service user ---
+        sudo -u #{su_sh} -H bash -lc 'mkdir -p "$HOME/lux-apps"'
+
         # --- mise + ruby installed under service user's home ---
         sudo -u #{su_sh} -H bash -lc 'set -e; \\
           if [ ! -x "$HOME/.local/bin/mise" ]; then curl -fsSL https://mise.run | sh; fi; \\

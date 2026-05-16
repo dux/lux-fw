@@ -20,7 +20,6 @@ task :deploy do
   opt :app, desc: 'App identifier'
   opt :host, desc: 'SSH target USER@HOST'
   opt :config, desc: 'Path to config/deploy.json'
-  opt :path, desc: 'Remote app path'
   opt :src, desc: 'Local rsync source'
   opt :domain, desc: 'Caddy domain or comma-separated domains'
   opt :db_name, desc: 'Postgres database name'
@@ -70,6 +69,20 @@ namespace :deploy do
 
     proc do |opts|
       LuxDeployHammer.run(opts) { LuxDeploy::Commands.doctor(LuxDeployHammer.profile(opts), opts) }
+    end
+  end
+
+  task :reinstall do
+    desc 'Re-apply systemd + caddy from on-host manifest (no release sync)'
+    opt :profile, desc: 'Deploy profile (positional ok)'
+    opt :app, desc: 'App identifier'
+    opt :host, desc: 'SSH target USER@HOST'
+    opt :config, desc: 'Path to config/deploy.json'
+    opt :dry_run, type: :boolean, default: false, desc: 'Print commands, do not execute'
+    opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.reinstall(LuxDeployHammer.profile(opts), opts) }
     end
   end
 

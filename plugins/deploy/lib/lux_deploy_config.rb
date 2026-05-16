@@ -74,6 +74,9 @@ module LuxDeploy
       normalized[:user] = ssh_user_hint(normalized[:host])
       normalized[:service_user] ||= 'deployer'
       normalized[:db][:user] ||= normalized[:service_user]
+      # Path is fully derived. No override - every app lives at
+      # ~<service_user>/lux-apps/<app>/, so the filesystem is the registry.
+      normalized[:path] = "/home/#{normalized[:service_user]}/lux-apps/#{normalized[:app]}"
       normalized[:port] = normalized[:port].to_i if normalized[:port]
       normalized[:basic_auth] = opts[:basic_auth] if opts.key?(:basic_auth)
       validate!(normalized)
@@ -153,7 +156,7 @@ module LuxDeploy
 
     def cli_overlay(opts)
       overlay = {}
-      %i[host path domain port repo branch ruby basic_auth service_user].each do |key|
+      %i[host domain port repo branch ruby basic_auth service_user].each do |key|
         overlay[key.to_s] = opts[key] if opts.key?(key) && !opts[key].nil?
       end
       if opts[:db_name] || opts[:db_user]

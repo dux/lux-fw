@@ -4,12 +4,11 @@ module LuxDeploy
 
     def ensure_layout(ctx)
       path = LuxDeploy.sh(ctx.path)
-      su = LuxDeploy.sh(ctx.service_user)
-      cmd = [
-        "sudo mkdir -p #{path}/releases #{path}/shared/log #{path}/shared/tmp",
-        "sudo chown -R #{su}:#{su} #{path}"
-      ].join(' && ')
-      ctx.ssh.ssh!(cmd, category: :preflight, summary: 'cannot ensure release layout')
+      # Path is under the service user's home (~/lux-apps/<app>) which prepare
+      # seeded owned by them, so this runs cleanly as the service user.
+      cmd = "mkdir -p #{path}/releases #{path}/shared/log #{path}/shared/tmp"
+      ctx.ssh.ssh!(LuxDeploy.as_service_user(ctx, cmd),
+                   category: :preflight, summary: 'cannot ensure release layout')
     end
 
     def create(ctx)

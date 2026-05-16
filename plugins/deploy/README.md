@@ -7,7 +7,8 @@ SSH-based deploy commands for Lux apps. The plugin provisions a Lux app on a Lin
 ```sh
 lux deploy [PROFILE]
 lux deploy:prepare [PROFILE] --with caddy,postgres
-lux deploy:doctor [PROFILE]
+lux deploy:doctor [PROFILE] [--app NAME]
+lux deploy:reinstall [PROFILE] --app NAME
 lux deploy:rollback [PROFILE]
 lux deploy:remove [PROFILE] [--with-db]
 lux deploy:list [PROFILE]
@@ -60,7 +61,6 @@ Two identities exist on the host:
   "default": {
     "host": "root@srv.example.com",
     "service_user": "deployer",
-    "path": "/var/www/{{app}}",
     "ruby": "3.4.7",
     "repo": "git@github.com:foo/bar.git",
     "db": {
@@ -148,17 +148,32 @@ Exit codes: `10` preflight, `20` source, `30` database, `40` systemd, `50` caddy
 
 ## Layout on the host
 
+Every app lives at `/home/<service_user>/lux-apps/<app>/`. The path is fully derived from `service_user` and `app` — no override. The filesystem itself is the app registry. Each app is self-describing: a `manifest.json` at the app root records the resolved deploy state so doctor, list, and reinstall don't need the local config.
+
 ```text
-/var/www/myapp/
-  current -> releases/2026-05-16-09-23-22
-  releases/
-  shared/
-    .env
-    log/
-    tmp/
+/home/deployer/lux-apps/
+  myapp/
+    manifest.json                       # resolved deploy state (no secrets)
+    current -> releases/2026-05-16-09-23-22
+    releases/
+    shared/
+      .env                              # 0600 deployer:deployer (resolved secrets)
+      log/
+      tmp/
+  pr-123/
+    manifest.json
+    ...
 ```
 
-Deploys create a fresh release dir, run bundle and migrations there, then atomically swap `current`. The plugin keeps the current release plus one previous release for rollback.
+Deploys create a fresh release dir, run bundle and migrations there, atomically swap `current`, then write `manifest.json` after the healthcheck passes. The plugin keeps the current release plus one previous release for rollback.
+
+## Manifest
+
+`<path>/manifest.json` records: app, service_user, ruby, host, domain, port, db (name + user, no secrets), systemd unit names, caddy site path, env schema (`required` / `optional` / `literal`, **never resolved values**), current release, deployed_at, ruby and bundle paths.
+
+`lux deploy:doctor` reads every manifest under `/home/<service_user>/lux-apps/` and checks reality matches: systemd unit installed with `User=<service_user>`, services active, caddy site references the recorded port, `current` symlink is valid, bundle path exists, db role + database exist, `.env` is mode 0600. Pass `--app NAME` to scope to one app.
+
+`lux deploy:reinstall --app NAME` reads the on-host manifest and re-renders the systemd unit + caddy site from the current templates, then reloads both. No release sync, no bundle, no db — handy when config drifts but the release tree is fine.
 
 ## Notes
 

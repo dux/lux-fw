@@ -133,6 +133,7 @@ module LuxDeploy
     require_relative 'lux_deploy_systemd'
     require_relative 'lux_deploy_caddy'
     require_relative 'lux_deploy_prepare'
+    require_relative 'lux_deploy_manifest'
   end
 
   def run_local(cmd, dry_run: false, quiet: false, input: nil)
@@ -293,38 +294,90 @@ module LuxDeploy
 
     def doctor(ctx)
       su = ctx.service_user
+      ssh = ctx.ssh
       bundle = "/home/#{su}/.local/share/mise/installs/ruby/#{ctx.ruby}/bin/bundle"
-      caddy_owner_check = "stat -c '%U' /etc/caddy/sites 2>/dev/null | grep -qx #{LuxDeploy.sh(su)}"
-      log_owner_check = "stat -c '%U' /var/log/lux-deploy 2>/dev/null | grep -qx #{LuxDeploy.sh(su)}"
-      checks = [
-        ['ssh', 'whoami', 'SSH unreachable'],
-        ['passwordless sudo', 'sudo -n true', 'passwordless sudo not configured'],
-        ["service user #{su}", "id #{LuxDeploy.sh(su)} >/dev/null 2>&1", "service user #{su} missing"],
-        ["#{su} ruby/bundler", "sudo test -x #{LuxDeploy.sh(bundle)}", 'bundler missing on host'],
-        ['caddy active', 'systemctl is-active --quiet caddy', 'caddy not running'],
-        ['postgres active', 'systemctl is-active --quiet postgresql || systemctl is-active --quiet postgres', 'postgres not running'],
-        ['sudo -u postgres psql', "sudo -u postgres psql -c 'select 1' >/dev/null", 'sudo postgres psql failed'],
-        ["/etc/caddy/sites owned by #{su}", caddy_owner_check, 'caddy sites dir not owned by service user'],
-        ["/var/log/lux-deploy owned by #{su}", log_owner_check, 'deploy log dir not owned by service user']
+      caddy_owner = "stat -c '%U' /etc/caddy/sites 2>/dev/null | grep -qx #{LuxDeploy.sh(su)}"
+      log_owner = "stat -c '%U' /var/log/lux-deploy 2>/dev/null | grep -qx #{LuxDeploy.sh(su)}"
+      apps_root_check = "test -d #{LuxDeploy.sh(Manifest.apps_root(su))}"
+      host_checks = [
+        ['ssh', 'whoami'],
+        ['passwordless sudo', 'sudo -n true'],
+        ["service user #{su}", "id #{LuxDeploy.sh(su)} >/dev/null 2>&1"],
+        ["#{su} ruby/bundler", "sudo test -x #{LuxDeploy.sh(bundle)}"],
+        ['caddy active', 'systemctl is-active --quiet caddy'],
+        ['postgres active', 'systemctl is-active --quiet postgresql || systemctl is-active --quiet postgres'],
+        ['sudo -u postgres psql', "sudo -u postgres psql -c 'select 1' >/dev/null"],
+        ["/etc/caddy/sites owned by #{su}", caddy_owner],
+        ["/var/log/lux-deploy owned by #{su}", log_owner],
+        ["#{Manifest.apps_root(su)} present", apps_root_check]
       ]
       puts "Host: #{ctx.config[:host]}"
+      host_failures = run_checks(ssh, host_checks)
       puts
-      failures = []
-      checks.each do |label, cmd, summary|
-        result = ctx.ssh.ssh(cmd)
-        if result.success?
-          puts "  %-30s ok" % label
+
+      app_filter = ctx.options[:app].to_s
+      manifests = Manifest.read_all(ssh, su)
+      manifests = manifests.select { |_, m| m[:app].to_s == app_filter } if !app_filter.empty?
+
+      if manifests.empty?
+        if app_filter.empty?
+          puts "No apps with manifest under #{Manifest.apps_root(su)}/"
         else
-          puts "  %-30s FAIL" % label
-          failures << build_error(ctx, summary, result, cmd)
+          puts "No manifest for app #{app_filter} under #{Manifest.apps_root(su)}/"
+        end
+        puts
+      end
+
+      app_failures = manifests.sum { |_, m| verify_manifest(ssh, m) }
+
+      total = host_failures + app_failures
+      return true if total.zero?
+
+      warn "#{total} check failed#{total == 1 ? '' : 's'}."
+      exit EXIT_CODES[:preflight]
+    end
+
+    def run_checks(ssh, checks)
+      failures = 0
+      checks.each do |label, cmd|
+        result = ssh.ssh(cmd)
+        if result.success?
+          puts "  %-32s ok" % label
+        else
+          puts "  %-32s FAIL" % label
+          failures += 1
         end
       end
-      puts
-      failures.each { |failure| warn failure.to_s }
-      return true if failures.empty?
+      failures
+    end
 
-      warn "#{failures.size} check failed#{'s' unless failures.size == 1}."
-      exit EXIT_CODES[:preflight]
+    def verify_manifest(ssh, m)
+      app = m[:app]
+      su = m[:service_user]
+      port = m[:port]
+      path = m[:path]
+      db_user = m.dig(:db, :user)
+      db_name = m.dig(:db, :name)
+      env_file = "#{path}/shared/.env"
+      checks = [
+        ["systemd unit installed", "sudo test -f /etc/systemd/system/lux-web-#{app}.service"],
+        ["systemd User=#{su}", "sudo grep -qx 'User=#{su}' /etc/systemd/system/lux-web-#{app}.service"],
+        ["lux-web-#{app} active", "systemctl is-active --quiet lux-web-#{app}"],
+        ["lux-job-#{app} active", "systemctl is-active --quiet lux-job-#{app}"],
+        ["caddy site present", "sudo test -f /etc/caddy/sites/#{app}.caddy"],
+        ["caddy port :#{port}", "sudo grep -q 'localhost:#{port}\\b' /etc/caddy/sites/#{app}.caddy"],
+        ["current symlink valid", "test -L #{LuxDeploy.sh(path)}/current && test -d #{LuxDeploy.sh(path)}/current/"],
+        ["bundle path", "sudo test -x #{LuxDeploy.sh(m[:bundle_path])}"],
+        # Apps with empty env block deliberately have no .env (systemd uses
+        # EnvironmentFile=-). Only enforce mode when the file actually exists.
+        [".env mode 0600 if present", "! sudo test -f #{LuxDeploy.sh(env_file)} || [ \"$(sudo stat -c %a #{LuxDeploy.sh(env_file)})\" = 600 ]"],
+        ["db role #{db_user}", "sudo -u postgres psql -tAc \"SELECT 1 FROM pg_roles WHERE rolname='#{db_user}'\" 2>/dev/null | grep -qx 1"],
+        ["db #{db_name}", "sudo -u postgres psql -tAc \"SELECT 1 FROM pg_database WHERE datname='#{db_name}'\" 2>/dev/null | grep -qx 1"]
+      ]
+      puts "App: #{app}  (#{m[:domain]} -> :#{port}, release #{m[:release]})"
+      failures = run_checks(ssh, checks)
+      puts
+      failures
     end
 
     def check(ctx, cmd, summary, category)
@@ -391,6 +444,7 @@ module LuxDeploy
         healthcheck!(ctx)
         ctx.step 'caddy'
         Caddy.install!(ctx)
+        Manifest.write!(ctx)
         Release.prune(ctx)
         duration = LuxDeploy.duration_since(ctx.started_at)
         Log.append(ctx, "deploy ok duration=#{duration}s")
@@ -449,21 +503,57 @@ module LuxDeploy
     def list(profile, opts = {})
       config = Config.resolve(profile, opts)
       ssh = SSH.new(config, dry_run: opts[:dry_run], quiet: opts[:quiet])
-      cmd = <<~SH
-        { for f in /etc/caddy/sites/*.caddy; do [ -f "$f" ] || continue; app=$(basename "$f" .caddy); domain=$(head -n 1 "$f" | sed 's/ {//'); port=$(grep -Eo 'localhost:[0-9]+' "$f" | head -n1 | cut -d: -f2); echo "$app|$domain|$port|caddy"; done; } 2>/dev/null
-        systemctl list-units 'lux-web-*.service' 'lux-job-*.service' --no-legend --no-pager 2>/dev/null | awk '{print $1"|"$4}'
-        find /var/www -maxdepth 3 -name current -type l -printf '%h|%l\n' 2>/dev/null
-      SH
-      result = ssh.ssh(cmd)
-      output = filter_list(result.stdout, opts[:app])
-      puts output
-      warn result.stderr unless result.stderr.empty?
-      exit result.status unless result.success?
+      manifests = Manifest.read_all(ssh, config[:service_user])
+      filter = opts[:app].to_s
+      manifests.each do |_, m|
+        next unless filter.empty? || m[:app].to_s.include?(filter)
+        puts "#{m[:app]}|#{m[:domain]}|#{m[:port]}|#{m[:release]}|#{m[:deployed_at]}"
+      end
     end
 
-    def filter_list(stdout, app)
-      return stdout unless app && !app.empty?
-      stdout.each_line.select { |line| line.include?(app) }.join
+    def reinstall(profile, opts = {})
+      config = Config.resolve(profile, opts)
+      ctx = Context.new(config, opts)
+      # Read manifest BEFORE preflight so preflight runs against the recorded
+      # ruby/service_user (not whatever local config happens to say now).
+      manifest_path = Manifest.remote_path(ctx.path)
+      manifest = Manifest.read(ctx.ssh, manifest_path)
+      unless manifest
+        raise Error.new(
+          'manifest not found on host',
+          expected: "#{manifest_path} exists on #{ctx.config[:host]}",
+          current: 'no manifest present',
+          need: 'run a successful deploy first',
+          fix: "lux deploy --app #{ctx.app}",
+          category: :preflight
+        )
+      end
+      # Manifest is the source of truth on reinstall. Local config only
+      # locates the host; values flow from the last successful deploy.
+      ctx.config[:service_user] = manifest[:service_user]
+      ctx.config[:ruby] = manifest[:ruby]
+      ctx.config[:port] = manifest[:port]
+      ctx.config[:domain] = manifest[:domain]
+      ctx.release = manifest[:release]
+      Preflight.deploy!(ctx)
+      if ctx.bundle != manifest[:bundle_path]
+        raise Error.new(
+          'bundle path drift between manifest and host',
+          expected: "#{manifest[:bundle_path]} (from manifest)",
+          current: "#{ctx.bundle} (derived from manifest ruby=#{manifest[:ruby]})",
+          need: 'manifest and computed bundle path agree',
+          fix: 'inspect manifest and rerun lux deploy if ruby version changed on host',
+          category: :preflight
+        )
+      end
+      ctx.step 'systemd install'
+      Systemd.install!(ctx)
+      Systemd.restart!(ctx)
+      ctx.step 'caddy'
+      Caddy.install!(ctx)
+      Manifest.write!(ctx)
+      Log.append(ctx, "reinstall ok release=#{ctx.release}")
+      puts "reinstall ok #{ctx.app} release=#{ctx.release} port=#{ctx.port}"
     end
 
     def healthcheck!(ctx)
