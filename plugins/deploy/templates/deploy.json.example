@@ -1,0 +1,35 @@
+{
+  "default": {
+    "host": "deploy@srv.example.com",
+    "path": "/var/www/{{app}}",
+    "ruby": "3.4.7",
+    "repo": "git@github.com:org/app.git",
+    "db": {
+      "user": "deploy",
+      "name": "{{app_underscored}}"
+    },
+    "domain": "example.com",
+    "basic_auth": null,
+    "port": null,
+    "healthcheck": {
+      "path": "/",
+      "timeout": 30,
+      "expect_status": [200, 201, 204, 301, 302]
+    },
+    "env": {
+      "RACK_ENV": "production",
+      "DATABASE_URL": "postgres:///{{app_underscored}}",
+      "SECRET_KEY_BASE": true
+    }
+  },
+  "staging": {
+    "domain": "*.staging.example.com",
+    "env": {
+      "RACK_ENV": "staging"
+    }
+  },
+  "pr": {
+    "extends": "staging",
+    "domain": "{{app}}.staging.example.com"
+  }
+}

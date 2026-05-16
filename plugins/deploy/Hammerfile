@@ -1,0 +1,145 @@
+require_relative 'lib/lux_deploy'
+
+module LuxDeployHammer
+  module_function
+
+  def profile(opts)
+    opts[:profile] || opts[:args].first || 'default'
+  end
+
+  def run(opts)
+    yield
+  rescue => e
+    LuxDeploy.handle_cli_error(e, quiet: opts[:quiet])
+  end
+end
+
+task :deploy do
+  desc 'Deploy app to PROFILE (atomic, with health check)'
+  opt :profile, desc: 'Deploy profile (positional ok)'
+  opt :app, desc: 'App identifier'
+  opt :host, desc: 'SSH target USER@HOST'
+  opt :config, desc: 'Path to config/deploy.json'
+  opt :path, desc: 'Remote app path'
+  opt :src, desc: 'Local rsync source'
+  opt :domain, desc: 'Caddy domain or comma-separated domains'
+  opt :db_name, desc: 'Postgres database name'
+  opt :db_user, desc: 'Postgres role name'
+  opt :basic_auth, desc: 'HTTP basic auth user:pass'
+  opt :port, desc: 'App port'
+  opt :repo, desc: 'Git repo URL for --branch deploys'
+  opt :branch, desc: 'Git branch/ref to clone remotely'
+  opt :ruby, desc: 'Ruby version'
+  opt :env, desc: 'Env override KEY=VAL or KEY (comma-separated ok)'
+  opt :dry_run, type: :boolean, default: false, desc: 'Print resolved plan, do not execute'
+  opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
+
+  proc do |opts|
+    LuxDeployHammer.run(opts) { LuxDeploy::Commands.deploy(LuxDeployHammer.profile(opts), opts) }
+  end
+end
+
+namespace :deploy do
+  task :prepare do
+    desc 'One-time server bootstrap'
+    opt :profile, desc: 'Deploy profile (positional ok)'
+    opt :host, desc: 'SSH target USER@HOST'
+    opt :config, desc: 'Path to config/deploy.json'
+    opt :app, desc: 'App identifier'
+    opt :ruby, desc: 'Ruby version'
+    opt :with, desc: 'Comma-separated extras: caddy, caddy-cloudflare, postgres'
+    opt :dry_run, type: :boolean, default: false, desc: 'Print commands, do not execute'
+    opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.prepare(LuxDeployHammer.profile(opts), opts) }
+    end
+  end
+
+  task :doctor do
+    desc 'Read-only deploy preflight diagnosis'
+    opt :profile, desc: 'Deploy profile (positional ok)'
+    opt :host, desc: 'SSH target USER@HOST'
+    opt :config, desc: 'Path to config/deploy.json'
+    opt :app, desc: 'App identifier'
+    opt :ruby, desc: 'Ruby version'
+    opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.doctor(LuxDeployHammer.profile(opts), opts) }
+    end
+  end
+
+  task :rollback do
+    desc 'Revert to previous release'
+    opt :profile, desc: 'Deploy profile (positional ok)'
+    opt :app, desc: 'App identifier'
+    opt :host, desc: 'SSH target USER@HOST'
+    opt :config, desc: 'Path to config/deploy.json'
+    opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.rollback(LuxDeployHammer.profile(opts), opts) }
+    end
+  end
+
+  task :remove do
+    desc 'Tear down a deploy'
+    opt :profile, desc: 'Deploy profile (positional ok)'
+    opt :app, desc: 'App identifier'
+    opt :host, desc: 'SSH target USER@HOST'
+    opt :config, desc: 'Path to config/deploy.json'
+    opt :with_db, type: :boolean, default: false, desc: 'Drop database too'
+    opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.remove(LuxDeployHammer.profile(opts), opts) }
+    end
+  end
+
+  task :list do
+    desc 'List deploys on a host'
+    opt :profile, desc: 'Deploy profile (positional ok)'
+    opt :host, desc: 'SSH target USER@HOST'
+    opt :config, desc: 'Path to config/deploy.json'
+    opt :app, desc: 'App identifier for config resolution'
+    opt :dry_run, type: :boolean, default: false, desc: 'Print commands, do not execute'
+    opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.list(LuxDeployHammer.profile(opts), opts) }
+    end
+  end
+
+  task :log do
+    desc 'Tail the host-wide deploy event log'
+    opt :profile, desc: 'Deploy profile (positional ok)'
+    opt :host, desc: 'SSH target USER@HOST'
+    opt :config, desc: 'Path to config/deploy.json'
+    opt :app, desc: 'Filter by app identifier'
+    opt :tail, desc: 'Number of lines (default 50)'
+    opt :follow, type: :boolean, default: false, desc: 'Follow log output'
+    opt :dry_run, type: :boolean, default: false, desc: 'Print commands, do not execute'
+    opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.deploy_log(LuxDeployHammer.profile(opts), opts) }
+    end
+  end
+
+  task :tail do
+    desc "Tail an app's systemd journal"
+    opt :profile, desc: 'Deploy profile (positional ok)'
+    opt :app, desc: 'App identifier'
+    opt :host, desc: 'SSH target USER@HOST'
+    opt :config, desc: 'Path to config/deploy.json'
+    opt :lines, desc: 'Number of lines (default 100)'
+    opt :follow, type: :boolean, default: false, desc: 'Follow journal output'
+    opt :dry_run, type: :boolean, default: false, desc: 'Print commands, do not execute'
+    opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.tail(LuxDeployHammer.profile(opts), opts) }
+    end
+  end
+end

@@ -1,0 +1,15 @@
+[Unit]
+Description=Lux job runner - <%= app %>
+After=network.target
+
+[Service]
+Type=simple
+User=<%= user %>
+WorkingDirectory=<%= working_dir %>
+EnvironmentFile=-<%= working_dir %>/.env
+ExecStart=<%= bundle %> exec lux job_runner:start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
