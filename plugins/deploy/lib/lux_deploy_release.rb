@@ -45,7 +45,20 @@ module LuxDeploy
     end
 
     def bundle_install(ctx)
-      cmd = "cd #{release_path(ctx)} && #{LuxDeploy.sh(ctx.bundle)} install --deployment --without development test"
+      # Bundler 4 dropped --deployment / --without flags. We also avoid setting
+      # `deployment=true` because it implies `frozen=true`, which breaks apps
+      # whose Gemfile resolves to different sources per environment (e.g. local
+      # path -> github fallback). A fresh release dir contains no prior bundle
+      # config or vendored bundle, so regenerating the lockfile here is local
+      # to this release and cannot leak into other deploys.
+      bundle = LuxDeploy.sh(ctx.bundle)
+      cmd = [
+        "cd #{release_path(ctx)}",
+        "#{bundle} config set --local frozen false",
+        "#{bundle} config set --local path vendor/bundle",
+        "#{bundle} config set --local without 'development test'",
+        "#{bundle} install --jobs=4 --retry=2"
+      ].join(' && ')
       ctx.ssh.ssh!(LuxDeploy.as_service_user(ctx, cmd),
                    category: :source, summary: 'bundle install failed')
     end

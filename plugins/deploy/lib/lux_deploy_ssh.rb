@@ -53,6 +53,11 @@ module LuxDeploy
       src += '/' unless src.end_with?('/')
       cmd = [
         'rsync -az --delete',
+        # Force-include lockfiles and config that bundler/runtime need even
+        # when the app's .gitignore excludes them. These filters must come
+        # before the :- .gitignore filter so they win.
+        "--filter=#{LuxDeploy.sq('+ Gemfile.lock')}",
+        "--filter=#{LuxDeploy.sq('+ .env.production')}",
         "--filter=#{LuxDeploy.sq(':- .gitignore')}",
         '--exclude .git',
         '--exclude .DS_Store',

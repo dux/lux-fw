@@ -35,20 +35,24 @@ module LuxDeploy
       logrotate = LuxDeploy.render_template('logrotate.conf.erb', {})
       <<~SH
         set -e
+        export DEBIAN_FRONTEND=noninteractive
         if command -v apt-get >/dev/null 2>&1; then
           sudo apt-get update
-          sudo apt-get install -y build-essential libssl-dev libreadline-dev zlib1g-dev libyaml-dev libffi-dev git curl rsync
-          [ #{install_postgres} = 1 ] && sudo apt-get install -y postgresql
+          # Base toolchain + dev headers for common native gem extensions
+          # (sqlite3, nokogiri, sequel_pg/pg, etc.). libpq-dev is required to
+          # build pg/sequel_pg even though postgresql itself bundles the lib.
+          sudo apt-get install -y build-essential libssl-dev libreadline-dev zlib1g-dev libyaml-dev libffi-dev libxml2-dev libxslt1-dev libsqlite3-dev pkg-config git curl rsync
+          [ #{install_postgres} = 1 ] && sudo apt-get install -y postgresql libpq-dev
           [ #{caddy_variant == 'caddy' ? '1' : '0'} = 1 ] && sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https caddy
           [ #{caddy_variant.start_with?('caddy-') ? '1' : '0'} = 1 ] && sudo apt-get install -y golang
         elif command -v dnf >/dev/null 2>&1; then
-          sudo dnf install -y gcc gcc-c++ make openssl-devel readline-devel zlib-devel libyaml-devel libffi-devel git curl rsync
-          [ #{install_postgres} = 1 ] && sudo dnf install -y postgresql-server postgresql
+          sudo dnf install -y gcc gcc-c++ make openssl-devel readline-devel zlib-devel libyaml-devel libffi-devel libxml2-devel libxslt-devel sqlite-devel pkgconf-pkg-config git curl rsync
+          [ #{install_postgres} = 1 ] && sudo dnf install -y postgresql-server postgresql libpq-devel
           [ #{caddy_variant == 'caddy' ? '1' : '0'} = 1 ] && sudo dnf install -y caddy
           [ #{caddy_variant.start_with?('caddy-') ? '1' : '0'} = 1 ] && sudo dnf install -y golang
         elif command -v pacman >/dev/null 2>&1; then
-          sudo pacman -Sy --noconfirm base-devel openssl readline zlib libyaml libffi git curl rsync
-          [ #{install_postgres} = 1 ] && sudo pacman -S --noconfirm postgresql
+          sudo pacman -Sy --noconfirm base-devel openssl readline zlib libyaml libffi libxml2 libxslt sqlite pkgconf git curl rsync
+          [ #{install_postgres} = 1 ] && sudo pacman -S --noconfirm postgresql postgresql-libs
           [ #{caddy_variant == 'caddy' ? '1' : '0'} = 1 ] && sudo pacman -S --noconfirm caddy
           [ #{caddy_variant.start_with?('caddy-') ? '1' : '0'} = 1 ] && sudo pacman -S --noconfirm go
         else
@@ -77,7 +81,10 @@ module LuxDeploy
         sudo -u #{su_sh} -H bash -lc 'mkdir -p "$HOME/lux-apps"'
 
         # --- mise + ruby installed under service user's home ---
+        # Start in $HOME so ruby-build's pushd/popd does not try to return to
+        # the SSH user's cwd (e.g. /root), which the service user cannot enter.
         sudo -u #{su_sh} -H bash -lc 'set -e; \\
+          cd "$HOME"; \\
           if [ ! -x "$HOME/.local/bin/mise" ]; then curl -fsSL https://mise.run | sh; fi; \\
           export PATH="$HOME/.local/bin:$PATH"; \\
           mise install ruby@#{ruby}; \\
