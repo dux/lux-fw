@@ -1,4 +1,4 @@
-define :plugin do
+task :plugin do
   desc 'Show plugins or show plugin path'
   needs :env
 

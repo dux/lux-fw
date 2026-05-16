@@ -1,5 +1,5 @@
 namespace :exceptions do
-  define :list do
+  task :list do
     desc 'Show exceptions (pass a number to show a specific one)'
     needs :env
 
@@ -28,7 +28,7 @@ namespace :exceptions do
     end
   end
 
-  define :clear do
+  task :clear do
     desc 'Clear all exceptions'
     needs :env
     proc do |_opts|

@@ -38,7 +38,7 @@ class Object
   end
 end
 
-define :console do
+task :console do
   desc 'Start console'
   alt :c
   needs :app

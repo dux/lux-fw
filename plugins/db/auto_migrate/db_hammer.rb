@@ -42,7 +42,7 @@ module LuxDb
 end
 
 namespace :db do
-  define :info do
+  task :info do
     desc 'Show configured databases'
     needs :env
     proc do |_opts|
@@ -56,7 +56,7 @@ namespace :db do
     end
   end
 
-  define :create do
+  task :create do
     desc 'Create databases if missing'
     needs :env
     proc do |_opts|
@@ -73,7 +73,7 @@ namespace :db do
     end
   end
 
-  define :drop do
+  task :drop do
     desc 'Drop databases (including test)'
     needs :env
     proc do |_opts|
@@ -96,7 +96,7 @@ namespace :db do
     end
   end
 
-  define :reset do
+  task :reset do
     desc 'Drop, create and auto migrate databases'
     needs :env
     proc do |_opts|
@@ -107,7 +107,7 @@ namespace :db do
     end
   end
 
-  define :backup do
+  task :backup do
     desc 'Dump/backup databases to SQL'
     needs :env
     proc do |_opts|
@@ -122,7 +122,7 @@ namespace :db do
     end
   end
 
-  define :restore do
+  task :restore do
     desc 'Restore databases from SQL backup'
     needs :env
     proc do |_opts|
@@ -149,7 +149,7 @@ namespace :db do
   end
 
   namespace :test do
-    define :create do
+    task :create do
       desc 'Recreate test DBs (drop if exists, copy schema from main, run db:am if main missing)'
       needs :env
       proc do |_opts|
@@ -176,7 +176,7 @@ namespace :db do
       end
     end
 
-    define :drop do
+    task :drop do
       desc 'Drop test databases'
       needs :env
       proc do |_opts|
@@ -195,7 +195,7 @@ namespace :db do
     end
   end
 
-  define :seed do
+  task :seed do
     desc 'Load seed from ./db/seeds'
     needs :app
     proc do |_opts|
@@ -214,7 +214,7 @@ namespace :db do
     end
   end
 
-  define :gen_seeds do
+  task :gen_seeds do
     desc 'Generate seeds'
     needs :app
     proc do |opts|
@@ -228,7 +228,7 @@ namespace :db do
     end
   end
 
-  define :console do
+  task :console do
     desc 'Run PSQL console'
     needs :env
     proc do |opts|
@@ -244,7 +244,7 @@ namespace :db do
     end
   end
 
-  define :am do
+  task :am do
     desc 'Automigrate schema (pass y to auto-confirm column drops: db:am y)'
     needs :env
     proc do |opts|

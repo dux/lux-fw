@@ -1,5 +1,5 @@
 namespace :job_runner do
-  define :start do
+  task :start do
     desc 'Start job runner'
     needs :app
 
@@ -12,7 +12,7 @@ namespace :job_runner do
     end
   end
 
-  define :restart do
+  task :restart do
     desc 'Restart job server'
 
     proc do |_opts|
@@ -20,7 +20,7 @@ namespace :job_runner do
     end
   end
 
-  define :web do
+  task :web do
     desc 'Start job runner web interface on port 3001'
     needs :app
     opt :password, desc: 'Web interface password (positional ok)'

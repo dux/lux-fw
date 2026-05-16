@@ -73,7 +73,7 @@ module LuxGenerate
   end
 end
 
-define :generate do
+task :generate do
   desc 'Generate models, cells, ...'
 
   proc do |opts|

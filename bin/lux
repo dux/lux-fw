@@ -24,11 +24,11 @@ Hammer.run ARGV do
 
   # Hidden helpers - plugins use `needs :env` (rake-style) so config/env
   # loads once per top-level invocation regardless of how many defines pull it in.
-  define :env do
+  task :env do
     proc { require './config/env' }
   end
 
-  define :app do
+  task :app do
     proc { require './config/app' }
   end
 end

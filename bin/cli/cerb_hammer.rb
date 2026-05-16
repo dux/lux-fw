@@ -47,7 +47,7 @@ class ErbParser
   end
 end
 
-define :cerb do
+task :cerb do
   desc 'Parse and process *.cerb templates (cli erb)'
   needs :app
 

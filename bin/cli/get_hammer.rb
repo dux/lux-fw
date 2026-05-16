@@ -1,4 +1,4 @@
-define :get do
+task :get do
   desc 'Get single page by path: lux get /login -b'
   needs :app
   opt :body, alias: :b, type: :boolean, default: false, desc: 'Show body'

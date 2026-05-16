@@ -1,5 +1,5 @@
 namespace :nginx do
-  define :generate do
+  task :generate do
     desc 'Generate sample config'
     needs :env
     proc do |_opts|
@@ -14,7 +14,7 @@ namespace :nginx do
     end
   end
 
-  define :edit do
+  task :edit do
     desc 'Edit nginx config'
     needs :env
     proc do |_opts|

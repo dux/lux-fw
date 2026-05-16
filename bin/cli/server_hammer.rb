@@ -1,4 +1,4 @@
-define :server do
+task :server do
   desc 'Start web server'
   alt :s
   opt :port,  alias: :p, desc: 'Port number'

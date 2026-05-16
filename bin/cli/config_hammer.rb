@@ -1,4 +1,4 @@
-define :config do
+task :config do
   desc 'Show server config'
   needs :app
   opt :mode, alias: :m, default: 'production', desc: 'One of the server modes (dev, log, production)'

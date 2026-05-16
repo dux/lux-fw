@@ -1,4 +1,4 @@
-define :secrets do
+task :secrets do
   desc 'Edit, show and compile secrets'
   needs :env
 

@@ -1,4 +1,4 @@
-define :memory do
+task :memory do
   desc 'Show memory usage'
 
   proc do |_opts|

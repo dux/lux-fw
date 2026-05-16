@@ -13,7 +13,7 @@ module LuxTest
   end
 end
 
-define :test do
+task :test do
   desc 'Run tests (auto-detects rspec or minitest)'
   alt :t
 

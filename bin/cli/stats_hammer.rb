@@ -117,7 +117,7 @@ class LuxStat
   end
 end
 
-define :stats do
+task :stats do
   desc 'Print project stats'
   needs :app
 

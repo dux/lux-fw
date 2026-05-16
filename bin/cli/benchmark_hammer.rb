@@ -7,7 +7,7 @@ module LuxBenchmark
   end
 end
 
-define :benchmark do
+task :benchmark do
   desc 'Benchmark app boot time'
 
   proc do |_opts|

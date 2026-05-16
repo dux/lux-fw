@@ -89,7 +89,7 @@ module LuxAssets
 end
 
 namespace :assets do
-  define :auto do
+  task :auto do
     desc 'Auto assets compiler (app/assets/auto)'
     needs :env
     proc do |_opts|

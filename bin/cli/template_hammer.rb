@@ -1,4 +1,4 @@
-define :template do
+task :template do
   desc 'Parse single file and replace $VAR with ENV values'
 
   proc do |opts|
