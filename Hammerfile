@@ -1,0 +1,35 @@
+# lux-fw root Hammerfile.
+#
+# bin/lux dispatches everything through here. Core lux commands live in
+# the root namespace and load from bin/cli/*_hammer.rb. Plugins ship
+# their own *_hammer.rb fragments under plugins/ and tasks/, each in
+# its own namespace.
+#
+# Hidden helpers `:env` and `:app` exist so plugins can do:
+#
+#   namespace :db do
+#     define :am do
+#       needs :env                # rake-style: require './config/env' first
+#       proc { |opts| ... }
+#     end
+#   end
+#
+# `needs` dedupes per top-level invocation, so a chain that resolves to
+# many `:env` prereqs only loads config once.
+
+program 'lux'
+
+# Auto-discover *_hammer.rb under bin/cli, plugins, tasks, and the
+# app's own lib (if invoked from an app root).
+load auto: true
+
+# Undocumented helpers - hidden from `lux -h`, callable from `before`
+# hooks and procs via `hammer_env` / `hammer_app`.
+
+define :env do
+  proc { require './config/env' }
+end
+
+define :app do
+  proc { require './config/app' }
+end

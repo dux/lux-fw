@@ -3,8 +3,6 @@ class ErbParser
     new(file).parse_file
   end
 
-  ###
-
   def initialize file
     @file = file
   end
@@ -23,12 +21,9 @@ class ErbParser
 
     for file in Dir.find(folder, ext: [:svelte])
       name = file.split('/').last.split('.').first.downcase
+      klass = "Svelte_#{prefix}_#{name}".gsub(/[^\w]/, '_')
 
-      # cant call classify because we can have block in singular and plural
-      # block-post and block-posts and become SvelteBlockPost
-      klass = "Svelte_#{prefix}_#{name}".gsub(/[^\w]/, '_') #.classify
-
-      out.push "import #{klass} from './#{file}';";
+      out.push "import #{klass} from './#{file}';"
       out.push "Svelte.bind('#{prefix}-#{name.gsub('_', '-')}', #{klass});"
       out.push ''
     end
@@ -43,7 +38,6 @@ class ErbParser
   def parse_file
     f = Pathname.new(@file)
     data = f.read
-    # data = data.gsub(/\n<%/, '<%')
 
     Dir.chdir f.dirname.to_s do
       data = ERB.new(data).result(binding).gsub('././', './')
@@ -53,25 +47,23 @@ class ErbParser
   end
 end
 
-###
+define :cerb do
+  desc 'Parse and process *.cerb templates (cli erb)'
+  needs :app
 
-LuxCli.class_eval do
-  desc :cerb, 'Parse and process *.cerb templates (cli erb)'
-  def cerb file=nil
-    # To create server side template, create file ending in .erb
-
-    require './config/app'
+  proc do |opts|
+    file = opts[:args].first
 
     if file
       puts ErbParser.parse(file)
     else
-      commmand = "find . -type file | grep --color=never \\.cerb$"
-      puts commmand.colorize(:gray)
-      files = `#{commmand}`
+      command = 'find . -type file | grep --color=never \.cerb$'
+      puts command.colorize(:gray)
+      files = `#{command}`
         .split($/)
         .reject { |f| f.include?('/views/') }
 
-      Cli.die 'No erb templates found' unless files.first
+      error 'No erb templates found' unless files.first
 
       for local in files
         next if local.include?('/.')

@@ -18,14 +18,14 @@ class LuxStat
   def models
     list = ObjectSpace
       .each_object(Class)
-      .select{ |it| it.ancestors.include?(ApplicationModel) }
+      .select { |it| it.ancestors.include?(ApplicationModel) }
       .map(&:to_s)
       .sort
       .drop(1)
       .map(&:constantize)
 
     desc = list.length.pluralize(:models)
-    mcnt = list.inject(0){ |t, m| t + m.instance_methods(false).length }
+    mcnt = list.inject(0) { |t, m| t + m.instance_methods(false).length }
 
     list = list.map(&:to_s)
 
@@ -45,7 +45,6 @@ class LuxStat
     for dir in view_dirs
       files = `find app/views/#{dir}/ -type f`.count($/)
       puts " #{files.pluralize(:file).rjust(9).colorize(:white)} in #{dir.colorize(:blue)}"
-
     end
   end
 
@@ -56,7 +55,7 @@ class LuxStat
     puts '  To find: find . -type file | grep \\\\.ext$'
     puts
 
-    files = `git ls-files | grep -v #{excluding.map{|el| " -e './#{el}/'" }.join(' ')}`.split($/)
+    files = `git ls-files | grep -v #{excluding.map { |el| " -e './#{el}/'" }.join(' ')}`.split($/)
     for file in files
       ext = file.split('.').last
       next if ext.length > 6
@@ -74,7 +73,6 @@ class LuxStat
 
   private
 
-
   def get_line list, len
     data = list.shift || return
 
@@ -90,10 +88,10 @@ class LuxStat
   def list_method_classes name
     classes = ObjectSpace
       .each_object(Class)
-      .select{ |it| it.ancestors.include?(name) }
-      .reject{ |it| it == name }
+      .select { |it| it.ancestors.include?(name) }
+      .reject { |it| it == name }
       .map(&:to_s)
-      .reject{ |it| it[0,1]=='#' }
+      .reject { |it| it[0, 1] == '#' }
       .sort
       .map(&:constantize)
 
@@ -119,11 +117,11 @@ class LuxStat
   end
 end
 
-LuxCli.class_eval do
-  desc :stats, 'Print project stats'
-  def stats
-    require './config/app'
+define :stats do
+  desc 'Print project stats'
+  needs :app
 
+  proc do |_opts|
     stat = LuxStat.new
     stat.call :controllers
     stat.call :cells if defined?(ViewCell)

@@ -1,6 +1,11 @@
-SYSD_DIR = './config/sysd'
+require 'set'
 
-SECURITY_FILTER_CADDY = <<~CADDY
+module LuxSysd
+  module_function
+
+  SYSD_DIR ||= './config/sysd'
+
+  SECURITY_FILTER_CADDY ||= <<~CADDY
 (security_filter) {
   @blocked {
     path *.php
@@ -31,9 +36,9 @@ SECURITY_FILTER_CADDY = <<~CADDY
     respond "not found" 404
   }
 }
-CADDY
+  CADDY
 
-SECURITY_FILTER_NGINX = <<~NGINX
+  SECURITY_FILTER_NGINX ||= <<~NGINX
 # Security: block malicious paths
 map $request_uri $blocked_request {
     ~*\\.php$                   1;
@@ -57,38 +62,21 @@ map $request_uri $blocked_request {
     ~^/api/v1/pods              1;
     default                     0;
 }
-NGINX
+  NGINX
 
-LuxCli.class_eval do
-  desc :sysd, 'Manage systemd services and generate config files'
-  def sysd(action = nil, service = nil)
+  def dispatch(action = nil, service = nil)
     case action
-    when 'generate'
-      sysd_generate
-    when 'tui'
-      sysd_tui
-    when 'list'
-      sysd_list
-    when 'install'
-      sysd_install(service)
-    when 'uninstall'
-      sysd_uninstall
-    when 'start'
-      sysd_action('start', service)
-    when 'stop'
-      sysd_action('stop', service)
-    when 'restart'
-      sysd_action('restart', service)
-    when 'log'
-      sysd_log(service)
-    when 'status'
-      sysd_status(service)
-    else
-      sysd_help
+    when 'generate'  then sysd_generate
+    when 'tui'       then sysd_tui
+    when 'list'      then sysd_list
+    when 'install'   then sysd_install(service)
+    when 'uninstall' then sysd_uninstall
+    when 'start', 'stop', 'restart' then sysd_action(action, service)
+    when 'log'       then sysd_log(service)
+    when 'status'    then sysd_status(service)
+    else sysd_help
     end
   end
-
-  private
 
   def sysd_help
     puts <<~HELP
@@ -126,8 +114,8 @@ Generated files:
 
     domain = ENV['DOMAIN']
     unless domain
-      puts "Error: DOMAIN not defined in .env".colorize(:red)
-      puts "Add DOMAIN=yourdomain.com to .env"
+      puts 'Error: DOMAIN not defined in .env'.colorize(:red)
+      puts 'Add DOMAIN=yourdomain.com to .env'
       exit 1
     end
 
@@ -137,6 +125,7 @@ Generated files:
     puts "Reading .env: DOMAIN=#{domain} PORT=#{port}"
     puts
 
+    require 'fileutils'
     FileUtils.mkdir_p(SYSD_DIR)
 
     generated = 0
@@ -212,7 +201,7 @@ After=network.target
 Type=simple
 User=#{user}
 WorkingDirectory=#{pwd}
-ExecStart=#{bundle_path} exec rake job_runner:start
+ExecStart=#{bundle_path} exec lux job_runner:start
 Restart=always
 RestartSec=5
 EnvironmentFile=-#{pwd}/.env
@@ -279,24 +268,20 @@ server {
 
     root #{public_root};
 
-    # Block malicious requests
     if ($blocked_request) {
         return 404 "not found";
     }
 
-    # Static file handling - try file first, then proxy
     location / {
         try_files $uri @backend;
     }
 
-    # Assets with caching
     location ^~ /assets/ {
         gzip_static on;
         expires max;
         add_header Cache-Control public;
     }
 
-    # Proxy to app
     location @backend {
         proxy_pass http://#{upstream_name};
         proxy_http_version 1.1;
@@ -308,13 +293,11 @@ server {
         proxy_set_header Connection "upgrade";
     }
 
-    # Favicon - no logging
     location = /favicon.ico {
         log_not_found off;
         access_log off;
     }
 
-    # Gzip compression
     gzip on;
     gzip_comp_level 2;
     gzip_min_length 1000;
@@ -323,13 +306,6 @@ server {
 
     access_log off;
     client_max_body_size 50M;
-
-    # SSL config (uncomment and configure for HTTPS)
-    # listen 443 ssl;
-    # ssl_certificate /etc/letsencrypt/live/#{domain}/fullchain.pem;
-    # ssl_certificate_key /etc/letsencrypt/live/#{domain}/privkey.pem;
-    # ssl_session_timeout 1d;
-    # ssl_session_cache shared:SSL:50m;
 }
     NGINX
 
@@ -357,32 +333,27 @@ server {
 
     root #{public_root};
 
-    # Block malicious requests
     if ($blocked_request) {
         return 404 "not found";
     }
 
-    # Passenger config
     passenger_enabled on;
     passenger_ruby /usr/bin/ruby;
     passenger_app_env production;
     passenger_friendly_error_pages off;
     passenger_min_instances 1;
 
-    # Assets with caching
     location ^~ /assets/ {
         gzip_static on;
         expires max;
         add_header Cache-Control public;
     }
 
-    # Favicon - no logging
     location = /favicon.ico {
         log_not_found off;
         access_log off;
     }
 
-    # Gzip compression
     gzip on;
     gzip_comp_level 2;
     gzip_min_length 1000;
@@ -391,13 +362,6 @@ server {
 
     access_log off;
     client_max_body_size 50M;
-
-    # SSL config (uncomment and configure for HTTPS)
-    # listen 443 ssl;
-    # ssl_certificate /etc/letsencrypt/live/#{domain}/fullchain.pem;
-    # ssl_certificate_key /etc/letsencrypt/live/#{domain}/privkey.pem;
-    # ssl_session_timeout 1d;
-    # ssl_session_cache shared:SSL:50m;
 }
     NGINX
 
@@ -458,9 +422,9 @@ server {
     if installed
       status_output = `systemctl is-active #{service_name} 2>/dev/null`.strip
       case status_output
-      when 'active' then 'running'.colorize(:green)
+      when 'active'   then 'running'.colorize(:green)
       when 'inactive' then 'stopped'.colorize(:yellow)
-      when 'failed' then 'failed'.colorize(:red)
+      when 'failed'   then 'failed'.colorize(:red)
       else status_output
       end
     else
@@ -486,7 +450,6 @@ server {
 
       show_install_instructions(file)
     else
-      # Show all install instructions
       Dir.glob("#{SYSD_DIR}/*.service").each do |file|
         show_install_instructions(file)
         puts
@@ -498,7 +461,6 @@ server {
     puts "Install instructions for #{File.basename(file)}:".colorize(:green)
     puts
 
-    # Extract header comments (install instructions)
     File.readlines(file).each do |line|
       break unless line.start_with?('#')
       puts "  #{line}"
@@ -509,7 +471,6 @@ server {
     app_name = File.basename(Dir.pwd)
     pattern = "lux-*-#{app_name}*"
 
-    # Find all matching services from systemd
     services = `systemctl list-unit-files '#{pattern}.service' --no-legend 2>/dev/null`.lines.map do |line|
       line.split.first&.sub(/\.service$/, '')
     end.compact
@@ -538,7 +499,7 @@ server {
       puts
     end
 
-    puts "Reloading systemd...".colorize(:yellow)
+    puts 'Reloading systemd...'.colorize(:yellow)
     system('sudo', 'systemctl', 'daemon-reload')
 
     puts
@@ -547,7 +508,7 @@ server {
 
   def sysd_action(action, service)
     unless service
-      puts "Error: Service name required".colorize(:red)
+      puts 'Error: Service name required'.colorize(:red)
       puts "Usage: lux sysd #{action} <service>"
       return
     end
@@ -559,8 +520,8 @@ server {
 
   def sysd_log(service)
     unless service
-      puts "Error: Service name required".colorize(:red)
-      puts "Usage: lux sysd log <service>"
+      puts 'Error: Service name required'.colorize(:red)
+      puts 'Usage: lux sysd log <service>'
       return
     end
 
@@ -622,7 +583,7 @@ server {
       loop do
         clear_screen
         services = available_services
-        choice = @prompt.select("Select service:", services + ['Exit'], per_page: @per_page)
+        choice = @prompt.select('Select service:', services + ['Exit'], per_page: @per_page)
         break if choice == 'Exit'
 
         handle_service(choice)
@@ -639,7 +600,6 @@ server {
       services = []
       seen = Set.new
 
-      # All lux-* services from systemd
       lux_services = `systemctl list-unit-files 'lux-*.service' --no-legend 2>/dev/null`.lines.map do |line|
         line.split.first&.sub(/\.service$/, '')
       end.compact
@@ -653,7 +613,6 @@ server {
         services << display
       end
 
-      # Local lux services from ./config/sysd/ (not yet installed)
       if Dir.exist?(SYSD_DIR)
         Dir.glob("#{SYSD_DIR}/*.service").each do |file|
           name = File.basename(file, '.service')
@@ -666,7 +625,6 @@ server {
         end
       end
 
-      # System services
       SYSTEM_SERVICES.each do |key, config|
         if config[:detect]
           name = config[:detect].find { |n| service_exists?(n) }
@@ -694,9 +652,9 @@ server {
     def get_status(name)
       output = `systemctl is-active #{name} 2>/dev/null`.strip
       case output
-      when 'active' then 'running'
+      when 'active'   then 'running'
       when 'inactive' then 'stopped'
-      when 'failed' then 'failed'
+      when 'failed'   then 'failed'
       else 'unknown'
       end
     end
@@ -725,7 +683,7 @@ server {
       when 'install'
         file = "#{SYSD_DIR}/#{service}.service"
         if File.exist?(file)
-          puts "Install instructions:".colorize(:green)
+          puts 'Install instructions:'.colorize(:green)
           puts
           File.readlines(file).each do |line|
             break unless line.start_with?('#')
@@ -738,5 +696,27 @@ server {
         system('sudo', 'systemctl', action, service)
       end
     end
+  end
+end
+
+define :sysd do
+  desc <<~TEXT
+    Manage systemd services and generate config files.
+
+    Subcommands:
+      generate            Generate all config files from .env
+      tui                 Interactive TUI for service management
+      list                List services in ./config/sysd/
+      install [name]      Show install instructions
+      uninstall           Stop and remove all services for this app
+      start <name>        Start service
+      stop <name>         Stop service
+      restart <name>      Restart service
+      log <name>          Follow service logs
+      status [name]       Show service status
+  TEXT
+
+  proc do |opts|
+    LuxSysd.dispatch(*opts[:args])
   end
 end

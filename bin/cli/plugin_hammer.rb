@@ -1,7 +1,9 @@
-LuxCli.class_eval do
-  desc :plugin, 'Show plugins or show plugin path'
-  def plugin name = nil
-    require './config/env'
+define :plugin do
+  desc 'Show plugins or show plugin path'
+  needs :env
+
+  proc do |opts|
+    name = opts[:args].first
 
     if name
       plugin = Lux::Plugin.get(name)

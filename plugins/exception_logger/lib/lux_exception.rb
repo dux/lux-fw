@@ -95,7 +95,7 @@ class LuxException < ApplicationModel
         .all
     end
 
-    def quickSummary
+    def quick_summary
       {
         day: quick_summary_for(1.days.ago),
         week: quick_summary_for(7.days.ago),

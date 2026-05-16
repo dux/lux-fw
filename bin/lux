@@ -1,119 +1,27 @@
 #!/usr/bin/env ruby
 # -*- mode: ruby -*-
 
-ENV['THOR_SILENCE_DEPRECATION'] = 'true'
-
 if File.exist?('lux-fw.gemspec')
-  puts 'Cant run in lux folder'
+  puts "Can't run in lux folder"
   exit
 end
 
-require 'thor'
-require 'optparse'
-require 'amazing_print'
 require 'dotenv'
-require 'whirly'
 require_relative '../lib/overload/thread_simple'
 require_relative '../lib/overload/string'
 
 Dotenv.load
 
-LUX_ROOT = File.expand_path '../..', __FILE__
+LUX_ROOT ||= File.expand_path '../..', __FILE__
 
-puts 'Lux v%s (%s)' % [File.read('%s/.version' % LUX_ROOT), LUX_ROOT] unless ARGV[0]
+puts 'Lux v%s (%s)' % [File.read('%s/.version' % LUX_ROOT).strip, LUX_ROOT] unless ARGV[0]
 
-###
+require 'lux-hammer'
 
-module Cli
-  extend self
-
-  def run what
-    puts what.colorize(:light_black)
-    system what
-  end
-
-  def die text
-    puts text.colorize(:red)
-    exit
-  end
-
-  def info text
-    puts '* %s' % text.colorize(:magenta)
-  end
+# Build a single CLI that pulls in:
+#   1. lux-fw's Hammerfile (core commands + plugin fragments)
+#   2. *_hammer.rb fragments under the app's cwd (app commands)
+Hammer.run ARGV do
+  load File.join(LUX_ROOT, 'Hammerfile')
+  load Dir.pwd if Dir.pwd != LUX_ROOT
 end
-
-###
-
-require 'pry'
-
-AmazingPrint.pry!
-# nice object dump in console
-Pry.config.print = Proc.new do |output, data|
-  puts data.class.to_s.colorize(:gray)
-
-  out =
-  if data.is_a?(Hash)
-    JSON.pretty_generate(data).gsub(/"([\w\-]+)":/) { '"%s":' % $1.colorize(:yellow) }
-  elsif data.is_a?(String)
-    if data.downcase.start_with?('select')
-      require 'niceql'
-      Niceql::Prettifier.prettify_sql data
-    # elsif data.is_a?(String) && data.include?('</body>')
-    #   require 'nokogiri'
-    #   Nokogiri::XML(data, &:noblanks)
-    else
-      data
-    end
-  else
-    data.ai
-  end
-
-  output.puts out unless data.nil?
-end
-
-###
-
-LuxCli = Class.new Thor
-
-# remove new in app, or allow only new while not in app
-files  = Dir['%s/bin/cli/*.rb' % LUX_ROOT]
-filter = File.exist?('./Gemfile') ? :reject : :select
-files  = files.send(filter) { |name| name.include?('/new.rb') }
-files.each { |it| load it }
-
-LuxCli.start ARGV
-
-###
-
-if !ARGV[0] && (Dir['./Rakefile*'] + Dir['./rakefile*'])[0]
-  Whirly.start spinner: "dots" do
-    t = Thread::Simple.new
-    t.add(:rake) { `rake -T` }
-
-    if File.exist?('./Capfile') && ENV['RACK_ENV'] == 'development'
-      t.add(:capistrano) { `bundle exec cap -T` }
-    end
-
-    if File.exist?('./config/deploy.rb') && ENV['RACK_ENV'] == 'development'
-      t.add(:mina) { `bundle exec mina -T` }
-    end
-
-    t.run
-
-    if t[:rake]
-      puts 'Rake tasks:'
-      puts '  ' + t[:rake].gsub($/, "\n  ")
-    end
-
-    if t[:capistrano]
-      puts 'Capinstrano tasks:'
-      puts '  ' + t[:capistrano].gsub($/, "\n  ")
-    end
-
-    if t[:mina]
-      puts 'Mina tasks:'
-      puts '  ' + t[:mina].gsub($/, "\n  ")
-    end
-  end
-end
-

@@ -1,3 +1,5 @@
+# Mixin helpers exposed inside a console session. Kept on Object so they
+# work as bare commands at the pry prompt.
 class Object
   def cp data
     data = JSON.pretty_generate(data.to_hash) if data.respond_to?(:to_hash)
@@ -5,12 +7,10 @@ class Object
     'copied'
   end
 
-  # reload code changes
   def reload!
     Lux.config.on_reload_code.call :cli
   end
 
-  # prettify last sql command
   def sql! sql=nil
     require 'niceql'
     puts Niceql::Prettifier.prettify_sql sql || Thread.current[:last_sql_command]
@@ -20,7 +20,6 @@ class Object
     system('clear')
   end
 
-  # show method info
   # m User, :secure_hash
   def m object, mtd = nil
     if mtd
@@ -39,15 +38,16 @@ class Object
   end
 end
 
-ARGV[0] = 'console' if ARGV[0] == 'c'
+define :console do
+  desc 'Start console'
+  alt :c
+  needs :app
 
-LuxCli.class_eval do
-  desc :console, 'Start console'
-  def console *args
+  proc do |opts|
     ENV['LUX_ENV'] = 'clre'
 
+    require 'pry'
     require 'amazing_print'
-    require './config/app'
 
     # create mock session
     Lux::Current.new '/'
@@ -59,18 +59,31 @@ LuxCli.class_eval do
       puts '* ./config/console.rb not found'
     end
 
+    AmazingPrint.pry!
     Pry.pager = false
 
-    Pry.config.print = proc do |output, value|
-      if value.is_a?(Method)
-        output.puts value.inspect
-      elsif value.is_a?(String)
-        output.puts value
-      else
-        ap value
-      end
+    # nice object dump in console
+    Pry.config.print = proc do |output, data|
+      puts data.class.to_s.colorize(:gray)
+
+      out =
+        if data.is_a?(Hash)
+          JSON.pretty_generate(data).gsub(/"([\w\-]+)":/) { '"%s":' % $1.colorize(:yellow) }
+        elsif data.is_a?(String)
+          if data.downcase.start_with?('select')
+            require 'niceql'
+            Niceql::Prettifier.prettify_sql data
+          else
+            data
+          end
+        else
+          data.ai
+        end
+
+      output.puts out unless data.nil?
     end
 
+    args = opts[:args]
     if args.first
       command = args.join(' ')
 
@@ -84,15 +97,13 @@ LuxCli.class_eval do
         Pry.config.print.call $stdout, data
       end
     else
-      # custom history loader
       history = Pathname.new Lux.root.join('./.pry_history')
 
       Thread.new do
-        # load in started pry session
         sleep 0.5
         if history.exist?
           lines = history.read.split($/).uniq - ['exit']
-          lines.each {|l| Pry.history.push(l) }
+          lines.each { |l| Pry.history.push(l) }
         end
       end
       Pry.start

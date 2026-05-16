@@ -1,8 +1,9 @@
 # http://stackoverflow.com/questions/5159607/rails-engine-gems-dependencies-how-to-load-them-into-the-application
 
-gem_files = [:bin, :lib, :tasks]
+gem_files = [:bin, :lib, :plugins]
   .inject([]) { |t, el| t + `find ./#{el}`.split($/) }
-  .push './.version'
+  .push('./.version')
+  .push('./Hammerfile')
 
 Gem::Specification.new 'lux-fw' do |gem|
   gem.version     = File.read('.version')
@@ -45,14 +46,8 @@ Gem::Specification.new 'lux-fw' do |gem|
   # mail sending ruby gold
   gem.add_dependency 'mail'
 
-  # rake tasks
-  gem.add_dependency 'rake'
-
-  # used for "bundle exec lux"
-  gem.add_dependency 'thor'
-
-  # sweet cli spinner
-  gem.add_dependency 'whirly'
+  # CLI builder powering `bin/lux`
+  gem.add_dependency 'lux-hammer'
 
   # interactive terminal prompts (loaded on demand)
   gem.add_dependency 'tty-prompt'

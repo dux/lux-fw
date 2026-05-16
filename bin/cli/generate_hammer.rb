@@ -5,20 +5,20 @@ require 'pp'
 Sequel.extension :inflector
 
 module LuxGenerate
-  extend self
+  module_function
 
   def generate object=nil, objects=nil
-    Cli.die "./generate [object singular]" unless object
+    raise Hammer::Error, './generate [object singular]' unless object
 
     template_dir = 'config/templates'
-    Cli.die "Lux::Template dir #{template_dir} is not accessible" unless Dir.exist?(template_dir)
+    raise Hammer::Error, "Lux::Template dir #{template_dir} is not accessible" unless Dir.exist?(template_dir)
 
     tpl_desc = {
-      p:'api',
-      m:'model',
-      a:'admin',
-      c:'controller',
-      v:'view'
+      p: 'api',
+      m: 'model',
+      a: 'admin',
+      c: 'controller',
+      v: 'view'
     }
 
     @object  = object
@@ -36,9 +36,8 @@ module LuxGenerate
       data.gsub(/\{\{([^\}]+)\}\}/) { eval $1 }
     end
 
-    # get all files
     templates = {}
-    for el in Dir["./#{template_dir}/*.*"].map{ |file| file.split('/').last }
+    for el in Dir["./#{template_dir}/*.*"].map { |file| file.split('/').last }
       begin
         data = parse_vars(File.read("#{template_dir}/#{el}"))
       rescue
@@ -46,17 +45,16 @@ module LuxGenerate
         puts "File error: #{el.colorize(:red)}: #{$!.message}"
         exit
       end
-      type = el[0,1]
+      type = el[0, 1]
 
       path = el.split('|', 2)[1]
-      path = parse_vars(path).gsub('#','/')
+      path = parse_vars(path).gsub('#', '/')
 
       templates[type] ||= []
       templates[type].push [path, data]
     end
 
-    # # puts  "Lux::Templates : #{templates.keys.sort.map{ |el| tpl_desc[el.to_sym] ? tpl_desc[el.to_sym].sub(el, el.upcase.colorize(:yellow)) : el.colorize(:yellow) }.join(', ')}"
-    puts  "Templates : #{templates.keys.map{ |el| "#{tpl_desc[el.to_sym]}(#{el.colorize(:yellow)})" }.join(', ')}"
+    puts  "Templates : #{templates.keys.map { |el| "#{tpl_desc[el.to_sym]}(#{el.colorize(:yellow)})" }.join(', ')}"
     print "Execute   : "
 
     parse_templates = STDIN.gets.chomp
@@ -68,7 +66,7 @@ module LuxGenerate
         if File.exist?(file)
           print 'exists'.colorize(:yellow).rjust(20)
         else
-          FileUtils.mkdir_p(file.sub(/\/[^\/]+$/,'')) rescue false
+          FileUtils.mkdir_p(file.sub(/\/[^\/]+$/, '')) rescue false
           File.open(file, 'w') { |f| f.write(data) }
           print 'created'.colorize(:green).rjust(20)
         end
@@ -78,9 +76,11 @@ module LuxGenerate
   end
 end
 
-LuxCli.class_eval do
-  desc :generate, 'Genrate models, cells, ...'
-  def generate object, objects=nil
+define :generate do
+  desc 'Generate models, cells, ...'
+
+  proc do |opts|
+    object, objects = opts[:args]
     LuxGenerate.generate object, objects
   end
 end

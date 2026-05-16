@@ -534,6 +534,71 @@ current.no_cache?              # true if env['HTTP_CACHE_CONTROL'] == 'no-cache'
 
 
 &nbsp;
+<a name="nav"></a>
+## Lux.current.nav (Lux::Application::Nav)
+
+URL navigation helper, accessible as `nav` inside routes/controllers or `current.nav` anywhere.
+
+Built on top of `request.path` and `request.host`, it parses path segments, format, and the host into domain/subdomain parts. The subdomain is TLD-aware (handles two-part TLDs like `co.uk`, `com.au`).
+
+```ruby
+# path segments
+nav.root          # first path segment
+nav.child         # second path segment
+nav.path          # path array (mutable)
+nav.path = []     # set path
+nav[0]            # immutable original path segment by index
+nav.last          # last path segment
+nav.shift         # pop first segment
+nav.unshift :foo  # prepend segment (or restore last shift)
+nav.to_s          # joined path
+
+# host parts (derived from request.host)
+nav.domain        # "authcog.com" for app.authcog.com
+nav.subdomain     # "app" for app.authcog.com, "" for bare domain, nil for IP host
+nav.base          # scheme + host + port, e.g. "http://app.lvh.me:3000"
+
+# format / locale
+nav.format        # :html, :json, ... (parsed from .ext suffix)
+nav.locale { |seg| seg.length == 2 ? seg : nil } # consume locale path segment
+
+# url helpers
+nav.url           # Url.current
+nav.url(foo: 1)   # current URL with ?foo=1 merged
+nav.pathname               # "/users/profile" (excludes :param segments)
+nav.pathname(has: 'edit')  # true if path contains "/edit"
+nav.pathname(ends: 'edit') # true if path ends with "/edit"
+
+# redirect helpers (use in `before` filters)
+nav.remove_www             # redirect www.foo.bar -> foo.bar
+nav.rename_domain 'localhost', 'lvh.me'
+
+# id capture: classify path segments as :ref, store extracted ids in nav.ids
+nav.path :ref do |el|
+  Ulid.is?(el) ? el : nil
+end
+nav.id   # first captured id
+nav.ids  # all captured ids
+```
+
+Subdomain-based routing example:
+
+```ruby
+Lux.app do
+  routes do
+    case nav.subdomain
+    when nil, ''   then call 'promo#auto_render'
+    when 'app'     then call 'main#call'
+    when 'admin'   then call 'admin#call'
+    else                forbid!('Unknown subdomain')
+    end
+  end
+end
+```
+
+
+
+&nbsp;
 ## Lux.delay
 
 Simplified access to delayed job operations.

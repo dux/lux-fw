@@ -23,9 +23,10 @@ describe Lux::Error do
       result = Lux::Error.format(error, message: true)
       expect(result).to be_a(String)
       lines = result.split("\n")
-      expect(lines[0]).to eq('[StandardError] test')
-      expect(lines[1]).to start_with('  ./')   # local app line
-      expect(lines[2]).to start_with('  /')    # gem line
+      expect(lines[0]).to start_with('URL: ')   # request URL header
+      expect(lines[1]).to eq('[StandardError] test')
+      expect(lines[2]).to start_with('  ./')   # local app line
+      expect(lines[3]).to start_with('  /')    # gem line
     end
 
     it 'returns array marker when no backtrace' do

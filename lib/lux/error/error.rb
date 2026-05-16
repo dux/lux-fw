@@ -47,6 +47,10 @@ module Lux
 
         HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|
           if error && Lux.env.log?
+            plain = format(error, message: true).gsub('&', '&amp;').gsub('<', '&lt;')
+            n.button 'Copy', class: 'btn', style: 'float: right;',
+              onclick: "navigator.clipboard.writeText(this.nextElementSibling.value);this.innerText='Copied'"
+            n.tag :textarea, { style: 'display:none;' }, plain
             n.push format(error, html: true, message: true)
           end
         end
@@ -73,7 +77,22 @@ module Lux
 
         lines.shift unless opts[:message] == true
 
+        if (url = current_url)
+          url_line = opts[:html] ? %[<b>URL: <a href="#{url}">#{url}</a></b>\n] : "URL: #{url}"
+          lines.unshift url_line
+        end
+
         lines.join($/)
+      end
+
+      private
+
+      # Current request URL if available, nil in non-HTTP contexts.
+      def current_url
+        return nil unless Thread.current[:lux]
+        Lux.current.request.url
+      rescue StandardError
+        nil
       end
     end
   end

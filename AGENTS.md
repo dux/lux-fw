@@ -75,7 +75,7 @@ URL navigation helper accessible via `current.nav`:
 * `nav.ids` - Array of all parsed IDs
 * `nav[index]` - Access original path segment by index
 * `nav.format` - Request format (html, json, etc.)
-* `nav.domain` / `nav.subdomain` - Domain parts
+* `nav.domain` / `nav.subdomain` - Domain parts. `nav.subdomain` is auto-derived from `request.host` (TLD-aware, handles two-part TLDs like `co.uk`) and returns `''` for bare domains, `nil` for IP hosts. Prefer this over manually parsing `request.host`.
 * `nav.base` - Base URL (scheme + host + port)
 * `nav.shift` / `nav.unshift` - Path manipulation
 * `nav.last` - Last path segment

@@ -75,9 +75,9 @@ class HtmlForm
 
     if @object && (path = opts[:delete])
       data = <<~TEXT
-      <div class="nav vcenter">
-        <div>#{data}</div>
-        <div>
+      <div class="flex">
+        <div class="flex-1">#{data}</div>
+        <div class="flex-1 text-right">
           <span
             class="btn btn-danger btn-xs"
             onclick='Dialog.inlineConfirm(this, "Delete #{@object.class.to_s.humanize.downcase} ?", { yes: "Delete!", cancel: "cancel", callback: function() { #{Api(@object.api_path(:destroy)).refresh(path)} }})'

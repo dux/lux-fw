@@ -39,6 +39,32 @@ class HtmlForm
     HtmlInput.new(@object).hidden *args
   end
 
+  def row name = nil, opts = {}
+    return super if block_given?
+    return hidden name, opts[:value] if opts[:as] == :hidden
+    r = row_prepare(name, opts)
+
+    label = %[<label for="#{opts[:id]}">#{r[:label].upcase}</label>]
+    hint  = opts[:hint] ? %[<span class="gray text-sm" style="display:block;">#{opts[:hint]}</span>] : ''
+    info  = opts[:info] ? %[<div class="mb-2 text-sm">#{opts[:info]}</div>] : ''
+
+    if opts[:flag]
+      locale = Lux.current.locale
+      style = opts[:flag] == true ? '' : opts[:flag]
+      if style.length == 2
+        locale = style
+        style = ''
+      end
+      label += %[<ui-flag class="input" locale="#{locale}" size="20" style="#{style}"></ui-flag>]
+    end
+
+    if @type.to_s == 'checkbox'
+      %[<div class="form-row as-#{@type}">#{r[:node]}</div>]
+    else
+      %[<div class="form-row as-#{@type}">#{label}#{info}#{r[:node]}#{hint}</div>]
+    end
+  end
+
   def render
     data = []
 
