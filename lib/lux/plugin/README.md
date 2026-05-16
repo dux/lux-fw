@@ -20,6 +20,7 @@ Plugin search path:
 plugins/<name>/
   loader.rb     # OPTIONAL. Boot logic, required first.
   load/         # OPTIONAL. All *.rb auto-required after loader.rb.
+  routes.rb     # OPTIONAL. Routing DSL body, evaluated by `plugin_route :name`.
   Hammerfile    # OPTIONAL. Single-file CLI tasks.
   hammer/       # OPTIONAL. *_hammer.rb CLI tasks (multi-file).
   mount/        # OPTIONAL. Files symlinked into the app by `lux mount`.
@@ -48,6 +49,22 @@ plugin at runtime.
 * `load/` - everything in this directory is auto-required. Use for
   classes/modules that always need to be available the moment the
   plugin is loaded. Subdirectories are walked recursively.
+* `routes.rb` - body of routing DSL (`map`, `call`, `root`, ...) evaluated
+  inside the host app's `routes do ... end` block when the app calls
+  `plugin_route :<name>`. Plugin must already be loaded via `Lux.plugin
+  :<name>`; `plugin_route` does not auto-load. Order and namespacing are
+  the app's responsibility:
+
+  ```ruby
+  # app routes
+  routes do
+    plugin_route :favicon
+    map 'admin' do
+      plugin_route :authcog   # mount under /admin
+    end
+  end
+  ```
+
 * `Hammerfile` / `hammer/` - CLI tasks discovered by the `lux` command.
   Not required when the plugin is loaded at runtime.
 * `mount/` - mirrors the application root. Running `lux mount` walks

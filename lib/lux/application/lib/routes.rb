@@ -231,6 +231,27 @@ module Lux
         throw :done if lux.response.body?
       end
 
+      # Evaluates `plugins/<name>/routes.rb` in the Application instance, so the
+      # plugin's file can use the full routing DSL (map, call, root, ...).
+      # The plugin must have been loaded via `Lux.plugin :<name>` beforehand;
+      # `plugin_route` does not auto-load to keep ordering explicit.
+      #
+      # Usage in app routes:
+      #   routes do
+      #     plugin_route :favicon
+      #     map 'admin' do
+      #       plugin_route :authcog   # mount under /admin
+      #     end
+      #   end
+      def plugin_route name
+        plugin = Lux::Plugin::PLUGIN[name.to_s] or raise "Plugin :#{name} not loaded - call Lux.plugin :#{name} first"
+        path   = ::File.join(plugin.folder, 'routes.rb')
+
+        raise "Plugin :#{name} has no routes.rb at #{path}" unless ::File.exist?(path)
+
+        instance_eval ::File.read(path), path, 1
+      end
+
       # Pure predicate: checks if lux.nav.root matches the given route (no side effects)
       def route_match? route
         root = lux.nav.root.to_s
