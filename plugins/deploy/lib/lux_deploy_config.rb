@@ -10,6 +10,9 @@ module LuxDeploy
     ENV_KEY_RE ||= /\A[A-Z_][A-Z0-9_]*\z/
     BASIC_USER_RE ||= /\A[A-Za-z0-9._-]{1,64}\z/
     BASIC_PASS_RE ||= /\A[A-Za-z0-9._~+=,@%-]{1,256}\z/
+    # POSIX-ish system username: lowercase or underscore start, then [a-z0-9_-].
+    # Constrains shell expansions and matches `useradd` defaults.
+    SERVICE_USER_RE ||= /\A[a-z_][a-z0-9_-]{0,31}\z/
     BCRYPT_RE ||= /\A\$2[aby]\$\d\d\$[\.\/A-Za-z0-9]{53}\z/
     # Postgres reserved/keyword words common enough to bite. Validation rejects
     # identifiers in this set so CREATE ROLE/DATABASE never breaks parsing.
@@ -69,8 +72,8 @@ module LuxDeploy
       normalized[:env] ||= {}
       normalized[:db] ||= {}
       normalized[:user] = ssh_user_hint(normalized[:host])
-      normalized[:db_user_defaulted] = !normalized[:db].key?(:user) || normalized[:db][:user].to_s.empty?
-      normalized[:db][:user] ||= normalized[:user]
+      normalized[:service_user] ||= 'deployer'
+      normalized[:db][:user] ||= normalized[:service_user]
       normalized[:port] = normalized[:port].to_i if normalized[:port]
       normalized[:basic_auth] = opts[:basic_auth] if opts.key?(:basic_auth)
       validate!(normalized)
@@ -150,7 +153,7 @@ module LuxDeploy
 
     def cli_overlay(opts)
       overlay = {}
-      %i[host path domain port repo branch ruby basic_auth].each do |key|
+      %i[host path domain port repo branch ruby basic_auth service_user].each do |key|
         overlay[key.to_s] = opts[key] if opts.key?(key) && !opts[key].nil?
       end
       if opts[:db_name] || opts[:db_user]
@@ -307,6 +310,7 @@ module LuxDeploy
       validate_match(:ruby, config[:ruby], /\A[0-9A-Za-z._-]+\z/)
       validate_match(:repo, config[:repo], REPO_RE) if config[:repo]
       validate_match(:branch, config[:branch], BRANCH_RE) if config[:branch]
+      validate_match(:service_user, config[:service_user], SERVICE_USER_RE)
       validate_match(:db_name, config.dig(:db, :name), DB_RE)
       validate_match(:db_user, config.dig(:db, :user), DB_RE)
       validate_pg_identifier(:db_name, config.dig(:db, :name))

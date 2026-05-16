@@ -31,6 +31,7 @@ task :deploy do
   opt :branch, desc: 'Git branch/ref to clone remotely'
   opt :ruby, desc: 'Ruby version'
   opt :env, desc: 'Env override KEY=VAL or KEY (comma-separated ok)'
+  opt :service_user, desc: 'Service user that owns code and runs systemd units (default deployer)'
   opt :dry_run, type: :boolean, default: false, desc: 'Print resolved plan, do not execute'
   opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
 
@@ -47,6 +48,7 @@ namespace :deploy do
     opt :config, desc: 'Path to config/deploy.json'
     opt :app, desc: 'App identifier'
     opt :ruby, desc: 'Ruby version'
+    opt :service_user, desc: 'Service user to create and own services (default deployer)'
     opt :with, desc: 'Comma-separated extras: caddy, caddy-cloudflare, postgres'
     opt :dry_run, type: :boolean, default: false, desc: 'Print commands, do not execute'
     opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
@@ -63,6 +65,7 @@ namespace :deploy do
     opt :config, desc: 'Path to config/deploy.json'
     opt :app, desc: 'App identifier'
     opt :ruby, desc: 'Ruby version'
+    opt :service_user, desc: 'Service user expected to own services (default deployer)'
     opt :quiet, type: :boolean, default: false, desc: 'CI-friendly output'
 
     proc do |opts|

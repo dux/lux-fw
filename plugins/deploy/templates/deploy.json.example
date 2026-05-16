@@ -1,11 +1,12 @@
 {
   "default": {
-    "host": "deploy@srv.example.com",
+    "host": "root@srv.example.com",
+    "service_user": "deployer",
     "path": "/var/www/{{app}}",
     "ruby": "3.4.7",
     "repo": "git@github.com:org/app.git",
     "db": {
-      "user": "deploy",
+      "user": "deployer",
       "name": "{{app_underscored}}"
     },
     "domain": "example.com",

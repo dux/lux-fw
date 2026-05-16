@@ -80,6 +80,10 @@ module LuxDeploy
       @release = nil
     end
 
+    def service_user
+      config[:service_user]
+    end
+
     def app
       config[:app]
     end
@@ -179,6 +183,13 @@ module LuxDeploy
     3000 + (app.bytes.sum % 1000)
   end
 
+  # Wrap a remote shell command so it runs as the service user. When the SSH
+  # user is already the service user, returns the command unchanged.
+  def as_service_user(ctx, cmd)
+    return cmd if ctx.remote_user == ctx.service_user
+    "sudo -u #{sh(ctx.service_user)} -H bash -lc #{sq(cmd)}"
+  end
+
   def render_template(name, vars)
     path = plugin_root.join('templates', name)
     ERB.new(path.read, trim_mode: '-').result_with_hash(vars)
@@ -224,7 +235,8 @@ module LuxDeploy
         "mv #{LuxDeploy.sh(ctx.path)}/shared/.env.next #{LuxDeploy.sh(ctx.path)}/shared/.env",
         "chmod 0600 #{LuxDeploy.sh(ctx.path)}/shared/.env"
       ].join(' && ')
-      ctx.ssh.ssh!(cmd, category: :preflight, summary: 'cannot write remote .env')
+      ctx.ssh.ssh!(LuxDeploy.as_service_user(ctx, cmd),
+                   category: :preflight, summary: 'cannot write remote .env')
     end
 
     def resolved_lines(env)
@@ -266,29 +278,34 @@ module LuxDeploy
       user = ctx.config[:user] if user.empty? && ctx.dry_run?
       ctx.remote_user = user
       ctx.config[:user] = user
-      ctx.config[:db][:user] = user if ctx.config[:db_user_defaulted]
-      ctx.bundle = "/home/#{user}/.local/share/mise/installs/ruby/#{ctx.ruby}/bin/bundle"
+      ctx.bundle = "/home/#{ctx.service_user}/.local/share/mise/installs/ruby/#{ctx.ruby}/bin/bundle"
       check(ctx, 'sudo -n true', 'passwordless sudo not configured', :preflight)
-      check(ctx, "test -x #{LuxDeploy.sh(ctx.bundle)}", 'bundler missing on host', :preflight)
+      check(ctx, "id #{LuxDeploy.sh(ctx.service_user)} >/dev/null 2>&1", "service user #{ctx.service_user} missing", :preflight)
+      check(ctx, "sudo test -x #{LuxDeploy.sh(ctx.bundle)}", 'bundler missing on host', :preflight)
       check(ctx, 'systemctl is-active --quiet caddy', 'caddy not running', :preflight)
       check(ctx, 'systemctl is-active --quiet postgresql || systemctl is-active --quiet postgres', 'postgres not running', :preflight)
       check(ctx, "sudo -u postgres psql -c 'select 1' >/dev/null", 'sudo postgres psql failed', :preflight)
-      path_check = "if [ -e #{LuxDeploy.sh(ctx.path)} ]; then test -d #{LuxDeploy.sh(ctx.path)} && test -w #{LuxDeploy.sh(ctx.path)}; fi"
-      check(ctx, path_check, 'target path not writable', :preflight)
+      path_check = "if sudo test -e #{LuxDeploy.sh(ctx.path)}; then sudo test -d #{LuxDeploy.sh(ctx.path)}; fi"
+      check(ctx, path_check, 'target path not a directory', :preflight)
       EnvFile.resolved_lines(ctx.config[:env])
       true
     end
 
     def doctor(ctx)
+      su = ctx.service_user
+      bundle = "/home/#{su}/.local/share/mise/installs/ruby/#{ctx.ruby}/bin/bundle"
+      caddy_owner_check = "stat -c '%U' /etc/caddy/sites 2>/dev/null | grep -qx #{LuxDeploy.sh(su)}"
+      log_owner_check = "stat -c '%U' /var/log/lux-deploy 2>/dev/null | grep -qx #{LuxDeploy.sh(su)}"
       checks = [
         ['ssh', 'whoami', 'SSH unreachable'],
-        ['ruby/bundler', "test -x /home/$(whoami)/.local/share/mise/installs/ruby/#{ctx.ruby}/bin/bundle", 'bundler missing on host'],
         ['passwordless sudo', 'sudo -n true', 'passwordless sudo not configured'],
+        ["service user #{su}", "id #{LuxDeploy.sh(su)} >/dev/null 2>&1", "service user #{su} missing"],
+        ["#{su} ruby/bundler", "sudo test -x #{LuxDeploy.sh(bundle)}", 'bundler missing on host'],
         ['caddy active', 'systemctl is-active --quiet caddy', 'caddy not running'],
         ['postgres active', 'systemctl is-active --quiet postgresql || systemctl is-active --quiet postgres', 'postgres not running'],
         ['sudo -u postgres psql', "sudo -u postgres psql -c 'select 1' >/dev/null", 'sudo postgres psql failed'],
-        ['/etc/caddy/sites writable', 'test -w /etc/caddy/sites', 'caddy sites dir not writable'],
-        ['/var/log/lux-deploy writable', 'test -w /var/log/lux-deploy', 'deploy log dir not writable']
+        ["/etc/caddy/sites owned by #{su}", caddy_owner_check, 'caddy sites dir not owned by service user'],
+        ["/var/log/lux-deploy owned by #{su}", log_owner_check, 'deploy log dir not owned by service user']
       ]
       puts "Host: #{ctx.config[:host]}"
       puts
@@ -320,7 +337,9 @@ module LuxDeploy
     def build_error(ctx, summary, result, cmd, category: :preflight)
       fix = case summary
       when /sudo/
-        "ssh #{ctx.config[:host]} 'echo \"#{ctx.remote_user || 'deploy'} ALL=(ALL) NOPASSWD:ALL\" | sudo tee /etc/sudoers.d/lux-deploy && sudo chmod 0440 /etc/sudoers.d/lux-deploy'"
+        "ssh #{ctx.config[:host]} 'echo \"#{ctx.service_user} ALL=(ALL) NOPASSWD:ALL\" | sudo tee /etc/sudoers.d/lux-deploy && sudo chmod 0440 /etc/sudoers.d/lux-deploy'"
+      when /service user/
+        "lux deploy:prepare --host #{ctx.config[:host]} --service-user #{ctx.service_user}"
       when /caddy/
         "lux deploy:prepare --with caddy --host #{ctx.config[:host]}"
       when /postgres/

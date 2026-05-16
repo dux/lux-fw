@@ -36,17 +36,35 @@ Supported placeholders in string values:
 
 `{{config.*}}` reads from `Lux.config` on the caller side.
 
+## SSH user vs service user
+
+Two identities exist on the host:
+
+* **SSH user** (from `host`, e.g. `root@srv.example.com`) — used only for the SSH connection. Needs passwordless sudo. `root` works.
+* **Service user** (`service_user`, default `deployer`) — owns the app tree, runs the systemd units, and is the Postgres peer-auth identity. Created by `lux deploy:prepare`.
+
+`lux deploy:prepare` is idempotent and will:
+
+* create the service user if missing
+* copy the SSH user's `~/.ssh/authorized_keys` into the service user's home (merge + dedupe) so you can `ssh deployer@host` with the same key
+* grant the service user passwordless sudo via `/etc/sudoers.d/lux-deploy-<user>`
+* install mise + Ruby + bundler under the service user's home
+* chown `/etc/caddy/sites`, `/var/log/lux-deploy`, and the app path to the service user
+
+`bundle install`, migrations, and the running services all execute as the service user — even when you SSH as `root`. Postgres `db.user` defaults to `service_user` so peer auth lines up with the systemd identity.
+
 ## Example
 
 ```json
 {
   "default": {
-    "host": "deploy@srv.example.com",
+    "host": "root@srv.example.com",
+    "service_user": "deployer",
     "path": "/var/www/{{app}}",
     "ruby": "3.4.7",
     "repo": "git@github.com:foo/bar.git",
     "db": {
-      "user": "deploy",
+      "user": "deployer",
       "name": "{{app_underscored}}"
     },
     "domain": "foo.com",
@@ -70,19 +88,20 @@ Supported placeholders in string values:
 
 ## One-time host preparation
 
-The host must allow SSH key login for the deploy user and passwordless sudo.
+The host must allow SSH key login for the SSH user and passwordless sudo. `root` works — the prepare step creates the service user for you.
 
 ```sh
-ssh-copy-id deploy@srv.example.com
-ssh deploy@srv.example.com 'echo "deploy ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/lux-deploy && sudo chmod 0440 /etc/sudoers.d/lux-deploy'
-lux deploy:prepare --with caddy,postgres --host deploy@srv.example.com
-lux deploy:doctor --host deploy@srv.example.com
+ssh-copy-id root@srv.example.com
+lux deploy:prepare --with caddy,postgres --host root@srv.example.com
+lux deploy:doctor --host root@srv.example.com
 ```
+
+After prepare, `ssh deployer@srv.example.com` works with the same key (prepare merged your authorized_keys into deployer's).
 
 For wildcard certificates, install a Caddy DNS provider build instead of the stock package:
 
 ```sh
-lux deploy:prepare --with caddy-cloudflare,postgres --host deploy@srv.example.com
+lux deploy:prepare --with caddy-cloudflare,postgres --host root@srv.example.com
 ```
 
 Generic `caddy-<provider>` maps to `github.com/caddy-dns/<provider>`.
@@ -143,7 +162,7 @@ Deploys create a fresh release dir, run bundle and migrations there, then atomic
 
 ## Notes
 
-* Postgres v1 uses local peer auth over the Unix socket. `db.user` should match the SSH deploy user that runs systemd services.
+* Postgres v1 uses local peer auth over the Unix socket. `db.user` defaults to `service_user`, which is also what systemd runs the app as.
 * Remote DB hosts and TCP/password auth are not supported in v1.
 * Concurrent deploys for the same `--app` are not locked.
 * `--dry-run` prints the resolved command plan without remote changes.

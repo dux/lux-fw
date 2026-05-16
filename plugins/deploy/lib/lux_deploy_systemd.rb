@@ -5,7 +5,7 @@ module LuxDeploy
     def render(ctx)
       vars = {
         app: ctx.app,
-        user: ctx.remote_user,
+        user: ctx.service_user,
         working_dir: "#{ctx.path}/current",
         bundle: ctx.bundle,
         port: ctx.port
@@ -28,6 +28,11 @@ module LuxDeploy
         end
         install_cmd = "for f in #{remote_dir}/lux-*.service; do name=$(basename $f); if ! sudo test -f /etc/systemd/system/$name || ! sudo cmp -s $f /etc/systemd/system/$name; then changed=1; fi; done; if [ \"$changed\" = 1 ]; then sudo install -m 0644 #{remote_dir}/lux-*.service /etc/systemd/system/ && sudo systemctl daemon-reload; fi; sudo systemctl enable lux-web-#{ctx.app} lux-job-#{ctx.app}"
         ctx.ssh.ssh!(install_cmd, category: :systemd, summary: 'systemd unit install failed')
+        # Files scp'd into the release dir may be root-owned when SSH'd as root;
+        # normalize so service-user-run prune/rollback can unlink them.
+        su = LuxDeploy.sh(ctx.service_user)
+        ctx.ssh.ssh!("sudo chown -R #{su}:#{su} #{Release.release_path(ctx)}",
+                     category: :systemd, summary: 'cannot chown release after systemd staging')
         Log.append(ctx, 'systemd install ok')
       ensure
         FileUtils.rm_rf(tmp) if tmp && Dir.exist?(tmp)
