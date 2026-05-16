@@ -8,9 +8,9 @@ require 'shellwords'
 require 'time'
 
 module LuxDeploy
-  ROOT = Pathname.new(File.expand_path('..', __dir__))
+  ROOT ||= Pathname.new(File.expand_path('..', __dir__))
 
-  EXIT_CODES = {
+  EXIT_CODES ||= {
     preflight: 10,
     source: 20,
     db: 30,
@@ -132,7 +132,7 @@ module LuxDeploy
   end
 
   def run_local(cmd, dry_run: false, quiet: false, input: nil)
-    puts "+ #{cmd}" if dry_run || !quiet
+    puts "+ #{cmd}" unless quiet
     return Result.new(cmd: cmd, stdout: '', stderr: '', status: 0) if dry_run
 
     stdout, stderr, status = Open3.capture3(cmd, stdin_data: input)
@@ -157,6 +157,8 @@ module LuxDeploy
     Shellwords.escape(value.to_s)
   end
 
+  # Alias retained for call sites that distinguish "shell arg" (sh) from
+  # "single-quoted SQL/shell payload" (sq). Both go through Shellwords.escape.
   def sq(value)
     Shellwords.escape(value.to_s)
   end
@@ -265,7 +267,7 @@ module LuxDeploy
       ctx.remote_user = user
       ctx.config[:user] = user
       ctx.config[:db][:user] = user if ctx.config[:db_user_defaulted]
-      ctx.bundle = "/home/#{user}/.rbenv/versions/#{ctx.ruby}/bin/bundle"
+      ctx.bundle = "/home/#{user}/.local/share/mise/installs/ruby/#{ctx.ruby}/bin/bundle"
       check(ctx, 'sudo -n true', 'passwordless sudo not configured', :preflight)
       check(ctx, "test -x #{LuxDeploy.sh(ctx.bundle)}", 'bundler missing on host', :preflight)
       check(ctx, 'systemctl is-active --quiet caddy', 'caddy not running', :preflight)
@@ -280,7 +282,7 @@ module LuxDeploy
     def doctor(ctx)
       checks = [
         ['ssh', 'whoami', 'SSH unreachable'],
-        ['ruby/bundler', "test -x /home/$(whoami)/.rbenv/versions/#{ctx.ruby}/bin/bundle", 'bundler missing on host'],
+        ['ruby/bundler', "test -x /home/$(whoami)/.local/share/mise/installs/ruby/#{ctx.ruby}/bin/bundle", 'bundler missing on host'],
         ['passwordless sudo', 'sudo -n true', 'passwordless sudo not configured'],
         ['caddy active', 'systemctl is-active --quiet caddy', 'caddy not running'],
         ['postgres active', 'systemctl is-active --quiet postgresql || systemctl is-active --quiet postgres', 'postgres not running'],
@@ -434,9 +436,15 @@ module LuxDeploy
         find /var/www -maxdepth 3 -name current -type l -printf '%h|%l\n' 2>/dev/null
       SH
       result = ssh.ssh(cmd)
-      puts result.stdout
+      output = filter_list(result.stdout, opts[:app])
+      puts output
       warn result.stderr unless result.stderr.empty?
       exit result.status unless result.success?
+    end
+
+    def filter_list(stdout, app)
+      return stdout unless app && !app.empty?
+      stdout.each_line.select { |line| line.include?(app) }.join
     end
 
     def healthcheck!(ctx)

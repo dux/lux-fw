@@ -1,16 +1,25 @@
 require 'etc'
 module LuxDeploy
   module Config
-    APP_RE = /\A[a-z][a-z0-9_-]{0,62}\z/
-    HOST_RE = /\A[A-Za-z0-9._@:\[\]-]+\z/
-    DOMAIN_RE = /\A(\*\.)?([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}\z/
-    REPO_RE = /\A(https?:\/\/|git@)[a-zA-Z0-9.:\/_-]+(\.git)?\z/
-    BRANCH_RE = /\A[A-Za-z0-9._\/-]{1,255}\z/
-    DB_RE = /\A[a-z][a-z0-9_]{0,62}\z/
-    ENV_KEY_RE = /\A[A-Z_][A-Z0-9_]*\z/
-    BASIC_USER_RE = /\A[A-Za-z0-9._-]{1,64}\z/
-    BASIC_PASS_RE = /\A[A-Za-z0-9._~+=,@%-]{1,256}\z/
-    BCRYPT_RE = /\A\$2[aby]\$\d\d\$[\.\/A-Za-z0-9]{53}\z/
+    APP_RE ||= /\A[a-z][a-z0-9_-]{0,62}\z/
+    HOST_RE ||= /\A[A-Za-z0-9._@:\[\]-]+\z/
+    DOMAIN_RE ||= /\A(\*\.)?([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}\z/
+    REPO_RE ||= /\A(https?:\/\/|git@)[a-zA-Z0-9.:\/_-]+(\.git)?\z/
+    BRANCH_RE ||= /\A[A-Za-z0-9._\/-]{1,255}\z/
+    DB_RE ||= /\A[a-z][a-z0-9_]{0,62}\z/
+    ENV_KEY_RE ||= /\A[A-Z_][A-Z0-9_]*\z/
+    BASIC_USER_RE ||= /\A[A-Za-z0-9._-]{1,64}\z/
+    BASIC_PASS_RE ||= /\A[A-Za-z0-9._~+=,@%-]{1,256}\z/
+    BCRYPT_RE ||= /\A\$2[aby]\$\d\d\$[\.\/A-Za-z0-9]{53}\z/
+    # Postgres reserved/keyword words common enough to bite. Validation rejects
+    # identifiers in this set so CREATE ROLE/DATABASE never breaks parsing.
+    PG_RESERVED ||= %w[
+      user select table default group order limit offset where from join
+      grant revoke create drop alter index view database role public
+      session current_user current_role primary foreign references
+      check unique constraint cast collate when case then else end
+      true false null and or not in like between is as on
+    ].freeze
 
     module_function
 
@@ -300,10 +309,23 @@ module LuxDeploy
       validate_match(:branch, config[:branch], BRANCH_RE) if config[:branch]
       validate_match(:db_name, config.dig(:db, :name), DB_RE)
       validate_match(:db_user, config.dig(:db, :user), DB_RE)
+      validate_pg_identifier(:db_name, config.dig(:db, :name))
+      validate_pg_identifier(:db_user, config.dig(:db, :user))
       validate_basic_auth(config[:basic_auth]) if config[:basic_auth]
       validate_env(config[:env])
       validate_healthcheck(config[:healthcheck])
       true
+    end
+
+    def validate_pg_identifier(name, value)
+      return unless PG_RESERVED.include?(value.to_s.downcase)
+      validation_error(
+        "invalid #{name}",
+        "#{name} is not a Postgres reserved word",
+        "#{name}=#{value.inspect}",
+        'rename to a non-reserved identifier',
+        "edit config/deploy.json or pass --#{name.to_s.tr('_', '-')} VALUE"
+      )
     end
 
     def validate_match(name, value, regex)

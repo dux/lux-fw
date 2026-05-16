@@ -1,6 +1,6 @@
 module LuxDeploy
   module Log
-    PATH = '/var/log/lux-deploy/deploy.log'
+    PATH ||= '/var/log/lux-deploy/deploy.log'
 
     module_function
 
@@ -18,13 +18,16 @@ module LuxDeploy
     def tail(config, lines: 50, app: nil, follow: false, dry_run: false, quiet: false)
       ssh = SSH.new(config, dry_run: dry_run, quiet: quiet)
       n = lines.to_i
-      base = if app
+      cmd = if follow && app
+        "tail -n #{n} -F #{PATH} | grep --line-buffered #{LuxDeploy.sq("\\[#{app}\\]")}"
+      elsif follow
+        "tail -n #{n} -F #{PATH}"
+      elsif app
         "grep #{LuxDeploy.sq("\\[#{app}\\]")} #{PATH} | tail -n #{n}"
       else
         "tail -n #{n} #{PATH}"
       end
-      base = app ? "tail -F #{PATH} | grep --line-buffered #{LuxDeploy.sq("\\[#{app}\\]")}" : "tail -F #{PATH}" if follow
-      result = ssh.ssh(base)
+      result = ssh.ssh(cmd)
       print result.stdout unless result.stdout.empty?
       warn result.stderr unless result.stderr.empty?
       exit result.status unless result.success?

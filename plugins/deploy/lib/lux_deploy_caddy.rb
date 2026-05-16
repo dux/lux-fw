@@ -33,14 +33,16 @@ module LuxDeploy
       user, pass = auth.split(':', 2)
       return [user, pass] if pass.start_with?('$2')
 
-      result = ctx.ssh.ssh("caddy hash-password --plaintext #{LuxDeploy.sq(pass)}")
+      # Pipe via stdin so the plaintext never appears in the remote process list.
+      remote_cmd = "printf %s #{LuxDeploy.sq(pass)} | caddy hash-password"
+      result = ctx.ssh.ssh(remote_cmd)
       unless result.success?
         raise CommandError.new(
           'basic auth password hashing failed',
           result,
           expected: 'caddy hash-password exits 0',
           need: 'caddy installed and password accepted by caddy',
-          fix: "ssh #{ctx.config[:host]} #{LuxDeploy.sq("caddy hash-password --plaintext #{LuxDeploy.sq(pass)}")}",
+          fix: "ssh #{ctx.config[:host]} #{LuxDeploy.sq(remote_cmd)}",
           category: :caddy
         )
       end

@@ -53,8 +53,13 @@ module LuxDeploy
       src += '/' unless src.end_with?('/')
       cmd = [
         'rsync -az --delete',
+        "--filter=#{LuxDeploy.sq(':- .gitignore')}",
+        '--exclude .git',
+        '--exclude .DS_Store',
         '--exclude tmp',
         '--exclude log',
+        '--exclude node_modules',
+        '--exclude coverage',
         LuxDeploy.sh(src),
         "#{LuxDeploy.sh(host)}:#{LuxDeploy.sh(remote)}/"
       ].join(' ')

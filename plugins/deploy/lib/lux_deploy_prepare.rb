@@ -54,19 +54,14 @@ module LuxDeploy
           exit 1
         fi
 
-        if [ ! -d "$HOME/.rbenv" ]; then
-          git clone https://github.com/rbenv/rbenv.git "$HOME/.rbenv"
+        if [ ! -x "$HOME/.local/bin/mise" ]; then
+          curl -fsSL https://mise.run | sh
         fi
-        mkdir -p "$HOME/.rbenv/plugins"
-        if [ ! -d "$HOME/.rbenv/plugins/ruby-build" ]; then
-          git clone https://github.com/rbenv/ruby-build.git "$HOME/.rbenv/plugins/ruby-build"
-        else
-          git -C "$HOME/.rbenv/plugins/ruby-build" pull --ff-only
-        fi
-        export PATH="$HOME/.rbenv/bin:$HOME/.rbenv/shims:$PATH"
-        rbenv install -s #{ruby}
-        rbenv global #{ruby}
-        "$HOME/.rbenv/versions/#{ruby}/bin/gem" list -i bundler >/dev/null || "$HOME/.rbenv/versions/#{ruby}/bin/gem" install bundler --no-document
+        export PATH="$HOME/.local/bin:$PATH"
+        mise install ruby@#{ruby}
+        mise use -g ruby@#{ruby}
+        "$HOME/.local/share/mise/installs/ruby/#{ruby}/bin/gem" list -i bundler >/dev/null || "$HOME/.local/share/mise/installs/ruby/#{ruby}/bin/gem" install bundler --no-document
+        [ -d "$HOME/.rbenv" ] && rm -rf "$HOME/.rbenv" || true
 
         #{caddy_plugin_install(caddy_variant)}
 
@@ -89,8 +84,8 @@ module LuxDeploy
           printf %s #{LuxDeploy.sq(logrotate)} | sudo tee /etc/logrotate.d/lux-deploy >/dev/null
         fi
 
-        ruby -v
-        "$HOME/.rbenv/versions/#{ruby}/bin/bundle" -v
+        "$HOME/.local/share/mise/installs/ruby/#{ruby}/bin/ruby" -v
+        "$HOME/.local/share/mise/installs/ruby/#{ruby}/bin/bundle" -v
         command -v caddy >/dev/null 2>&1 && caddy version || true
         command -v psql >/dev/null 2>&1 && psql --version || true
       SH

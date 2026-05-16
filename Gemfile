@@ -2,8 +2,8 @@ source 'http://rubygems.org'
 
 gemspec
 
-# Use the adjacent local checkout for framework development.
-gem 'lux-hammer', path: '../lux-hammer'
+# Use the adjacent local checkout when present (developer convenience).
+gem 'lux-hammer', path: '../lux-hammer' if File.directory?(File.expand_path('../lux-hammer', __dir__))
 
 gem 'rspec'
 gem 'sqlite3'
