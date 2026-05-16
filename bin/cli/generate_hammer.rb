@@ -7,6 +7,13 @@ Sequel.extension :inflector
 module LuxGenerate
   module_function
 
+  def parse_vars(data, object, objects)
+    klass   = object.classify
+    klasses = klass.pluralize
+
+    data.gsub(/\{\{([^\}]+)\}\}/) { eval $1 }
+  end
+
   def generate object=nil, objects=nil
     raise Hammer::Error, './generate [object singular]' unless object
 
@@ -21,25 +28,15 @@ module LuxGenerate
       v: 'view'
     }
 
-    @object  = object
-    @objects = objects || @object.pluralize
+    objects ||= object.pluralize
 
-    puts "Singular  : #{@object.colorize(:yellow)}"
-    puts "Plural    : #{@objects.colorize(:yellow)}"
-
-    def parse_vars(data)
-      object  = @object
-      objects = @objects
-      klass   = @object.classify
-      klasses = klass.pluralize
-
-      data.gsub(/\{\{([^\}]+)\}\}/) { eval $1 }
-    end
+    puts "Singular  : #{object.colorize(:yellow)}"
+    puts "Plural    : #{objects.colorize(:yellow)}"
 
     templates = {}
     for el in Dir["./#{template_dir}/*.*"].map { |file| file.split('/').last }
       begin
-        data = parse_vars(File.read("#{template_dir}/#{el}"))
+        data = parse_vars(File.read("#{template_dir}/#{el}"), object, objects)
       rescue
         puts '-'
         puts "File error: #{el.colorize(:red)}: #{$!.message}"
@@ -48,7 +45,7 @@ module LuxGenerate
       type = el[0, 1]
 
       path = el.split('|', 2)[1]
-      path = parse_vars(path).gsub('#', '/')
+      path = parse_vars(path, object, objects).gsub('#', '/')
 
       templates[type] ||= []
       templates[type].push [path, data]

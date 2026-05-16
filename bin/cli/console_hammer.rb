@@ -1,5 +1,5 @@
-# Mixin helpers exposed inside a console session. Kept on Object so they
-# work as bare commands at the pry prompt.
+# Console-only helpers - defined on Object so they're callable as bare
+# commands at the pry prompt.
 class Object
   def cp data
     data = JSON.pretty_generate(data.to_hash) if data.respond_to?(:to_hash)

@@ -3,7 +3,6 @@
 gem_files = [:bin, :lib, :plugins]
   .inject([]) { |t, el| t + `find ./#{el}`.split($/) }
   .push('./.version')
-  .push('./Hammerfile')
 
 Gem::Specification.new 'lux-fw' do |gem|
   gem.version     = File.read('.version')

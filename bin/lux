@@ -18,10 +18,17 @@ puts 'Lux v%s (%s)' % [File.read('%s/.version' % LUX_ROOT).strip, LUX_ROOT] unle
 
 require 'lux-hammer'
 
-# Build a single CLI that pulls in:
-#   1. lux-fw's Hammerfile (core commands + plugin fragments)
-#   2. *_hammer.rb fragments under the app's cwd (app commands)
 Hammer.run ARGV do
-  load File.join(LUX_ROOT, 'Hammerfile')
+  load LUX_ROOT
   load Dir.pwd if Dir.pwd != LUX_ROOT
+
+  # Hidden helpers - plugins use `needs :env` (rake-style) so config/env
+  # loads once per top-level invocation regardless of how many defines pull it in.
+  define :env do
+    proc { require './config/env' }
+  end
+
+  define :app do
+    proc { require './config/app' }
+  end
 end

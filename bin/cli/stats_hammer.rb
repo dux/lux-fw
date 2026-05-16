@@ -61,7 +61,7 @@ class LuxStat
       next if ext.length > 6
       exts[ext] ||= [0, 0]
       exts[ext][0] += 1
-      exts[ext][1] += (File.read(file).split($/).length rescue 0)
+      exts[ext][1] += (File.foreach(file).count rescue 0)
     end
 
     for ext, (files, lines) in exts.sort
