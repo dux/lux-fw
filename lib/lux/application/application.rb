@@ -22,7 +22,7 @@ module Lux
       run_callback :before, lux.nav.path
 
       if Lux.env.reload? && Lux.env.web?
-        Lux.config.on_reload_code.call
+        Lux::Reloader.run
       end
 
       request_method = lux.request.request_method

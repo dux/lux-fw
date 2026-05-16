@@ -22,7 +22,7 @@ plugins/<name>/
   load/         # OPTIONAL. All *.rb auto-required after loader.rb.
   Hammerfile    # OPTIONAL. Single-file CLI tasks.
   hammer/       # OPTIONAL. *_hammer.rb CLI tasks (multi-file).
-  mount/        # RESERVED for future auto-mount.
+  mount/        # OPTIONAL. Files symlinked into the app by `lux mount`.
 ```
 
 A plugin must have at least `loader.rb` or `load/`, otherwise it is
@@ -50,8 +50,16 @@ plugin at runtime.
   plugin is loaded. Subdirectories are walked recursively.
 * `Hammerfile` / `hammer/` - CLI tasks discovered by the `lux` command.
   Not required when the plugin is loaded at runtime.
-* `mount/` - reserved. Will be wired to auto-mount Rack apps in a future
-  change. Do not put code here yet.
+* `mount/` - mirrors the application root. Running `lux mount` walks
+  every leaf file under `mount/` and creates a relative symlink at the
+  matching path in `Lux.root`. Use it for assets, initializers, or
+  config templates a plugin needs to drop into the host app. Symlinks
+  pointing at the same plugin/path but a different filesystem location
+  (gem path drift between machines) are rewritten silently on the next
+  `lux mount`. Foreign files at the destination are skipped with a
+  warning - they are never overwritten. See `lux mount:list` and
+  `lux mount:doctor` to inspect state, and `lux mount:remove NAME` to
+  unlink everything a plugin owns.
 * Anything else (`lib/`, `views/`, `spec/`, `assets/`, ...) is plain
   convention. The loader does nothing with it. Reference it from
   `loader.rb` (e.g. `require_relative 'lib/foo'`) if you want it

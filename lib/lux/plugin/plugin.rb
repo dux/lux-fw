@@ -4,7 +4,8 @@
 #     load/         # OPTIONAL. All *.rb auto-required after loader.rb.
 #     Hammerfile    # OPTIONAL. Single-file CLI tasks.
 #     hammer/       # OPTIONAL. *_hammer.rb CLI tasks.
-#     mount/        # RESERVED for future auto-mount.
+#     mount/        # OPTIONAL. Mirrors app root. `lux mount` symlinks
+#                   # every leaf file into the app at the matching path.
 #
 # A plugin must have at least loader.rb or load/, otherwise it is empty.
 

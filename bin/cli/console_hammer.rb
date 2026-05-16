@@ -8,7 +8,7 @@ class Object
   end
 
   def reload!
-    Lux.config.on_reload_code.call :cli
+    Lux::Reloader.run :cli
   end
 
   def sql! sql=nil

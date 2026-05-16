@@ -21,6 +21,12 @@ module Lux
 
     define_callback :before
     define_callback :after
+    define_callback :on_deliver
+
+    # default delivery logger; subclasses may add more on_deliver blocks
+    on_deliver do |mail|
+      Lux.logger.info "[#{self.class}.#{@_template} to #{mail.to}] #{mail.subject}"
+    end
 
     attr_reader :mail
 
@@ -98,7 +104,7 @@ module Lux
       m[:body]         = body
       m[:content_type] = 'text/html; charset=UTF-8'
 
-      instance_exec m, &Lux.config.on_mail_send
+      run_callback :on_deliver, m
 
       m
     end
