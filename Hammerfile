@@ -17,8 +17,6 @@
 # `needs` dedupes per top-level invocation, so a chain that resolves to
 # many `:env` prereqs only loads config once.
 
-program 'lux'
-
 # Auto-discover *_hammer.rb under bin/cli, plugins, tasks, and the
 # app's own lib (if invoked from an app root).
 load auto: true
