@@ -8,27 +8,36 @@ module LuxDeploy
       "#{path}/#{BASENAME}"
     end
 
-    def apps_root(service_user)
-      "/home/#{service_user}/lux-apps"
+    def apps_root(root)
+      root.to_s
     end
 
     def build(ctx)
+      services = ctx.config[:services].each_with_object({}) do |(name, spec), out|
+        out[name.to_s] = {
+          compose_service: spec[:compose_service],
+          host_port: spec[:host_port],
+          container_port: spec[:container_port],
+          domains: Array(spec[:domains])
+        }
+      end
       {
         app: ctx.app,
+        server: ctx.config[:server],
         service_user: ctx.service_user,
-        ruby: ctx.ruby,
-        host: ctx.config[:host],
+        root: ctx.config[:root],
         path: ctx.path,
-        domain: ctx.config[:domain],
-        port: ctx.port,
-        db: { name: ctx.config.dig(:db, :name), user: ctx.config.dig(:db, :user) },
-        systemd_units: ["lux-web-#{ctx.app}.service", "lux-job-#{ctx.app}.service"],
-        caddy_site: "/etc/caddy/sites/#{ctx.app}.caddy",
+        compose_project: ctx.config[:compose_project],
+        compose_files: Compose.remote_compose_files(ctx),
+        staging: !!ctx.options[:staging],
+        image_archive: "#{ctx.path}/config/docker/images.tar.gz",
+        images: ctx.config[:images].each_with_object({}) { |(k, v), h| h[k.to_s] = v },
+        caddyfile: Caddy.app_caddyfile(ctx),
+        caddy_site: Caddy.caddy_symlink(ctx),
+        services: services,
         env_schema: env_schema(ctx.config[:env]),
-        release: ctx.release,
-        deployed_at: LuxDeploy.iso_now,
-        ruby_path: "/home/#{ctx.service_user}/.local/share/mise/installs/ruby/#{ctx.ruby}/bin/ruby",
-        bundle_path: ctx.bundle
+        volumes: Array(ctx.options[:volumes_track]),
+        deployed_at: LuxDeploy.iso_now
       }
     end
 
@@ -57,38 +66,72 @@ module LuxDeploy
       nil
     end
 
-    def list_paths(ssh, service_user)
-      # `|| true` so an empty glob isn't a remote-shell error; the remote
-      # command always exits 0 on a reachable host. SSH-layer failures
-      # (host down, auth refused) keep their non-zero status and surface here.
-      cmd = "ls -1 #{LuxDeploy.sh(apps_root(service_user))}/*/#{BASENAME} 2>/dev/null || true"
+    def list_paths(ssh, root)
+      cmd = "ls -1 #{LuxDeploy.sh(apps_root(root))}/*/#{BASENAME} 2>/dev/null || true"
       result = ssh.ssh(cmd)
       unless result.success?
         raise CommandError.new(
-          'cannot scan manifests on host',
+          'cannot scan manifests on server',
           result,
-          expected: "ssh #{ssh.host} reachable",
-          need: 'SSH connection to deploy host',
-          fix: "ssh #{ssh.host} true",
+          expected: "ssh #{ssh.server} reachable",
+          need: 'SSH connection to deploy server',
+          fix: "ssh #{ssh.server} true",
           category: :preflight
         )
       end
       result.stdout.lines.map(&:chomp).reject(&:empty?)
     end
 
-    def read_all(ssh, service_user)
-      list_paths(ssh, service_user).map { |path| [path, read(ssh, path)] }.reject { |_, m| m.nil? }
+    def read_all(ssh, root)
+      list_paths(ssh, root).map { |path| [path, read(ssh, path)] }.reject { |_, m| m.nil? }
     end
 
-    # Env schema records intent only — never resolved secret values.
-    # true  -> 'required' (callers must export it locally)
-    # false -> 'optional' (pass through if locally set)
-    # else  -> 'literal'  (config-defined constant)
+    # Scan every other app's manifest on the host and refuse to deploy if a
+    # domain or explicit host_port already belongs to a different app. Runs
+    # after ensure_remote_layout! but before any state change.
+    def verify_no_collisions!(ctx)
+      others = read_all(ctx.ssh, ctx.config[:root]).reject { |_, m| m[:app].to_s == ctx.app.to_s }
+      my_domains = ctx.config[:services].values.flat_map { |s| Array(s[:domains]) }
+      my_ports = ctx.config[:services].values.map { |s| s[:host_port] }.compact
+      others.each do |_, m|
+        (m[:services] || {}).each do |name, spec|
+          Array(spec[:domains]).each do |d|
+            next unless my_domains.include?(d)
+            raise Error.new(
+              'domain already used by another app',
+              expected: "#{d} unused",
+              current: "owned by app=#{m[:app]} service=#{name}",
+              need: 'use a different domain or remove the other deploy',
+              fix: "lux deploy:remove --app #{m[:app]}",
+              category: :preflight
+            )
+          end
+          next unless spec[:host_port]
+          if my_ports.include?(spec[:host_port])
+            raise Error.new(
+              'host_port already used by another app',
+              expected: "port #{spec[:host_port]} unused",
+              current: "owned by app=#{m[:app]} service=#{name}",
+              need: 'choose a different host_port',
+              fix: "edit services.*.host_port",
+              category: :preflight
+            )
+          end
+        end
+      end
+    end
+
+    # Env schema records intent only - never resolved secret values.
+    # true       -> 'required' (callers must export it locally)
+    # false/nil  -> 'optional' (pass through if locally set)
+    # '$generate'-> 'generated' (per-app stable secret in shared/.env)
+    # else       -> 'literal'  (config-defined constant)
     def env_schema(env)
       env.each_with_object({}) do |(key, value), hash|
         hash[key.to_s] = case value
                          when true then 'required'
-                         when false then 'optional'
+                         when false, nil then 'optional'
+                         when Config::SECRET_GEN_TOKEN then 'generated'
                          else 'literal'
                          end
       end

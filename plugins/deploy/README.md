@@ -1,26 +1,54 @@
 # Lux deploy plugin
 
-SSH-based deploy commands for Lux apps. The plugin provisions a Lux app on a Linux host without Docker: source sync, bundle install, Postgres ensure, migrations, systemd units, Caddy reverse proxy, health checks, rollback, and teardown.
+Docker-only deploy commands for Lux apps. The plugin builds Docker images locally, ships them to a host as a `docker save | gzip` archive, runs `docker compose up -d`, then generates a Caddy site block and reloads Caddy.
+
+The runtime contract is just three things:
+
+* Docker (Compose v2) on the host
+* Caddy on the host with `/etc/caddy/sites/*.caddy` imports
+* SSH with passwordless sudo
+
+No Ruby, Bundler, Puma, Node, systemd, or Postgres setup is needed on the host. The image owns those.
 
 ## Commands
 
 ```sh
-lux deploy [PROFILE]
-lux deploy:prepare [PROFILE] --with caddy,postgres
+lux deploy:llm_prepare                # generate Dockerfile + compose + deploy.json via Claude CLI
+lux deploy [PROFILE]                  # build (optional) + ship + compose up + caddy reload
 lux deploy:doctor [PROFILE] [--app NAME]
-lux deploy:reinstall [PROFILE] --app NAME
-lux deploy:rollback [PROFILE]
-lux deploy:remove [PROFILE] [--with-db]
-lux deploy:list [PROFILE]
-lux deploy:log [PROFILE]
-lux deploy:tail [PROFILE] --app NAME
+lux deploy:build [PROFILE]            # build images locally, write tmp/deploy/<app>/images.tar.gz
+lux deploy:test  [PROFILE] [--build]  # run archived images locally + health checks
+lux deploy:staging [PROFILE]          # disposable PR/staging stack with project-local DB
+lux deploy:remove  [PROFILE] [--purge] [--volumes]
+lux deploy:ssh     [PROFILE]
+lux deploy:logs    [PROFILE] [--service SVC] [--follow]
+lux deploy:compose [PROFILE] -- <docker compose subcommand>
 ```
 
 `PROFILE` defaults to `default` and is resolved from `config/deploy.json`.
 
+## Local app layout
+
+```text
+config/
+  deploy.json
+  docker/
+    Dockerfile
+    compose.yml
+    compose.staging.yml         # optional: project-local postgres for PR/staging
+```
+
+`config/docker/compose.yml` should resolve to the same definition locally and remotely, parameterised by environment variables the plugin writes:
+
+* `LUX_RUNTIME_ENV_FILE` -- the `.env` to load into containers (`/home/<service_user>/lux-apps/<app>/shared/.env` remotely)
+* `LUX_LOG_DIR`, `LUX_TMP_DIR` -- bind mount targets for log/tmp
+* `LUX_SOURCE_DIR` -- defaults to the app root locally; remote value lets compose `build` succeed if invoked
+* `<SVC>_IMAGE` -- image ref for each logical service in `services:`
+* `<SVC>_PORT` -- resolved host port (loopback only)
+
 ## Config
 
-Create `config/deploy.json` in your app. A starter template lives at:
+Create `config/deploy.json` in your app:
 
 ```sh
 cp plugins/deploy/templates/deploy.json.example config/deploy.json
@@ -30,107 +58,124 @@ Profiles inherit from `default`. A profile can set `extends` to inherit from ano
 
 Supported placeholders in string values:
 
-* `{{app}}`
-* `{{app_underscored}}`
-* `{{profile}}`
-* `{{config.a.b.c}}`
+* `{{app}}`, `{{app_underscored}}`, `{{profile}}`, `{{image_tag}}`
+* `{{host}}` -- docker bridge gateway (`172.17.0.1`); for containers reaching a service running on the host
+* `{{config.a.b.c}}` -- reads from `Lux.config` on the caller side
+* `{{env.KEY}}` -- the resolved env value (use only inside `env:` or `services.*` values that depend on it)
 
-`{{config.*}}` reads from `Lux.config` on the caller side.
+### Auto-derived (don't set these in deploy.json)
 
-## SSH user vs service user
+The plugin owns these by convention; the validator rejects them if you set them:
 
-Two identities exist on the host:
+* `root` -- always `/home/<service_user>/lux-apps`
+* `compose` -- always `["config/docker/compose.yml"]` (auto-appends `config/docker/compose.<profile>.yml` if it exists)
+* `image_tag` -- `git rev-parse --short HEAD`, or `latest` if not in git; override per-call with `--image-tag`
+* `images` -- one entry per service: `<app>-<svc>:<image_tag>`
 
-* **SSH user** (from `host`, e.g. `root@srv.example.com`) — used only for the SSH connection. Needs passwordless sudo. `root` works.
-* **Service user** (`service_user`, default `deployer`) — owns the app tree, runs the systemd units, and is the Postgres peer-auth identity. Created by `lux deploy:prepare`.
+### Defaults (override only if you really need to)
 
-`lux deploy:prepare` is idempotent and will:
+* `service_user` -- defaults to `deployer`. Override in deploy.json or via `--service-user` if you have a different system user owning app files.
 
-* create the service user if missing
-* copy the SSH user's `~/.ssh/authorized_keys` into the service user's home (merge + dedupe) so you can `ssh deployer@host` with the same key
-* grant the service user passwordless sudo via `/etc/sudoers.d/lux-deploy-<user>`
-* install mise + Ruby + bundler under the service user's home
-* chown `/etc/caddy/sites`, `/var/log/lux-deploy`, and the app path to the service user
+### Env values
 
-`bundle install`, migrations, and the running services all execute as the service user — even when you SSH as `root`. Postgres `db.user` defaults to `service_user` so peer auth lines up with the systemd identity.
+The `env:` block maps env keys to one of:
 
-## Example
+* `"literal"` -- string written verbatim
+* `true` -- read from the caller's shell ENV at deploy time (required)
+* `false` / `null` -- pass through if locally set, otherwise omitted
+* `"$generate"` -- generate a stable 64-hex secret and store it in the remote `shared/.env` (reused on later deploys)
+
+### Services
+
+`services.*` maps logical service keys to:
+
+* `compose_service` -- the matching service in compose.yml (defaults to the key)
+* `host_port` -- explicit localhost port Caddy targets, or `null` to allocate from `port_range`
+* `port_range` -- `[lo, hi]` used when `host_port` is null
+* `container_port` -- documentation, not enforced
+* `domains` -- array of domains this service serves on (first-class for socket/admin subdomains; wildcards like `*.example.com` are supported, see TLS below)
+* `healthcheck` -- optional `{ path, expect_status, timeout }`
+
+### TLS (wildcard / DNS-01)
+
+A wildcard domain requires the ACME DNS-01 challenge, which means Caddy needs a DNS provider plugin compiled in. Configure it per profile:
 
 ```json
-{
-  "default": {
-    "host": "root@srv.example.com",
-    "service_user": "deployer",
-    "ruby": "3.4.7",
-    "repo": "git@github.com:foo/bar.git",
-    "db": {
-      "user": "deployer",
-      "name": "{{app_underscored}}"
-    },
-    "domain": "foo.com",
-    "port": null,
-    "healthcheck": {
-      "path": "/",
-      "timeout": 30,
-      "expect_status": [200, 201, 204, 301, 302]
-    },
-    "env": {
-      "RACK_ENV": "production",
-      "DATABASE_URL": "postgres:///{{app_underscored}}",
-      "SECRET_KEY_BASE": true
-    }
-  },
-  "pr": {
-    "domain": "{{app}}.staging.foo.com"
-  }
+"tls": {
+  "dns_provider": "cloudflare",
+  "api_token_env": "CLOUDFLARE_API_TOKEN"
 }
 ```
 
-## One-time host preparation
+* `dns_provider` -- a supported `caddy-dns/<name>` plugin (currently `cloudflare`)
+* `api_token_env` -- name of the env var holding the DNS API token; must be exported locally before running deploy
 
-The host must allow SSH key login for the SSH user and passwordless sudo. `root` works — the prepare step creates the service user for you.
+On deploy, the token is written to `/etc/caddy/caddy.env` (root:caddy 0640) and Caddy reads it via a systemd drop-in. The preflight check verifies the host's Caddy includes `dns.providers.<name>`; if it doesn't, it points you at an `xcaddy build` command. See `KNOWLEDGE.md` for the build recipe.
 
-```sh
-ssh-copy-id root@srv.example.com
-lux deploy:prepare --with caddy,postgres --host root@srv.example.com
-lux deploy:doctor --host root@srv.example.com
-```
+## Image transport
 
-After prepare, `ssh deployer@srv.example.com` works with the same key (prepare merged your authorized_keys into deployer's).
-
-For wildcard certificates, install a Caddy DNS provider build instead of the stock package:
+Default: archive. Build locally, save with `docker save | gzip`, scp to host, `docker load`. No registry credentials needed.
 
 ```sh
-lux deploy:prepare --with caddy-cloudflare,postgres --host root@srv.example.com
+lux deploy:build                          # writes tmp/deploy/<app>/images.tar.gz
+lux deploy:test                           # boots the archive locally and health-checks it
+lux deploy                                # uploads + remote load + compose up + caddy reload
+lux deploy --build                        # build the archive first if missing/stale
 ```
 
-Generic `caddy-<provider>` maps to `github.com/caddy-dns/<provider>`.
+Optional: `lux deploy --transport registry` runs `docker compose pull` on the host instead of shipping the archive. Pushing the images to the registry is out of scope for v1 -- do it before invoking deploy.
 
-Provider credentials are not managed by this plugin. Add the provider's required environment or global Caddyfile configuration on the host.
+## Host layout
 
-## Deploy
+Every app lives at `<root>/<app>/`. Root is fixed at `/home/<service_user>/lux-apps`. Path is fully derived.
 
-From a working copy:
+```text
+/home/deployer/lux-apps/
+  myapp/
+    manifest.json              # resolved deploy state, no secrets
+    Caddyfile                  # generated; symlinked into /etc/caddy/sites/myapp.caddy
+    config/
+      docker/                  # rsync'd from local config/docker/
+        compose.yml
+        Dockerfile
+        deploy.env             # compose --env-file; image refs, ports, paths (no secrets)
+        images.tar.gz          # uploaded archive (when transport=archive)
+    shared/
+      .env                     # 0600; container runtime env (includes $generate secrets)
+      log/
+      tmp/
+```
+
+## SSH user vs service user
+
+* **SSH user** (from `server`, e.g. `root@srv.example.com`) -- used only for the SSH connection. Needs passwordless sudo. `root` works.
+* **Service user** (`service_user`, default `deployer`) -- owns the app tree on the host.
+
+All file operations under `<root>/<app>/` are run as the service user. Docker itself runs as root (via group membership or socket access).
+
+## Staging and PR deploys
+
+`lux deploy:staging` deploys a disposable stack with its own DB:
+
+* same Docker + Caddy machinery as production
+* different `app` (e.g. `pr-123`) becomes the namespace, Compose project, Caddy file
+* a `config/docker/compose.staging.yml` is auto-appended to the compose stack when the profile is `staging`
+* compose config must declare a `db` service (unless `--allow-no-db`)
+* `$generate` env values get a stable per-app password in `shared/.env`
+* ports auto-allocate from `port_range`, then stay pinned in `manifest.json`
+
+Destroy a PR deploy and its volume:
 
 ```sh
-export SECRET_KEY_BASE=$(openssl rand -hex 64)
-lux deploy --app myapp
+lux deploy:remove pr --app pr-123 --purge --volumes
 ```
 
-From CI using a remote git clone:
+## Doctor
 
-```sh
-lux deploy pr \
-  --app pr-123 \
-  --repo https://github.com/foo/bar.git \
-  --branch pr-123-branch
-```
+`lux deploy:doctor` runs read-only checks against the host and each app's manifest:
 
-Remove an ephemeral deploy:
-
-```sh
-lux deploy:remove pr --app pr-123 --with-db
-```
+* docker, docker compose v2, caddy, sudo, service user, root dir
+* per-app: app dir, manifest, env file mode 0600, generated Caddyfile, symlink, compose config validity, ports respond
 
 ## Error format
 
@@ -144,40 +189,10 @@ ERROR: one-line summary
   fix:      copy-pasteable command or path
 ```
 
-Exit codes: `10` preflight, `20` source, `30` database, `40` systemd, `50` caddy, `60` health check, `99` unknown.
-
-## Layout on the host
-
-Every app lives at `/home/<service_user>/lux-apps/<app>/`. The path is fully derived from `service_user` and `app` — no override. The filesystem itself is the app registry. Each app is self-describing: a `manifest.json` at the app root records the resolved deploy state so doctor, list, and reinstall don't need the local config.
-
-```text
-/home/deployer/lux-apps/
-  myapp/
-    manifest.json                       # resolved deploy state (no secrets)
-    current -> releases/2026-05-16-09-23-22
-    releases/
-    shared/
-      .env                              # 0600 deployer:deployer (resolved secrets)
-      log/
-      tmp/
-  pr-123/
-    manifest.json
-    ...
-```
-
-Deploys create a fresh release dir, run bundle and migrations there, atomically swap `current`, then write `manifest.json` after the healthcheck passes. The plugin keeps the current release plus one previous release for rollback.
-
-## Manifest
-
-`<path>/manifest.json` records: app, service_user, ruby, host, domain, port, db (name + user, no secrets), systemd unit names, caddy site path, env schema (`required` / `optional` / `literal`, **never resolved values**), current release, deployed_at, ruby and bundle paths.
-
-`lux deploy:doctor` reads every manifest under `/home/<service_user>/lux-apps/` and checks reality matches: systemd unit installed with `User=<service_user>`, services active, caddy site references the recorded port, `current` symlink is valid, bundle path exists, db role + database exist, `.env` is mode 0600. Pass `--app NAME` to scope to one app.
-
-`lux deploy:reinstall --app NAME` reads the on-host manifest and re-renders the systemd unit + caddy site from the current templates, then reloads both. No release sync, no bundle, no db — handy when config drifts but the release tree is fine.
+Exit codes: `10` preflight, `20` source, `40` compose, `50` caddy, `60` health check, `99` unknown.
 
 ## Notes
 
-* Postgres v1 uses local peer auth over the Unix socket. `db.user` defaults to `service_user`, which is also what systemd runs the app as.
-* Remote DB hosts and TCP/password auth are not supported in v1.
 * Concurrent deploys for the same `--app` are not locked.
 * `--dry-run` prints the resolved command plan without remote changes.
+* The plugin shells out to plain `docker compose` -- the printed commands can be copied verbatim.

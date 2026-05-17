@@ -5,7 +5,11 @@ module Lux
     class MemcachedServer
       def initialize
         require 'dalli'
-        @server = Dalli::Client.new('127.0.0.1:11211', { :namespace=>Digest::MD5.hexdigest(__FILE__)[0,4], :compress => true,  :expires_in => 24.hours })
+        # Honor MEMCACHE_SERVERS (Dalli convention) so containerized apps can
+        # reach a memcached on the host (e.g. via docker bridge IP).
+        servers = ENV['MEMCACHE_SERVERS'].to_s.strip
+        servers = '127.0.0.1:11211' if servers.empty?
+        @server = Dalli::Client.new(servers, { :namespace=>Digest::MD5.hexdigest(__FILE__)[0,4], :compress => true,  :expires_in => 24.hours })
       end
 
       def set key, data, ttl = nil

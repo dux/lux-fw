@@ -1,84 +1,98 @@
 require 'etc'
+
 module LuxDeploy
   module Config
     APP_RE ||= /\A[a-z][a-z0-9_-]{0,62}\z/
-    HOST_RE ||= /\A[A-Za-z0-9._@:\[\]-]+\z/
+    SERVER_RE ||= /\A[A-Za-z0-9._@:\[\]-]+\z/
     DOMAIN_RE ||= /\A(\*\.)?([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}\z/
-    REPO_RE ||= /\A(https?:\/\/|git@)[a-zA-Z0-9.:\/_-]+(\.git)?\z/
-    BRANCH_RE ||= /\A[A-Za-z0-9._\/-]{1,255}\z/
-    DB_RE ||= /\A[a-z][a-z0-9_]{0,62}\z/
     ENV_KEY_RE ||= /\A[A-Z_][A-Z0-9_]*\z/
-    BASIC_USER_RE ||= /\A[A-Za-z0-9._-]{1,64}\z/
-    BASIC_PASS_RE ||= /\A[A-Za-z0-9._~+=,@%-]{1,256}\z/
+    # Caddy DNS provider modules we know how to render. Extend by adding the
+    # provider name here AND ensuring the host Caddy build includes
+    # github.com/caddy-dns/<name>. See KNOWLEDGE.md for the xcaddy recipe.
+    TLS_DNS_PROVIDERS ||= %w[cloudflare].freeze
     # POSIX-ish system username: lowercase or underscore start, then [a-z0-9_-].
-    # Constrains shell expansions and matches `useradd` defaults.
     SERVICE_USER_RE ||= /\A[a-z_][a-z0-9_-]{0,31}\z/
-    BCRYPT_RE ||= /\A\$2[aby]\$\d\d\$[\.\/A-Za-z0-9]{53}\z/
-    # Postgres reserved/keyword words common enough to bite. Validation rejects
-    # identifiers in this set so CREATE ROLE/DATABASE never breaks parsing.
-    PG_RESERVED ||= %w[
-      user select table default group order limit offset where from join
-      grant revoke create drop alter index view database role public
-      session current_user current_role primary foreign references
-      check unique constraint cast collate when case then else end
-      true false null and or not in like between is as on
-    ].freeze
+    # Logical service key in `services:` and `images:` (also matches compose svc name).
+    # Hyphens disallowed: generated compose env vars (`<SVC>_IMAGE`, `<SVC>_PORT`)
+    # must be valid shell identifiers, and `${WEB-API_IMAGE}` is parsed as a
+    # Bash-style default expansion, not a variable name.
+    SERVICE_NAME_RE ||= /\A[a-z][a-z0-9_]{0,30}\z/
+    # Docker image reference: [registry-host[:port]/]name[:tag], names are
+    # lowercase. The optional leading `host[:port]/` lets self-hosted
+    # registries on non-default ports validate.
+    IMAGE_RE ||= /\A([a-z0-9][a-z0-9.-]*(:[0-9]+)?\/)?[a-z0-9][a-z0-9._\/-]{0,127}(:[A-Za-z0-9_.-]{1,127})?\z/
+    # Image tag suitable for docker tags
+    IMAGE_TAG_RE ||= /\A[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}\z/
+    # Compose project name and matching apps-root path component
+    PROJECT_RE ||= /\A[a-z0-9][a-z0-9_-]{0,62}\z/
+    # Apps root on the host is fixed: <service_user>'s home + /lux-apps.
+    # Not configurable in deploy.json - keeps the path predictable across
+    # apps on the same host. Caddy needs `x` on the home dir to traverse
+    # symlinks; ensure_remote_layout! chmods it 0755 once.
+    SECRET_GEN_TOKEN ||= '$generate'.freeze
+    # Default service user that owns app files on the host. Override in
+    # deploy.json or via --service-user; if neither is set this is used.
+    SERVICE_USER ||= 'deployer'.freeze
 
     module_function
 
     def resolve(profile, opts = {})
       profile = profile.to_s.empty? ? 'default' : profile.to_s
       app_root = find_app_root(Dir.pwd)
-      config_path = opts[:config] ? File.expand_path(opts[:config]) : File.join(app_root, 'config/deploy.json')
+      config_path = resolve_config_path(opts, app_root)
 
       unless File.file?(config_path)
+        default_target = File.join(app_root, 'config/docker/deploy.json')
         raise Error.new(
           'deploy config not found',
-          expected: "#{config_path} exists",
+          expected: "#{default_target} (or config/deploy.json) exists",
           current: "missing #{config_path}",
           need: 'create a deploy config or pass --config PATH',
-          fix: "cp #{LuxDeploy.plugin_root.join('templates/deploy.json.example')} #{File.join(app_root, 'config/deploy.json')}",
+          fix: "cp #{LuxDeploy.plugin_root.join('templates/deploy.json.example')} #{default_target}",
           category: :preflight
         )
       end
 
-      app = (opts[:app] || default_app_name(opts, app_root)).to_s
-      if opts[:branch] && opts[:src]
-        validation_error('--branch and --src are mutually exclusive', '--branch and --src are not passed together', 'both flags supplied', 'choose one source mode', 'remove --src or remove --branch')
-      end
-      if opts[:branch] && !opts[:app]
-        validation_error('--branch requires --app', '--app supplied when deploying from git branch', '--branch supplied without --app', 'choose an app namespace', 'lux deploy --app myapp --repo URL --branch main')
-      end
-
       data = JSON.parse(File.read(config_path))
       raw = resolve_profile(data, profile)
+      reject_locked_keys!(raw)
       raw = deep_merge(raw, cli_overlay(opts))
+
+      # Precedence: --app CLI > profile "app" > cwd basename.
+      app = (opts[:app] || raw['app'] || default_app_name(opts, app_root)).to_s
       raw['app'] = app
       raw['profile'] = profile
       raw['app_root'] = app_root
       raw['config_path'] = config_path
-      raw['src'] ||= opts[:branch] ? nil : File.expand_path(opts[:src] || Dir.pwd)
-      raw['db'] ||= {}
-      raw['db']['name'] ||= app.tr('-', '_')
-      raw['healthcheck'] ||= {}
-      raw['healthcheck']['path'] ||= '/'
-      raw['healthcheck']['timeout'] ||= 30
-      raw['healthcheck']['expect_status'] ||= [200, 201, 204, 301, 302]
+      raw['env'] ||= {}
+      raw['services'] ||= {}
+      raw['healthcheck_defaults'] ||= {
+        'path' => '/',
+        'timeout' => 30,
+        'expect_status' => [200, 201, 204, 301, 302]
+      }
+      # `image_tag` is auto-derived (git SHA, falling back to "latest") and
+      # only overrideable via --image-tag at the CLI. compose + images fall
+      # out of conventions and the services map - see derive_*! below.
+      raw['image_tag'] = derive_image_tag(opts, app_root)
 
       load_lux_env(app_root) if contains_config_placeholder?(raw)
       resolved = interpolate(raw, raw)
-      normalized = symbolize(resolved)
+      env_resolved = interpolate_env_refs(resolved)
+      normalized = symbolize(env_resolved)
+
       normalized[:app_underscored] = normalized[:app].tr('-', '_')
       normalized[:env] ||= {}
-      normalized[:db] ||= {}
-      normalized[:user] = ssh_user_hint(normalized[:host])
-      normalized[:service_user] ||= 'deployer'
-      normalized[:db][:user] ||= normalized[:service_user]
-      # Path is fully derived. No override - every app lives at
-      # ~<service_user>/lux-apps/<app>/, so the filesystem is the registry.
-      normalized[:path] = "/home/#{normalized[:service_user]}/lux-apps/#{normalized[:app]}"
-      normalized[:port] = normalized[:port].to_i if normalized[:port]
+      normalized[:user] = ssh_user_hint(normalized[:server])
+      normalized[:service_user] ||= SERVICE_USER
+      normalized[:compose_project] ||= "lux-#{normalized[:app]}"
+      # Root and path are fully derived from service_user and app.
+      normalized[:root] = "/home/#{normalized[:service_user]}/lux-apps"
+      normalized[:path] = "#{normalized[:root]}/#{normalized[:app]}"
       normalized[:basic_auth] = opts[:basic_auth] if opts.key?(:basic_auth)
+      normalized[:compose] = derive_compose(profile, app_root)
+      normalized[:images] = derive_images(normalized)
+
       validate!(normalized)
       normalized
     rescue JSON::ParserError => e
@@ -90,6 +104,18 @@ module LuxDeploy
         fix: config_path.to_s,
         category: :preflight
       )
+    end
+
+    # Locate deploy.json. Preferred location is config/docker/deploy.json (kept
+    # alongside compose.yml and Dockerfile). Falls back to the legacy
+    # config/deploy.json so existing apps keep working.
+    def resolve_config_path(opts, app_root)
+      return File.expand_path(opts[:config]) if opts[:config]
+      preferred = File.join(app_root, 'config/docker/deploy.json')
+      return preferred if File.file?(preferred)
+      legacy = File.join(app_root, 'config/deploy.json')
+      return legacy if File.file?(legacy)
+      preferred
     end
 
     def find_app_root(start)
@@ -111,14 +137,8 @@ module LuxDeploy
       )
     end
 
-    def default_app_name(opts, app_root)
-      if opts[:branch]
-        nil
-      elsif opts[:src]
-        File.basename(File.expand_path(opts[:src]))
-      else
-        File.basename(Dir.pwd)
-      end
+    def default_app_name(_opts, _app_root)
+      File.basename(Dir.pwd)
     end
 
     def resolve_profile(data, profile, seen = [])
@@ -154,15 +174,67 @@ module LuxDeploy
       deep_merge(parent, block.reject { |k, _| k == 'extends' })
     end
 
+    # Keys that the plugin owns by convention and refuses to read from
+    # deploy.json. Flagging them loudly beats silently overriding -
+    # otherwise users wonder why their setting "doesn't work".
+    LOCKED_KEYS ||= {
+      'root' => 'apps root is fixed at /home/<service_user>/lux-apps',
+      'compose' => 'compose files auto-detected: config/docker/compose.yml + compose.<profile>.yml if present',
+      'image_tag' => 'derived from `git rev-parse --short HEAD`; override per-call with --image-tag',
+      'images' => 'derived from services map: each service `web` gets image `<app>-web:<image_tag>`'
+    }.freeze
+
+    def reject_locked_keys!(raw)
+      LOCKED_KEYS.each do |key, why|
+        next unless raw.key?(key)
+        raise Error.new(
+          "`#{key}` is not configurable in deploy.json",
+          expected: "no `#{key}` key in any profile",
+          current: "#{key}=#{raw[key].inspect}",
+          need: why,
+          fix: "remove the \"#{key}\" key from config/docker/deploy.json",
+          category: :preflight
+        )
+      end
+    end
+
+    # Auto-detect compose files: always start with config/docker/compose.yml,
+    # then layer on config/docker/compose.<profile>.yml if the profile-
+    # specific file exists. Keeps multi-profile setups boilerplate-free.
+    def derive_compose(profile, app_root)
+      base = 'config/docker/compose.yml'
+      extra = "config/docker/compose.#{profile}.yml"
+      paths = [base]
+      paths << extra if File.file?(File.join(app_root, extra))
+      paths
+    end
+
+    # Derive a deterministic image_tag: short git SHA from the app's repo,
+    # CLI --image-tag override wins, "latest" as last-resort fallback for
+    # apps that aren't in a git checkout.
+    def derive_image_tag(opts, app_root)
+      return opts[:image_tag].to_s if opts[:image_tag] && !opts[:image_tag].to_s.empty?
+      result = nil
+      Dir.chdir(app_root) do
+        out = `git rev-parse --short HEAD 2>/dev/null`.strip
+        result = out unless out.empty?
+      end
+      result || 'latest'
+    end
+
+    # Convention: every service `<svc>` gets image `<app>-<svc>:<image_tag>`.
+    # Compose builds tag images as `<project>-<svc>` by default; Image.build!
+    # retags them to these refs and ships them under those names.
+    def derive_images(normalized)
+      normalized[:services].each_with_object({}) do |(name, _spec), out|
+        out[name] = "#{normalized[:app]}-#{name}:#{normalized[:image_tag]}"
+      end
+    end
+
     def cli_overlay(opts)
       overlay = {}
-      %i[host domain port repo branch ruby basic_auth service_user].each do |key|
+      %i[server image_tag service_user].each do |key|
         overlay[key.to_s] = opts[key] if opts.key?(key) && !opts[key].nil?
-      end
-      if opts[:db_name] || opts[:db_user]
-        overlay['db'] = {}
-        overlay['db']['name'] = opts[:db_name] if opts[:db_name]
-        overlay['db']['user'] = opts[:db_user] if opts[:db_user]
       end
       env = parse_env_opts(opts[:env])
       overlay['env'] = env if env.any?
@@ -223,19 +295,33 @@ module LuxDeploy
         current = value.dup
         until current == previous
           previous = current
-          current = current.gsub(/\{\{([^}]+)\}\}/) { lookup_placeholder(Regexp.last_match(1).strip, root) }
-        end
-        if current.match?(/\{\{[^}]+\}\}/)
-          raise Error.new(
-            'unresolved placeholder in deploy config',
-            expected: 'all {{...}} placeholders resolve to strings',
-            current: current,
-            need: 'define the referenced value or remove the placeholder',
-            fix: root['config_path'].to_s,
-            category: :preflight
-          )
+          current = current.gsub(/\{\{([^}]+)\}\}/) do
+            key = Regexp.last_match(1).strip
+            # Defer env.* resolution to a later pass so generated/required
+            # values from the env block can flow through.
+            key.start_with?('env.') ? Regexp.last_match(0) : lookup_placeholder(key, root)
+          end
         end
         current
+      else
+        value
+      end
+    end
+
+    # Second pass: only after env values are known, expand {{env.KEY}} refs.
+    # Called from EnvFile.resolved_env so we can resolve required/$generate
+    # values first, then thread them into downstream config values.
+    def interpolate_env_refs(value, lookup = nil)
+      case value
+      when Hash
+        value.each_with_object({}) { |(k, v), h| h[k] = interpolate_env_refs(v, lookup) }
+      when Array
+        value.map { |v| interpolate_env_refs(v, lookup) }
+      when String
+        value.gsub(/\{\{env\.([A-Z_][A-Z0-9_]*)\}\}/) do
+          key = Regexp.last_match(1)
+          lookup ? lookup.call(key) : Regexp.last_match(0)
+        end
       else
         value
       end
@@ -249,6 +335,13 @@ module LuxDeploy
         root['app'].to_s.tr('-', '_')
       when 'profile'
         root['profile'].to_s
+      when 'image_tag'
+        root['image_tag'].to_s
+      when 'host'
+        # Docker bridge gateway: the address a container uses to reach a
+        # service running on the host (e.g. host-side postgres). Not the
+        # public/SSH target - that is the profile's `server` field.
+        '172.17.0.1'
       when /\Aconfig\.(.+)/
         parts = Regexp.last_match(1).split('.')
         val = lux_config_value(parts)
@@ -266,7 +359,7 @@ module LuxDeploy
       else
         raise Error.new(
           'unsupported placeholder in deploy config',
-          expected: '{{app}}, {{app_underscored}}, {{profile}}, or {{config.*}}',
+          expected: '{{app}}, {{app_underscored}}, {{profile}}, {{image_tag}}, {{host}}, {{config.*}}, or {{env.KEY}}',
           current: "{{#{key}}}",
           need: 'use a supported deploy placeholder',
           fix: root['config_path'].to_s,
@@ -299,40 +392,215 @@ module LuxDeploy
       end
     end
 
-    def ssh_user_hint(host)
-      host.to_s.include?('@') ? host.to_s.split('@', 2).first : Etc.getlogin || ENV['USER'] || 'deploy'
+    def ssh_user_hint(server)
+      server.to_s.include?('@') ? server.to_s.split('@', 2).first : Etc.getlogin || ENV['USER'] || 'deploy'
     end
 
     def validate!(config)
       validate_match(:app, config[:app], APP_RE)
-      validate_match(:host, config[:host], HOST_RE)
-      validate_path(config[:path])
-      validate_src(config[:src]) if config[:src]
-      validate_domains(config[:domain]) if config[:domain]
-      validate_port(config[:port]) if config[:port]
-      validate_match(:ruby, config[:ruby], /\A[0-9A-Za-z._-]+\z/)
-      validate_match(:repo, config[:repo], REPO_RE) if config[:repo]
-      validate_match(:branch, config[:branch], BRANCH_RE) if config[:branch]
+      validate_match(:server, config[:server], SERVER_RE)
       validate_match(:service_user, config[:service_user], SERVICE_USER_RE)
-      validate_match(:db_name, config.dig(:db, :name), DB_RE)
-      validate_match(:db_user, config.dig(:db, :user), DB_RE)
-      validate_pg_identifier(:db_name, config.dig(:db, :name))
-      validate_pg_identifier(:db_user, config.dig(:db, :user))
-      validate_basic_auth(config[:basic_auth]) if config[:basic_auth]
+      validate_match(:image_tag, config[:image_tag], IMAGE_TAG_RE)
+      validate_match(:compose_project, config[:compose_project], PROJECT_RE)
+      validate_path(config[:root])
+      validate_path(config[:path])
+      validate_compose(config[:compose], config[:app_root])
+      # services first: image keys are auto-derived from service keys, so a
+      # bad service name should surface as `service_name`, not `image_key`.
+      validate_services(config[:services])
+      validate_images(config[:images])
+      validate_domain_uniqueness(config[:services])
+      validate_port_uniqueness(config[:services])
       validate_env(config[:env])
-      validate_healthcheck(config[:healthcheck])
+      validate_tls(config)
       true
     end
 
-    def validate_pg_identifier(name, value)
-      return unless PG_RESERVED.include?(value.to_s.downcase)
-      validation_error(
-        "invalid #{name}",
-        "#{name} is not a Postgres reserved word",
-        "#{name}=#{value.inspect}",
-        'rename to a non-reserved identifier',
-        "edit config/deploy.json or pass --#{name.to_s.tr('_', '-')} VALUE"
-      )
+    # The `tls` profile block is optional but mandatory when any service uses
+    # a wildcard domain - HTTP-01 / TLS-ALPN-01 cannot issue `*.example.com`.
+    # Shape: { dns_provider: "cloudflare", api_token_env: "CF_API_TOKEN" }.
+    def validate_tls(config)
+      tls = config[:tls]
+      wildcard = wildcard_domain(config[:services])
+
+      if tls.nil? || tls.empty?
+        return unless wildcard
+        validation_error(
+          'wildcard domain requires tls.dns_provider',
+          'tls block configured when any services.*.domains contains a wildcard',
+          "wildcard #{wildcard} present, tls block missing",
+          'add a tls block to the profile (see deploy.json.example)',
+          'edit config/docker/deploy.json tls block'
+        )
+      end
+
+      unless tls.is_a?(Hash)
+        validation_error('invalid tls block', 'tls is an object', tls.inspect, 'provide { dns_provider, api_token_env }', 'edit config/docker/deploy.json tls block')
+      end
+
+      provider = tls[:dns_provider].to_s
+      unless TLS_DNS_PROVIDERS.include?(provider)
+        validation_error('unsupported tls.dns_provider', "tls.dns_provider in #{TLS_DNS_PROVIDERS.inspect}", "tls.dns_provider=#{provider.inspect}", 'use a supported DNS provider', 'edit config/docker/deploy.json tls.dns_provider')
+      end
+
+      token_env = tls[:api_token_env].to_s
+      unless token_env.match?(ENV_KEY_RE)
+        validation_error('invalid tls.api_token_env', "tls.api_token_env matches #{ENV_KEY_RE.inspect}", "tls.api_token_env=#{token_env.inspect}", 'name the env var that holds the DNS API token', 'edit config/docker/deploy.json tls.api_token_env')
+      end
+
+      token = ENV[token_env]
+      if token.nil? || token.empty?
+        validation_error(
+          'tls.api_token_env not set in caller environment',
+          "#{token_env} exported locally before deploy",
+          "#{token_env} unset",
+          "export the DNS API token before running deploy",
+          "export #{token_env}=..."
+        )
+      end
+      tls[:dns_provider] = provider
+      tls[:api_token_env] = token_env
+    end
+
+    def wildcard_domain(services)
+      services.each do |_name, spec|
+        Array(spec[:domains]).each { |d| return d if d.to_s.start_with?('*.') }
+      end
+      nil
+    end
+
+    def validate_compose(value, app_root)
+      unless value.is_a?(Array) && !value.empty?
+        validation_error('invalid compose list', 'compose is a non-empty array of paths', value.inspect, 'declare at least one compose file', 'edit config/deploy.json compose block')
+      end
+      value.each do |path|
+        unless path.is_a?(String) && !path.empty? && !path.include?('..')
+          validation_error('invalid compose path', 'compose entry is a relative path with no ..', path.inspect, 'use a relative path like config/docker/compose.yml', "edit config/deploy.json compose entry #{path.inspect}")
+        end
+        full = File.expand_path(path, app_root)
+        unless File.file?(full)
+          validation_error('compose file missing', "#{full} exists", "no such file: #{full}", "create the compose file or fix the path", "ls #{full}")
+        end
+      end
+    end
+
+    def validate_images(images)
+      unless images.is_a?(Hash)
+        validation_error('invalid images', 'images is a map of service_key -> image_ref', images.inspect, 'declare images per service', 'edit config/deploy.json images block')
+      end
+      images.each do |name, ref|
+        validate_match(:image_key, name, SERVICE_NAME_RE)
+        unless ref.is_a?(String) && ref.match?(IMAGE_RE)
+          validation_error('invalid image ref', "images.#{name} matches #{IMAGE_RE.inspect}", "images.#{name}=#{ref.inspect}", 'provide a valid docker image reference', "edit config/deploy.json images.#{name}")
+        end
+      end
+    end
+
+    def validate_services(services)
+      unless services.is_a?(Hash) && !services.empty?
+        validation_error('invalid services', 'services is a non-empty map', services.inspect, 'declare at least one service', 'edit config/deploy.json services block')
+      end
+      services.each do |name, spec|
+        validate_match(:service_name, name, SERVICE_NAME_RE)
+        unless spec.is_a?(Hash)
+          validation_error("invalid service #{name}", "service entry is an object", spec.inspect, 'provide { compose_service, host_port, domains, ... }', "edit services.#{name}")
+        end
+        compose_service = spec[:compose_service] || spec['compose_service'] || name.to_s
+        spec[:compose_service] = compose_service.to_s
+        validate_match(:compose_service, spec[:compose_service], SERVICE_NAME_RE)
+        validate_host_port(name, spec)
+        validate_domains(name, spec)
+        validate_healthcheck(name, spec)
+      end
+    end
+
+    def validate_host_port(name, spec)
+      port = spec[:host_port] || spec['host_port']
+      if port.nil?
+        spec[:host_port] = nil
+        range = spec[:port_range] || spec['port_range']
+        unless range.is_a?(Array) && range.length == 2 && range.all? { |v| v.is_a?(Integer) && v.between?(1024, 65_535) } && range[0] <= range[1]
+          validation_error("invalid port_range for #{name}", 'port_range is [lo,hi] within 1024..65535', range.inspect, 'provide a port_range or set host_port explicitly', "edit services.#{name}.port_range")
+        end
+        spec[:port_range] = range.map(&:to_i)
+      else
+        port = port.to_i
+        unless port.between?(1024, 65_535)
+          validation_error("invalid host_port for #{name}", 'host_port is in 1024..65535', port.inspect, 'pick an unprivileged port', "edit services.#{name}.host_port")
+        end
+        spec[:host_port] = port
+      end
+      cp = spec[:container_port] || spec['container_port']
+      spec[:container_port] = cp.to_i if cp
+    end
+
+    def validate_domains(name, spec)
+      domains = Array(spec[:domains] || spec['domains'])
+      if domains.empty?
+        validation_error("missing domains for #{name}", "services.#{name}.domains is a non-empty array", domains.inspect, 'declare at least one domain', "edit services.#{name}.domains")
+      end
+      domains.each do |domain|
+        unless domain.is_a?(String) && domain.match?(DOMAIN_RE)
+          validation_error('invalid domain', 'each domain matches DNS naming rules', "domain=#{domain.inspect}", 'provide DNS-safe lowercase domains', "edit services.#{name}.domains")
+        end
+      end
+      spec[:domains] = domains
+    end
+
+    def validate_healthcheck(_name, spec)
+      hc = spec[:healthcheck] || spec['healthcheck']
+      return if hc.nil?
+      unless hc.is_a?(Hash)
+        validation_error('invalid healthcheck', 'healthcheck is an object', hc.inspect, 'provide { path, expect_status }', 'edit services.*.healthcheck')
+      end
+      path = (hc[:path] || hc['path']).to_s
+      unless path.start_with?('/') && !path.match?(/[\s;&|`$<>\\]/)
+        validation_error('invalid healthcheck path', 'path starts with / and has no shell metacharacters', path.inspect, 'provide a safe HTTP path', 'edit healthcheck.path')
+      end
+      hc[:path] = path
+      statuses = Array(hc[:expect_status] || hc['expect_status']).map(&:to_i)
+      statuses = [200, 201, 204, 301, 302] if statuses.empty?
+      hc[:expect_status] = statuses
+      hc[:timeout] = (hc[:timeout] || hc['timeout'] || 30).to_i
+      spec[:healthcheck] = hc
+    end
+
+    def validate_domain_uniqueness(services)
+      seen = {}
+      services.each do |name, spec|
+        Array(spec[:domains]).each do |domain|
+          if seen.key?(domain)
+            validation_error('duplicate domain in services', 'each domain belongs to one service', "domain=#{domain} is on services.#{seen[domain]} and services.#{name}", 'remove the duplicate', "edit services.#{name}.domains")
+          end
+          seen[domain] = name
+        end
+      end
+    end
+
+    def validate_port_uniqueness(services)
+      seen = {}
+      services.each do |name, spec|
+        port = spec[:host_port]
+        next if port.nil?
+        if seen.key?(port)
+          validation_error('duplicate host_port', 'each service uses a distinct host_port', "host_port=#{port} on services.#{seen[port]} and services.#{name}", 'choose unique ports', "edit services.#{name}.host_port")
+        end
+        seen[port] = name
+      end
+    end
+
+    def validate_path(path)
+      ok = path.to_s.start_with?('/') && !path.to_s.include?('..') && !path.to_s.match?(/[\s;&|`$<>\\]/)
+      validation_error('invalid path', 'absolute path with no spaces, .., or shell metacharacters', "path=#{path.inspect}", 'provide a safe absolute deploy path', 'pass --root /srv/lux-apps') unless ok
+    end
+
+    def validate_env(env)
+      env.each do |key, value|
+        validate_match(:env_key, key, ENV_KEY_RE)
+        if value.is_a?(String) && value.include?("\0")
+          validation_error('invalid env value', 'env values contain no embedded NUL', "#{key} contains NUL", 'remove NUL bytes from env value', "edit env #{key}")
+        end
+      end
     end
 
     def validate_match(name, value, regex)
@@ -345,55 +613,6 @@ module LuxDeploy
           "edit config/deploy.json or pass --#{name.to_s.tr('_', '-')} VALUE"
         )
       end
-    end
-
-    def validate_path(path)
-      ok = path.to_s.start_with?('/') && !path.to_s.include?('..') && !path.to_s.match?(/[\s;&|`$<>\\]/)
-      validation_error('invalid path', 'absolute path with no spaces, .., or shell metacharacters', "path=#{path.inspect}", 'provide a safe absolute deploy path', 'pass --path /var/www/myapp') unless ok
-    end
-
-    def validate_src(src)
-      return if File.directory?(src)
-
-      validation_error('invalid src', 'local --src path exists and is a directory', "src=#{src.inspect}", 'provide a deploy source directory', 'pass --src .')
-    end
-
-    def validate_domains(value)
-      value.to_s.split(',').each do |domain|
-        next if domain.match?(DOMAIN_RE)
-        validation_error('invalid domain', 'each domain matches deploy domain rules', "domain=#{domain.inspect}", 'provide DNS-safe lowercase domains', 'pass --domain example.com')
-      end
-    end
-
-    def validate_port(port)
-      ok = port.is_a?(Integer) && port.between?(1024, 65_535)
-      validation_error('invalid port', 'integer in 1024-65535', "port=#{port.inspect}", 'provide an unprivileged TCP port', 'pass --port 3142') unless ok
-    end
-
-    def validate_basic_auth(value)
-      user, pass = value.to_s.split(':', 2)
-      ok = user && pass && user.match?(BASIC_USER_RE) && (pass.match?(BASIC_PASS_RE) || pass.match?(BCRYPT_RE))
-      validation_error('invalid basic-auth', 'user:pass with deploy-safe username and password', "basic_auth=#{value.inspect}", 'provide a safe basic auth credential', 'pass --basic-auth user:password') unless ok
-    end
-
-    def validate_env(env)
-      env.each do |key, value|
-        validate_match(:env_key, key, ENV_KEY_RE)
-        if value.is_a?(String) && value.include?("\0")
-          validation_error('invalid env value', 'env values contain no embedded NUL', "#{key} contains NUL", 'remove NUL bytes from env value', "edit env #{key}")
-        end
-      end
-    end
-
-    def validate_healthcheck(hash)
-      path = hash[:path].to_s
-      unless path.start_with?('/') && !path.match?(/[\s;&|`$<>\\]/)
-        validation_error('invalid healthcheck path', 'path starts with / and has no shell metacharacters', "path=#{path.inspect}", 'provide a safe HTTP path', 'edit healthcheck.path')
-      end
-      timeout = hash[:timeout].to_i
-      hash[:timeout] = timeout
-      statuses = Array(hash[:expect_status]).map(&:to_i)
-      hash[:expect_status] = statuses
     end
 
     def validation_error(summary, expected, current, need, fix)

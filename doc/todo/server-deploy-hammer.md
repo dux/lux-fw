@@ -1,5 +1,8 @@
 # Server deploy hammer
 
+> Superseded by `doc/todo/deploy-plugin-docker-refactor.md`. Kept as history
+> for the pre-Docker, systemd-based design.
+
 `lux deploy` / `lux deploy:remove` family of hammer commands that provisions a
 Lux app onto a Linux server. No Docker. SSH-based, CI-friendly,
 multi-tenant on a single host.
