@@ -1,0 +1,121 @@
+require_relative 'lib/lux_deploy'
+
+module LuxDeployHammer
+  module_function
+
+  def run(opts)
+    yield
+  rescue LuxDeploy::Error => e
+    warn e.to_s
+    exit 1
+  rescue Interrupt
+    warn 'aborted'
+    exit 130
+  end
+end
+
+namespace :deploy do
+  task :up do
+    desc 'Deploy current branch (rsync, bundle, smoke, swap, restart)'
+    opt :server,  desc: 'Override hostname from config/deploy/server'
+    opt :dry_run, type: :boolean, default: false, desc: 'Print commands, do not execute'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.up(opts) }
+    end
+  end
+
+  task :redeploy do
+    desc 'Destroy then deploy (fresh PORT, blank release history)'
+    opt :server,  desc: 'Override hostname from config/deploy/server'
+    opt :yes,     type: :boolean, default: false, desc: 'Skip destroy confirmation'
+    opt :dry_run, type: :boolean, default: false, desc: 'Print commands, do not execute'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.redeploy(opts) }
+    end
+  end
+
+  task :destroy do
+    desc 'Stop service, unlink caddy/systemd, remove ~/lux-apps/<app>'
+    opt :server,  desc: 'Override hostname from config/deploy/server'
+    opt :yes,     type: :boolean, default: false, desc: 'Skip type-domain-to-confirm prompt'
+    opt :dry_run, type: :boolean, default: false, desc: 'Print commands, do not execute'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.destroy(opts) }
+    end
+  end
+
+  task :doctor do
+    desc 'Check & prepare host: deployer user, dirs, caddy, ruby, bundler'
+    opt :server, desc: 'Override hostname from config/deploy/server'
+    opt :fix,    type: :boolean, default: true, desc: 'Auto-fix safe items (default true; --no-fix to skip)'
+
+    proc do |opts|
+      LuxDeployHammer.run(opts) { LuxDeploy::Commands.doctor(opts) }
+    end
+  end
+
+  namespace :app do
+    task :init do
+      desc 'Copy shipped templates into ./config/deploy/ (skips files that already exist)'
+
+      proc do |opts|
+        LuxDeployHammer.run(opts) { LuxDeploy::Commands.init(opts) }
+      end
+    end
+  end
+
+  namespace :server do
+    task :ssh do
+      desc 'SSH into the release folder as deployer'
+      opt :server, desc: 'Override hostname from config/deploy/.yaml'
+      proc do |opts|
+        LuxDeployHammer.run(opts) { LuxDeploy::Commands.server_ssh(opts) }
+      end
+    end
+
+    task :log do
+      desc 'Tail systemd journal for lux-web-<app> (-f, last 200)'
+      opt :server, desc: 'Override hostname from config/deploy/.yaml'
+      proc do |opts|
+        LuxDeployHammer.run(opts) { LuxDeploy::Commands.server_log(opts) }
+      end
+    end
+
+    task :restart do
+      desc 'systemctl restart lux-web-<app>'
+      opt :server, desc: 'Override hostname from config/deploy/.yaml'
+      proc do |opts|
+        LuxDeployHammer.run(opts) { LuxDeploy::Commands.server_restart(opts) }
+      end
+    end
+
+    task :status do
+      desc 'systemctl status lux-web-<app>'
+      opt :server, desc: 'Override hostname from config/deploy/.yaml'
+      proc do |opts|
+        LuxDeployHammer.run(opts) { LuxDeploy::Commands.server_status(opts) }
+      end
+    end
+  end
+
+  namespace :db do
+    task :psql do
+      desc 'Open remote psql using DB_URL from server .env'
+      opt :server, desc: 'Override hostname from config/deploy/.yaml'
+      proc do |opts|
+        LuxDeployHammer.run(opts) { LuxDeploy::Commands.db_psql(opts) }
+      end
+    end
+
+    task :pull do
+      desc 'pg_dump remote DB and restore into local $DB_URL (drops + recreates)'
+      opt :server, desc: 'Override hostname from config/deploy/.yaml'
+      proc do |opts|
+        LuxDeployHammer.run(opts) { LuxDeploy::Commands.db_pull(opts) }
+      end
+    end
+  end
+end

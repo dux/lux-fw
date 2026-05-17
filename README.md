@@ -232,7 +232,6 @@ Main application controller and router
 There are a few route filters
 * `config`      # pre boot app config
 * `boot`        # after rack app boot (web only)
-* `info`        # called by "lux config" cli
 * `before`      # before any page load
 * `routes`      # routes resolve
 * `after`       # after any page load
@@ -1366,22 +1365,17 @@ You can run command `lux` in your app home folder.
 ```bash
 $ lux
 Commands:
-  lux benchmark       # Benchmark app boot time
-  lux cerb            # Parse .cerb (CLI ERB) templates
-  lux config          # Show server config
   lux console         # Start console
   lux evaluate        # Eval ruby string in context of Lux::Application
   lux generate        # Generate models, cells, ...
-  lux get             # Get single page by path "lux get /login"
   lux help [COMMAND]  # Describe available commands or one specific command
   lux memory          # Profile memory usage
   lux new APP         # Create new Lux application
-  lux plugin          # Show loaded plugins
+  lux render          # Render page via Lux.render "lux render /login -t TOKEN -i"
   lux secrets         # Display ENV and secrets
   lux server          # Start web server
   lux stats           # Print project stats
   lux sysd            # Manage systemd services and generate config files
-  lux template        # Parse file with ENV variable substitution
 ```
 
 ## Testing

@@ -3,7 +3,7 @@ require 'logger'
 module Lux
   LOGGER_CACHE ||= {}
 
-  # Lux.logger — default logger (STDOUT in dev, ./log/error.log in prod)
+  # Lux.logger — default logger (STDERR in dev, ./log/error.log in prod)
   # Lux.logger(:foo) — named file logger (writes to ./log/foo.log)
   def logger name = nil
     return default_logger unless name
@@ -34,7 +34,8 @@ module Lux
       if Lux.env.production?
         l = Logger.new('./log/error.log', Lux.config.logger_files_to_keep, Lux.config.logger_file_max_size)
       else
-        l = Logger.new(STDOUT)
+        # STDERR (not STDOUT) so CLI tasks like `lux render` can pipe clean machine output.
+        l = Logger.new(STDERR)
         l.formatter = proc { |_, _, _, msg| "#{msg}\n" }
       end
 

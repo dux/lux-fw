@@ -77,7 +77,6 @@ end
 There are a few route filtes
 * `config`      # pre boot app config
 * `boot`        # after rack app boot (web only)
-* `info`        # called by "lux config" cli
 * `before`      # before any page load
 * `routes`      # routes resolve
 * `after`       # after any page load

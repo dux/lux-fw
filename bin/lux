@@ -1,12 +1,16 @@
 #!/usr/bin/env ruby
 # -*- mode: ruby -*-
 
+# Exit cleanly when piping STDOUT into a process that closes early (e.g. `lux render /x | head`).
+Signal.trap('PIPE', 'EXIT')
+
 if File.exist?('lux-fw.gemspec')
   puts "Can't run in lux folder"
   exit
 end
 
 require 'dotenv'
+require 'yaml'
 require_relative '../lib/overload/thread_simple'
 require_relative '../lib/overload/string'
 
@@ -18,15 +22,37 @@ puts 'Lux v%s (%s)' % [File.read('%s/.version' % LUX_ROOT).strip, LUX_ROOT] unle
 
 require 'lux-hammer'
 
-Hammer.run ARGV do
-  load LUX_ROOT
-  load Dir.pwd if Dir.pwd != LUX_ROOT
+# Read configured plugins from ./config/config.yaml so the CLI only
+# surfaces hammer tasks for plugins the app actually uses.
+def lux_configured_plugins
+  cfg = File.join(Dir.pwd, 'config', 'config.yaml')
+  return [] unless File.exist?(cfg)
+  data = YAML.safe_load(File.read(cfg), aliases: true) || {}
+  env  = ENV['RACK_ENV'] || 'development'
+  base = (data['default'] || data['base'] || {}).dup
+  base.merge!(data[env]) if data[env].is_a?(Hash)
+  Array(base['plugins']).map(&:to_s)
+end
 
-  # Plugin Hammerfiles (single-file CLI tasks) are not matched by the
-  # recursive *_hammer.rb walk above - load them explicitly.
+PLUGINS ||= lux_configured_plugins
+
+Hammer.run ARGV do
+  # Framework CLI tasks (bin/cli/*_hammer.rb)
+  load File.join(LUX_ROOT, 'bin/cli')
+
+  # Per-plugin Hammerfile and hammer/ - scoped to configured plugins only
   [LUX_ROOT, Dir.pwd].uniq.each do |root|
-    Dir.glob(File.join(root, 'plugins', '*', 'Hammerfile')).each { |f| load f }
+    PLUGINS.each do |name|
+      hf = File.join(root, 'plugins', name, 'Hammerfile')
+      load hf if File.file?(hf)
+      hd = File.join(root, 'plugins', name, 'hammer')
+      load hd if File.directory?(hd)
+    end
   end
+
+  # Project Hammerfile (ad-hoc app tasks)
+  app_hf = File.join(Dir.pwd, 'Hammerfile')
+  load app_hf if File.file?(app_hf) && Dir.pwd != LUX_ROOT
 
   # Hidden helpers - plugins use `needs :env` (rake-style) so config/env
   # loads once per top-level invocation regardless of how many defines pull it in.

@@ -1,5 +1,12 @@
 Encoding.default_internal = Encoding.default_external = 'utf-8'
 
+# load basic lux libs (defines Lux, Lux.env, Lux.config)
+require_relative './overload/dir'
+require_relative './lux/lux'
+
+# eager-load config.yaml so values are available to the rest of boot
+Lux.config
+
 Sequel.extension     :inflector
 Sequel::Model.plugin :after_initialize
 Sequel::Model.plugin :def_dataset_method
@@ -7,15 +14,20 @@ Sequel::Model.plugin :def_dataset_method
 Sequel.database_timezone = :utc
 # Sequel.default_timezone  = +2
 
-# load basic lux libs
-require_relative './overload/dir'
-require_relative './lux/lux'
-
 Lux::Config.set_defaults
 
 # load all lux libs
 [:overload, :common, :lux].each do |f|
   Dir.require_all Lux.fw_root.join('./lib/%s' % f)
+end
+
+# auto-load configured plugins (from Lux.config[:plugins])
+plugins = Lux.config[:plugins] || []
+if plugins.any?
+  Lux.plugin(*plugins)
+  Lux.info "Lux plugins: #{plugins.join(', ')}"
+else
+  Lux.info 'Lux: no plugins'
 end
 
 Sequel.inflections do |inflect|

@@ -214,20 +214,6 @@ namespace :db do
     end
   end
 
-  task :gen_seeds do
-    desc 'Generate seeds'
-    needs :app
-    proc do |opts|
-      klass_name, ref = opts[:args]
-      Lux.die 'argument not given => lux db:gen_seeds [model]' unless klass_name
-
-      klass = klass_name.classify.constantize
-      data = klass.xwhere(ref: ref).limit(100).all.map(&:seed).join("\n\n")
-
-      puts data
-    end
-  end
-
   task :console do
     desc 'Run PSQL console'
     needs :env

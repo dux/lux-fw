@@ -7,13 +7,11 @@ If you have `capistrano` or `mina` installed, you will see linked tasks here as 
 ```bash
 $ lux
 Commands:
-  lux config          # Show server config
   lux console         # Start console
-  lux erb             # Parse and process *.erb templates
   lux evaluate        # Eval ruby string in context of Lux::Application
   lux generate        # Genrate models, cells, ...
-  lux get             # Get single page by path "lux get /login"
   lux help [COMMAND]  # Describe available commands or one specific command
+  lux render          # Render page via Lux.render "lux render /login -t TOKEN -i"
   lux routes          # Print routes
   lux secrets         # Edit, show and compile secrets
   lux server          # Start web server

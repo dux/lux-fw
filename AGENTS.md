@@ -443,7 +443,6 @@ user.on_change(:name) { |prev, cur| ... }
 * `rake db:console` - open psql console (`db:console[name]` for named DB)
 * `rake db:create:test` - recreate test DBs (drop if exists, copy schema from main)
 * `rake db:drop:test` - drop test databases only
-* `rake db:gen_seeds[model,ref]` - generate seed code from model records
 
 Destructive tasks are blocked in production. Test databases use `_test` suffix.
 
@@ -453,18 +452,13 @@ Destructive tasks are blocked in production. Test databases use `_test` suffix.
 lux server       # Start web server (aliases: s, ss, silent)
 lux console      # Start Pry console (alias: c)
 lux evaluate     # Eval ruby string in Lux context (alias: e)
-lux get /path    # Fetch single page by path
+lux render /path # Render page via Lux.render (session, bearer token, headers)
 lux generate     # Generate models, cells, controllers
 lux test         # Recreate test DB + run full test suite (alias: t)
-lux config       # Show configuration
 lux secrets      # Display/edit ENV and secrets
 lux stats        # Print project statistics
-lux benchmark    # Benchmark app boot time
 lux memory       # Profile memory usage
-lux plugin       # Show loaded plugins
 lux new APP      # Create new Lux application
-lux cerb         # Parse .cerb (CLI ERB) templates
-lux template     # Parse file with ENV variable substitution
 lux sysd         # Systemd service management
 ```
 

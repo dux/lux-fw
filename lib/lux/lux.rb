@@ -39,11 +39,13 @@ module ::Lux
     end
   end
 
+  # Status/notice output. Routed to STDERR so that CLI tasks (lux render, etc.)
+  # can produce clean machine-parseable output on STDOUT.
   def info text
     if text.class == Array
       text.each {|line| self.info line }
     else
-      puts '* %s' % text.to_s.colorize(:magenta)
+      STDERR.puts '* %s' % text.to_s.colorize(:magenta)
     end
   end
 
