@@ -1,4 +1,4 @@
-module LuxDeploy
+module LuxDocker
   module Manifest
     BASENAME ||= 'manifest.json'
 
@@ -37,7 +37,7 @@ module LuxDeploy
         services: services,
         env_schema: env_schema(ctx.config[:env]),
         volumes: Array(ctx.options[:volumes_track]),
-        deployed_at: LuxDeploy.iso_now
+        deployed_at: LuxDocker.iso_now
       }
     end
 
@@ -50,8 +50,8 @@ module LuxDeploy
         local = File.join(tmp, BASENAME)
         File.write(local, json)
         ctx.ssh.scp!(local, remote, category: :preflight)
-        su = LuxDeploy.sh(ctx.service_user)
-        ctx.ssh.ssh!("sudo chown #{su}:#{su} #{LuxDeploy.sh(remote)} && sudo chmod 0644 #{LuxDeploy.sh(remote)}",
+        su = LuxDocker.sh(ctx.service_user)
+        ctx.ssh.ssh!("sudo chown #{su}:#{su} #{LuxDocker.sh(remote)} && sudo chmod 0644 #{LuxDocker.sh(remote)}",
                      category: :preflight, summary: 'cannot finalize manifest')
       ensure
         FileUtils.rm_rf(tmp) if tmp && Dir.exist?(tmp)
@@ -59,7 +59,7 @@ module LuxDeploy
     end
 
     def read(ssh, path)
-      result = ssh.ssh("cat #{LuxDeploy.sh(path)}")
+      result = ssh.ssh("cat #{LuxDocker.sh(path)}")
       return nil unless result.success?
       symbolize(JSON.parse(result.stdout))
     rescue JSON::ParserError
@@ -67,7 +67,7 @@ module LuxDeploy
     end
 
     def list_paths(ssh, root)
-      cmd = "ls -1 #{LuxDeploy.sh(apps_root(root))}/*/#{BASENAME} 2>/dev/null || true"
+      cmd = "ls -1 #{LuxDocker.sh(apps_root(root))}/*/#{BASENAME} 2>/dev/null || true"
       result = ssh.ssh(cmd)
       unless result.success?
         raise CommandError.new(
@@ -102,7 +102,7 @@ module LuxDeploy
               expected: "#{d} unused",
               current: "owned by app=#{m[:app]} service=#{name}",
               need: 'use a different domain or remove the other deploy',
-              fix: "lux deploy:remove --app #{m[:app]}",
+              fix: "lux docker:remove --app #{m[:app]}",
               category: :preflight
             )
           end

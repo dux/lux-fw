@@ -1,4 +1,4 @@
-module LuxDeploy
+module LuxDocker
   # Thin wrapper around `docker compose`. Builds argv with --project-name,
   # --env-file, and -f flags, so every call shells out in a way the operator
   # can copy/paste verbatim.
@@ -17,7 +17,7 @@ module LuxDeploy
 
     def shell(project:, env_file:, compose_files:, cmd:)
       (argv(project: project, env_file: env_file, compose_files: compose_files) + Array(cmd))
-        .map { |s| LuxDeploy.sh(s) }.join(' ')
+        .map { |s| LuxDocker.sh(s) }.join(' ')
     end
 
     # Resolve the remote compose argv head from a context. Used by every

@@ -1,11 +1,11 @@
 require 'spec_helper'
-require_relative '../lib/lux_deploy'
+require_relative '../lib/lux_docker'
 
 require 'fileutils'
 require 'json'
 require 'tmpdir'
 
-describe LuxDeploy::Config do
+describe LuxDocker::Config do
   def with_app(deploy_json:, extra_files: {})
     Dir.mktmpdir('lux-deploy-spec') do |dir|
       FileUtils.mkdir_p(File.join(dir, 'config/docker'))
@@ -99,7 +99,7 @@ describe LuxDeploy::Config do
       data['default']['root'] = '/somewhere/else'
       with_app(deploy_json: data) do
         expect { described_class.resolve('default', app: 'my-app') }
-          .to raise_error(LuxDeploy::Error, /`root` is not configurable/)
+          .to raise_error(LuxDocker::Error, /`root` is not configurable/)
       end
     end
 
@@ -148,7 +148,7 @@ describe LuxDeploy::Config do
       )
       with_app(deploy_json: data) do
         expect { described_class.resolve('a', app: 'cycle') }
-          .to raise_error(LuxDeploy::Error, /extends cycle/)
+          .to raise_error(LuxDocker::Error, /extends cycle/)
       end
     end
 
@@ -161,7 +161,7 @@ describe LuxDeploy::Config do
       }
       with_app(deploy_json: data) do
         expect { described_class.resolve('default', app: 'my-app') }
-          .to raise_error(LuxDeploy::Error, /duplicate domain/)
+          .to raise_error(LuxDocker::Error, /duplicate domain/)
       end
     end
 
@@ -174,7 +174,7 @@ describe LuxDeploy::Config do
       }
       with_app(deploy_json: data) do
         expect { described_class.resolve('default', app: 'my-app') }
-          .to raise_error(LuxDeploy::Error, /duplicate host_port/)
+          .to raise_error(LuxDocker::Error, /duplicate host_port/)
       end
     end
 
@@ -194,7 +194,7 @@ describe LuxDeploy::Config do
       data['default']['services']['web']['domains'] = []
       with_app(deploy_json: data) do
         expect { described_class.resolve('default', app: 'my-app') }
-          .to raise_error(LuxDeploy::Error, /missing domains/)
+          .to raise_error(LuxDocker::Error, /missing domains/)
       end
     end
 
@@ -202,7 +202,7 @@ describe LuxDeploy::Config do
       with_app(deploy_json: base) do |dir|
         File.delete(File.join(dir, 'config/docker/compose.yml'))
         expect { described_class.resolve('default', app: 'my-app') }
-          .to raise_error(LuxDeploy::Error, /compose file missing/)
+          .to raise_error(LuxDocker::Error, /compose file missing/)
       end
     end
 
@@ -211,7 +211,7 @@ describe LuxDeploy::Config do
       data['default']['services']['web']['domains'] = ['*.example.com']
       with_app(deploy_json: data) do
         expect { described_class.resolve('default', app: 'my-app') }
-          .to raise_error(LuxDeploy::Error, /wildcard domain requires tls/)
+          .to raise_error(LuxDocker::Error, /wildcard domain requires tls/)
       end
     end
 
@@ -237,9 +237,40 @@ describe LuxDeploy::Config do
       with_app(deploy_json: data) do
         ENV['AWS_TOKEN'] = 'tok'
         expect { described_class.resolve('default', app: 'my-app') }
-          .to raise_error(LuxDeploy::Error, /unsupported tls.dns_provider/)
+          .to raise_error(LuxDocker::Error, /unsupported tls.dns_provider/)
       ensure
         ENV.delete('AWS_TOKEN')
+      end
+    end
+
+    it 'accepts a literal tls.api_token in lieu of api_token_env' do
+      data = Marshal.load(Marshal.dump(base))
+      data['default']['services']['web']['domains'] = ['*.example.com']
+      data['default']['tls'] = { 'dns_provider' => 'cloudflare', 'api_token' => 'cfut_literal' }
+      with_app(deploy_json: data) do
+        cfg = described_class.resolve('default', app: 'my-app')
+        expect(cfg[:tls][:api_token]).to eq('cfut_literal')
+        expect(cfg[:tls][:_caddy_env_key]).to eq('LUX_TLS_DNS_TOKEN_CLOUDFLARE')
+      end
+    end
+
+    it 'rejects when both api_token and api_token_env are set' do
+      data = Marshal.load(Marshal.dump(base))
+      data['default']['services']['web']['domains'] = ['*.example.com']
+      data['default']['tls'] = { 'dns_provider' => 'cloudflare', 'api_token' => 'x', 'api_token_env' => 'Y' }
+      with_app(deploy_json: data) do
+        expect { described_class.resolve('default', app: 'my-app') }
+          .to raise_error(LuxDocker::Error, /accepts only one/)
+      end
+    end
+
+    it 'rejects when neither api_token nor api_token_env is set' do
+      data = Marshal.load(Marshal.dump(base))
+      data['default']['services']['web']['domains'] = ['*.example.com']
+      data['default']['tls'] = { 'dns_provider' => 'cloudflare' }
+      with_app(deploy_json: data) do
+        expect { described_class.resolve('default', app: 'my-app') }
+          .to raise_error(LuxDocker::Error, /requires api_token or api_token_env/)
       end
     end
 
@@ -250,7 +281,7 @@ describe LuxDeploy::Config do
       with_app(deploy_json: data) do
         ENV.delete('NOT_SET_TOKEN')
         expect { described_class.resolve('default', app: 'my-app') }
-          .to raise_error(LuxDeploy::Error, /tls.api_token_env not set/)
+          .to raise_error(LuxDocker::Error, /tls.api_token_env not set/)
       end
     end
 
@@ -260,7 +291,7 @@ describe LuxDeploy::Config do
       data['default']['services']['web-api']['host_port'] = 3200
       with_app(deploy_json: data) do
         expect { described_class.resolve('default', app: 'my-app') }
-          .to raise_error(LuxDeploy::Error, /invalid service_name/)
+          .to raise_error(LuxDocker::Error, /invalid service_name/)
       end
     end
   end
@@ -278,7 +309,7 @@ describe LuxDeploy::Config do
   end
 end
 
-describe LuxDeploy::Caddy do
+describe LuxDocker::Caddy do
   it 'renders one site block per domain group with the right port' do
     ctx = double('ctx',
       config: {
@@ -309,7 +340,7 @@ describe LuxDeploy::Caddy do
   it 'emits a tls{ dns ...} block for wildcard domains when tls is configured' do
     ctx = double('ctx',
       config: {
-        tls: { dns_provider: 'cloudflare', api_token_env: 'CF_TOKEN' },
+        tls: { dns_provider: 'cloudflare', api_token_env: 'CF_TOKEN', _caddy_env_key: 'CF_TOKEN' },
         services: {
           web: { host_port: 3100, domains: ['*.example.com'] }
         }
@@ -324,7 +355,7 @@ describe LuxDeploy::Caddy do
   it 'omits the tls block for services that only serve apex/subdomains' do
     ctx = double('ctx',
       config: {
-        tls: { dns_provider: 'cloudflare', api_token_env: 'CF_TOKEN' },
+        tls: { dns_provider: 'cloudflare', api_token_env: 'CF_TOKEN', _caddy_env_key: 'CF_TOKEN' },
         services: {
           web: { host_port: 3100, domains: ['example.com'] }
         }
@@ -334,7 +365,7 @@ describe LuxDeploy::Caddy do
   end
 end
 
-describe LuxDeploy::Compose do
+describe LuxDocker::Compose do
   it 'argv prepends --project-name, --env-file, -f for each compose file' do
     out = described_class.argv(
       project: 'lux-myapp',
@@ -345,21 +376,21 @@ describe LuxDeploy::Compose do
   end
 end
 
-describe LuxDeploy::Image do
+describe LuxDocker::Image do
   it 'archive_path lives under tmp/deploy/<app>/images.tar.gz' do
     cfg = { app_root: '/x', app: 'myapp' }
     expect(described_class.archive_path(cfg)).to eq('/x/tmp/deploy/myapp/images.tar.gz')
   end
 end
 
-describe LuxDeploy::Manifest do
+describe LuxDocker::Manifest do
   describe '.env_schema' do
     it 'labels values as required/optional/generated/literal' do
       out = described_class.env_schema(
         SECRET_KEY_BASE: true,
         DB_URL: 'postgres:///x',
         OPTIONAL_FLAG: false,
-        POSTGRES_PASSWORD: LuxDeploy::Config::SECRET_GEN_TOKEN
+        POSTGRES_PASSWORD: LuxDocker::Config::SECRET_GEN_TOKEN
       )
       expect(out).to eq(
         'SECRET_KEY_BASE' => 'required',
@@ -377,7 +408,7 @@ describe LuxDeploy::Manifest do
   end
 end
 
-describe LuxDeploy::Commands do
+describe LuxDocker::Commands do
   describe '.local_test_env_file' do
     it 'expands {{env.KEY}} references in runtime.env' do
       Dir.mktmpdir('lux-deploy-runtime') do |dir|
@@ -389,12 +420,12 @@ describe LuxDeploy::Commands do
           images: { web: 'myapp-web:latest' },
           services: { web: { host_port: 3100 } },
           env: {
-            'POSTGRES_PASSWORD' => LuxDeploy::Config::SECRET_GEN_TOKEN,
+            'POSTGRES_PASSWORD' => LuxDocker::Config::SECRET_GEN_TOKEN,
             'DB_URL' => 'postgres://app:{{env.POSTGRES_PASSWORD}}@db:5432/app'
           }
         }
         described_class.local_test_env_file(config)
-        runtime = File.read(File.join(LuxDeploy::Image.archive_dir(config), 'runtime.env'))
+        runtime = File.read(File.join(LuxDocker::Image.archive_dir(config), 'runtime.env'))
         pw = runtime[/^POSTGRES_PASSWORD=(.+)$/, 1]
         expect(pw).to match(/\A[a-f0-9]{32}\z/)
         expect(runtime).to include("DB_URL=postgres://app:#{pw}@db:5432/app")
@@ -404,17 +435,17 @@ describe LuxDeploy::Commands do
   end
 end
 
-describe LuxDeploy::EnvFile do
+describe LuxDocker::EnvFile do
   describe '.resolve' do
     it 'reuses existing $generate value when present' do
-      env = { 'POSTGRES_PASSWORD' => LuxDeploy::Config::SECRET_GEN_TOKEN }
+      env = { 'POSTGRES_PASSWORD' => LuxDocker::Config::SECRET_GEN_TOKEN }
       existing = { 'POSTGRES_PASSWORD' => 'old-secret' }
       out = described_class.resolve(env, existing, nil)
       expect(out['POSTGRES_PASSWORD']).to eq('old-secret')
     end
 
     it 'generates a new value for $generate when missing' do
-      env = { 'POSTGRES_PASSWORD' => LuxDeploy::Config::SECRET_GEN_TOKEN }
+      env = { 'POSTGRES_PASSWORD' => LuxDocker::Config::SECRET_GEN_TOKEN }
       out = described_class.resolve(env, {}, nil)
       expect(out['POSTGRES_PASSWORD']).to match(/\A[a-f0-9]{64}\z/)
     end
@@ -422,7 +453,64 @@ describe LuxDeploy::EnvFile do
     it 'raises when a required key is not in ENV' do
       env = { 'MUST_HAVE' => true }
       expect { described_class.resolve(env, {}, nil) }
-        .to raise_error(LuxDeploy::Error, /required env var not set/)
+        .to raise_error(LuxDocker::Error, /required env var not set/)
+    end
+  end
+end
+
+describe 'LuxDocker::SCHEMA' do
+  # The prepare prompt embeds SCHEMA verbatim - make sure every key the
+  # validator knows about shows up in the doc, otherwise the AI can produce
+  # configs the validator immediately rejects.
+  it 'documents every required, defaulted and locked key' do
+    %w[app server services service_user env tls].each do |k|
+      expect(LuxDocker::SCHEMA).to include("`#{k}`")
+    end
+    LuxDocker::Config::LOCKED_KEYS.each_key do |k|
+      expect(LuxDocker::SCHEMA).to include("`#{k}`")
+    end
+  end
+
+  it 'documents every placeholder' do
+    %w[{{app}} {{app_underscored}} {{profile}} {{image_tag}} {{host}} {{config. {{env.].each do |ph|
+      expect(LuxDocker::SCHEMA).to include(ph)
+    end
+  end
+end
+
+describe LuxDocker::Prepare do
+  describe '.build_prompt' do
+    it 'embeds the SCHEMA so the AI sees the full key list' do
+      hints = { procfile: { exists: false, services: [] }, gemfile: true, package_json: false, ruby_version: '3.3.0', dockerfile_exists: false, compose_exists: false }
+      out = described_class.build_prompt(app_root: '/tmp/x', hints: hints)
+      expect(out).to include(LuxDocker::SCHEMA)
+      expect(out).to include('No `Procfile` found')
+      expect(out).to include('Ruby version pinned to `3.3.0`')
+    end
+
+    it 'lists Procfile services when present' do
+      hints = { procfile: { exists: true, services: [{ name: 'web', cmd: 'bundle exec puma' }, { name: 'job', cmd: 'bundle exec rake jobs:work' }] }, gemfile: true, package_json: false, ruby_version: nil, dockerfile_exists: false, compose_exists: false }
+      out = described_class.build_prompt(app_root: '/tmp/x', hints: hints)
+      expect(out).to include('`web`: `bundle exec puma`')
+      expect(out).to include('`job`: `bundle exec rake jobs:work`')
+    end
+  end
+end
+
+describe LuxDocker::ServerPrepare do
+  describe '.parse_with' do
+    it 'parses comma-separated addons' do
+      expect(described_class.parse_with('postgres,memcache')).to eq(%w[postgres memcache])
+    end
+
+    it 'returns [] for nil or empty input' do
+      expect(described_class.parse_with(nil)).to eq([])
+      expect(described_class.parse_with('')).to eq([])
+    end
+
+    it 'rejects unknown addons' do
+      expect { described_class.parse_with('postgres,redis') }
+        .to raise_error(LuxDocker::Error, /unknown server:prepare addon/)
     end
   end
 end

@@ -1,4 +1,4 @@
-module LuxDeploy
+module LuxDocker
   # Two-slot side-by-side deploy. Each service with a configured even
   # `host_port` gets a paired slot at `host_port + 1`. The pair (N, N+1) holds
   # two equal slots; each deploy boots the new image on the sibling of the
@@ -112,7 +112,7 @@ module LuxDeploy
       )
       ctx.ssh.ssh(head)
       # Best-effort cleanup of the now-unused per-slot env file.
-      ctx.ssh.ssh("rm -f #{LuxDeploy.sh(env_file)}")
+      ctx.ssh.ssh("rm -f #{LuxDocker.sh(env_file)}")
     end
 
     # Best-effort discovery of every slot project on the host for this app -

@@ -1,31 +1,65 @@
-# Lux deploy plugin
+# Lux docker plugin
 
-Docker-only deploy commands for Lux apps. The plugin builds Docker images locally, ships them to a host as a `docker save | gzip` archive, runs `docker compose up -d`, then generates a Caddy site block and reloads Caddy.
+Docker-only build + deploy commands for Lux apps. The plugin scaffolds the
+Docker artifacts in your project, builds images locally, ships them to a
+host as a `docker save | gzip` archive, runs `docker compose up -d`, then
+generates a Caddy site block and reloads Caddy.
 
-The runtime contract is just three things:
+The runtime contract on the host is just:
 
-* Docker (Compose v2) on the host
-* Caddy on the host with `/etc/caddy/sites/*.caddy` imports
-* SSH with passwordless sudo
+* Docker (Compose v2)
+* Caddy with `/etc/caddy/sites/*.caddy` imports
+* A `deployer` system user (or any user, see `service_user`)
+* SSH with passwordless sudo, key-only auth
 
-No Ruby, Bundler, Puma, Node, systemd, or Postgres setup is needed on the host. The image owns those.
+No Ruby, Bundler, Puma, Node, systemd, or Postgres setup is needed on the
+host. The image owns those. `lux docker:server:prepare` will provision
+everything above for you.
 
-## Commands
+## The happy path: from nothing to deployed
 
 ```sh
-lux deploy:llm_prepare                # generate Dockerfile + compose + deploy.json via Claude CLI
-lux deploy [PROFILE]                  # build (optional) + ship + compose up + caddy reload
-lux deploy:doctor [PROFILE] [--app NAME]
-lux deploy:build [PROFILE]            # build images locally, write tmp/deploy/<app>/images.tar.gz
-lux deploy:test  [PROFILE] [--build]  # run archived images locally + health checks
-lux deploy:staging [PROFILE]          # disposable PR/staging stack with project-local DB
-lux deploy:remove  [PROFILE] [--purge] [--volumes]
-lux deploy:ssh     [PROFILE]
-lux deploy:logs    [PROFILE] [--service SVC] [--follow]
-lux deploy:compose [PROFILE] -- <docker compose subcommand>
+# 1. Scaffold Docker artifacts (AI-assisted, mandatory for new projects)
+lux docker:prepare              # writes Dockerfile + compose.yml + deploy.json
+
+# 2. Validate locally
+lux docker:run                  # build + boot + healthcheck
+
+# 3. Provision the remote host (one-time per server)
+lux docker:server:prepare       # apt, caddy, deployer user, SSH hardening, UFW
+
+# 4. Sanity-check the host
+lux docker:server:doctor
+
+# 5. Ship it
+lux docker:server:deploy
 ```
 
-`PROFILE` defaults to `default` and is resolved from `config/deploy.json`.
+Per-deploy after that: just `lux docker:server:deploy`.
+
+## Command reference
+
+### Local (project working dir)
+
+| command                              | purpose |
+| ------------------------------------ | ------- |
+| `lux docker:prepare`                 | AI-assisted scaffold: Dockerfile + compose.yml + deploy.json |
+| `lux docker:build [PROFILE]`         | build images locally, write `tmp/deploy/<app>/images.tar.gz` |
+| `lux docker:run [PROFILE] [--build] [--keep]` | build + boot + healthcheck locally |
+
+### Remote (a server, via `deploy.json` -> `server`)
+
+| command                                            | purpose |
+| -------------------------------------------------- | ------- |
+| `lux docker:server:prepare [--with postgres,memcache]` | one-time host provisioning |
+| `lux docker:server:doctor [PROFILE] [--app NAME]`     | read-only checks: host + manifest + hardening |
+| `lux docker:server:deploy [PROFILE] [--build] [--staging]` | build (optional) + ship + compose up + caddy reload |
+| `lux docker:server:remove [PROFILE] [--purge] [--volumes]` | compose down + caddy unlink |
+| `lux docker:server:ssh [PROFILE]`                     | interactive shell in the app dir on the host |
+| `lux docker:server:logs [PROFILE] [--service SVC] [--follow]` | docker compose logs against the remote |
+| `lux docker:server:compose [PROFILE] -- <args>`       | run any `docker compose` subcommand against the remote stack |
+
+`PROFILE` defaults to `default` and is resolved from `config/docker/deploy.json`.
 
 ## Local app layout
 
@@ -51,7 +85,7 @@ config/
 Create `config/deploy.json` in your app:
 
 ```sh
-cp plugins/deploy/templates/deploy.json.example config/deploy.json
+cp plugins/docker/templates/deploy.json.example config/deploy.json
 ```
 
 Profiles inherit from `default`. A profile can set `extends` to inherit from another profile. CLI flags always win over JSON.
@@ -59,7 +93,8 @@ Profiles inherit from `default`. A profile can set `extends` to inherit from ano
 Supported placeholders in string values:
 
 * `{{app}}`, `{{app_underscored}}`, `{{profile}}`, `{{image_tag}}`
-* `{{host}}` -- docker bridge gateway (`172.17.0.1`); for containers reaching a service running on the host
+* `{{host}}` -- `host.docker.internal`; for containers reaching a service running on the host. Compose must declare `extra_hosts: ["host.docker.internal:host-gateway"]` per service (enforced by preflight)
+* `{{service_user}}` -- OS user the container effectively connects as for host-side resources: local OS user (`$USER`) under `docker:run`, configured `service_user` (default `deployer`) under deploy. Use in DB URLs and similar so the same string works in both contexts (e.g. `postgresql://{{service_user}}@{{host}}/myapp`)
 * `{{config.a.b.c}}` -- reads from `Lux.config` on the caller side
 * `{{env.KEY}}` -- the resolved env value (use only inside `env:` or `services.*` values that depend on it)
 
@@ -117,13 +152,13 @@ On deploy, the token is written to `/etc/caddy/caddy.env` (root:caddy 0640) and 
 Default: archive. Build locally, save with `docker save | gzip`, scp to host, `docker load`. No registry credentials needed.
 
 ```sh
-lux deploy:build                          # writes tmp/deploy/<app>/images.tar.gz
-lux deploy:test                           # boots the archive locally and health-checks it
-lux deploy                                # uploads + remote load + compose up + caddy reload
-lux deploy --build                        # build the archive first if missing/stale
+lux docker:build                          # writes tmp/deploy/<app>/images.tar.gz
+lux docker:run                           # boots the archive locally and health-checks it
+lux docker:server:deploy                         # uploads + remote load + compose up + caddy reload
+lux docker:server:deploy --build                        # build the archive first if missing/stale
 ```
 
-Optional: `lux deploy --transport registry` runs `docker compose pull` on the host instead of shipping the archive. Pushing the images to the registry is out of scope for v1 -- do it before invoking deploy.
+Optional: `lux docker:server:deploy --transport registry` runs `docker compose pull` on the host instead of shipping the archive. Pushing the images to the registry is out of scope for v1 -- do it before invoking deploy.
 
 ## Host layout
 
@@ -155,7 +190,7 @@ All file operations under `<root>/<app>/` are run as the service user. Docker it
 
 ## Staging and PR deploys
 
-`lux deploy:staging` deploys a disposable stack with its own DB:
+`lux docker:server:deploy --staging` deploys a disposable stack with its own DB:
 
 * same Docker + Caddy machinery as production
 * different `app` (e.g. `pr-123`) becomes the namespace, Compose project, Caddy file
@@ -167,12 +202,12 @@ All file operations under `<root>/<app>/` are run as the service user. Docker it
 Destroy a PR deploy and its volume:
 
 ```sh
-lux deploy:remove pr --app pr-123 --purge --volumes
+lux docker:server:remove pr --app pr-123 --purge --volumes
 ```
 
 ## Doctor
 
-`lux deploy:doctor` runs read-only checks against the host and each app's manifest:
+`lux docker:server:doctor` runs read-only checks against the host and each app's manifest:
 
 * docker, docker compose v2, caddy, sudo, service user, root dir
 * per-app: app dir, manifest, env file mode 0600, generated Caddyfile, symlink, compose config validity, ports respond

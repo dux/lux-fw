@@ -1,4 +1,4 @@
-module LuxDeploy
+module LuxDocker
   # Local image build + archive flow. Produces tmp/deploy/<app>/images.tar.gz
   # containing the configured images. The archive is the deploy artifact.
   module Image
@@ -20,9 +20,9 @@ module LuxDeploy
       FileUtils.mkdir_p(archive_dir(config))
       env_file = write_build_env(config)
       argv = Compose.local_argv(config, env_file: env_file)
-      LuxDeploy.run_local!("#{argv.map { |s| LuxDeploy.sh(s) }.join(' ')} config -q",
+      LuxDocker.run_local!("#{argv.map { |s| LuxDocker.sh(s) }.join(' ')} config -q",
                            quiet: config[:quiet])
-      LuxDeploy.run_local!("#{argv.map { |s| LuxDeploy.sh(s) }.join(' ')} build",
+      LuxDocker.run_local!("#{argv.map { |s| LuxDocker.sh(s) }.join(' ')} build",
                            quiet: config[:quiet])
       tag_local_images!(config)
       save_archive!(config)
@@ -36,15 +36,15 @@ module LuxDeploy
       # those to the configured `images.<name>` value.
       config[:images].each do |svc, ref|
         from = "#{config[:compose_project]}-#{svc}"
-        LuxDeploy.run_local("docker tag #{LuxDeploy.sh(from)} #{LuxDeploy.sh(ref)}",
+        LuxDocker.run_local("docker tag #{LuxDocker.sh(from)} #{LuxDocker.sh(ref)}",
                             quiet: config[:quiet])
       end
     end
 
     def save_archive!(config)
-      refs = image_refs(config).map { |r| LuxDeploy.sh(r) }.join(' ')
+      refs = image_refs(config).map { |r| LuxDocker.sh(r) }.join(' ')
       out = archive_path(config)
-      LuxDeploy.run_local!("docker save #{refs} | gzip > #{LuxDeploy.sh(out)}",
+      LuxDocker.run_local!("docker save #{refs} | gzip > #{LuxDocker.sh(out)}",
                            quiet: config[:quiet])
       out
     end
@@ -69,8 +69,8 @@ module LuxDeploy
           'image archive missing',
           expected: "#{local} exists",
           current: 'no archive built',
-          need: 'run lux deploy:build (or deploy --build) first',
-          fix: "lux deploy:build #{ctx.config[:profile]}",
+          need: 'run lux docker:build (or docker:deploy --build) first',
+          fix: "lux docker:build #{ctx.config[:profile]}",
           category: :preflight
         )
       end
@@ -81,20 +81,20 @@ module LuxDeploy
 
     def remote_load!(ctx)
       remote = "#{ctx.path}/config/docker/images.tar.gz"
-      ctx.ssh.ssh!("gunzip -c #{LuxDeploy.sh(remote)} | docker load",
+      ctx.ssh.ssh!("gunzip -c #{LuxDocker.sh(remote)} | docker load",
                    category: :source, summary: 'docker load failed on host')
     end
 
     # Locally load the archive (used by deploy:test when images are missing).
     def local_load!(config)
       path = archive_path(config)
-      LuxDeploy.run_local!("gunzip -c #{LuxDeploy.sh(path)} | docker load",
+      LuxDocker.run_local!("gunzip -c #{LuxDocker.sh(path)} | docker load",
                            quiet: config[:quiet])
     end
 
     def local_images_present?(config)
       image_refs(config).all? do |ref|
-        result = LuxDeploy.run_local("docker image inspect #{LuxDeploy.sh(ref)} >/dev/null 2>&1",
+        result = LuxDocker.run_local("docker image inspect #{LuxDocker.sh(ref)} >/dev/null 2>&1",
                                      quiet: true)
         result.success?
       end

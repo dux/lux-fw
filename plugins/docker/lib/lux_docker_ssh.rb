@@ -1,4 +1,4 @@
-module LuxDeploy
+module LuxDocker
   class SSH
     attr_reader :config, :dry_run, :quiet
 
@@ -13,7 +13,7 @@ module LuxDeploy
     end
 
     def ssh(remote_cmd)
-      run "ssh #{LuxDeploy.sh(server)} #{LuxDeploy.sq(remote_cmd)}"
+      run "ssh #{LuxDocker.sh(server)} #{LuxDocker.sq(remote_cmd)}"
     end
 
     def ssh!(remote_cmd, category: :unknown, summary: 'remote command failed')
@@ -25,13 +25,13 @@ module LuxDeploy
         result,
         expected: "ssh #{server} #{remote_cmd.inspect} exits 0",
         need: 'remote command succeeds',
-        fix: "ssh #{server} #{LuxDeploy.sq(remote_cmd)}",
+        fix: "ssh #{server} #{LuxDocker.sq(remote_cmd)}",
         category: category
       )
     end
 
     def scp(local, remote)
-      run "scp #{LuxDeploy.sh(local)} #{LuxDeploy.sh(server)}:#{LuxDeploy.sh(remote)}"
+      run "scp #{LuxDocker.sh(local)} #{LuxDocker.sh(server)}:#{LuxDocker.sh(remote)}"
     end
 
     def scp!(local, remote, category: :source)
@@ -43,7 +43,7 @@ module LuxDeploy
         result,
         expected: "scp to #{server}:#{remote} exits 0",
         need: 'remote path writable and SSH copy available',
-        fix: "scp #{LuxDeploy.sh(local)} #{LuxDeploy.sh(server)}:#{LuxDeploy.sh(remote)}",
+        fix: "scp #{LuxDocker.sh(local)} #{LuxDocker.sh(server)}:#{LuxDocker.sh(remote)}",
         category: category
       )
     end
@@ -71,9 +71,9 @@ module LuxDeploy
         "--exclude 'images.tar.gz'"
       ]
       svc = config[:service_user].to_s
-      parts << "--rsync-path=#{LuxDeploy.sq("sudo -u #{svc} rsync")}" unless svc.empty?
-      parts << LuxDeploy.sh(src)
-      parts << "#{LuxDeploy.sh(server)}:#{LuxDeploy.sh(remote)}/"
+      parts << "--rsync-path=#{LuxDocker.sq("sudo -u #{svc} rsync")}" unless svc.empty?
+      parts << LuxDocker.sh(src)
+      parts << "#{LuxDocker.sh(server)}:#{LuxDocker.sh(remote)}/"
       run parts.join(' ')
     end
 
@@ -86,20 +86,20 @@ module LuxDeploy
         result,
         expected: "rsync #{src} to #{server}:#{remote} exits 0",
         need: 'local source exists, remote path writable, and rsync installed on both ends',
-        fix: "rsync -az #{LuxDeploy.sh(src)} #{LuxDeploy.sh(server)}:#{LuxDeploy.sh(remote)}/",
+        fix: "rsync -az #{LuxDocker.sh(src)} #{LuxDocker.sh(server)}:#{LuxDocker.sh(remote)}/",
         category: category
       )
     end
 
     def run(cmd)
-      LuxDeploy.run_local(cmd, dry_run: dry_run, quiet: quiet)
+      LuxDocker.run_local(cmd, dry_run: dry_run, quiet: quiet)
     end
 
     # Interactive ssh shell. Uses Kernel.system so the TTY stays attached -
     # Open3 buffers and won't.
     def shell(remote_cwd: nil)
       argv = ['ssh', '-t', server]
-      argv << "cd #{LuxDeploy.sq(remote_cwd)} && exec \"${SHELL:-bash}\" -l" if remote_cwd
+      argv << "cd #{LuxDocker.sq(remote_cwd)} && exec \"${SHELL:-bash}\" -l" if remote_cwd
       puts "+ #{argv.join(' ')}" unless quiet
       return 0 if dry_run
       system(*argv)

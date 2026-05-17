@@ -159,9 +159,40 @@ up in the final error block - you cannot tell at a glance whether a
 
 Mitigations until streaming is wired in:
 
-* `lux deploy:tail --app <name>` for the systemd journal after boot
-* `ssh <host> 'tail -F /var/log/lux-deploy/deploy.log'` in another pane
-* `journalctl -fu lux-web-<app>` while a deploy is healthchecking
+* `lux docker:server:logs --follow` in another pane while a deploy runs
+* `ssh <host> 'tail -F /var/log/lux-deploy/deploy.log'` for the deploy trace
+
+## `docker:server:prepare` scope
+
+What `lux docker:server:prepare` will do, in order, idempotently:
+
+1. apt: `docker.io`, `docker-compose-plugin`, `caddy`, `curl`, `rsync`,
+   `git`, `ufw` (+ `xcaddy` if any profile declares `tls`, +
+   `postgresql` / `memcached` if requested via `--with`).
+2. Create `deployer` user, add to the `docker` group.
+3. `/etc/sudoers.d/lux-deployer` -> `deployer ALL=(ALL) NOPASSWD:ALL`.
+4. SSH hardening drop-in `/etc/ssh/sshd_config.d/10-lux.conf` with
+   `PasswordAuthentication no` + `KbdInteractiveAuthentication no`,
+   then `systemctl reload ssh[d]`.
+5. UFW: deny incoming, allow outgoing, allow the detected sshd port +
+   80 + 443, then `ufw --force enable`.
+6. Caddy: ensure the `import /etc/caddy/sites/*.caddy` line and the
+   `/etc/caddy/sites/` directory; enable + start the unit.
+7. If `tls` is configured, rebuild Caddy with the matching DNS provider:
+   `xcaddy build --with github.com/caddy-dns/<provider> --output /usr/bin/caddy`,
+   then restart. Skipped when the provider module is already present.
+8. With `--with postgres`: clamp Postgres to `listen_addresses = 'localhost'`.
+9. With `--with memcache`: clamp memcached to `-l 127.0.0.1`.
+10. `chmod 0711 /home/<service_user>` (Caddy needs `x` to traverse).
+11. `install -d /home/<service_user>/lux-apps` owned by the service user.
+
+What it does NOT do:
+
+* Touch DNS records (use `flarectl` or the Cloudflare UI).
+* Manage backups.
+* Pick or change the SSH port (it just discovers it from sshd's resolved config).
+* Install Ruby/Node/your-DB on the host (the image owns those; addons are
+  for *out-of-container* services like local Postgres).
 
 ## Apps live under the service user's home
 

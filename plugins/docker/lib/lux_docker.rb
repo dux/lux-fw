@@ -8,7 +8,7 @@ require 'tmpdir'
 require 'shellwords'
 require 'time'
 
-module LuxDeploy
+module LuxDocker
   ROOT ||= Pathname.new(File.expand_path('..', __dir__))
 
   EXIT_CODES ||= {
@@ -115,14 +115,16 @@ module LuxDeploy
   end
 
   def require_support!
-    require_relative 'lux_deploy_config'
-    require_relative 'lux_deploy_ssh'
-    require_relative 'lux_deploy_compose'
-    require_relative 'lux_deploy_image'
-    require_relative 'lux_deploy_caddy'
-    require_relative 'lux_deploy_manifest'
-    require_relative 'lux_deploy_slot'
-    require_relative 'lux_deploy_llm_prepare'
+    require_relative 'lux_docker_schema'
+    require_relative 'lux_docker_config'
+    require_relative 'lux_docker_ssh'
+    require_relative 'lux_docker_compose'
+    require_relative 'lux_docker_image'
+    require_relative 'lux_docker_caddy'
+    require_relative 'lux_docker_manifest'
+    require_relative 'lux_docker_slot'
+    require_relative 'lux_docker_prepare'
+    require_relative 'lux_docker_server_prepare'
   end
 
   def run_local(cmd, dry_run: false, quiet: false, input: nil)
@@ -178,7 +180,7 @@ module LuxDeploy
   end
 
   def handle_cli_error(error, quiet: false)
-    if error.is_a?(LuxDeploy::Error)
+    if error.is_a?(LuxDocker::Error)
       warn error.to_s
       exit error.code
     end
@@ -197,9 +199,9 @@ module LuxDeploy
   end
 end
 
-LuxDeploy.require_support!
+LuxDocker.require_support!
 
-module LuxDeploy
+module LuxDocker
   # EnvFile resolves config[:env] into the remote shared/.env file. Source
   # of truth is deploy.json's `env:` block; the file is rewritten each
   # deploy. `$generate` reads or creates a stable per-app secret in the
@@ -239,11 +241,11 @@ module LuxDeploy
 
       content = expanded.map { |k, v| "#{k}=#{Shellwords.escape(v.to_s)}" }.join("\n") + "\n"
       cmd = [
-        "printf %s #{LuxDeploy.sq(content)} > #{LuxDeploy.sh(ctx.path)}/shared/.env.next",
-        "mv #{LuxDeploy.sh(ctx.path)}/shared/.env.next #{LuxDeploy.sh(ctx.path)}/shared/.env",
-        "chmod 0600 #{LuxDeploy.sh(ctx.path)}/shared/.env"
+        "printf %s #{LuxDocker.sq(content)} > #{LuxDocker.sh(ctx.path)}/shared/.env.next",
+        "mv #{LuxDocker.sh(ctx.path)}/shared/.env.next #{LuxDocker.sh(ctx.path)}/shared/.env",
+        "chmod 0600 #{LuxDocker.sh(ctx.path)}/shared/.env"
       ].join(' && ')
-      ctx.ssh.ssh!(LuxDeploy.as_service_user(ctx, cmd),
+      ctx.ssh.ssh!(LuxDocker.as_service_user(ctx, cmd),
                    category: :preflight, summary: 'cannot write remote .env')
     end
 
@@ -282,16 +284,16 @@ module LuxDeploy
     # rotated on every deploy. A missing file means a fresh app (return {});
     # anything else (permission, IO error) is a hard failure.
     def read_remote(ctx)
-      path = "#{LuxDeploy.sh(ctx.path)}/shared/.env"
+      path = "#{LuxDocker.sh(ctx.path)}/shared/.env"
       cmd = "if [ ! -f #{path} ]; then echo __LUX_NO_ENV__; else cat #{path}; fi"
-      result = ctx.ssh.ssh(LuxDeploy.as_service_user(ctx, cmd))
+      result = ctx.ssh.ssh(LuxDocker.as_service_user(ctx, cmd))
       unless result.success?
         raise CommandError.new(
           'cannot read remote shared/.env',
           result,
           expected: "service_user can read #{ctx.path}/shared/.env (or file is absent)",
           need: 'preserve $generate secrets across deploys',
-          fix: "ssh #{ctx.config[:server]} #{LuxDeploy.sq(LuxDeploy.as_service_user(ctx, "cat #{path}"))}",
+          fix: "ssh #{ctx.config[:server]} #{LuxDocker.sq(LuxDocker.as_service_user(ctx, "cat #{path}"))}",
           category: :preflight
         )
       end
@@ -330,11 +332,11 @@ module LuxDeploy
       content = lines.join("\n") + "\n"
       target = Compose.deploy_env_path(ctx)
       cmd = [
-        "mkdir -p #{LuxDeploy.sh(File.dirname(target))}",
-        "printf %s #{LuxDeploy.sq(content)} > #{LuxDeploy.sh(target)}.next",
-        "mv #{LuxDeploy.sh(target)}.next #{LuxDeploy.sh(target)}"
+        "mkdir -p #{LuxDocker.sh(File.dirname(target))}",
+        "printf %s #{LuxDocker.sq(content)} > #{LuxDocker.sh(target)}.next",
+        "mv #{LuxDocker.sh(target)}.next #{LuxDocker.sh(target)}"
       ].join(' && ')
-      ctx.ssh.ssh!(LuxDeploy.as_service_user(ctx, cmd),
+      ctx.ssh.ssh!(LuxDocker.as_service_user(ctx, cmd),
                    category: :preflight, summary: 'cannot write deploy.env')
     end
   end
@@ -411,8 +413,8 @@ module LuxDeploy
       check(ctx, 'docker compose version >/dev/null', 'docker compose v2 missing', :preflight)
       check(ctx, 'systemctl is-active --quiet caddy', 'caddy not running', :preflight)
       check(ctx, 'sudo -n true', 'passwordless sudo not configured', :preflight)
-      check(ctx, "id #{LuxDeploy.sh(ctx.service_user)} >/dev/null 2>&1", "service user #{ctx.service_user} missing", :preflight)
-      check(ctx, "sudo test -d #{LuxDeploy.sh(ctx.config[:root])} || sudo install -d -o #{LuxDeploy.sh(ctx.service_user)} -m 0755 #{LuxDeploy.sh(ctx.config[:root])}",
+      check(ctx, "id #{LuxDocker.sh(ctx.service_user)} >/dev/null 2>&1", "service user #{ctx.service_user} missing", :preflight)
+      check(ctx, "sudo test -d #{LuxDocker.sh(ctx.config[:root])} || sudo install -d -o #{LuxDocker.sh(ctx.service_user)} -m 0755 #{LuxDocker.sh(ctx.config[:root])}",
             "cannot ensure #{ctx.config[:root]}", :preflight)
       check(ctx, 'sudo test -d /etc/caddy/sites || sudo install -d -m 0755 /etc/caddy/sites', '/etc/caddy/sites missing', :preflight)
       check_caddy_dns_module!(ctx)
@@ -428,7 +430,7 @@ module LuxDeploy
       return unless tls
       provider = tls[:dns_provider]
       module_name = "dns.providers.#{provider}"
-      result = ctx.ssh.ssh("caddy list-modules 2>/dev/null | grep -qx #{LuxDeploy.sh(module_name)}")
+      result = ctx.ssh.ssh("caddy list-modules 2>/dev/null | grep -qx #{LuxDocker.sh(module_name)}")
       return if result.success?
       raise CommandError.new(
         "caddy missing DNS provider plugin '#{provider}'",
@@ -457,7 +459,7 @@ module LuxDeploy
         result,
         expected: "#{cmd.inspect} exits 0",
         need: 'preflight check passes before deploy can change remote state',
-        fix: "ssh #{ctx.config[:server]} #{LuxDeploy.sq(cmd)}",
+        fix: "ssh #{ctx.config[:server]} #{LuxDocker.sq(cmd)}",
         category: category
       )
     end
@@ -471,15 +473,16 @@ module LuxDeploy
         ['docker compose v2',   'docker compose version >/dev/null'],
         ['caddy active',        'systemctl is-active --quiet caddy'],
         ['passwordless sudo',   'sudo -n true'],
-        ["service user #{ctx.service_user}", "id #{LuxDeploy.sh(ctx.service_user)} >/dev/null 2>&1"],
-        ["#{root} present",     "sudo test -d #{LuxDeploy.sh(root)}"],
+        ["service user #{ctx.service_user}", "id #{LuxDocker.sh(ctx.service_user)} >/dev/null 2>&1"],
+        ["#{root} present",     "sudo test -d #{LuxDocker.sh(root)}"],
         ['/etc/caddy/sites',    'sudo test -d /etc/caddy/sites'],
         ['caddy import wired',  "grep -qF 'import /etc/caddy/sites/*.caddy' /etc/caddy/Caddyfile"]
       ]
       if ctx.config[:tls]
         provider = ctx.config[:tls][:dns_provider]
-        host_checks << ["caddy dns:#{provider}", "caddy list-modules 2>/dev/null | grep -qx dns.providers.#{LuxDeploy.sh(provider)}"]
+        host_checks << ["caddy dns:#{provider}", "caddy list-modules 2>/dev/null | grep -qx dns.providers.#{LuxDocker.sh(provider)}"]
       end
+      host_checks.concat(hardening_checks)
       puts "Server: #{ctx.config[:server]}"
       host_failures = run_checks(ssh, host_checks)
       puts
@@ -511,33 +514,64 @@ module LuxDeploy
       checks.each do |label, cmd|
         result = ssh.ssh(cmd)
         if result.success?
-          puts "  %-32s ok" % label
+          puts "  %-40s ok" % label
         else
-          puts "  %-32s FAIL" % label
+          puts "  %-40s FAIL" % label
           failures += 1
         end
       end
       failures
     end
 
+    # Host hardening checks. Read-only; just surface a FAIL if something
+    # looks off. The intent is to catch the obvious mistakes (password ssh
+    # left on, Postgres bound to 0.0.0.0) rather than be a full audit.
+    #
+    # Public listeners allowed: 22 (ssh), 80/443 (caddy). Everything else -
+    # app loopback ports, db, memcached - must bind to 127.0.0.1 or [::1].
+    ALLOWED_PUBLIC_PORTS ||= %w[22 80 443].freeze
+    PUBLIC_PORT_FILTER ||= %q{ss -ltn | awk 'NR>1 {print $4}' | grep -vE '^(127\.|\[::1\]:)' | awk -F: '{print $NF}' | sort -u}
+
+    def hardening_checks
+      public_filter = PUBLIC_PORT_FILTER
+      allowed_re = ALLOWED_PUBLIC_PORTS.join('|')
+      [
+        ['hardening: ssh password auth off',
+          "sudo sshd -T 2>/dev/null | grep -qx 'passwordauthentication no'"],
+        ['hardening: ssh kbd-interactive off',
+          "sudo sshd -T 2>/dev/null | grep -qx 'kbdinteractiveauthentication no'"],
+        ['hardening: postgres not public (5432)',
+          %Q{! (#{public_filter} | grep -qx 5432)}],
+        ['hardening: only 22/80/443 public',
+          %Q{[ -z "$(#{public_filter} | grep -vE '^(#{allowed_re})$')" ]}]
+      ]
+    end
+
     def verify_manifest(ssh, m)
       app = m[:app]
       path = m[:path]
-      compose_files = Array(m[:compose_files]).map { |f| "-f #{LuxDeploy.sh(f)}" }.join(' ')
-      project = LuxDeploy.sh(m[:compose_project])
+      compose_files = Array(m[:compose_files]).map { |f| "-f #{LuxDocker.sh(f)}" }.join(' ')
+      project = LuxDocker.sh(m[:compose_project])
       # Slotted deploys (compose_project ends with `-<port>`) use a per-slot
       # deploy.<port>.env file. Legacy deploys keep the single deploy.env.
       slot_suffix = m[:compose_project].to_s[/-(\d+)\z/, 1]
       env_basename = slot_suffix ? "deploy.#{slot_suffix}.env" : 'deploy.env'
-      env_file = LuxDeploy.sh("#{path}/config/docker/#{env_basename}")
+      env_file = LuxDocker.sh("#{path}/config/docker/#{env_basename}")
       checks = []
-      checks << ['app dir present', "sudo test -d #{LuxDeploy.sh(path)}"]
-      checks << ['manifest present', "sudo test -f #{LuxDeploy.sh(Manifest.remote_path(path))}"]
-      checks << ['env file present', "sudo test -f #{LuxDeploy.sh(path)}/shared/.env"]
-      checks << ['env file 0600', "[ \"$(sudo stat -c %a #{LuxDeploy.sh(path)}/shared/.env 2>/dev/null)\" = 600 ]"]
-      checks << ['caddyfile present', "sudo test -f #{LuxDeploy.sh(m[:caddyfile])}"]
-      checks << ['caddy symlink', "test -L #{LuxDeploy.sh(m[:caddy_site])}"]
+      checks << ['app dir present', "sudo test -d #{LuxDocker.sh(path)}"]
+      checks << ['manifest present', "sudo test -f #{LuxDocker.sh(Manifest.remote_path(path))}"]
+      checks << ['env file present', "sudo test -f #{LuxDocker.sh(path)}/shared/.env"]
+      checks << ['env file 0600', "[ \"$(sudo stat -c %a #{LuxDocker.sh(path)}/shared/.env 2>/dev/null)\" = 600 ]"]
+      checks << ['caddyfile present', "sudo test -f #{LuxDocker.sh(m[:caddyfile])}"]
+      checks << ['caddy symlink', "test -L #{LuxDocker.sh(m[:caddy_site])}"]
       checks << ['compose config valid', "docker compose --project-name #{project} --env-file #{env_file} #{compose_files} config -q"]
+      # Mandatory: every service must opt into the `host.docker.internal:host-gateway`
+      # mapping so `{{host}}` resolves on Linux. Strict per-service enforcement
+      # happens pre-deploy in Config.validate_compose_host_gateway; here we just
+      # smoke-test that the rendered compose mentions the mapping at all, in
+      # case someone hand-edited the deployed file.
+      checks << ['host-gateway mapping present',
+                 "docker compose --project-name #{project} --env-file #{env_file} #{compose_files} config 2>/dev/null | grep -qF 'host.docker.internal:host-gateway'"]
       (m[:services] || {}).each do |name, spec|
         next unless spec[:host_port]
         checks << ["service #{name} responds on :#{spec[:host_port]}", "curl -fsS -o /dev/null -w '%{http_code}' -m 2 http://127.0.0.1:#{spec[:host_port]}/ >/dev/null"]
@@ -554,7 +588,35 @@ module LuxDeploy
 
     def deploy(profile, opts = {})
       config = Config.resolve(profile, opts)
+      if opts[:staging]
+        if !opts[:allow_no_db] && !Compose.has_db_service?(config)
+          raise Error.new(
+            'staging deploy requires a project-local db service',
+            expected: 'a `db:` service in one of the compose files',
+            current: 'no db service detected',
+            need: 'add config/docker/compose.staging.yml or pass --allow-no-db',
+            fix: "edit #{config[:compose].first}",
+            category: :preflight
+          )
+        end
+      end
       ctx = Context.new(config, opts)
+      if opts[:staging]
+        # Refuse to deploy as staging on top of a non-staging manifest. The
+        # filesystem is the registry: if /srv/lux-apps/<app>/manifest.json has
+        # staging:false, treat that as the production namespace.
+        existing = Manifest.read(ctx.ssh, Manifest.remote_path(ctx.path))
+        if existing && existing[:staging] == false
+          raise Error.new(
+            'staging refuses to overwrite a production app',
+            expected: "no production manifest at #{ctx.path}/manifest.json",
+            current: "app=#{existing[:app]} staging=false already deployed at #{ctx.path}",
+            need: 'pick a different --app for the staging stack',
+            fix: 'lux docker:server:deploy pr --staging --app pr-123',
+            category: :preflight
+          )
+        end
+      end
       Preflight.deploy!(ctx)
       ensure_remote_layout!(ctx)
       # Remember the previous deploy's compose project before slot resolution
@@ -583,7 +645,7 @@ module LuxDeploy
           expected: "transport in {archive, registry}",
           current: transport,
           need: 'pick a supported transport',
-          fix: 'lux deploy --transport archive',
+          fix: 'lux docker:deploy --transport archive',
           category: :preflight
         )
       end
@@ -594,7 +656,7 @@ module LuxDeploy
       ctx.step 'healthcheck'
       begin
         healthcheck_all!(ctx)
-      rescue LuxDeploy::Error
+      rescue LuxDocker::Error
         # New slot failed to come up healthy: tear it down so the previous
         # live slot keeps serving traffic untouched, then re-raise.
         ctx.step 'rollback: stop unhealthy slot'
@@ -617,43 +679,13 @@ module LuxDeploy
       # the legacy containers serving traffic untouched.
       if new_slot_port && prev_compose_project && prev_compose_project !~ /-\d+\z/
         ctx.step "stop legacy project #{prev_compose_project}"
-        legacy = LuxDeploy.sh(prev_compose_project)
+        legacy = LuxDocker.sh(prev_compose_project)
         ctx.ssh.ssh("docker ps -aq --filter label=com.docker.compose.project=#{legacy} | xargs -r docker rm -f >/dev/null 2>&1; true")
       end
       Manifest.write!(ctx)
-      duration = LuxDeploy.duration_since(ctx.started_at)
+      duration = LuxDocker.duration_since(ctx.started_at)
       ports = ctx.config[:services].map { |n, s| "#{n}=#{s[:host_port]}" }.join(' ')
       puts "deploy ok #{ctx.app} #{ports} duration=#{duration}s"
-    end
-
-    def staging(profile, opts = {})
-      config = Config.resolve(profile, opts)
-      if !opts[:allow_no_db] && !Compose.has_db_service?(config)
-        raise Error.new(
-          'staging deploy requires a project-local db service',
-          expected: 'a `db:` service in one of the compose files',
-          current: 'no db service detected',
-          need: 'add config/docker/compose.staging.yml or pass --allow-no-db',
-          fix: "edit #{config[:compose].first}",
-          category: :preflight
-        )
-      end
-      ctx = Context.new(config, opts.merge(staging: true))
-      # Refuse to deploy as staging on top of a non-staging manifest. The
-      # filesystem is the registry: if /srv/lux-apps/<app>/manifest.json has
-      # staging:false, treat that as the production namespace.
-      existing = Manifest.read(ctx.ssh, Manifest.remote_path(ctx.path))
-      if existing && existing[:staging] == false
-        raise Error.new(
-          'staging refuses to overwrite a production app',
-          expected: "no production manifest at #{ctx.path}/manifest.json",
-          current: "app=#{existing[:app]} staging=false already deployed at #{ctx.path}",
-          need: 'pick a different --app for the staging stack',
-          fix: 'lux deploy:staging pr --app pr-123',
-          category: :preflight
-        )
-      end
-      deploy(profile, opts.merge(staging: true))
     end
 
     def build(profile, opts = {})
@@ -662,23 +694,27 @@ module LuxDeploy
       puts "build ok #{config[:app]} archive=#{Image.archive_path(config)}"
     end
 
-    def test(profile, opts = {})
-      config = Config.resolve(profile, opts)
+    # Foreground local run: attaches stdout/stderr, streams aggregated
+    # container logs, blocks until any container exits or the user Ctrl-Cs.
+    # Compose handles SIGINT and tears down its stack; we follow with a
+    # `down --remove-orphans` to clean the network too.
+    def run(profile, opts = {})
+      # local_test: true flips `{{service_user}}` to the OS user (e.g. `dux`)
+      # in the rendered runtime.env so host-side DB connections work without
+      # creating a `deployer` Postgres role on the dev machine.
+      config = Config.resolve(profile, opts.merge(local_test: true))
       Image.build!(config) if opts[:build]
       Image.local_load!(config) unless Image.local_images_present?(config)
       env_file = local_test_env_file(config)
       argv = Compose.local_argv(config, env_file: env_file)
-      head = argv.map { |s| LuxDeploy.sh(s) }.join(' ')
-      LuxDeploy.run_local!("#{head} config -q", quiet: opts[:quiet])
-      LuxDeploy.run_local!("#{head} up -d --no-build --remove-orphans", quiet: opts[:quiet])
-      begin
-        run_local_healthchecks!(config)
-        puts "test ok #{config[:app]}"
-      ensure
-        unless opts[:keep]
-          LuxDeploy.run_local("#{head} down --remove-orphans", quiet: opts[:quiet])
-        end
-      end
+      head = argv.map { |s| LuxDocker.sh(s) }.join(' ')
+      LuxDocker.run_local!("#{head} config -q", quiet: opts[:quiet])
+      up_cmd = "#{head} up --no-build --remove-orphans --abort-on-container-exit"
+      puts "+ #{up_cmd}" unless opts[:quiet]
+      # system() blocks until compose exits; Ctrl-C propagates as SIGINT and
+      # compose stops every container gracefully before returning.
+      system(up_cmd)
+      LuxDocker.run_local("#{head} down --remove-orphans", quiet: opts[:quiet])
     end
 
     def doctor(profile, opts = {})
@@ -716,7 +752,7 @@ module LuxDeploy
       end
       Caddy.remove!(ctx)
       if opts[:purge]
-        ctx.ssh.ssh!("sudo rm -rf #{LuxDeploy.sh(ctx.path)}", category: :source, summary: 'cannot purge app dir')
+        ctx.ssh.ssh!("sudo rm -rf #{LuxDocker.sh(ctx.path)}", category: :source, summary: 'cannot purge app dir')
       end
       puts "remove ok #{ctx.app} path=#{ctx.path}#{opts[:purge] ? ' purged' : ''}"
     end
@@ -744,10 +780,6 @@ module LuxDeploy
       exit $?.exitstatus.to_i unless $?.success?
     end
 
-    def llm_prepare(_profile, opts = {})
-      LLMPrepare.run(opts)
-    end
-
     def compose(profile, opts = {})
       config = Config.resolve(profile, opts)
       ctx = Context.new(config, opts)
@@ -755,10 +787,10 @@ module LuxDeploy
       if passthrough.empty?
         raise Error.new(
           'no docker compose subcommand passed',
-          expected: 'lux deploy:compose [PROFILE] -- <docker compose args>',
+          expected: 'lux docker:compose [PROFILE] -- <docker compose args>',
           current: 'no args after --',
           need: 'pass a docker compose subcommand',
-          fix: 'lux deploy:compose -- ps',
+          fix: 'lux docker:compose -- ps',
           category: :preflight
         )
       end
@@ -792,10 +824,10 @@ module LuxDeploy
     end
 
     def ensure_remote_layout!(ctx)
-      su = LuxDeploy.sh(ctx.service_user)
-      root = LuxDeploy.sh(ctx.config[:root])
-      home = LuxDeploy.sh(File.dirname(ctx.config[:root]))
-      path = LuxDeploy.sh(ctx.path)
+      su = LuxDocker.sh(ctx.service_user)
+      root = LuxDocker.sh(ctx.config[:root])
+      home = LuxDocker.sh(File.dirname(ctx.config[:root]))
+      path = LuxDocker.sh(ctx.path)
       cmd = [
         # service_user's home must be traversable so caddy can follow the
         # /etc/caddy/sites/*.caddy symlink into /home/<user>/lux-apps/<app>.
@@ -837,8 +869,8 @@ module LuxDeploy
             'image archive missing',
             expected: "#{local} exists",
             current: 'no archive built',
-            need: 'run lux deploy:build first, or pass --build',
-            fix: "lux deploy:build #{ctx.config[:profile]}",
+            need: 'run lux docker:build first, or pass --build',
+            fix: "lux docker:build #{ctx.config[:profile]}",
             category: :preflight
           )
         end
@@ -863,7 +895,7 @@ module LuxDeploy
           end=$((SECONDS+#{timeout}))
           last=''
           while [ $SECONDS -lt $end ]; do
-            code=$(curl -fsS -o /dev/null -w '%{http_code}' #{LuxDeploy.sq(url)} 2>/tmp/lux-health.err || true)
+            code=$(curl -fsS -o /dev/null -w '%{http_code}' #{LuxDocker.sq(url)} 2>/tmp/lux-health.err || true)
             last=$code
             echo "$code" | grep -Eq '^(#{statuses})$' && exit 0
             sleep 1
@@ -895,8 +927,8 @@ module LuxDeploy
         timeout = hc[:timeout] || 30
         statuses = (hc[:expect_status] || [200, 301, 302]).join('|')
         url = "http://127.0.0.1:#{port}#{path}"
-        cmd = "end=$((SECONDS+#{timeout})); last=''; while [ $SECONDS -lt $end ]; do code=$(curl -fsS -o /dev/null -w '%{http_code}' #{LuxDeploy.sq(url)} 2>/dev/null || true); last=$code; echo $code | grep -Eq '^(#{statuses})$' && exit 0; sleep 1; done; echo \"#{name} status=$last\" >&2; exit 1"
-        LuxDeploy.run_local!("bash -c #{LuxDeploy.sq(cmd)}", quiet: config[:quiet])
+        cmd = "end=$((SECONDS+#{timeout})); last=''; while [ $SECONDS -lt $end ]; do code=$(curl -fsS -o /dev/null -w '%{http_code}' #{LuxDocker.sq(url)} 2>/dev/null || true); last=$code; echo $code | grep -Eq '^(#{statuses})$' && exit 0; sleep 1; done; echo \"#{name} status=$last\" >&2; exit 1"
+        LuxDocker.run_local!("bash -c #{LuxDocker.sq(cmd)}", quiet: config[:quiet])
       end
     end
 

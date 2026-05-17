@@ -1,6 +1,7 @@
 require 'etc'
+require 'yaml'
 
-module LuxDeploy
+module LuxDocker
   module Config
     APP_RE ||= /\A[a-z][a-z0-9_-]{0,62}\z/
     SERVER_RE ||= /\A[A-Za-z0-9._@:\[\]-]+\z/
@@ -48,7 +49,7 @@ module LuxDeploy
           expected: "#{default_target} (or config/deploy.json) exists",
           current: "missing #{config_path}",
           need: 'create a deploy config or pass --config PATH',
-          fix: "cp #{LuxDeploy.plugin_root.join('templates/deploy.json.example')} #{default_target}",
+          fix: "cp #{LuxDocker.plugin_root.join('templates/deploy.json.example')} #{default_target}",
           category: :preflight
         )
       end
@@ -75,11 +76,18 @@ module LuxDeploy
       # only overrideable via --image-tag at the CLI. compose + images fall
       # out of conventions and the services map - see derive_*! below.
       raw['image_tag'] = derive_image_tag(opts, app_root)
+      # Local-test mode (set by `docker:run`): per-render flag that flips
+      # `{{service_user}}` to the OS user invoking lux, so DB_URLs like
+      # `postgresql://{{service_user}}@{{host}}/...` connect as `dux` locally
+      # and as `deployer` on the deployed server. Stripped from `normalized`
+      # before return so downstream code never sees it.
+      raw['_local_test'] = true if opts[:local_test]
 
       load_lux_env(app_root) if contains_config_placeholder?(raw)
       resolved = interpolate(raw, raw)
       env_resolved = interpolate_env_refs(resolved)
       normalized = symbolize(env_resolved)
+      normalized.delete(:_local_test)
 
       normalized[:app_underscored] = normalized[:app].tr('-', '_')
       normalized[:env] ||= {}
@@ -338,10 +346,31 @@ module LuxDeploy
       when 'image_tag'
         root['image_tag'].to_s
       when 'host'
-        # Docker bridge gateway: the address a container uses to reach a
-        # service running on the host (e.g. host-side postgres). Not the
-        # public/SSH target - that is the profile's `server` field.
-        '172.17.0.1'
+        # Address a container uses to reach a service running on the host
+        # (e.g. host-side postgres). Not the public/SSH target - that is
+        # the profile's `server` field.
+        #
+        # Resolves to `host.docker.internal`, which is portable across
+        # Docker Desktop (Mac/Windows, built-in) and Linux (where compose
+        # must declare `extra_hosts: ["host.docker.internal:host-gateway"]`
+        # per service). Compose.ensure_host_gateway_mapping! enforces that
+        # mapping in preflight so this placeholder never produces a dead
+        # hostname on Linux.
+        'host.docker.internal'
+      when 'service_user'
+        # OS user the container effectively runs as for host-side resource
+        # access (chiefly DB roles): the local OS user during `docker:run`
+        # rendering, the configured `service_user` (default `deployer`)
+        # during deploy. Lets a single `deploy.json` such as
+        #   "DB_URL": "postgresql://{{service_user}}@{{host}}/myapp"
+        # work both locally (connects as `dux`) and remotely (connects as
+        # `deployer`) without per-env overrides - operators just grant
+        # each user a matching Postgres role.
+        if root['_local_test']
+          (ENV['USER'] || Etc.getlogin || SERVICE_USER).to_s
+        else
+          (root['service_user'] || SERVICE_USER).to_s
+        end
       when /\Aconfig\.(.+)/
         parts = Regexp.last_match(1).split('.')
         val = lux_config_value(parts)
@@ -359,7 +388,7 @@ module LuxDeploy
       else
         raise Error.new(
           'unsupported placeholder in deploy config',
-          expected: '{{app}}, {{app_underscored}}, {{profile}}, {{image_tag}}, {{host}}, {{config.*}}, or {{env.KEY}}',
+          expected: '{{app}}, {{app_underscored}}, {{profile}}, {{image_tag}}, {{host}}, {{service_user}}, {{config.*}}, or {{env.KEY}}',
           current: "{{#{key}}}",
           need: 'use a supported deploy placeholder',
           fix: root['config_path'].to_s,
@@ -405,6 +434,7 @@ module LuxDeploy
       validate_path(config[:root])
       validate_path(config[:path])
       validate_compose(config[:compose], config[:app_root])
+      validate_compose_host_gateway(config[:compose], config[:app_root])
       # services first: image keys are auto-derived from service keys, so a
       # bad service name should surface as `service_name`, not `image_key`.
       validate_services(config[:services])
@@ -418,7 +448,10 @@ module LuxDeploy
 
     # The `tls` profile block is optional but mandatory when any service uses
     # a wildcard domain - HTTP-01 / TLS-ALPN-01 cannot issue `*.example.com`.
-    # Shape: { dns_provider: "cloudflare", api_token_env: "CF_API_TOKEN" }.
+    # Shape: { dns_provider: "cloudflare", <either api_token OR api_token_env> }.
+    #   * api_token_env: NAME of an env var (recommended for shared repos)
+    #   * api_token:     literal token value (single-dev convenience)
+    # Exactly one of the two must be set.
     def validate_tls(config)
       tls = config[:tls]
       wildcard = wildcard_domain(config[:services])
@@ -435,7 +468,7 @@ module LuxDeploy
       end
 
       unless tls.is_a?(Hash)
-        validation_error('invalid tls block', 'tls is an object', tls.inspect, 'provide { dns_provider, api_token_env }', 'edit config/docker/deploy.json tls block')
+        validation_error('invalid tls block', 'tls is an object', tls.inspect, 'provide { dns_provider, api_token | api_token_env }', 'edit config/docker/deploy.json tls block')
       end
 
       provider = tls[:dns_provider].to_s
@@ -443,23 +476,38 @@ module LuxDeploy
         validation_error('unsupported tls.dns_provider', "tls.dns_provider in #{TLS_DNS_PROVIDERS.inspect}", "tls.dns_provider=#{provider.inspect}", 'use a supported DNS provider', 'edit config/docker/deploy.json tls.dns_provider')
       end
 
-      token_env = tls[:api_token_env].to_s
-      unless token_env.match?(ENV_KEY_RE)
-        validation_error('invalid tls.api_token_env', "tls.api_token_env matches #{ENV_KEY_RE.inspect}", "tls.api_token_env=#{token_env.inspect}", 'name the env var that holds the DNS API token', 'edit config/docker/deploy.json tls.api_token_env')
+      has_literal = !tls[:api_token].to_s.empty?
+      has_env_ref = !tls[:api_token_env].to_s.empty?
+
+      if has_literal && has_env_ref
+        validation_error('tls accepts only one of api_token / api_token_env', 'exactly one is set', 'both are set', 'pick one', 'edit config/docker/deploy.json tls block')
+      end
+      unless has_literal || has_env_ref
+        validation_error('tls requires api_token or api_token_env', 'one of the two is set', 'neither is set', 'pick one', 'edit config/docker/deploy.json tls block')
       end
 
-      token = ENV[token_env]
-      if token.nil? || token.empty?
-        validation_error(
-          'tls.api_token_env not set in caller environment',
-          "#{token_env} exported locally before deploy",
-          "#{token_env} unset",
-          "export the DNS API token before running deploy",
-          "export #{token_env}=..."
-        )
+      if has_env_ref
+        token_env = tls[:api_token_env].to_s
+        unless token_env.match?(ENV_KEY_RE)
+          validation_error('invalid tls.api_token_env', "tls.api_token_env matches #{ENV_KEY_RE.inspect}", "tls.api_token_env=#{token_env.inspect}", 'name the env var that holds the DNS API token (or use api_token for a literal value)', 'edit config/docker/deploy.json tls.api_token_env')
+        end
+        token = ENV[token_env]
+        if token.nil? || token.empty?
+          validation_error(
+            'tls.api_token_env not set in caller environment',
+            "#{token_env} exported locally before deploy",
+            "#{token_env} unset",
+            'export the DNS API token before running deploy',
+            "export #{token_env}=..."
+          )
+        end
       end
+
       tls[:dns_provider] = provider
-      tls[:api_token_env] = token_env
+      # Normalize to a single internal env-var key Caddy can reference. When
+      # the user gave a literal token, generate a deterministic var name we
+      # plant into /etc/caddy/caddy.env at install time.
+      tls[:_caddy_env_key] = has_env_ref ? tls[:api_token_env].to_s : "LUX_TLS_DNS_TOKEN_#{provider.upcase}"
     end
 
     def wildcard_domain(services)
@@ -482,6 +530,50 @@ module LuxDeploy
           validation_error('compose file missing', "#{full} exists", "no such file: #{full}", "create the compose file or fix the path", "ls #{full}")
         end
       end
+    end
+
+    # Every compose service must declare the `host.docker.internal:host-gateway`
+    # extra_hosts mapping. Without it `{{host}}` -> `host.docker.internal`
+    # resolves only on Docker Desktop (Mac/Windows) and silently fails on Linux.
+    # We treat the mapping as mandatory so the same compose works in local test
+    # (`docker:run`) and on the Linux deploy target.
+    HOST_GATEWAY_MAPPING ||= 'host.docker.internal:host-gateway'.freeze
+
+    def validate_compose_host_gateway(compose_files, app_root)
+      missing = []
+      Array(compose_files).each do |rel|
+        full = File.expand_path(rel, app_root)
+        services = load_compose_services(full)
+        next if services.nil?
+        services.each do |name, spec|
+          next unless spec.is_a?(Hash)
+          entries = Array(spec['extra_hosts']).map { |e| e.is_a?(String) ? e.strip : nil }.compact
+          missing << "#{rel}:services.#{name}" unless entries.include?(HOST_GATEWAY_MAPPING)
+        end
+      end
+      return if missing.empty?
+      validation_error(
+        'compose service missing host.docker.internal:host-gateway mapping',
+        "every service declares extra_hosts: [\"#{HOST_GATEWAY_MAPPING}\"]",
+        "missing on: #{missing.join(', ')}",
+        'add the extra_hosts mapping so `{{host}}` (host.docker.internal) resolves on Linux too',
+        'edit the listed compose file(s) and add: extra_hosts: ["host.docker.internal:host-gateway"]'
+      )
+    end
+
+    def load_compose_services(full)
+      raw = YAML.safe_load(File.read(full), aliases: true, permitted_classes: [])
+      return nil unless raw.is_a?(Hash)
+      services = raw['services']
+      services.is_a?(Hash) ? services : nil
+    rescue Psych::SyntaxError => e
+      validation_error(
+        'compose file is not valid YAML',
+        "#{full} parses as YAML",
+        e.message,
+        'fix the compose file syntax',
+        "edit #{full}"
+      )
     end
 
     def validate_images(images)

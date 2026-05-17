@@ -1,4 +1,4 @@
-module LuxDeploy
+module LuxDocker
   module Caddy
     SITES_DIR ||= '/etc/caddy/sites'.freeze
 
@@ -59,7 +59,7 @@ module LuxDeploy
       return '' unless uses_wildcard || tls[:always]
       [
         "    tls {",
-        "        dns #{tls[:dns_provider]} {env.#{tls[:api_token_env]}}",
+        "        dns #{tls[:dns_provider]} {env.#{tls[:_caddy_env_key]}}",
         "    }",
         "",
         ""
@@ -76,7 +76,7 @@ module LuxDeploy
       File.write(file, body)
       ctx.ssh.scp!(file, remote, category: :caddy)
       ctx.ssh.ssh!("grep -qF 'import /etc/caddy/sites/*.caddy' /etc/caddy/Caddyfile || echo 'import /etc/caddy/sites/*.caddy' | sudo tee -a /etc/caddy/Caddyfile >/dev/null", category: :caddy, summary: 'cannot ensure caddy import')
-      ctx.ssh.ssh!("sudo ln -sfn #{LuxDeploy.sh(remote)} #{LuxDeploy.sh(caddy_symlink(ctx))}", category: :caddy, summary: 'cannot symlink caddy site')
+      ctx.ssh.ssh!("sudo ln -sfn #{LuxDocker.sh(remote)} #{LuxDocker.sh(caddy_symlink(ctx))}", category: :caddy, summary: 'cannot symlink caddy site')
       install_tls_env!(ctx) if ctx.config[:tls]
       validate!(ctx)
       reload!(ctx)
@@ -91,8 +91,11 @@ module LuxDeploy
     # written once: daemon-reload + restart only on first install.
     def install_tls_env!(ctx)
       tls = ctx.config[:tls]
-      key = tls[:api_token_env]
-      token = ENV[key].to_s
+      key = tls[:_caddy_env_key]
+      # Literal `api_token` in deploy.json wins; otherwise read from caller ENV
+      # under the user-named `api_token_env`.
+      token = tls[:api_token].to_s
+      token = ENV[tls[:api_token_env].to_s].to_s if token.empty?
       env_file = '/etc/caddy/caddy.env'
       dropin = '/etc/systemd/system/caddy.service.d/lux.conf'
 
@@ -103,7 +106,7 @@ module LuxDeploy
       cmd = [
         'sudo install -d -m 0755 /etc/caddy',
         'sudo install -d -m 0755 /etc/systemd/system/caddy.service.d',
-        "printf %s #{LuxDeploy.sq(content)} | sudo tee #{env_file}.next >/dev/null",
+        "printf %s #{LuxDocker.sq(content)} | sudo tee #{env_file}.next >/dev/null",
         "sudo mv #{env_file}.next #{env_file}",
         "sudo chown root:caddy #{env_file} 2>/dev/null || sudo chown root:root #{env_file}",
         "sudo chmod 0640 #{env_file}",
@@ -142,7 +145,7 @@ module LuxDeploy
     end
 
     def remove!(ctx)
-      ctx.ssh.ssh!("sudo rm -f #{LuxDeploy.sh(caddy_symlink(ctx))}", category: :caddy, summary: 'cannot remove caddy symlink')
+      ctx.ssh.ssh!("sudo rm -f #{LuxDocker.sh(caddy_symlink(ctx))}", category: :caddy, summary: 'cannot remove caddy symlink')
       reload!(ctx)
     end
   end
