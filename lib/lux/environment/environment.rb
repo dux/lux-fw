@@ -54,9 +54,12 @@ module Lux
     end
 
     # log level :info, log to screen and browser in dev
-    def log?
+    # With a block, acts as a ternary helper (block evaluated only when log? is true):
+    #   Lux.env.log?                       # => bool
+    #   Lux.env.log?('short') { 'long' }   # => 'short' or 'long'
+    def log? short = nil
       @log = ENV['LUX_ENV'].include?('l') if @log.nil?
-      @log
+      block_given? ? (@log ? yield : short) : @log
     end
 
     def reload?

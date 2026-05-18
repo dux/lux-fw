@@ -363,7 +363,7 @@ module Lux
           yield if block_given?
           true
         elsif lux.nav.format
-          Lux.error.not_found '%s document Not Found' % lux.nav.format.to_s.upcase
+          Lux.error.not_found Lux.env.log?('404 Not Found') { '%s document Not Found' % lux.nav.format.to_s.upcase }
         end
       else
         yield lux.nav.format
@@ -419,9 +419,8 @@ module Lux
         return false if caller[0].include?("`action_missing'")
       end
 
-      message = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, lux.nav]
-
-      if Lux.env.log?
+      message = Lux.env.log? '404 Method Not Found' do
+        base = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, lux.nav]
         defined_methods = (methods - Lux::Controller.instance_methods).map(&:to_s)
         defined = '<br /><br />Defined methods %s' % defined_methods.sort.to_ul
 
@@ -433,9 +432,11 @@ module Lux
         else
           defined += 'Defined templates - disabled'
         end
+
+        [base, defined].join(' ')
       end
 
-      Lux.error 404, [message, defined].join(' ')
+      Lux.error 404, message
     end
   end
 end

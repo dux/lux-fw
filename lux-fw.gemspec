@@ -14,7 +14,7 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.email       = 'rejotl@gmail.com'
   gem.files       = gem_files
 
-  gem.executables = ['lux', 'lux-sysd']
+  gem.executables = ['lux']
 
   # added by analogy
   gem.add_dependency 'rack'
@@ -78,6 +78,9 @@ Gem::Specification.new 'lux-fw' do |gem|
 
   # best server side templateing
   gem.add_dependency 'haml'
+
+  # HTML builder DSL used by plugins/html and lib/lux/error
+  gem.add_dependency 'html-tag'
 
   # better development errors
   # gem.add_dependency 'binding_of_caller'

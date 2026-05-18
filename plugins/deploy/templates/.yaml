@@ -1,6 +1,0 @@
-# Lux deploy config. All keys become {{KEY}} placeholders (uppercased) that
-# every template under config/deploy/ can reference. `server` and `domain`
-# are required; add more keys as you need them across templates.
-
-server: srv.example.com
-domain: example.com

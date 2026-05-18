@@ -197,7 +197,7 @@ module Lux
         if icon.exist?
           lux.response.send_file(icon, inline: true)
         else
-          Lux.error.not_found '%s not found' % path
+          Lux.error.not_found Lux.env.log?('404 Not Found') { '%s not found' % path }
         end
       end
     end
