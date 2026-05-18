@@ -9,7 +9,12 @@ module Lux
           ext = path.split('.').last
           return unless ext.length > 1 && ext.length < 5
           rack_file = new file: path, inline: true
-          rack_file.send if rack_file.is_static_file?
+          if rack_file.is_static_file?
+            # Static assets are safe for shared caches; this also suppresses Set-Cookie.
+            response = Lux.current.response
+            response.cache_public(Lux.config[:static_file_max_age] || 600) unless response.cached?
+            rack_file.send
+          end
         end
 
         # Look up MIME type by extension. Delegates to Rack::Mime.
@@ -51,8 +56,12 @@ module Lux
       end
 
       def etag key
-        response.headers['etag'] = '"%s"' % key
-        response.body('not-modified', status: 304) if request.env['HTTP_IF_NONE_MATCH'] == key
+        quoted = '"%s"' % key
+        response.headers['etag'] = quoted
+        if request.env['HTTP_IF_NONE_MATCH'] == quoted
+          response.status = 304
+          response.body   = ''
+        end
       end
 
       def send

@@ -992,11 +992,17 @@ You can allways use `Lux.current.response` object, or accesss it as `response` i
 # add response header
 response.header 'x-blah', 123
 
-# max age of the page in seconds, default 0
-response.max_age = 10
+# default is private cache: Cache-Control: private, must-revalidate, max-age=0
 
-# the default access type is private
-response.public = true
+# explicit public cache (shared cache; suppresses Set-Cookie)
+response.cache.public  = true
+response.cache.max_age = 10.minutes
+
+# shortcut for the common public-cache case
+response.cache_public 10.minutes
+
+# disable cache and session cookie for sensitive responses
+response.no_store
 
 # page status
 response.status = 400

@@ -65,7 +65,14 @@ module Lux
     end
 
     def app_timeout
-      @app_timeout ||= Lux.current.try('[]', :app_timeout) || Lux.config[:app_timeout] || (Lux.env.dev? ? 3600 : 30)
+      # Peek at the existing thread-local Current instead of triggering lazy
+      # creation - app_timeout runs before Application#initialize installs the
+      # real Current, so calling Lux.current here would build a throwaway /mock
+      # Current and autoload Rack::MockRequest (and on Ruby 4 + rack 3.1, drag
+      # in cgi/cookie which is no longer a default gem).
+      cur = Thread.current[:lux]
+      per_request = cur && cur[:app_timeout]
+      per_request || Lux.config[:app_timeout] || (Lux.env.dev? ? 3600 : 30)
     rescue
       30
     end

@@ -3,6 +3,13 @@ module ::Lux
 
   VERSION ||= File.read(File.expand_path('../../../.version', __FILE__)).chomp
 
+  # Sentinel for "no argument given". Use when nil/false are valid explicit values.
+  # Compare with .equal?(Lux::UNSET), never ==.
+  UNSET ||= Object.new.tap do |obj|
+    def obj.inspect = 'Lux::UNSET'
+    def obj.to_s    = inspect
+  end.freeze
+
   def root
     @lux_app_root ||= Pathname.new(ENV.fetch('APP_ROOT') { Dir.pwd }).freeze
   end

@@ -1,23 +1,28 @@
-# response.header 'x-blah', 123
-# response.max_age = 10
-# response.public  = true
-# response.status  = 500
+# Common usage:
+#   response.header 'x-blah', 123
+#   response.body = 'hello'
+#   response.status = 500
+#   response.cache.public  = true
+#   response.cache.max_age = 10.minutes
+#   response.cache_public  10.minutes        # shortcut
+#   response.no_store                        # disable cache + cookies
 module Lux
   class Response
-    # define in seconds, how long should page be accessible in client cache
-    # if defined, cache becomes public and can be cache by proxies
-    # use with care.only for static resources and
-    attr_reader :max_age, :render_start
-    attr_accessor :headers, :cookies, :content_type, :status
+    attr_reader   :render_start
+    attr_accessor :headers, :cookies
 
     def initialize
       @render_start = Time.monotonic
       @headers      = Lux::Response::Header.new
-      @max_age      = 0
+      @cache        = Lux::Response::CachePolicy.new(self)
     end
 
     def current
       Lux.current
+    end
+
+    def cache
+      @cache
     end
 
     # header['x-foo']
@@ -25,8 +30,8 @@ module Lux
     # header @hash
     def header *args
       if args.first
-        if args.first.class == Hash
-          args.each{|k,v| header k, v.to_s if k && v }
+        if args.first.is_a?(Hash)
+          args.first.each { |k, v| header k, v.to_s if k && v }
         else
           key = args.first.to_s.downcase
           @headers[key] = args[1].to_s if args[1] != :_
@@ -37,31 +42,64 @@ module Lux
       @headers
     end
 
-    def max_age= age, stale_while_revalidate = nil
-      @max_age = age.to_i
-      @stale_while_revalidate = stale_while_revalidate
+    # back-compat readers/setters (delegate to cache policy)
+    def max_age
+      @cache.max_age
+    end
+
+    def max_age= age
+      @cache.max_age = age.to_i
+    end
+
+    def stale_while_revalidate= swr
+      @cache.stale_while_revalidate = swr
+    end
+
+    def public?
+      @cache.public?
+    end
+
+    def public= value
+      @cache.public = value
+    end
+
+    def cached?
+      @cache.cached?
+    end
+
+    # shortcut: public cache for N seconds
+    def cache_public age
+      @cache.public  = true
+      @cache.max_age = age.to_i
+    end
+
+    # shortcut: response is sensitive, no caching, no cookies
+    def no_store
+      @cache.no_store = true
     end
 
     # http 103
-    def early_hints link=nil, type=nil
+    def early_hints link = nil, type = nil
       @early_hints ||= []
-      @early_hints.push [link, type] if type && !@early_hints.include?(link)
+      hint = [link, type]
+      @early_hints.push hint if type && !@early_hints.include?(hint)
       @early_hints
     end
 
     def etag *args
       unless @headers['etag']
         key = '"%s"' % Lux.cache.generate_key([current.request.url, args])
-        key = 'W/%s' % key unless max_age > 0
+        key = 'W/%s' % key unless @cache.public?
         @headers['etag'] = key
       end
 
-      if !status && !current.no_cache? && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
+      if !@status && !current.no_cache? && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
         if Lux.env.reload?
           Lux.log " * etag match at #{Lux.app_caller || ':lux'} (skiping for env.reload?)" unless current.nav.format
         else
           Lux.log ' * etag match'
-          body 'not-modified', status: 304
+          @status = 304
+          @body   = ''
           true
         end
       else
@@ -69,8 +107,11 @@ module Lux
       end
     end
 
-    def status num = nil
-      return @status unless num
+    # response.status            # get
+    # response.status = 404      # set
+    # response.status 404        # set
+    def status num = Lux::UNSET
+      return @status if num.equal?(Lux::UNSET)
 
       unless num.is_numeric?
         Lux.info %[LUX error: Not numeric status code "#{num}", reverting to 400]
@@ -78,7 +119,6 @@ module Lux
       end
 
       @status = num
-      @status
     end
     alias :status= :status
 
@@ -87,25 +127,28 @@ module Lux
       @body   = msg if msg
     end
 
-    # response.body 'foo'
-    # response.body 'foo', status: 400, content_type: :js
-    # response.body { 'foo' }
-    # response.body({...}) { 'foo' }
-    def body data = nil, opts = nil
+    # response.body                          # get
+    # response.body = 'foo'                  # set
+    # response.body 'foo'                    # set (back-compat)
+    # response.body 'foo', status: 400       # set with side-effects (back-compat)
+    # response.body { |old| transform(old) } # transform existing body
+    def body data = Lux::UNSET, opts = nil
       if block_given?
-        # block can override data set
-        opts = data || {}
         @body = yield @body
-        @body
-      elsif data
-        unless @body
-          opts ||= {}
-          opts.is!(Hash).each {|k,v| self.send k, *v }
-          @body = data.is_a?(Hash) ? JSON.generate(data) : data
-        end
-      else
-        @body
+        return @body
       end
+
+      return @body if data.equal?(Lux::UNSET)
+
+      if opts.is_a?(Hash)
+        opts.each { |k, v| public_send k, *v }
+      end
+
+      unless @body
+        # eager serialize hash bodies so callers see the final string
+        @body = data.is_a?(Hash) ? JSON.generate(data) : data
+      end
+      @body
     end
     alias :body= :body
 
@@ -113,8 +156,11 @@ module Lux
       !!@body
     end
 
-    def content_type in_type = nil
-      return @content_type unless in_type
+    # response.content_type            # get
+    # response.content_type = :js      # set (always overrides)
+    # response.content_type :js        # set
+    def content_type in_type = Lux::UNSET
+      return @content_type if in_type.equal?(Lux::UNSET)
 
       in_type = :js if in_type == :javascript
 
@@ -125,12 +171,9 @@ module Lux
         type = in_type
       end
 
-      @content_type ||= type
+      @content_type = type
     end
-
-    def content_type= type
-      content_type type
-    end
+    alias :content_type= :content_type
 
     def flash message = nil
       @flash ||= Flash.new current.session[:lux_flash]
@@ -208,7 +251,8 @@ module Lux
       end
 
       header('WWW-Authenticate', 'Basic realm="%s"' % realm.or('default'))
-      body message || 'HTTP 401 Authorization needed', status: 401
+      self.status = 401
+      @body = message || 'HTTP 401 Authorization needed'
     end
 
     def render app = nil
@@ -232,7 +276,7 @@ module Lux
         [200, 304].include?(@status) ? log_data : log_data.colorize(:magenta)
       end
 
-      if current.request.request_method == 'HEAD'
+      if current.request.request_method == 'HEAD' || [204, 304].include?(@status.to_i)
         @body = ''
       end
 
@@ -252,24 +296,28 @@ module Lux
       body data[2].first, status: data[0]
     end
 
-    def public?
-      @headers['cache-control'].to_s.include?('public')
-    end
-
-    def cached?
-      @max_age > 0
-    end
-
     def is_bot?
       current.request.user_agent.to_s.include?('Googlebot')
     end
 
     private
 
+    # Persist flash into session, but only if it has content or needs clearing.
+    # Avoids dirtying the session on every request just to write an empty flash hash.
+    def write_flash_to_session
+      flash_hash = flash.to_h
+      if flash_hash.keys.any?
+        current.session[:lux_flash] = flash_hash
+      elsif current.session[:lux_flash]
+        current.session.delete(:lux_flash)
+      end
+    end
+
     def write_response_body
+      # default: empty body + 204
       unless @body
-        @status = 204
-        @body = 'Lux HTTP ERROR 204: NO CONTENT'
+        @status ||= 204
+        @body = ''
       end
 
       # respond as JSON if we recive hash
@@ -293,22 +341,19 @@ module Lux
     end
 
     def write_response_header
-      current.session[:lux_flash] = flash.to_h
+      write_flash_to_session
 
-      if current.session[:lux_flash].keys.length != 0
-        self.max_age = 0
+      # flash forces private cache + no max_age
+      if flash.to_h.keys.length != 0
+        @cache.public  = false
+        @cache.max_age = 0
       end
 
-      # cache-control
-      @headers['cache-control'] ||= begin
-        cc = []
-        cc.push max_age > 0 ? 'public' : 'private, must-revalidate'
-        cc.push 'max-age=%d' % max_age
-        cc.push 'stale-while-revalidate=%d' % @stale_while_revalidate if @stale_while_revalidate
-        cc.join(', ')
-      end
+      # cache-control: use cache policy unless caller set explicit header
+      @headers['cache-control'] ||= @cache.header_value
 
-      if self.max_age == 0 && !self.is_bot?
+      # only emit Set-Cookie when cache policy allows it
+      if @cache.allow_cookies? && !is_bot?
         cookie = current.session.generate_cookie
         @headers['set-cookie'] = cookie if cookie
       end
@@ -317,11 +362,13 @@ module Lux
         etag(@body)
       end
 
-      # @headers['access-control-allow-credentials'] = 'true'
-      # if "no-store" is present then HTTP_IF_NONE_MATCH is not sent from browser
       @headers['x-lux-speed']     = "#{((Time.monotonic - @render_start)*1000).round(1)}ms"
-      @headers['content-type']  ||= "#{@content_type}; charset=utf-8"
-      @headers['content-length']  = @body.bytesize.to_s
+
+      # 304 must not carry content-type / content-length per RFC 7232
+      unless @status.to_i == 304
+        @headers['content-type'] ||= "#{@content_type}; charset=utf-8"
+        @headers['content-length'] = @body.bytesize.to_s
+      end
     end
   end
 end
