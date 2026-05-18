@@ -47,6 +47,9 @@ class AutoMigrate
     [:string, :date]      => { using: '%s::date',      safe: false },
     [:string, :datetime]  => { using: '%s::timestamp', safe: false },
     [:string, :timestamp] => { using: '%s::timestamp', safe: false },
+    [:text, :date]        => { using: '%s::date',      safe: false },
+    [:text, :datetime]    => { using: '%s::timestamp', safe: false },
+    [:text, :timestamp]   => { using: '%s::timestamp', safe: false },
     [:date, :timestamp]   => { using: nil, safe: true },
     [:date, :datetime]    => { using: nil, safe: true },
     [:timestamp, :date]   => { using: '%s::date', safe: false },
@@ -94,9 +97,10 @@ class AutoMigrate
   end
 
   # Create table if missing, load current DB state, apply schema block
+  # Accepts a Class (tableized to the table symbol), Symbol, or String (used literally).
   def table table_name, opts = {}
     @fields       = {}
-    @table_name   = table_name.to_s.tableize.to_sym
+    @table_name   = table_name.is_a?(Class) ? table_name.to_s.tableize.to_sym : table_name.to_sym
     @field_opts   = opts || {}
 
     create_table_if_missing
@@ -372,7 +376,10 @@ class AutoMigrate
       end
 
       target = pg_type_for(to, opts)
-      using = conv[:using] ? "ARRAY(SELECT #{conv[:using] % "unnest(#{field})"})" : nil
+      # PostgreSQL does not allow subqueries in USING, so cast the whole array
+      # in one go (e.g. `ids::integer[]`). PG handles standard text↔numeric
+      # array casts directly.
+      using = conv[:using] ? "#{field}::#{target}[]" : nil
 
       transaction_do "ALTER TABLE #{@table_name} ALTER COLUMN #{field} DROP DEFAULT"
       sql = "ALTER TABLE #{@table_name} ALTER COLUMN #{field} TYPE #{target}[]"
@@ -444,6 +451,12 @@ class AutoMigrate
     end
 
     target = pg_type_for(to, opts)
+
+    # Drop the current default first - PostgreSQL refuses to auto-cast a default
+    # whose literal type doesn't match the new column type (e.g. boolean false
+    # to integer). alter_default re-applies the new default afterwards.
+    run_sql "ALTER TABLE #{@table_name} ALTER COLUMN #{field} DROP DEFAULT" if current[:default]
+
     sql = "ALTER TABLE #{@table_name} ALTER COLUMN #{field} TYPE #{target}"
     sql += " USING #{conv[:using] % field}" if conv[:using]
     run_sql sql

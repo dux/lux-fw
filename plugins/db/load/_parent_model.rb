@@ -1,6 +1,6 @@
 # Polymorphic parent support:
 # * parent_key (single string "Class/ref" format)
-# * parent_model + parent_ref (two columns)
+# * parent_type + parent_ref (two columns)
 #
 # @object.parent -> get parent
 # @object.parent= model -> set parent
@@ -12,17 +12,31 @@ module Sequel::Plugins::ParentModel
       if model.db_schema[:parent_key]
         where(parent_key: object.key)
       else
-        where(parent_model: object.class.to_s, parent_ref: object.ref)
+        where(parent_type: object.class.to_s, parent_ref: object.ref)
       end
     end
   end
 
   module InstanceMethods
     def parent= model
+      # Accept a pre-formatted "Class/ref" string (assigns key directly without
+      # loading the parent), or a model instance (extracts class + ref).
+      if model.is_a?(String)
+        if db_schema[:parent_key]
+          self[:parent_key] = model
+        else
+          klass, ref = model.split('/', 2)
+          self[:parent_type] = klass
+          self[:parent_ref] = ref
+        end
+        @parent = nil
+        return model
+      end
+
       if db_schema[:parent_key]
         self[:parent_key] = '%s/%s' % [model.class, model.ref]
       else
-        self[:parent_model] = model.class.to_s
+        self[:parent_type] = model.class.to_s
         self[:parent_ref] = model.ref
       end
       @parent = model
@@ -37,7 +51,7 @@ module Sequel::Plugins::ParentModel
         if key = self[:parent_key]
           key = key.split('/')
           key[0].constantize.find(key[1])
-        elsif type = self[:parent_model]
+        elsif type = self[:parent_type]
           type.constantize.find(self[:parent_ref])
         else
           raise ArgumentError, '%s parent not set.' % self.class
@@ -46,7 +60,7 @@ module Sequel::Plugins::ParentModel
     end
 
     def parent?
-      !!(db_schema[:parent_key] || db_schema[:parent_model])
+      !!(db_schema[:parent_key] || db_schema[:parent_type])
     end
   end
 
@@ -55,7 +69,7 @@ module Sequel::Plugins::ParentModel
       if db_schema[:parent_key]
         where(parent_key: object.key)
       else
-        where(parent_model: object.class.to_s, parent_ref: object.ref)
+        where(parent_type: object.class.to_s, parent_ref: object.ref)
       end
     end
   end

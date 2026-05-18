@@ -1,95 +1,134 @@
 ## Lux.app (Lux::Application)
 
-Main application controller and router
+Main application controller and router.
 
 * catches errors and dispatches to the active controller's `:error` action — every controller inherits a default one from `Lux::Controller`; override on any controller (e.g. `MainController#error`, `Api::BaseController#error`) for custom rendering
-* calls `before`, `routes` and `after` class filters on every request
+* calls `before`, `routes`, and `after` class filters on every request
+* `map`, `root`, `match`, `subdomain`, `mount`, `favicon`, `plugin_route`, and the HTTP-method predicates work at the top level of `Lux.app do ... end` — no `routes do` wrapper required. `routes do ... end` is still supported when a single block is needed for runtime conditionals.
 
 ```ruby
 Lux.app do
 
   def api_router
-    error :forbiden, 'Only POST requests are allowed' if Lux.env.prod? && !post?
+    Lux.error.forbidden 'Only POST requests are allowed' if Lux.env.prod? && !post?
     Lux::Api.call nav.path
   end
 
   before do
     check_subdomain
+    nav.path(:ref) { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
   end
 
-  after do
-    error 404
+  rescue_from do |err|
+    call '%s#error' % [user ? :main : :promo]
   end
 
   ###
 
-  routes do
-    # we show on root method, that target can be multiple object types, 5 variants
-    # this target is valid target for any of the follwing methods: get, post, map, call, root
-    root [RootController, :index] # calls RootController#index
-    root 'root#index'             # calls RootController#index
-    root 'root'                   # calls RootController#call
+  root 'main'                          # / -> MainController#root
+  map about: 'static#about' if get?    # /about (GET only)
 
-    root 'main/root'
+  post? do                             # POST-only block
+    map api: :api_router
+  end
 
-    # simple route, only for GET
-    map about: 'static#about' if get?
+  map '/foo/:bar/baz' => 'main#foo'    # absolute path match, :bar captured
 
-    # execute blok if request_type is POST
-    post? do
-      map api: :api_router
+  map 'boards'                         # /boards -> BoardsController, resourceful
+  map 'users'                          # /users  -> UsersController, resourceful
+
+  map 'admin' do                       # scope at /admin
+    map 'users', 'admin/users'         # /admin/users -> Admin::UsersController
+    map 'reports#monthly'              # /admin/reports -> Admin::Reports#monthly
+  end
+end
+```
+
+#### map vs call
+
+`map` always checks whether the route matches before dispatching. `call`
+dispatches unconditionally (used inside `rescue_from` blocks).
+
+* `map 'foo'`              - match /foo, resourceful dispatch to FooController
+* `map 'foo#bar'`          - match /foo, explicit dispatch to FooController#bar
+* `map 'a', 'foo'`         - match /a, resourceful dispatch to FooController
+* `map a: 'foo'`           - same as above (hash form)
+* `map a: :foo`            - same as above (symbol target)
+* `map 'foo' do ... end`   - match /foo, enter scope (block runs at request time)
+* `map '/abs/:var' => 'foo#bar'` - absolute path match with capture
+* `map [:foo, :bar] => 'root'`   - match either
+* `call 'foo'`             - unconditional resourceful dispatch
+* `call 'foo#bar'`         - unconditional explicit dispatch
+* `call [Foo, :bar]`       - unconditional dispatch via class+symbol
+* `call -> { [200, {}, ['OK']] }` - return Rack tuple directly
+
+#### Resourceful action resolution
+
+After `nav.path(:ref) { ... }` canonicalizes ID segments to `:ref`:
+
+| URL                         | action      | nav.id |
+|-----------------------------|-------------|--------|
+| `/boards`                   | `:root`     | nil    |
+| `/boards/edit`              | `:edit`     | nil    |
+| `/boards/new`               | `:new`      | nil    |
+| `/boards/123`               | `:show_ref` | "123"  |
+| `/boards/123/edit`          | `:edit_ref` | "123"  |
+| `/boards/users/123/edit`    | `:edit_ref` | "123"  |
+| `/boards/foo/bar`           | `:foo`      | nil    |
+| `/boards/123/foo/bar`       | `:foo_ref`  | "123"  |
+
+Rules: empty remaining → `:root`. Only `:ref` → `:show_ref`. 2+ segments → first
+non-`:ref` after position 0. Any `:ref` in the remaining path → append `_ref`.
+
+Controllers declare ref-bearing actions in a `ref do ... end` block — each
+`def NAME` inside becomes `NAME_ref`. Template lookup strips `_ref`, so
+`show.haml` is shared between `:show` and `:show_ref`.
+
+```ruby
+class BoardsController < Lux::Controller
+  def root          # /boards
+    @boards = Board.all
+  end
+
+  def archive       # /boards/archive
+  end
+
+  ref do
+    def show        # /boards/123          -> :show_ref
+      @board = Board.find(nav.id)
     end
 
-    # map "/foo/dux/baz" route to MainController#foo with params[:bar] == 'dux'
-    map '/foo/:bar/baz'  => 'main#foo'
-
-    # if we match '/city' namespace
-    map 'city' do
-      # call MainController#city if request.method == 'GET'
-      map 'main#city'
-    end
-
-    # if we match '/foo' route
-    map 'foo' do
-      # call MainController#foo with params[:bar] == '...'
-      map '/baz/:bar' => 'main#foo'
+    def edit        # /boards/123/edit     -> :edit_ref
+      @board = Board.find(nav.id)
     end
   end
 end
 ```
 
-#### Instance methods
+#### Route cursor: `lux.route`
 
-* routes requests to controllers via `map`, `root` and `call` methods
-* taget can be 3 object variants, look at the `call` example
-* `map` maps requests to controller actions
-  * `map about: 'main#about'` -> map '/about' to `MainControler#about`
-  * `map about: 'main#about' if get?` -> only for GET requests
-* `root` will call only for root
-  * `root 'main#index'` -> call `MainController#index` for root path
-* `call` calls specific controller action inside call - stops routing parsing
-  * `call 'main/links#index'` - call `Main::LinksController#index`
-  * `call [Main::LinksController, :index]` - call `Main::LinksController#index`
-  * `call -> { [200, {}, ['OK']]}` - return HTTP 200 - OK
+`nav.path` is the canonical request path. The router maintains its own offset
+cursor on `lux.route` (also `current.route`) so routing doesn't mutate nav.
+
+* `lux.route.path`     - remaining path after consumed segments
+* `lux.route.root`     - first remaining segment
+* `lux.route.child`    - second remaining segment
+* `lux.route.consumed` - segments before the cursor
+* `lux.route.with_scope(n) { ... }` - internal: push offset for the block
+
+Inside `map 'admin' do ... end`, `lux.route.path` is the slice after `admin`
+was consumed; `nav.path` is still the full `['admin', ...]`.
 
 #### Class filters
 
-There are a few route filtes
 * `config`      # pre boot app config
 * `boot`        # after rack app boot (web only)
 * `before`      # before any page load
-* `routes`      # routes resolve
+* `routes`      # legacy single-block routes callback (top-level DSL is preferred)
 * `after`       # after any page load
 
-Errors anywhere in the routing/action pipeline are caught by `Application#render_error` and dispatched to the active controller's `:error` action. The action receives `@error` (the exception) and `@status` (resolved HTTP status code) as instance variables. Override `error` on any controller (or on a base class like `Api::BaseController`) to customise.
-
-
-#### Router example
-
-For Lux routing you need to know only few things
-
-* `get?`, `post?`, `delete?`, ... will be true of false based HTTP_REQUEST type
-  * `get? { @exec_if_true }` works as well
-* `map"`method accepts block that wraps map calls.
-  * `map :city do ...` or `map 'city' do ...` will check if we are under `/city/*` nav namespace
-
+Errors anywhere in the routing/action pipeline are caught by
+`Application#render_error` and dispatched to the active controller's `:error`
+action. The action receives `@error` (the exception) and `@status` (resolved
+HTTP status code) as instance variables. Override `error` on any controller
+(or on a base class like `Api::BaseController`) to customise.

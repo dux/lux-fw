@@ -40,6 +40,12 @@ module Lux
       ENV['LUX_ENV'] ||= ''
       ENV['TZ'] ||= 'UTC'
 
+      # LUX_LOG=true|false forces log? on/off, overriding the 'l' flag in LUX_ENV
+      case ENV['LUX_LOG']
+        when 'true'  then ENV['LUX_ENV'] += 'l' unless ENV['LUX_ENV'].include?('l')
+        when 'false' then ENV['LUX_ENV'] = ENV['LUX_ENV'].delete('l')
+      end
+
       # Delay
       Lux.config.delay_timeout = Lux.env.dev? ? 3600 : 30
 

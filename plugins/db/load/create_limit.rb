@@ -39,7 +39,7 @@ module Sequel::Plugins::LuxCreateLimit
 
       if data = cattr.create_limit_data
         unless ::User.try(:current)
-          raise Lux::Error.unauthorized('You need to log in to save')
+          Lux.error.unauthorized('You need to log in to save')
         end
 
         max_count, sec_or_field, name = *data

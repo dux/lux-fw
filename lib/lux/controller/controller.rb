@@ -63,6 +63,55 @@ module Lux
         define_method(:error) { instance_exec(@error, &block) }
       end
 
+      # Groups action definitions that handle ID-bearing URLs. Every `def NAME`
+      # inside the block is renamed to `NAME_ref` after the block runs, matching
+      # the routing rule that paths containing `:ref` resolve to `<action>_ref`.
+      #
+      #   class UsersController < Lux::Controller
+      #     def edit       # /users/edit   -> :edit
+      #     end
+      #
+      #     ref do
+      #       def edit     # /users/123/edit -> :edit_ref
+      #         @user = User.find(nav.id)
+      #       end
+      #
+      #       def show     # /users/123 -> :show_ref
+      #       end
+      #     end
+      #   end
+      #
+      # Snapshot-diff approach: capture instance_methods before/after `class_eval`
+      # and rename whatever the block introduced. Public + private both captured.
+      # If the block REDEFINES an existing method (e.g. `def foo` exists outside
+      # and `def foo` also inside `ref do`), the inner impl becomes `foo_ref`
+      # and the outer impl is restored as `foo`.
+      def ref &block
+        before = {}
+        (instance_methods(false) + private_instance_methods(false)).each do |n|
+          before[n] = instance_method(n)
+        end
+
+        class_eval(&block)
+
+        (instance_methods(false) + private_instance_methods(false)).each do |n|
+          next if n.to_s.end_with?('_ref')
+          after_impl  = instance_method(n)
+          before_impl = before[n]
+
+          if before_impl.nil?
+            # newly defined inside the block - rename to _ref
+            remove_method(n)
+            define_method(:"#{n}_ref", after_impl)
+          elsif before_impl != after_impl
+            # redefined - inner impl is the _ref version, restore outer
+            remove_method(n)
+            define_method(n, before_impl)
+            define_method(:"#{n}_ref", after_impl)
+          end
+        end
+      end
+
       # Self-contained HTML error page (no template lookup). Used by the default
       # Lux::Controller#error action; can be called directly from a custom :error
       # to wrap the framework chrome around your own content.
@@ -259,7 +308,11 @@ module Lux
       helper_name = opt.layout || @lux.layout || cattr.layout
       local_helper = self.helper helper_name
 
-      template = (opt.template || @lux.action).to_s.sub(/^\//, '')
+      # Default template name derives from the action. Strip the `_ref` suffix
+      # that ref-bearing resourceful actions carry (`def show` inside `ref do`
+      # is registered as `:show_ref`), so `show.haml` is shared between `:show`
+      # and `:show_ref`. Explicit `render template: 'show_ref'` overrides.
+      template = (opt.template || @lux.action.to_s.sub(/_ref$/, '')).to_s.sub(/^\//, '')
       page_template = if template.include?('/')
         [cattr.template_root, template].join('/')
       else

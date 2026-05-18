@@ -76,23 +76,33 @@ Router and request lifecycle:
 
 ### Lux::Application::Nav (`lib/lux/application/lib/nav.rb`)
 
-URL navigation helper accessible via `current.nav`:
+Canonical request-path object, accessible via `current.nav`. Nav is the *canonical app path* - routing inspects it but does not mutate it. Router-local cursor state lives on `lux.route`; raw URL state is on `request.path`.
+
 * `nav.root` / `nav.root=` - First path segment
 * `nav.child` - Second path segment
-* `nav.path` / `nav.path=` - Path array or pattern matching (also accepts block)
-* `nav.id` / `nav.id=` - Last matched ID
+* `nav.path` / `nav.path=` - Path array; `nav.path(:ref) { |seg| ... }` rewrites ID-like segments to `:ref` symbol and records IDs in `nav.id` / `nav.ids`
+* `nav.id` / `nav.id=` - First parsed ID
 * `nav.ids` - Array of all parsed IDs
-* `nav[index]` - Access original path segment by index
-* `nav.format` - Request format (html, json, etc.)
+* `nav[index]` - Access canonical path segment by index (reflects `:ref` rewrites)
+* `nav.last` - Last path segment
+* `nav.format` - Request format (html, json, etc.) - stripped from path during init
+* `nav.locale` / `nav.locale=` - Locale extraction; consumes the locale segment when matched (canonicalization)
 * `nav.domain` / `nav.subdomain` - Domain parts. `nav.subdomain` is auto-derived from `request.host` (TLD-aware, handles two-part TLDs like `co.uk`) and returns `''` for bare domains, `nil` for IP hosts. Prefer this over manually parsing `request.host`.
 * `nav.base` - Base URL (scheme + host + port)
-* `nav.shift` / `nav.unshift` - Path manipulation
-* `nav.last` - Last path segment
-* `nav.locale` / `nav.locale=` - Locale from path
 * `nav.url(*args)` - URL object
 * `nav.remove_www` - Redirect www to non-www
 * `nav.rename_domain(from, to)` - Domain redirect
-* `nav.pathname(ends:, has:)` - Path testing
+* `nav.pathname(ends:, has:)` - Path testing against canonical path
+
+### Lux::Application::Route (`lib/lux/application/lib/route.rb`)
+
+Per-request router cursor over `nav.path`, accessible via `current.route` / `lux.route`. Does not mutate nav.
+
+* `route.path` - Remaining path slice after consumed offset
+* `route.root` - First remaining segment
+* `route.child` - Second remaining segment
+* `route.consumed` - Segments before the cursor
+* `route.with_scope(n) { ... }` - Push offset by `n` for the block (router internal; `map` uses this)
 
 ### Lux::Controller (`lib/lux/controller/controller.rb`)
 
@@ -359,27 +369,86 @@ Environment detection via `Lux.env`. Three valid environments: `development`, `p
 
 ## Routing patterns
 
+`map 'X'` matches a path segment and dispatches resourcefully to `XController`.
+No `resources`/`resource` keyword - `map` handles both collection and member URLs
+via the `:ref` canonicalization. Top-level DSL works without a `routes do` wrapper
+(though `routes do ... end` is still supported for runtime conditionals).
+
 ```ruby
 Lux.app do
-  before { }
-
-  routes do
-    root 'main#index'
-    map about: 'main#about' if get?
-
-    map 'admin' do
-      root 'admin/dashboard#index'
-      map users: 'admin/users'
-    end
-
-    map '/users/:id' => 'users#show'
-
-    mount ApiApp => '/api'
+  before do
+    # canonicalize ID-like segments to :ref before routing
+    nav.path(:ref) { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
   end
+
+  root 'main'                         # / -> MainController#root
+  map about: 'main#about' if get?     # if-at-class-eval is fine for constants
+
+  map 'admin' do
+    root 'admin/dashboard'            # /admin -> Admin::DashboardController#root
+    map users: 'admin/users'          # /admin/users -> Admin::UsersController, resourceful
+  end
+
+  map 'boards'                        # resourceful (see action table below)
+  map 'profile'                       # /profile -> ProfileController#root
+  map '/users/:id' => 'users#show'    # absolute-path match
+  mount ApiApp => '/api'
 
   after { }
 end
 ```
+
+### Resourceful action resolution
+
+After `nav.path(:ref) { ... }` canonicalizes ID segments to `:ref`:
+
+| URL                          | action      | nav.id |
+|------------------------------|-------------|--------|
+| `/boards`                    | `:root`     | nil    |
+| `/boards/edit`               | `:edit`     | nil    |
+| `/boards/new`                | `:new`      | nil    |
+| `/boards/123`                | `:show_ref` | "123"  |
+| `/boards/123/edit`           | `:edit_ref` | "123"  |
+| `/boards/users/123/edit`     | `:edit_ref` | "123"  |
+| `/boards/foo/bar`            | `:foo`      | nil    |
+| `/boards/123/foo/bar`        | `:foo_ref`  | "123"  |
+
+Rules: empty remaining → `:root`. Single `:ref` → `:show_ref`. 2+ segments → first
+non-`:ref` after position 0. If any `:ref` is in the path, append `_ref` suffix.
+
+### `ref do` controller DSL
+
+Methods defined inside `ref do ... end` get renamed to `<name>_ref` so they
+serve the ref-bearing routes. If a method of the same name exists outside the
+block, both coexist (collection vs member). Template lookup strips `_ref` so
+both share `show.haml`/`edit.haml`/etc.
+
+```ruby
+class BoardsController < Lux::Controller
+  def root        # /boards
+    @boards = Board.all
+  end
+
+  def archive     # /boards/archive
+  end
+
+  ref do
+    def show      # /boards/123    -> :show_ref, renders show.haml
+      @board = Board.find(nav.id)
+    end
+
+    def edit      # /boards/123/edit -> :edit_ref, renders edit.haml
+      @board = Board.find(nav.id)
+    end
+  end
+end
+```
+
+### `map` vs `call`
+
+* `map 'foo'`, `map 'A', 'foo'`, `map A: 'foo'`, `map 'A' do ... end` — match-and-dispatch (route_match required)
+* `map '/abs/:var' => 'foo#bar'` — absolute path match
+* `call 'foo'` / `call 'foo#bar'` — unconditional dispatch (used inside `rescue_from`)
 
 For custom error handling, override `error` on the relevant controller:
 ```ruby
@@ -395,12 +464,29 @@ end
 ```ruby
 class UsersController < ApplicationController
   layout :application
-  before { @user = User.current }
-  mock :show, :edit
+  before { @user = User.current if nav.id }
+  mock :new
 
-  def index
+  # /users - no further segment -> :root
+  def root
     @users = User.all
-    # Renders ./app/views/users/index.haml
+    # Renders ./app/views/users/root.haml
+  end
+
+  def archive
+    # /users/archive -> :archive
+  end
+
+  # ID-bearing routes: each def NAME inside ref do becomes NAME_ref.
+  # Template lookup strips _ref so /users/123 still renders show.haml.
+  ref do
+    def show    # /users/123        -> :show_ref
+      @user = User.find(nav.id)
+    end
+
+    def edit    # /users/123/edit   -> :edit_ref
+      @user = User.find(nav.id)
+    end
   end
 end
 ```

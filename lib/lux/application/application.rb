@@ -13,6 +13,62 @@ module Lux
     define_callback :routes       # routes resolve
     define_callback :after        # after any page load
 
+    # Class-level wrappers for the routing DSL. Make `Lux.app do ... end` accept
+    # `map`, `root`, `match`, `subdomain`, etc. at the top level without needing
+    # a `routes do ... end` wrapper.
+    #
+    # Implementation: each call writes a proc directly into the routes-callback
+    # ivar (`@class_callbacks_routes`) keyed by the user's call site, so calls
+    # interleave correctly with explicit `routes do ... end` blocks in source
+    # order. We bypass the public `routes` method because class-callbacks keys
+    # by `caller[0]`, which would collapse to the same key for every call from
+    # inside our wrapper.
+    ROUTING_DSL ||= %i[map root match subdomain plugin_route mount favicon
+                       get? head? post? delete? put? patch?]
+
+    ROUTING_DSL.each do |name|
+      define_singleton_method(name) do |*args, **kw, &block|
+        @class_callbacks_routes ||= {}
+        user_caller = caller[0]
+        @class_callbacks_routes[user_caller] = proc do
+          # Ruby 3 kwargs: `map admin: :admin` arrives as kw; pass it as a
+          # positional Hash so instance `map` sees `route_object = {...}`.
+          if kw.any?
+            send(name, kw, &block)
+          else
+            send(name, *args, &block)
+          end
+        end
+      end
+    end
+
+    # Catch-all for arbitrary instance-method calls at the top level of
+    # `Lux.app do ... end`. Apps often define helper methods (`def general_rules`)
+    # and call them inside `routes do ... end`. With `routes do` removed, those
+    # calls happen at class-eval time — too early. Capture them here and replay
+    # at request time so `general_rules; set_nav_id; map 'api'; ...` all work
+    # as top-level statements without a `routes` wrapper.
+    def self.method_missing(name, *args, **kw, &block)
+      # Skip Ruby/Object internals so things like `inspect`, `class`, etc. work
+      # normally during class definition.
+      return super if name.to_s.start_with?('_')
+      return super if Object.private_method_defined?(name) || Object.method_defined?(name)
+
+      @class_callbacks_routes ||= {}
+      user_caller = caller[0]
+      @class_callbacks_routes[user_caller] = proc do
+        if kw.any?
+          send(name, *args, kw, &block)
+        else
+          send(name, *args, &block)
+        end
+      end
+    end
+
+    def self.respond_to_missing?(name, include_private = false)
+      true
+    end
+
     def initialize env, opts={}
       Lux::Current.new env, opts
     end

@@ -1804,7 +1804,7 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
     let(:table_name) { :am_type_test }
 
     before(:all) do
-      load File.expand_path('../../plugins/db/auto_migrate/auto_migrate.rb', __dir__)
+      load File.expand_path('../../plugins/db/load/auto_migrate.rb', __dir__)
       AutoMigrate.auto_confirm = true
     end
 

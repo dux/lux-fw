@@ -2,15 +2,13 @@ module Lux
   class Application
     class Nav
       attr_accessor :format
-      attr_reader :original, :domain, :subdomain, :ids
+      attr_reader :domain, :subdomain, :ids
 
       # acepts path as a string
       def initialize request
         @path        = request.path.split('/').slice(1, 100) || []
-        @original    = @path.dup
         @request     = request
         @ids         = []
-        @shifted     = []
 
         set_variables
         set_domain request
@@ -28,24 +26,6 @@ module Lux
       def child
         @path[1]
       end
-
-      def shift
-        @path.shift.tap do |value|
-          @shifted.push value
-        end
-      end
-
-      # used to make admin.lvm.me/users to lvh.me/admin/users
-      def unshift name = nil
-        if name
-          @path.unshift name
-          @path = @path.flatten
-          name
-        else
-          @path.unshift @shifted.pop
-        end
-      end
-
 
       def last
         @path.last
@@ -148,13 +128,13 @@ module Lux
       end
 
       def [] index
-        @original[index]
+        @path[index]
       end
 
-      # path without colon-params, or test path inclusion
-      # Based on @original (immutable), no memoization needed.
+      # Canonical path string, or test path inclusion.
+      # Reads from @path so :ref symbols and format/locale stripping are reflected.
       def pathname ends: nil, has: nil
-        pn = '/' + original.reject { _1.include?(':') }.join('/')
+        pn = '/' + @path.map(&:to_s).join('/')
         return pn.include?("/#{has}") if has
         return pn.end_with?("/#{ends}") if ends
         pn

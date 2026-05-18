@@ -8,7 +8,7 @@ module Lux
     attr_accessor :can_clear_cache
 
     attr_accessor :session, :locale, :error
-    attr_reader   :request, :response, :nav, :var, :env, :params
+    attr_reader   :request, :response, :nav, :route, :var, :env, :params
 
     def initialize env = nil, opts = {}
       @env     = env || '/mock'
@@ -39,6 +39,7 @@ module Lux
       @response     = Lux::Response.new
       @session      = Lux::Current::Session.new @request
       @nav          = Lux::Application::Nav.new @request
+      @route        = Lux::Application::Route.new @nav
       @var          = { cache: {} }.to_hwia
 
       @opt.session.or({}).each {|k,v| @session[k] = v }

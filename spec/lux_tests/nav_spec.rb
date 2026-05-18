@@ -32,29 +32,6 @@ describe Lux::Application::Nav do
     end
   end
 
-  describe '#shift / #unshift' do
-    it 'shifts the first path element' do
-      nav = nav_for('/users/profile')
-      shifted = nav.shift
-      expect(shifted).to eq('users')
-      expect(nav.root).to eq('profile')
-    end
-
-    it 'unshifts a previously shifted element' do
-      nav = nav_for('/users/profile')
-      nav.shift
-      nav.unshift
-      expect(nav.root).to eq('users')
-    end
-
-    it 'unshifts a custom value' do
-      nav = nav_for('/users')
-      nav.unshift('admin')
-      expect(nav.root).to eq('admin')
-      expect(nav.child).to eq('users')
-    end
-  end
-
   describe '#path' do
     it 'returns the path array' do
       nav = nav_for('/a/b/c')
@@ -122,14 +99,6 @@ describe Lux::Application::Nav do
     end
   end
 
-  describe '#original' do
-    it 'preserves original path segments' do
-      nav = nav_for('/a/b/c')
-      nav.shift
-      expect(nav.original).to eq(%w[a b c])
-    end
-  end
-
   describe '#pathname' do
     it 'returns clean path string' do
       nav = nav_for('/users/profile')
@@ -150,11 +119,17 @@ describe Lux::Application::Nav do
   end
 
   describe '#[]' do
-    it 'accesses original path by index' do
+    it 'accesses canonical path by index' do
       nav = nav_for('/a/b/c')
       expect(nav[0]).to eq('a')
       expect(nav[1]).to eq('b')
       expect(nav[2]).to eq('c')
+    end
+
+    it 'reflects :ref rewrites from nav.path(:ref)' do
+      nav = nav_for('/boards/abc-123/edit')
+      nav.path(:ref) { |el| el.include?('-') ? el.split('-').last : nil }
+      expect(nav[1]).to eq(:ref)
     end
   end
 

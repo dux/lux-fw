@@ -215,17 +215,51 @@ Main application controller and router
 
 #### Instance methods
 
-* routes requests to controllers via `map`, `root` and `call` methods
-* taget can be 3 object variants, look at the `call` example
-* `map` maps requests to controller actions
-  * `map about: 'main#about'` -> map '/about' to `MainControler#about`
-  * `map about: 'main#about' if get?` -> only for GET requests
-* `root` will call only for root
-  * `root 'main#index'` -> call `MainController#index` for root path
-* `call` calls specific controller action inside call - stops routing parsing
-  * `call 'main/links#index'` - call `Main::LinksController#index`
-  * `call [Main::LinksController, :index]` - call `Main::LinksController#index`
-  * `call -> { [200, {}, ['OK']]}` - return HTTP 200 - OK
+Top-level DSL inside `Lux.app do ... end` — no `routes do` wrapper required.
+`map`, `root`, `match`, `subdomain`, `mount`, `favicon`, `plugin_route`, and the
+HTTP method predicates (`get?`, `post?`, etc.) all register routes callbacks
+automatically. `routes do ... end` is still supported when you need a single
+block for runtime conditionals (`if user`, `unless get?`, ...).
+
+* `map 'foo'` - match `/foo`, dispatch resourcefully to `FooController` (see action table below)
+* `map 'foo#bar'` - match `/foo`, explicit dispatch to `FooController#bar`
+* `map 'a', 'foo'` / `map a: 'foo'` / `map a: :foo` - all equivalent: match `/a`, resourceful dispatch to `FooController`
+* `map 'foo' do ... end` - match `/foo`, enter scope, run block (instance-exec'd at request time so inner `map` works)
+* `map '/abs/:var' => 'main#foo'` - absolute path match with `:var` captured into params
+* `map [:foo, :bar] => 'root'` - match either, dispatch to RootController
+* `root 'main'` - matches when there's no further path segment
+* `call 'foo'` / `call 'foo#bar'` - unconditional dispatch (used inside `rescue_from` blocks)
+
+#### Resourceful action resolution
+
+`map 'foo'` and friends pick an action from what's left in the route cursor
+after consuming the matched segment. Combine with `nav.path(:ref) { ... }` in a
+`before` filter to canonicalize ID segments to the `:ref` symbol:
+
+```ruby
+before do
+  nav.path(:ref) { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
+end
+```
+
+| URL                         | action      | nav.id |
+|-----------------------------|-------------|--------|
+| `/boards`                   | `:root`     | nil    |
+| `/boards/edit`              | `:edit`     | nil    |
+| `/boards/new`               | `:new`      | nil    |
+| `/boards/123`               | `:show_ref` | "123"  |
+| `/boards/123/edit`          | `:edit_ref` | "123"  |
+| `/boards/users/123/edit`    | `:edit_ref` | "123"  |
+| `/boards/foo/bar`           | `:foo`      | nil    |
+| `/boards/123/foo/bar`       | `:foo_ref`  | "123"  |
+
+Rule summary: empty remaining → `:root`. Only `:ref` → `:show_ref`. 2+ segments
+→ first non-`:ref` after position 0. If any `:ref` is in the remaining path, the
+resolved action gets a `_ref` suffix.
+
+The controller declares ref-bearing actions inside a `ref do ... end` block
+(see [Controller](#controller) section). Template lookup strips `_ref` so
+`show.haml` is shared between `:show` and `:show_ref`.
 
 #### Class filters
 
@@ -233,7 +267,7 @@ There are a few route filters
 * `config`      # pre boot app config
 * `boot`        # after rack app boot (web only)
 * `before`      # before any page load
-* `routes`      # routes resolve
+* `routes`      # routes resolve (legacy block form; top-level DSL is preferred)
 * `after`       # after any page load
 
 Errors raised anywhere in the routing/action pipeline are caught by `Application#render_error`, which dispatches the `:error` action to whichever controller was active. Every controller inherits a default `error` from `Lux::Controller`; override on any controller (e.g. `MainController#error`, `Api::BaseController#error`) for custom rendering.
@@ -241,65 +275,51 @@ Errors raised anywhere in the routing/action pipeline are caught by `Application
 
 #### Router example
 
-For Lux routing you need to know only few things
-
-* `get?`, `post?`, `delete?`, ... will be true of false based HTTP_REQUEST type
-  * `get? { @exec_if_true }` works as well
-* `map` method accepts block that wraps map calls.
-  * `map :city do ...` or `map 'city' do ...` will check if we are under `/city/*` nav namespace
-
 ```ruby
 Lux.app do
 
   def api_router
-    error :forbiden, 'Only POST requests are allowed' if Lux.env.prod? && !post?
+    Lux.error.forbidden 'Only POST requests are allowed' if Lux.env.prod? && !post?
     Lux::Api.call nav.path
   end
 
   before do
     check_subdomain
+    nav.path(:ref) { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
   end
 
-  after do
-    error 404
+  rescue_from do |err|
+    call '%s#error' % [user ? :main : :promo]
   end
 
   ###
 
-  routes do
-    # we show on root method, that target can be multiple object types, 5 variants
-    # this target is valid target for any of the follwing methods: get, post, map, call, root
-    root [RootController, :index] # calls RootController#index
-    root 'root#index'             # calls RootController#index
-    root 'root'                   # calls RootController#call
+  root 'main'                                 # / -> MainController#root
+  map about: 'static#about' if get?           # /about -> Static#about (GET only)
+  post? { map api: :api_router }              # /api -> :api_router method (POST)
+  map '/foo/:bar/baz' => 'main#foo'           # absolute path with capture
 
-    root 'main/root'
+  map 'boards'                                # resourceful BoardsController
+  map 'users'                                 # resourceful UsersController
 
-    # simple route, only for GET
-    map about: 'static#about' if get?
-
-    # execute blok if request_type is POST
-    post? do
-      map api: :api_router
-    end
-
-    # map "/foo/dux/baz" route to MainController#foo with params[:bar] == 'dux'
-    map '/foo/:bar/baz'  => 'main#foo'
-
-    # if we match '/city' namespace
-    map 'city' do
-      # call MainController#city if request.method == 'GET'
-      map 'main#city'
-    end
-
-    # if we match '/foo' route
-    map 'foo' do
-      # call MainController#foo with params[:bar] == '...'
-      map '/baz/:bar' => 'main#foo'
-    end
+  map 'admin' do                              # scope at /admin
+    map 'users', 'admin/users'                # /admin/users -> Admin::UsersController
+    map 'reports#monthly'                     # /admin/reports -> Admin::Reports#monthly
   end
 end
 ```
+
+#### Controller cursor: `lux.route`
+
+`nav.path` is the canonical request path. The router maintains its own cursor
+on `lux.route` (also accessible as `current.route`) so routing doesn't mutate
+nav. Inside a `map 'admin' do ... end` block, `lux.route.path` is the slice
+after `admin` was consumed; `nav.path` is still the full request path.
+
+* `lux.route.path`     - remaining path after consumed segments
+* `lux.route.root`     - first remaining segment
+* `lux.route.child`    - second remaining segment
+* `lux.route.consumed` - segments before the cursor
 
 
 #### Config for application
@@ -390,7 +410,7 @@ class RootController < ApplicationController
   # action to perform before
 
   before_action do |action_name|
-    next if action_name == :index
+    next if action_name == :root
     # ...
   end
 
@@ -398,9 +418,10 @@ class RootController < ApplicationController
 
   ###
 
-  mock :show # mock `show` action
+  mock :new # mock `new` action
 
-  def index
+  # /<controller> with no further segment -> :root
+  def root
     render text: 'Hello world'
   end
 
@@ -414,6 +435,19 @@ class RootController < ApplicationController
 
   def bar
     render json: { data: 'Bar text' }
+  end
+
+  # Ref-bearing actions (URLs with an ID segment) live inside `ref do`.
+  # Each `def NAME` is registered as `NAME_ref`. Template lookup strips
+  # the `_ref` suffix so /show maps to show.haml just like the non-ref :show.
+  ref do
+    def show       # /root/abc-123        -> :show_ref, nav.id = "123"
+      @item = Item.find(nav.id)
+    end
+
+    def edit       # /root/abc-123/edit   -> :edit_ref
+      @item = Item.find(nav.id)
+    end
   end
 
   def transfer
@@ -536,20 +570,22 @@ current.no_cache?              # true if env['HTTP_CACHE_CONTROL'] == 'no-cache'
 <a name="nav"></a>
 ## Lux.current.nav (Lux::Application::Nav)
 
-URL navigation helper, accessible as `nav` inside routes/controllers or `current.nav` anywhere.
+`nav` is the **canonical request path** object, accessible as `nav` inside
+routes/controllers or `current.nav` anywhere. Routing inspects `nav` but does
+not consume it — for the router cursor see `lux.route` above.
 
-Built on top of `request.path` and `request.host`, it parses path segments, format, and the host into domain/subdomain parts. The subdomain is TLD-aware (handles two-part TLDs like `co.uk`, `com.au`).
+Built on top of `request.path` and `request.host`, it parses path segments,
+format, and the host into domain/subdomain parts. The subdomain is TLD-aware
+(handles two-part TLDs like `co.uk`, `com.au`).
 
 ```ruby
 # path segments
 nav.root          # first path segment
 nav.child         # second path segment
-nav.path          # path array (mutable)
+nav.path          # canonical path array
 nav.path = []     # set path
-nav[0]            # immutable original path segment by index
+nav[0]            # canonical path segment by index (reflects :ref rewrites)
 nav.last          # last path segment
-nav.shift         # pop first segment
-nav.unshift :foo  # prepend segment (or restore last shift)
 nav.to_s          # joined path
 
 # host parts (derived from request.host)
@@ -557,14 +593,14 @@ nav.domain        # "authcog.com" for app.authcog.com
 nav.subdomain     # "app" for app.authcog.com, "" for bare domain, nil for IP host
 nav.base          # scheme + host + port, e.g. "http://app.lvh.me:3000"
 
-# format / locale
+# format / locale (canonicalization - both consume their segment from nav.path)
 nav.format        # :html, :json, ... (parsed from .ext suffix)
 nav.locale { |seg| seg.length == 2 ? seg : nil } # consume locale path segment
 
 # url helpers
 nav.url           # Url.current
 nav.url(foo: 1)   # current URL with ?foo=1 merged
-nav.pathname               # "/users/profile" (excludes :param segments)
+nav.pathname               # "/users/profile" from canonical nav.path
 nav.pathname(has: 'edit')  # true if path contains "/edit"
 nav.pathname(ends: 'edit') # true if path ends with "/edit"
 
@@ -580,17 +616,19 @@ nav.id   # first captured id
 nav.ids  # all captured ids
 ```
 
+`nav.shift` / `nav.unshift` / `nav.original` were removed when the router stopped
+mutating `nav.path`. If you need a router-local cursor use `lux.route.*`; if you
+need the raw request URL use `request.path`.
+
 Subdomain-based routing example:
 
 ```ruby
 Lux.app do
-  routes do
-    case nav.subdomain
-    when nil, ''   then call 'promo#auto_render'
-    when 'app'     then call 'main#call'
-    when 'admin'   then call 'admin#call'
-    else                forbid!('Unknown subdomain')
-    end
+  case nav.subdomain
+  when nil, ''   then call 'promo#auto_render'
+  when 'app'     then call 'main#call'
+  when 'admin'   then call 'admin#call'
+  else                forbid!('Unknown subdomain')
   end
 end
 ```
