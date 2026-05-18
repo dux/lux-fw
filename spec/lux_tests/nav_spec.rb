@@ -133,6 +133,34 @@ describe Lux::Application::Nav do
     end
   end
 
+  describe '#path(:ref) ref capture' do
+    it 'stores extracted refs in nav.refs and exposes first as nav.ref' do
+      nav = nav_for('/boards/abc-123/edit')
+      nav.path(:ref) { |el| el.include?('-') ? el.split('-').last : nil }
+      expect(nav.ref).to eq('123')
+      expect(nav.refs).to eq(['123'])
+    end
+
+    it 'preserves spatial order across multiple refs' do
+      nav = nav_for('/orgs/a-1/users/b-2')
+      nav.path(:ref) { |el| el.include?('-') ? el.split('-').last : nil }
+      expect(nav.refs).to eq(['1', '2'])
+      expect(nav.ref).to eq('1')
+    end
+
+    it 'is idempotent - existing :ref symbols are skipped on re-run' do
+      nav = nav_for('/boards/abc-123')
+      classifier = ->(el) { el.include?('-') ? el.split('-').last : nil }
+      nav.path(:ref, &classifier)
+      expect(nav.refs).to eq(['123'])
+
+      # second call must not re-process the :ref symbol or push a duplicate
+      nav.path(:ref, &classifier)
+      expect(nav.refs).to eq(['123'])
+      expect(nav.path).to eq(['boards', :ref])
+    end
+  end
+
   describe 'colon-param variables from path' do
     it 'extracts colon-separated params from path' do
       nav = nav_for('/users/page:3')

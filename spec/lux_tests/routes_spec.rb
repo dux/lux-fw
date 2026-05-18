@@ -77,9 +77,9 @@ class AdminTestController < Lux::Controller
   def foo;   render text: 'admin:foo:';   end
 
   ref do
-    def show; render text: "admin:show_ref:#{nav.id}"; end
-    def edit; render text: "admin:edit_ref:#{nav.id}"; end
-    def foo;  render text: "admin:foo_ref:#{nav.id}";  end
+    def show; render text: "admin:show_ref:#{nav.ref}"; end
+    def edit; render text: "admin:edit_ref:#{nav.ref}"; end
+    def foo;  render text: "admin:foo_ref:#{nav.ref}";  end
   end
 end
 
@@ -230,11 +230,11 @@ describe Lux::Application do
       expect(Lux.render.get('/admin_test/edit').body).to eq('admin:edit:')
     end
 
-    it '/admin_test/123 -> :show_ref with nav.id' do
+    it '/admin_test/123 -> :show_ref with nav.ref' do
       expect(Lux.render.get('/admin_test/123').body).to eq('admin:show_ref:123')
     end
 
-    it '/admin_test/123/edit -> :edit_ref with nav.id' do
+    it '/admin_test/123/edit -> :edit_ref with nav.ref' do
       expect(Lux.render.get('/admin_test/123/edit').body).to eq('admin:edit_ref:123')
     end
 
@@ -242,11 +242,11 @@ describe Lux::Application do
       expect(Lux.render.get('/admin_test/users').body).to eq('admin:users:')
     end
 
-    it '/admin_test/users/123 -> :show_ref with nav.id' do
+    it '/admin_test/users/123 -> :show_ref with nav.ref' do
       expect(Lux.render.get('/admin_test/users/123').body).to eq('admin:show_ref:123')
     end
 
-    it '/admin_test/users/123/edit -> :edit_ref with nav.id' do
+    it '/admin_test/users/123/edit -> :edit_ref with nav.ref' do
       expect(Lux.render.get('/admin_test/users/123/edit').body).to eq('admin:edit_ref:123')
     end
 

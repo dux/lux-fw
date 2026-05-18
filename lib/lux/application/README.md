@@ -66,7 +66,7 @@ dispatches unconditionally (used inside `rescue_from` blocks).
 
 After `nav.path(:ref) { ... }` canonicalizes ID segments to `:ref`:
 
-| URL                         | action      | nav.id |
+| URL                         | action      | nav.ref |
 |-----------------------------|-------------|--------|
 | `/boards`                   | `:root`     | nil    |
 | `/boards/edit`              | `:edit`     | nil    |
@@ -81,8 +81,9 @@ Rules: empty remaining → `:root`. Only `:ref` → `:show_ref`. 2+ segments →
 non-`:ref` after position 0. Any `:ref` in the remaining path → append `_ref`.
 
 Controllers declare ref-bearing actions in a `ref do ... end` block — each
-`def NAME` inside becomes `NAME_ref`. Template lookup strips `_ref`, so
-`show.haml` is shared between `:show` and `:show_ref`.
+`def NAME` inside becomes `NAME_ref`. Template lookup probes `show_ref.haml`
+first and falls back to `show.haml`, so you can share a single template or
+ship a dedicated ref-only one without renaming the action.
 
 ```ruby
 class BoardsController < Lux::Controller
@@ -95,11 +96,11 @@ class BoardsController < Lux::Controller
 
   ref do
     def show        # /boards/123          -> :show_ref
-      @board = Board.find(nav.id)
+      @board = Board.find(nav.ref)
     end
 
     def edit        # /boards/123/edit     -> :edit_ref
-      @board = Board.find(nav.id)
+      @board = Board.find(nav.ref)
     end
   end
 end

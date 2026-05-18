@@ -149,10 +149,10 @@ module Lux
 
     # /org/foobar123 -> @object = @org = Org.find('foobar123')
     def auto_load_object
-      if nav.id
+      if nav.ref
         model = nav.path[0].classify
         if Object.const_defined?(model)
-          @object = model.constantize.find(nav.id)
+          @object = model.constantize.find(nav.ref)
           instance_variable_set "@#{@object.class.to_s.underscore}".to_sym, @object
         end
       end

@@ -242,7 +242,7 @@ before do
 end
 ```
 
-| URL                         | action      | nav.id |
+| URL                         | action      | nav.ref |
 |-----------------------------|-------------|--------|
 | `/boards`                   | `:root`     | nil    |
 | `/boards/edit`              | `:edit`     | nil    |
@@ -258,8 +258,9 @@ Rule summary: empty remaining → `:root`. Only `:ref` → `:show_ref`. 2+ segme
 resolved action gets a `_ref` suffix.
 
 The controller declares ref-bearing actions inside a `ref do ... end` block
-(see [Controller](#controller) section). Template lookup strips `_ref` so
-`show.haml` is shared between `:show` and `:show_ref`.
+(see [Controller](#controller) section). Template lookup probes `show_ref.haml`
+first and falls back to `show.haml`, so you can share a template or have a
+dedicated ref-only one.
 
 #### Class filters
 
@@ -438,15 +439,16 @@ class RootController < ApplicationController
   end
 
   # Ref-bearing actions (URLs with an ID segment) live inside `ref do`.
-  # Each `def NAME` is registered as `NAME_ref`. Template lookup strips
-  # the `_ref` suffix so /show maps to show.haml just like the non-ref :show.
+  # Each `def NAME` is registered as `NAME_ref`. Template lookup tries
+  # `show_ref.haml` first, then falls back to `show.haml`, so you can
+  # share a single template or have dedicated ref-only one when needed.
   ref do
-    def show       # /root/abc-123        -> :show_ref, nav.id = "123"
-      @item = Item.find(nav.id)
+    def show       # /root/abc-123        -> :show_ref, nav.ref = "123"
+      @item = Item.find(nav.ref)
     end
 
     def edit       # /root/abc-123/edit   -> :edit_ref
-      @item = Item.find(nav.id)
+      @item = Item.find(nav.ref)
     end
   end
 
@@ -608,12 +610,14 @@ nav.pathname(ends: 'edit') # true if path ends with "/edit"
 nav.remove_www             # redirect www.foo.bar -> foo.bar
 nav.rename_domain 'localhost', 'lvh.me'
 
-# id capture: classify path segments as :ref, store extracted ids in nav.ids
+# ref capture: classify path segments as :ref, store extracted values in nav.refs.
+# Block returns truthy (value or true) to mark a segment; nil/false to leave alone.
+# Already-:ref symbols from prior calls are skipped (idempotent).
 nav.path :ref do |el|
   Ulid.is?(el) ? el : nil
 end
-nav.id   # first captured id
-nav.ids  # all captured ids
+nav.ref   # first captured ref
+nav.refs  # all captured refs (spatial order)
 ```
 
 `nav.shift` / `nav.unshift` / `nav.original` were removed when the router stopped

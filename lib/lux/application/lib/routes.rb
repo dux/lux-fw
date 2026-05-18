@@ -84,8 +84,8 @@ module Lux
       # ```
       # /admin                       -> :index
       # /admin/edit                  -> :edit
-      # /admin/123                   -> :show   (nav.id = 123)
-      # /admin/123/edit              -> :edit   (nav.id = 123)
+      # /admin/123                   -> :show   (nav.ref = 123)
+      # /admin/123/edit              -> :edit   (nav.ref = 123)
       # /admin/users                 -> :users
       # /admin/users/123             -> :show
       # /admin/users/123/edit        -> :edit

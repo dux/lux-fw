@@ -80,9 +80,9 @@ Canonical request-path object, accessible via `current.nav`. Nav is the *canonic
 
 * `nav.root` / `nav.root=` - First path segment
 * `nav.child` - Second path segment
-* `nav.path` / `nav.path=` - Path array; `nav.path(:ref) { |seg| ... }` rewrites ID-like segments to `:ref` symbol and records IDs in `nav.id` / `nav.ids`
-* `nav.id` / `nav.id=` - First parsed ID
-* `nav.ids` - Array of all parsed IDs
+* `nav.path` / `nav.path=` - Path array; `nav.path(:ref) { |seg| ... }` rewrites ID-like segments to `:ref` symbol and records IDs in `nav.ref` / `nav.refs`
+* `nav.ref` / `nav.ref=` - First captured ref (single id)
+* `nav.refs` - Array of all captured refs in path order
 * `nav[index]` - Access canonical path segment by index (reflects `:ref` rewrites)
 * `nav.last` - Last path segment
 * `nav.format` - Request format (html, json, etc.) - stripped from path during init
@@ -402,7 +402,7 @@ end
 
 After `nav.path(:ref) { ... }` canonicalizes ID segments to `:ref`:
 
-| URL                          | action      | nav.id |
+| URL                          | action      | nav.ref |
 |------------------------------|-------------|--------|
 | `/boards`                    | `:root`     | nil    |
 | `/boards/edit`               | `:edit`     | nil    |
@@ -434,11 +434,11 @@ class BoardsController < Lux::Controller
 
   ref do
     def show      # /boards/123    -> :show_ref, renders show.haml
-      @board = Board.find(nav.id)
+      @board = Board.find(nav.ref)
     end
 
     def edit      # /boards/123/edit -> :edit_ref, renders edit.haml
-      @board = Board.find(nav.id)
+      @board = Board.find(nav.ref)
     end
   end
 end
@@ -464,7 +464,7 @@ end
 ```ruby
 class UsersController < ApplicationController
   layout :application
-  before { @user = User.current if nav.id }
+  before { @user = User.current if nav.ref }
   mock :new
 
   # /users - no further segment -> :root
@@ -478,14 +478,15 @@ class UsersController < ApplicationController
   end
 
   # ID-bearing routes: each def NAME inside ref do becomes NAME_ref.
-  # Template lookup strips _ref so /users/123 still renders show.haml.
+  # Template lookup tries show_ref.haml first, falls back to show.haml,
+  # so you can share or override the template per action.
   ref do
     def show    # /users/123        -> :show_ref
-      @user = User.find(nav.id)
+      @user = User.find(nav.ref)
     end
 
     def edit    # /users/123/edit   -> :edit_ref
-      @user = User.find(nav.id)
+      @user = User.find(nav.ref)
     end
   end
 end

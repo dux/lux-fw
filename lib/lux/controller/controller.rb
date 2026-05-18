@@ -73,7 +73,7 @@ module Lux
       #
       #     ref do
       #       def edit     # /users/123/edit -> :edit_ref
-      #         @user = User.find(nav.id)
+      #         @user = User.find(nav.ref)
       #       end
       #
       #       def show     # /users/123 -> :show_ref
@@ -308,15 +308,18 @@ module Lux
       helper_name = opt.layout || @lux.layout || cattr.layout
       local_helper = self.helper helper_name
 
-      # Default template name derives from the action. Strip the `_ref` suffix
-      # that ref-bearing resourceful actions carry (`def show` inside `ref do`
-      # is registered as `:show_ref`), so `show.haml` is shared between `:show`
-      # and `:show_ref`. Explicit `render template: 'show_ref'` overrides.
-      template = (opt.template || @lux.action.to_s.sub(/_ref$/, '')).to_s.sub(/^\//, '')
-      page_template = if template.include?('/')
-        [cattr.template_root, template].join('/')
-      else
-        [cattr.template_root, helper_name, template].compact.join('/')
+      # Template path comes from the action name verbatim (including `_ref`
+      # suffix from ref-bearing resourceful actions). If no template file
+      # exists for `show_ref.haml/erb/...`, fall back to `show.haml/erb/...`
+      # so apps can share a template between `:show` and `:show_ref` or have
+      # a dedicated one when they want. Explicit `render template: 'X'` skips
+      # the fallback.
+      template = (opt.template || @lux.action).to_s.sub(/^\//, '')
+      page_template = build_template_path(template, helper_name)
+
+      if !opt.template && template.end_with?('_ref') && !template_file_exists?(page_template)
+        template = template.sub(/_ref$/, '')
+        page_template = build_template_path(template, helper_name)
       end
       Lux.current.var['views_root'] ||= cattr.template_root
       Lux.current.var.root_template_path = page_template.sub(%r{/[\w]+$}, '')
@@ -369,6 +372,24 @@ module Lux
 
     def cache *args, &block
       Lux.cache.fetch *args, &block
+    end
+
+    # Build a "<template_root>/<helper>/<name>" path (or "<template_root>/<name>"
+    # when the name already contains a slash). No extension - extension probing
+    # lives in template_file_exists? and Lux::Template.compile_template.
+    def build_template_path template, helper_name
+      if template.include?('/')
+        [cattr.template_root, template].join('/')
+      else
+        [cattr.template_root, helper_name, template].compact.join('/')
+      end
+    end
+
+    # True if any Tilt-recognised extension exists at the given (extension-less)
+    # path. Used by render_template to decide whether to fall back from
+    # `<action>_ref` to `<action>`.
+    def template_file_exists? path
+      Tilt.default_mapping.template_map.keys.any? { |ext| File.exist?("#{path}.#{ext}") }
     end
 
     def render_cache key = :_nil

@@ -2,13 +2,13 @@ module Lux
   class Application
     class Nav
       attr_accessor :format
-      attr_reader :domain, :subdomain, :ids
+      attr_reader :domain, :subdomain, :refs
 
       # acepts path as a string
       def initialize request
         @path        = request.path.split('/').slice(1, 100) || []
         @request     = request
-        @ids         = []
+        @refs        = []
 
         set_variables
         set_domain request
@@ -43,23 +43,28 @@ module Lux
 
       def path ref = nil
         if block_given?
-          # nav path that is parsed as truthy, is stored. available via nav.id and nav.ids
-          # nav.path(:ref) {|el| num = el.split('-').last.to_id; num > 0 ? num : false }
-          # /foo/test-title-123/bar -> ['foo', :ref, 'bar'] -> nav.id == 123 (used by controller to decide should it use :show or :index on glob route map('foo'))
+          # Classify path segments. The block decides per segment:
+          # * truthy return -> stored in nav.refs, segment replaced by `ref` symbol
+          # * nil/false     -> segment left as-is
+          # * already a Symbol (idempotency) -> skipped entirely
+          #
+          # nav.path(:ref) {|el| el.split('-').last.then { |p| Ulid.is?(p) ? p : nil } }
+          # /foo/title-cw7r/bar -> ['foo', :ref, 'bar'] -> nav.ref == 'cw7r'
           unless ref
             raise ArgumentError.new('Default path not given as argument')
           end
 
           @path = @path.map do |el|
+            next el if el.is_a?(Symbol)
             if result = yield(el)
-              @ids.push result == true ? el : result
+              @refs.push result == true ? el : result
               ref
             else
               el
             end
           end
 
-          @ids.last
+          @refs.last
         else
           @path
         end
@@ -69,12 +74,12 @@ module Lux
         @path = list
       end
 
-      def id
-        @ids[0]
+      def ref
+        @refs[0]
       end
 
-      def id= data
-        @ids[0] = data
+      def ref= data
+        @refs[0] = data
       end
 
       # removes leading www.
