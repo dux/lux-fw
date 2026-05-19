@@ -41,7 +41,7 @@ class HtmlInput
     @opts[:id]          ||= 'i_%s' % Lux.current.uid
 
     if @object && @object.class.respond_to?(:schema) && [Symbol, Array].include?(@name.class)
-      schema = @object.class.schema || raise('Typero schema for object "%s" not found' % @object.class)
+      schema = @object.class.schema || raise('Lux schema for object "%s" not found' % @object.class)
 
       detect_type_from_schema
       apply_schema_rules schema

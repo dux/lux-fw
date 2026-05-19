@@ -63,6 +63,6 @@ input[:class] = 'x'  # shortcut for input.opts[:class] = 'x'
 
 When a model object is provided, the input type is auto-detected from:
 1. Database column type (`timestamp` -> `:datetime`, `boolean` -> `:checkbox`, etc.)
-2. Typero schema rules and metadata
+2. Lux::Schema rules and metadata
 3. Presence of `_id`/`_sid` suffix (auto-resolves collection)
 4. Fallback to `:string`

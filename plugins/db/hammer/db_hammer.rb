@@ -250,7 +250,7 @@ namespace :db do
       LuxDb.load_migrate_file './db/auto_migrate.rb'
 
       # re-apply schemas for models loaded before AutoMigrate was defined (e.g. plugin models)
-      Typero.schema(type: :model).each do |klass_name|
+      Lux.schema(type: :model).each do |klass_name|
         AutoMigrate.apply_schema klass_name
       end
 

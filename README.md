@@ -1013,7 +1013,7 @@ Lux.render.controller('main/cities#bar') { @city = City.last_updated }.body
 
 ### Render ViewCells
 
-ViewCells are provided by the external `view-cell` gem.
+ViewCells are provided by `Lux::ViewCell` (see `lib/lux/view_cell/`).
 
 ```ruby
 Lux.render.cell(:city, @city)

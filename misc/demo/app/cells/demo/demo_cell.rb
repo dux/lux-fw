@@ -1,4 +1,4 @@
-class DemoCell < ViewCell
+class DemoCell < Lux::ViewCell
 
   def time
     Time.now

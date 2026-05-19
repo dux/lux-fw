@@ -1,7 +1,7 @@
 # https://github.com/jeremyevans/sequel/blob/master/doc/schema_modification.rdoc
 #
-# Auto-migrates database schema based on Typero model definitions.
-# Triggered by Typero sequel adapter when ENV['DB_MIGRATE'] == 'true'.
+# Auto-migrates database schema based on Lux::Schema model definitions.
+# Triggered by the lux_schema sequel adapter when ENV['DB_MIGRATE'] == 'true'.
 #
 # Usage: rake db:am (sets DB_MIGRATE=true before loading models)
 
@@ -67,7 +67,7 @@ class AutoMigrate
       return if @applied.include?(klass)
       @applied << klass
 
-      schema = Typero.schema(klass)
+      schema = Lux.schema(klass)
 
       am = new(klass.db)
       am.table klass, schema.rules do |f|

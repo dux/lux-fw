@@ -28,9 +28,6 @@ Gem::Specification.new 'lux-fw' do |gem|
   # 5.minutes
   gem.add_dependency 'as-duration'
 
-  # backed template view parts
-  gem.add_dependency 'view-cell'
-
   # for config loader
   gem.add_dependency 'deep_merge'
 
@@ -79,6 +76,9 @@ Gem::Specification.new 'lux-fw' do |gem|
   # best server side templateing
   gem.add_dependency 'haml'
 
+  # used by Lux::ViewCell.css to compile SCSS blocks defined in cells
+  gem.add_dependency 'sassc'
+
   # HTML builder DSL used by plugins/html and lib/lux/error
   gem.add_dependency 'html-tag'
 
@@ -89,6 +89,4 @@ Gem::Specification.new 'lux-fw' do |gem|
 
   # gem.add_dependency 'memory_profiler'
 
-  # various type systems and schemas
-  gem.add_dependency 'typero'
 end

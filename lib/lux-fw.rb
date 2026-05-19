@@ -13,11 +13,8 @@ require 'pry'
 require 'hash_wia'
 require 'class-cattr'
 require 'class-callbacks'
+require 'html-tag'
 
 require_relative './overload/object'
 require_relative './overload/string'
 require_relative './loader'
-
-# pollutes ApplicationHelper, need to load after Lux is loaded
-require 'html-tag'
-require 'view-cell'

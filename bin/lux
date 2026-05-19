@@ -13,6 +13,7 @@ require 'dotenv'
 require 'yaml'
 require_relative '../lib/overload/thread_simple'
 require_relative '../lib/overload/string'
+require_relative '../lib/overload/dir'
 
 Dotenv.load
 
@@ -49,6 +50,10 @@ Hammer.run ARGV do
       load hd if File.directory?(hd)
     end
   end
+
+  # Project hammer tasks under ./lib/tasks (*_hammer.rb auto-discovered)
+  app_tasks = File.join(Dir.pwd, 'lib/tasks')
+  load app_tasks if File.directory?(app_tasks) && Dir.pwd != LUX_ROOT
 
   # Project Hammerfile (ad-hoc app tasks)
   app_hf = File.join(Dir.pwd, 'Hammerfile')

@@ -81,7 +81,6 @@ class Dir
     list = Dir.find(folder, ext: :rb)
     list
       .select{ |o| o.index('.rb') && !o.index('_spec.rb') && !o.index('/app/views/') }
-      .reject{ |o| o.end_with?('_hammer.rb') }
       .select{ |o| opts[:skip] ? !o.include?(opts[:skip]) : true }
       .each do |ruby_file|
         begin

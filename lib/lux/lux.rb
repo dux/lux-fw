@@ -86,6 +86,76 @@ module ::Lux
       Lux.logger.error e
     end
   end
+
+  # check and coerce value
+  # Lux.type(:label) -> Lux::Type::LabelType
+  # Lux.type(:label, 'Foo bar') -> "foo-bar"
+  def type klass_name, value = UNSET, opts = {}, &block
+    klass = Lux::Type.load(klass_name)
+
+    if value.equal?(UNSET)
+      klass
+    else
+      begin
+        check = klass.new value, opts
+        check.get
+      rescue TypeError => error
+        if block
+          block.call error
+          false
+        else
+          raise error
+        end
+      end
+    end
+  end
+
+  # define or look up a schema
+  #   Lux.schema(:blog) { ... }            - define
+  #   Lux.schema(:blog, type: :model) { }  - define with opts
+  #   Lux.schema(:blog)                    - lookup, raises if missing
+  #   Lux.schema(type: :model)             - find all schemas matching opt
+  def schema name = nil, opts = nil, &block
+    klass = name.to_s.classify if name && !name.is_a?(Hash)
+
+    if block_given?
+      Lux::Schema.new(klass, opts, &block)
+    else
+      if name.is_a?(Hash)
+        out = []
+        Lux::Schema::SCHEMA_STORE.values.each do |schema|
+          if schema.opts[name.keys.first] == name.values.first
+            out.push schema.klass
+          end
+        end
+        out
+      else
+        Lux::Schema::SCHEMA_STORE[klass] || raise('Schema "%s" not found' % klass)
+      end
+    end
+  end
+
+  # same as schema but returns nil if not found
+  def schema? name
+    klass = name.to_s.classify if name
+    Lux::Schema::SCHEMA_STORE[klass] if klass
+  end
+
+  # array of database fields, Sequel-compatible
+  def db_schema name
+    Lux.schema(name).db_schema
+  end
+
+  # shortcut for Lux::JsonExporter.define and .export
+  #   Lux.json_exporter(Page) { prop :name }   - register exporter for Page
+  #   Lux.json_exporter(Page.first)            - render Page.first
+  def json_exporter name_or_object, opts = {}, &block
+    if block
+      Lux::JsonExporter.define name_or_object, &block
+    else
+      Lux::JsonExporter.new(name_or_object, opts).render
+    end
+  end
 end
 
 ###

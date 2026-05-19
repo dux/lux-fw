@@ -59,7 +59,7 @@ class SequelTable
   def col field, type, opts = {}
     @used_fileds.push field
 
-    if type.is?(Typero::Type)
+    if type.is?(Lux::Type)
       type, db_opts = type.new(nil).db_field
       opts.merge! db_opts
     end
@@ -95,7 +95,7 @@ class SequelTable
   end
 
   def type name
-    Typero.type name
+    Lux.type name
   end
 
   def summary

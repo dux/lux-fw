@@ -12,7 +12,7 @@ class LuxStat
   end
 
   def cells
-    list_method_classes ViewCell
+    list_method_classes Lux::ViewCell
   end
 
   def models
@@ -124,7 +124,7 @@ task :stats do
   proc do |_opts|
     stat = LuxStat.new
     stat.call :controllers
-    stat.call :cells if defined?(ViewCell)
+    stat.call :cells if defined?(Lux::ViewCell)
     stat.call :models
     stat.call :views
 

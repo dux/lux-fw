@@ -558,7 +558,7 @@ lux sysd         # Systemd service management
 
 ## Dependencies
 
-Key gems: `rack`, `sequel_pg`, `haml`, `jwt`, `mail`, `hash_wia`, `class-callbacks`, `class-cattr`, `view-cell`, `as-duration`, `typero`, `thor`, `pry`, `dotenv`, `deep_merge`, `amazing_print`, `niceql`, `whirly`, `tty-prompt`
+Key gems: `rack`, `sequel_pg`, `haml`, `jwt`, `mail`, `hash_wia`, `class-callbacks`, `class-cattr`, `view-cell`, `as-duration`, `thor`, `pry`, `dotenv`, `deep_merge`, `amazing_print`, `niceql`, `whirly`, `tty-prompt`
 
 ## Configuration files
 
