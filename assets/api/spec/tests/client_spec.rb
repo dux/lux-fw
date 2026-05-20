@@ -1,5 +1,5 @@
 require_relative '../loader'
-require_relative '../../lib/joshua/client'
+require_relative '../../lib/lux-api/client'
 
 module HTTP
   def self.post url, opts=nil
@@ -11,7 +11,7 @@ module HTTP
 end
 
 describe 'dev' do
-  let (:api) { JoshuaClient.new 'http://localhost:4567/api' }
+  let (:api) { LuxApiClient.new 'http://localhost:4567/api' }
 
   it 'gets valid collection url' do
     data = api.user.login

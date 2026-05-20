@@ -1,14 +1,14 @@
 <script>
   // Top app header: logo, action filter input, bearer token toggle/editor.
-  // Owns the bearer: persists it in localStorage('joshua_bearer'), adopts
+  // Owns the bearer: persists it in localStorage('lux_api_bearer'), adopts
   // it from URL params (api_key / bearer_token in the query string or the
   // fragment - stripped after read so refresh / bookmarks don't re-leak),
   // and publishes every change so other components can react.
   //
   // Publishes:
-  //   joshua:search-changed  - filter string (lowercased, trimmed)
-  //   joshua:bearer-changed  - new bearer value (string, '' when cleared)
-  const BEARER_KEY = 'joshua_bearer'
+  //   lux_api:search-changed  - filter string (lowercased, trimmed)
+  //   lux_api:bearer-changed  - new bearer value (string, '' when cleared)
+  const BEARER_KEY = 'lux_api_bearer'
   const readBearer = () => localStorage.getItem(BEARER_KEY) || ''
 
   class {
@@ -61,7 +61,7 @@
       else   localStorage.removeItem(BEARER_KEY)
       this.state.bearer = v
       this.state.draft  = v
-      Fez.publish('joshua:bearer-changed', v)
+      Fez.publish('lux_api:bearer-changed', v)
     }
 
     toggle() {
@@ -79,7 +79,7 @@
     }
 
     search(value) {
-      Fez.publish('joshua:search-changed', (value || '').trim().toLowerCase())
+      Fez.publish('lux_api:search-changed', (value || '').trim().toLowerCase())
     }
   }
 </script>
@@ -96,7 +96,7 @@
 <header class="sticky top-0 z-30 bg-white border-b border-gray-200">
   <div class="max-w-[1200px] mx-auto px-6 h-14 flex items-center justify-between">
     <a href="#top" class="flex items-center gap-2 text-gray-900 no-underline">
-      <h4>Joshua</h4>
+      <h4>Lux</h4>
       <span class="label gray">API</span>
     </a>
 

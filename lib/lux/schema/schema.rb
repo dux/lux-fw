@@ -44,7 +44,7 @@ module Lux
       @errors = {}
       options ||= {}
 
-      strip_undefined_keys! if options[:strict] && object.is_a?(Hash)
+      strip_undefined_keys! if options[:strict] && object.is_hash?
 
       @schema.rules.each do |field, raw_opts|
         field = field.to_sym

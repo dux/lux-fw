@@ -40,7 +40,7 @@ module Lux
 
       # clears white space, replaces quotes
       def clear_for_js
-        {}.tap do |msg|
+        {}.to_lux_hash.tap do |msg|
           clear.each do |k, v|
             msg[k] = v.join(', ').gsub(/\s+/, ' ')
           end

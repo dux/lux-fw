@@ -108,7 +108,7 @@ module Lux
 
     def connect(url)
       config = DEFAULT_CONFIG.dup
-      config.merge!(Lux.config[:db_config]) if Lux.config[:db_config].is_a?(Hash)
+      config.merge!(Lux.config[:db_config]) if Lux.config[:db_config].is_hash?
 
       db = Sequel.connect(url, config)
 

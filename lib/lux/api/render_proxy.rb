@@ -15,7 +15,7 @@ module Lux
 
       def method_missing method_name, *args
         # if first param present, it must be resource ID
-        api_id = args.shift unless args.first.is_a?(Hash)
+        api_id = args.shift unless args.first.is_hash?
 
         # convinience, second param is params hash, options follw
         params, opts = [args[0], args[1] || {}]

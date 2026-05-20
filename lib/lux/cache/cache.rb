@@ -40,7 +40,7 @@ module Lux
     alias :get_multi :read_multi
 
     def write key, data, ttl = nil
-      ttl = ttl[:ttl] || ttl[:expires_at] if ttl.class == Hash
+      ttl = ttl[:ttl] || ttl[:expires_at] if ttl.is_hash?
       ttl = ttl.to_i if ttl
       key = generate_key key
       Lux.log { %[ Cache.write "#{key}", at: #{Lux.app_caller}].colorize(:yellow) }
@@ -65,7 +65,7 @@ module Lux
     def fetch key, opts = {}
       key = generate_key key
 
-      opts = { ttl: opts } unless opts.is_a?(Hash)
+      opts = { ttl: opts } unless opts.is_hash?
       opt = OPTS.new **opts
 
       return yield(key) if opt.if.is_a?(FalseClass)

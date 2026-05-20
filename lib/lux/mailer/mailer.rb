@@ -37,7 +37,7 @@ module Lux
         obj.instance_variable_set :@_template, template
         obj.run_callback :before
 
-        if args[0].class == Hash
+        if args[0].is_hash?
           obj.send template, **args[0]
         else
           obj.send template, *args

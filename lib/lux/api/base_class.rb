@@ -25,11 +25,11 @@ module Lux
           data = auto_mount api_host: api_host, development: ENV['RACK_ENV'] == 'development'
 
           # 302 redirect sentinel: auto_mount returned { _redirect: '/path' }
-          if data.is_a?(Hash) && data[:_redirect]
+          if data.is_hash? && data[:_redirect]
             return [302, { 'Location' => data[:_redirect], 'Content-Type' => 'text/html' }, []]
           end
 
-          if data.is_a?(Hash)
+          if data.is_hash?
             [
               data[:status] || 200,
               { 'Content-Type' => 'application/json', 'Cache-Control'=>'private; max-age=0' },
@@ -103,7 +103,7 @@ module Lux
             body['action']
           else
             opts[:params] = body || request.params || {}
-            if opts[:params].is_a?(Hash)
+            if opts[:params].is_hash?
               opts[:bearer] ||= opts[:params]['api_token'] || opts[:params][:api_token]
             end
 
@@ -122,7 +122,7 @@ module Lux
 
           api_response = render action, **opts
 
-          if api_response.is_a?(Hash)
+          if api_response.is_hash?
             response.status = api_response[:status] if response
             api_response.to_h
           else
@@ -543,7 +543,7 @@ module Lux
 
       def make_hash_html_safe hash
         (hash || {}).each do |k, v|
-          if v.is_a?(Hash)
+          if v.is_hash?
             make_hash_html_safe v
           elsif v.class == String
             hash[k] = v.gsub('<', '#LT;')

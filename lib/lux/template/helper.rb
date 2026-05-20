@@ -11,7 +11,7 @@ module Lux
           obj.extend mod.constantize if mod.constantize?
         end
 
-        local_vars = scope.class == Hash ? scope : scope.instance_variables_hash
+        local_vars = scope.is_hash? ? scope : scope.instance_variables_hash
         local_vars.each do |k, v|
           obj.instance_variable_set("@#{k.to_s.sub('@', '')}", v)
         end
@@ -117,7 +117,7 @@ module Lux
       def cache name = nil, opts = {}, &block
         if opts.class == Integer
           opts = { ttl: opts }
-        elsif name.is_a?(Hash)
+        elsif name.is_hash?
           opts = name
           name = ''
         else

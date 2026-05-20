@@ -1,14 +1,14 @@
 <script>
-  // Main content column: one <joshua-api> per namespace plus an optional
+  // Main content column: one <lux-api> per namespace plus an optional
   // named-errors section at the bottom. Waits for the schema to arrive,
   // then renders.
   //
   // Subscribes:
-  //   joshua:schema-loaded  - the API introspection document
+  //   lux_api:schema-loaded  - the API introspection document
   class {
     init() {
-      this.state.schema = window.joshua && window.joshua.api_schema || null
-      this.subscribe('joshua:schema-loaded', (schema) => { this.state.schema = schema })
+      this.state.schema = window.lux_api && window.lux_api.api_schema || null
+      this.subscribe('lux_api:schema-loaded', (schema) => { this.state.schema = schema })
     }
 
     entries() {
@@ -32,7 +32,7 @@
     <div class="text-gray-400">Loading schema...</div>
   {:else}
     {#each fez.entries() as entry}
-      <joshua-api name={entry.name} :api="entry.api" mount_on={fez.mountOn()} />
+      <lux-api name={entry.name} :api="entry.api" mount_on={fez.mountOn()} />
     {/each}
 
     {#if fez.errorEntries().length}

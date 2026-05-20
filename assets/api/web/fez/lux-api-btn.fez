@@ -1,6 +1,6 @@
 <script>
   // Button component - modeled on fez ui-btn idiom.
-  // Variants: <joshua-btn>, primary, ghost, sm, on-dark, disabled, loading
+  // Variants: <lux-api-btn>, primary, ghost, sm, on-dark, disabled, loading
   // Renders as <a href> when href is provided, else <button>.
   class {
     NAME = (n) => n.getAttribute('href') ? 'a' : 'button'

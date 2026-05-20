@@ -256,7 +256,7 @@ module Lux
 
     # normalize render arguments into a RENDER_OPTS struct
     def normalize_render_opts name, opts
-      if name.is_a?(Hash)
+      if name.is_hash?
         opts.merge! name
       else
         opts[:template] = name

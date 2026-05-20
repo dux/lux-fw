@@ -39,7 +39,7 @@ module Lux
       # Lux.render.cell(:user, { product: @bar }).foo
       # Lux.render.cell(:user).foo @arg
       def cell name, *args
-        opts    = args.last.is_a?(Hash) ? args.pop : {}
+        opts    = args.last.is_hash? ? args.pop : {}
         context = args.shift
         Lux::ViewCell.get(name, context, opts)
       end

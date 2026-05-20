@@ -23,24 +23,16 @@ module Lux
       end
 
       def [] key
-        key = key.to_s unless key.respond_to?(:to_sym)
-        data = super(key.to_s) || super(key.to_sym)
-        data.extend Lux::Hash::Methods if data.is_a?(::Hash)
-        data
+        super(key.to_s)
       end
 
       def []= key, value
-        key = key.to_s unless key.class == Symbol
-        delete(key.to_s).nil? && delete(key.to_sym)
-        super key, value
+        value = Lux::Hash.new(value) if value.is_a?(::Hash) && !value.is_a?(Lux::Hash)
+        super key.to_s, value
       end
 
       def delete key
-        data = super(key)
-        skey = key.to_s
-        data = super(skey) if data.nil?
-        data = super(skey.to_sym) if data.nil? && key.class != Symbol
-        data
+        super(key.to_s)
       end
 
       # we never return array from hash, ruby internals
@@ -68,54 +60,34 @@ module Lux
         hash.each { |k, v| self[k.to_s] = v }
       end
 
-      def each &block
-        to_a.each do |key, data|
-          data.extend Lux::Hash::Methods if data.is_a?(::Hash)
-          block.call key, data
-        end
-
-        self
-      end
-
       def dig *args
         root = self
         while args[0]
-          key = args.shift
-          root = root[key] || root[key.to_s]
+          root = root[args.shift]
           return if root.nil?
-          root = Lux::Hash.new root if root.class == ::Hash
         end
         root
-      end
-
-      def values
-        super.map do |el|
-          el.class == ::Hash ? Lux::Hash.new(el) : el
-        end
       end
 
       def method_missing name, *args, &block
         strname = name.to_s
 
         if strname.sub!(/\?$/, '')
-          # h.foo?
-          !!self[strname]
+          # h.foo? - truthy unless value is nil, false, 'false' or 0
+          ![nil, false, 'false', 0].include?(self[strname])
         elsif strname.sub!(/=$/, '')
           # h.foo = :bar
           self[strname] = args.first
         else
           value = self[strname]
-          value = self[strname.to_sym] if value.nil?
 
           if value.nil?
             if block
-              self[strname.to_s] = block
+              self[strname] = block
+            elsif key?(strname)
+              nil
             else
-              if key?(strname) || key(strname.to_sym)
-                nil
-              else
-                raise NoMethodError.new('%s not defined in Lux::Hash' % strname)
-              end
+              raise NoMethodError.new('%s not defined in Lux::Hash' % strname)
             end
           else
             if value.class == Array

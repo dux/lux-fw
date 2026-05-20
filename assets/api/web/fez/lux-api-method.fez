@@ -15,7 +15,7 @@
   <h3>{local.entry.action}</h3>
 
   <div class="mt-3">
-    <joshua-runner api_name={local.api_name} :entry="local.entry" />
+    <lux-api-runner api_name={local.api_name} :entry="local.entry" />
   </div>
 
   {#if local.entry.desc}
@@ -29,7 +29,7 @@
   {#if local.entry.params && Object.keys(local.entry.params).length}
     <div class="mt-5">
       <h6 class="mb-2">Params</h6>
-      <joshua-params :params="local.entry.params" />
+      <lux-api-params :params="local.entry.params" />
     </div>
   {/if}
 </article>

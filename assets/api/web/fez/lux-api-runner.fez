@@ -1,6 +1,6 @@
 <script>
   // ---- module-level: snippet generators ---------------------------------
-  // Joshua is JSON-RPC style: every call is POST with a JSON body of params.
+  // Lux::Api is JSON-RPC style: every call is POST with a JSON body of params.
   const SNIPPETS = {
     'curl': (c) => {
       const lines = [
@@ -122,13 +122,13 @@ System.out.println(res.body());`
       this.state.api_name = props.api_name
       this.state.entry    = props.entry
       this.state.tab      = null
-      this.state.bearer   = localStorage.getItem('joshua_bearer') || ''
+      this.state.bearer   = localStorage.getItem('lux_api_bearer') || ''
       this.state.values   = this.defaultValues(props.entry.params || {})
       this.state.ref      = ''
       this.state.copied   = false
       this._lastResponse  = null     // non-reactive: avoids re-render flicker
 
-      this.subscribe('joshua:bearer-changed', (bearer) => { this.state.bearer = bearer; this.refresh() })
+      this.subscribe('lux_api:bearer-changed', (bearer) => { this.state.bearer = bearer; this.refresh() })
     }
 
     defaultValues(params) {
@@ -176,7 +176,7 @@ System.out.println(res.body());`
       const path  = this.isMember()
         ? this.state.entry.path.replace(':ref', this.state.ref || ':ref')
         : this.state.entry.path
-      const mount = (window.joshua.api_schema?.mount_on || '/').replace(/\/+$/, '')
+      const mount = (window.lux_api.api_schema?.mount_on || '/').replace(/\/+$/, '')
       return {
         url:     location.origin + path,
         rpc_url: location.origin + (mount || '/'),

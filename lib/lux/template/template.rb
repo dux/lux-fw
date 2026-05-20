@@ -70,7 +70,7 @@ module Lux
       template = './app/views/' + template if template =~ /^\w/
 
       @dev_info = info
-      @helper = if scope.class == Hash
+      @helper = if scope.is_hash?
         # create helper class if only hash given
         Lux::Template::Helper.new(scope)
       else

@@ -116,12 +116,12 @@ module ::Lux
   #   Lux.schema(:blog)                    - lookup, raises if missing
   #   Lux.schema(type: :model)             - find all schemas matching opt
   def schema name = nil, opts = nil, &block
-    klass = name.to_s.classify if name && !name.is_a?(Hash)
+    klass = name.to_s.classify if name && !name.is_hash?
 
     if block_given?
       Lux::Schema.new(klass, opts, &block)
     else
-      if name.is_a?(Hash)
+      if name.is_hash?
         out = []
         Lux::Schema::SCHEMA_STORE.values.each do |schema|
           if schema.opts[name.keys.first] == name.values.first

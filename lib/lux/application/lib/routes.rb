@@ -187,7 +187,7 @@ module Lux
             object = object.chomp('#')
           end
         when Array
-          if object[0].class == Integer && object[1].class == Hash
+          if object[0].class == Integer && object[1].is_hash?
             # [200, {}, 'ok']
             for key, value in object[1]
               lux.response.header key, value

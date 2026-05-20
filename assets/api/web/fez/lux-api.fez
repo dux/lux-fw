@@ -53,7 +53,7 @@
       <div class="method-list">
         {#each fez.collectionEntries() as entry, i}
           {#if i > 0}<hr>{/if}
-          <joshua-method api_name={state.name} :entry="entry" />
+          <lux-api-method api_name={state.name} :entry="entry" />
         {/each}
       </div>
     </div>
@@ -68,7 +68,7 @@
       <div class="method-list">
         {#each fez.memberEntries() as entry, i}
           {#if i > 0}<hr>{/if}
-          <joshua-method api_name={state.name} :entry="entry" />
+          <lux-api-method api_name={state.name} :entry="entry" />
         {/each}
       </div>
     </div>

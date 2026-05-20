@@ -30,7 +30,7 @@ module Lux
     # header @hash
     def header *args
       if args.first
-        if args.first.is_a?(Hash)
+        if args.first.is_hash?
           args.first.each { |k, v| header k, v.to_s if k && v }
         else
           key = args.first.to_s.downcase
@@ -140,13 +140,13 @@ module Lux
 
       return @body if data.equal?(Lux::UNSET)
 
-      if opts.is_a?(Hash)
+      if opts.is_hash?
         opts.each { |k, v| public_send k, *v }
       end
 
       unless @body
         # eager serialize hash bodies so callers see the final string
-        @body = data.is_a?(Hash) ? JSON.generate(data) : data
+        @body = data.is_hash? ? JSON.generate(data) : data
       end
       @body
     end

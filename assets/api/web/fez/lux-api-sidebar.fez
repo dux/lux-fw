@@ -3,18 +3,18 @@
   // marker that follows the section currently in view.
   //
   // Subscribes:
-  //   joshua:schema-loaded   - to (re)build the list
-  //   joshua:search-changed  - to filter visible items
+  //   lux_api:schema-loaded   - to (re)build the list
+  //   lux_api:search-changed  - to filter visible items
   class {
     init() {
       this.state.groups = []
       this._activeLink  = null
 
       // schema may already be loaded by the time we mount; if so, use it
-      if (window.joshua && window.joshua.api_schema) this._loadSchema(window.joshua.api_schema)
+      if (window.lux_api && window.lux_api.api_schema) this._loadSchema(window.lux_api.api_schema)
 
-      this.subscribe('joshua:schema-loaded', (schema) => this._loadSchema(schema))
-      this.subscribe('joshua:search-changed', (q) => this._filter(q))
+      this.subscribe('lux_api:schema-loaded', (schema) => this._loadSchema(schema))
+      this.subscribe('lux_api:search-changed', (q) => this._filter(q))
     }
 
     _loadSchema(schema) {
@@ -82,9 +82,9 @@
       if (this._activeLink && this._setActive) this._setActive(this._activeLink)
     }
 
-    schemaUrl()  { return window.joshua && window.joshua.schema_url }
-    postmanUrl() { return window.joshua && window.joshua.postman_url }
-    openapiUrl() { return window.joshua && window.joshua.openapi_url }
+    schemaUrl()  { return window.lux_api && window.lux_api.schema_url }
+    postmanUrl() { return window.lux_api && window.lux_api.postman_url }
+    openapiUrl() { return window.lux_api && window.lux_api.openapi_url }
   }
 </script>
 

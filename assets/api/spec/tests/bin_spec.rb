@@ -131,10 +131,10 @@ def free_port
   port
 end
 
-describe 'bin/joshua' do
+describe 'bin/lux-api' do
   PORT = free_port
   HOST = "http://127.0.0.1:#{PORT}"
-  BIN  = File.expand_path('../../bin/joshua', __dir__)
+  BIN  = File.expand_path('../../bin/lux-api', __dir__)
 
   before(:all) do
     $no_error_print = true
@@ -156,38 +156,38 @@ describe 'bin/joshua' do
     $no_error_print = false
   end
 
-  def joshua(*args)
+  def lux_api(*args)
     cmd = args.map { |a| a.include?(' ') || a.include?('{') ? "'#{a}'" : a }.join(' ')
     # capture stdout + stderr, but strip bundler/rubygems warnings that pollute output
-    out = `JOSHUA_HOST=#{HOST} ruby #{BIN} #{cmd} 2>&1`
+    out = `LUX_API_HOST=#{HOST} ruby #{BIN} #{cmd} 2>&1`
     out.lines.reject { |l| l =~ %r{warning: (already initialized|previous definition)} || l =~ %r{rubygems_ext\.rb|platform\.rb} }.join
   end
 
-  def joshua_json(*args)
-    out = joshua(*args)
+  def lux_api_json(*args)
+    out = lux_api(*args)
     JSON.parse(out)
   rescue JSON::ParserError => e
-    raise "Failed to parse JSON from bin/joshua output:\n#{out}\n#{e.message}"
+    raise "Failed to parse JSON from bin/lux-api output:\n#{out}\n#{e.message}"
   end
 
   # --- index ---
 
   describe 'index (no args)' do
     it 'returns the full API index as JSON' do
-      data = joshua_json
+      data = lux_api_json
       expect(data).to be_a(Hash)
       expect(data).to have_key('board')
     end
 
     it 'returns index as YAML' do
-      out = joshua('--yaml')
+      out = lux_api('--yaml')
       data = YAML.safe_load(out, permitted_classes: [Symbol])
       expect(data).to be_a(Hash)
       expect(data).to have_key('board')
     end
 
     it 'returns index as text' do
-      out = joshua('--text')
+      out = lux_api('--text')
       expect(out).to include('board:')
       expect(out).to include('collection:')
       expect(out).to include('member:')
@@ -198,7 +198,7 @@ describe 'bin/joshua' do
 
   describe 'board/list' do
     it 'returns 2 boards as JSON' do
-      data = joshua_json('board/list')
+      data = lux_api_json('board/list')
       expect(data['success']).to eq(true)
       expect(data['data'].size).to eq(2)
       expect(data['data'][0]['name']).to eq('Work')
@@ -206,14 +206,14 @@ describe 'bin/joshua' do
     end
 
     it 'returns boards as YAML' do
-      out = joshua('--yaml', 'board/list')
+      out = lux_api('--yaml', 'board/list')
       data = YAML.safe_load(out, permitted_classes: [Symbol])
       expect(data['success']).to eq(true)
       expect(data['data'].size).to eq(2)
     end
 
     it 'returns boards as text' do
-      out = joshua('--text', 'board/list')
+      out = lux_api('--text', 'board/list')
       expect(out).to include('success: true')
       expect(out).to include('Work')
       expect(out).to include('Personal')
@@ -224,20 +224,20 @@ describe 'bin/joshua' do
 
   describe 'board/:ref/show' do
     it 'shows board 1' do
-      data = joshua_json('board/1/show')
+      data = lux_api_json('board/1/show')
       expect(data['success']).to eq(true)
       expect(data['data']['name']).to eq('Work')
       expect(data['data']['task_count']).to eq(7)
     end
 
     it 'shows board 2' do
-      data = joshua_json('board/2/show')
+      data = lux_api_json('board/2/show')
       expect(data['success']).to eq(true)
       expect(data['data']['name']).to eq('Personal')
     end
 
     it 'returns error for unknown board' do
-      data = joshua_json('board/999/show')
+      data = lux_api_json('board/999/show')
       expect(data['success']).to eq(false)
     end
   end
@@ -246,19 +246,19 @@ describe 'bin/joshua' do
 
   describe 'board/:ref/tasks' do
     it 'lists all 7 tasks for board 1' do
-      data = joshua_json('board/1/tasks')
+      data = lux_api_json('board/1/tasks')
       expect(data['success']).to eq(true)
       expect(data['data'].size).to eq(7)
     end
 
     it 'lists all 7 tasks for board 2' do
-      data = joshua_json('board/2/tasks')
+      data = lux_api_json('board/2/tasks')
       expect(data['success']).to eq(true)
       expect(data['data'].size).to eq(7)
     end
 
     it 'filters active tasks for board 1' do
-      data = joshua_json('board/1/tasks', 'active=true')
+      data = lux_api_json('board/1/tasks', 'active=true')
       expect(data['success']).to eq(true)
       expect(data['data'].size).to eq(4)
       data['data'].each do |task|
@@ -267,7 +267,7 @@ describe 'bin/joshua' do
     end
 
     it 'filters inactive tasks for board 1' do
-      data = joshua_json('board/1/tasks', 'active=false')
+      data = lux_api_json('board/1/tasks', 'active=false')
       expect(data['success']).to eq(true)
       expect(data['data'].size).to eq(3)
       data['data'].each do |task|
@@ -276,19 +276,19 @@ describe 'bin/joshua' do
     end
 
     it 'filters active tasks for board 2' do
-      data = joshua_json('board/2/tasks', 'active=true')
+      data = lux_api_json('board/2/tasks', 'active=true')
       expect(data['success']).to eq(true)
       expect(data['data'].size).to eq(4)
     end
 
     it 'filters inactive tasks for board 2' do
-      data = joshua_json('board/2/tasks', 'active=false')
+      data = lux_api_json('board/2/tasks', 'active=false')
       expect(data['success']).to eq(true)
       expect(data['data'].size).to eq(3)
     end
 
     it 'passes JSON params' do
-      data = joshua_json('board/1/tasks', '{"active":"true"}')
+      data = lux_api_json('board/1/tasks', '{"active":"true"}')
       expect(data['success']).to eq(true)
       expect(data['data'].size).to eq(4)
     end
@@ -298,20 +298,20 @@ describe 'bin/joshua' do
 
   describe 'namespace filter' do
     it 'filters index to a single namespace' do
-      data = joshua_json('board')
+      data = lux_api_json('board')
       expect(data.keys).to eq(['board'])
       expect(data['board']).to have_key('collection')
       expect(data['board']).to have_key('member')
     end
 
     it 'works with --yaml format' do
-      out = joshua('--yaml', 'board')
+      out = lux_api('--yaml', 'board')
       data = YAML.safe_load(out, permitted_classes: [Symbol])
       expect(data.keys).to eq(['board'])
     end
 
     it 'prints error for unknown namespace' do
-      out = joshua('nonexistent')
+      out = lux_api('nonexistent')
       expect(out).to include('Unknown namespace: nonexistent')
       expect(out).to include('Available:')
       expect(out).to include('board')
@@ -322,14 +322,14 @@ describe 'bin/joshua' do
 
   describe 'output formats' do
     it '--yaml on api call' do
-      out = joshua('--yaml', 'board/1/tasks', 'active=true')
+      out = lux_api('--yaml', 'board/1/tasks', 'active=true')
       data = YAML.safe_load(out, permitted_classes: [Symbol])
       expect(data['success']).to eq(true)
       expect(data['data'].size).to eq(4)
     end
 
     it '--text on api call' do
-      out = joshua('--text', 'board/1/show')
+      out = lux_api('--text', 'board/1/show')
       expect(out).to include('success: true')
       expect(out).to include('name: Work')
     end

@@ -105,21 +105,21 @@ describe 'Lux::Api::SysApi endpoints' do
 
     expect(html).to be_a(String)
     expect(html).to include('<script src="?file=boot.js">')
-    expect(html).to include('<script fez="?file=/fez/joshua-api.fez">')
-    expect(html).to include('<script fez="?file=/fez/joshua-method.fez">')
-    expect(html).to include('<script fez="?file=/fez/joshua-runner.fez">')
+    expect(html).to include('<script fez="?file=/fez/lux-api.fez">')
+    expect(html).to include('<script fez="?file=/fez/lux-api-method.fez">')
+    expect(html).to include('<script fez="?file=/fez/lux-api-runner.fez">')
     expect(html).to include('?file=vendor/postwind.js')
     expect(html).to include('?file=vendor/fez.js')
-    expect(html).to include('<joshua-header>')       # header component mount
-    expect(html).to include('joshua-header.fez')     # header component registered
-    expect(html).to include('<joshua-sidebar>')      # sidebar component mount
-    expect(html).to include('joshua-sidebar.fez')    # sidebar component registered
+    expect(html).to include('<lux-api-header>')       # header component mount
+    expect(html).to include('lux-api-header.fez')     # header component registered
+    expect(html).to include('<lux-api-sidebar>')      # sidebar component mount
+    expect(html).to include('lux-api-sidebar.fez')    # sidebar component registered
     expect(html).not_to include('<xmp fez=')
   end
 
-  it 'web ?file=/fez/joshua-method.fez returns raw component' do
+  it 'web ?file=/fez/lux-api-method.fez returns raw component' do
     host = SysMockApiHost.new(path: '/api/sys/web', method: 'GET')
-    body = Lux::Api::SysApi.render(:web, api_host: host, params: { file: '/fez/joshua-method.fez' })
+    body = Lux::Api::SysApi.render(:web, api_host: host, params: { file: '/fez/lux-api-method.fez' })
     expect(body).to be_a(String)
     expect(body).to include('init(props)')      # script body
     expect(body).to include('anchor()')         # function we defined
@@ -129,7 +129,7 @@ describe 'Lux::Api::SysApi endpoints' do
   it 'web ?file=boot.js returns the JS file' do
     host = SysMockApiHost.new(path: '/api/sys/web', method: 'GET')
     body = Lux::Api::SysApi.render(:web, api_host: host, params: { file: 'boot.js' })
-    expect(body).to include('window.joshua')
+    expect(body).to include('window.lux_api')
     expect(body).to include('PostWind.init')
   end
 
@@ -150,7 +150,7 @@ describe 'Lux::Api::SysApi endpoints' do
 
   it 'web rejects path traversal' do
     host = SysMockApiHost.new(path: '/api/sys/web', method: 'GET')
-    result = Lux::Api::SysApi.new(:web, params: { file: '../joshua/sys_api.rb' }, api_host: host).execute_call
+    result = Lux::Api::SysApi.new(:web, params: { file: '../lux-api/sys_api.rb' }, api_host: host).execute_call
     expect(result[:success]).to eq(false)
     expect(result[:error][:messages].first).to include("'..'")
   end
@@ -199,7 +199,7 @@ describe 'Lux::Api rack call' do
     status, headers, body = Lux::Api.call(rack_env(path: '/api/sys/web'))
     expect(status).to eq(200)
     expect(headers['Content-Type']).to start_with('text/html')
-    expect(body.first).to include('<joshua-apis>')
+    expect(body.first).to include('<lux-api-apis>')
     expect(body.first).to include('?file=vendor/postwind.js')
     expect(body.first).to include('?file=vendor/fez.js')
   end

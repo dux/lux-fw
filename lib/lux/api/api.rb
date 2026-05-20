@@ -1,6 +1,6 @@
-# Lux::Api -- formerly the Joshua gem, absorbed into lux-fw.
+# Lux::Api -- absorbed into lux-fw.
 #
-# Files are required in joshua's original load order; Dir.require_all is
+# Files are required in explicit load order; Dir.require_all is
 # alphabetical and would break inter-file deps, so this file is the
 # explicit entry point. core_ext (blank?/present?) is dropped because
 # lux-fw's overload/blank.rb already provides it.

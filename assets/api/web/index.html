@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Joshua API</title>
+  <title>Lux::Api</title>
   <link rel="icon" href="/favicon.ico">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 
@@ -65,7 +65,7 @@
     }
 
     /* --- buttons (.btn) ------------------------------------------------ */
-    /* Use the joshua-btn component or apply these classes directly to <a>/<button>. */
+    /* Use the lux-api-btn component or apply these classes directly to <a>/<button>. */
     .btn {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 6px 12px;
@@ -121,28 +121,28 @@
 </head>
 <body class="text-gray-900">
 
-  <joshua-header></joshua-header>
+  <lux-api-header></lux-api-header>
 
   <main class="max-w-[1200px] mx-auto px-6 py-8 flex gap-8">
 
-    <joshua-sidebar></joshua-sidebar>
+    <lux-api-sidebar></lux-api-sidebar>
 
-    <joshua-apis></joshua-apis>
+    <lux-api-apis></lux-api-apis>
   </main>
 
   <script src="?file=boot.js"></script>
 
   <!-- fez components: reusable widgets (lib/web/fez/*.fez) -->
-  <script fez="?file=/fez/joshua-btn.fez"></script>
+  <script fez="?file=/fez/lux-api-btn.fez"></script>
   <script fez="?file=/fez/material-icon.fez"></script>
   <script fez="?file=/fez/input-date.fez"></script>
   <script fez="?file=/fez/input-color.fez"></script>
-  <script fez="?file=/fez/joshua-header.fez"></script>
-  <script fez="?file=/fez/joshua-sidebar.fez"></script>
-  <script fez="?file=/fez/joshua-apis.fez"></script>
-  <script fez="?file=/fez/joshua-api.fez"></script>
-  <script fez="?file=/fez/joshua-method.fez"></script>
-  <script fez="?file=/fez/joshua-params.fez"></script>
-  <script fez="?file=/fez/joshua-runner.fez"></script>
+  <script fez="?file=/fez/lux-api-header.fez"></script>
+  <script fez="?file=/fez/lux-api-sidebar.fez"></script>
+  <script fez="?file=/fez/lux-api-apis.fez"></script>
+  <script fez="?file=/fez/lux-api.fez"></script>
+  <script fez="?file=/fez/lux-api-method.fez"></script>
+  <script fez="?file=/fez/lux-api-params.fez"></script>
+  <script fez="?file=/fez/lux-api-runner.fez"></script>
 </body>
 </html>

@@ -71,7 +71,7 @@ module Lux
       # --- argument parsing ---
 
       def parse_args args
-        if args.first.is_a?(Hash)
+        if args.first.is_hash?
           opts = args.first || {}
         else
           opts = args[1] || {}
