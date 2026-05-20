@@ -401,6 +401,13 @@ module Lux
         @@opts[:params]  = @@opts[:_schema].to_h
       end
 
+      # reference a top-level model schema by its underscored name
+      # generators (postman, openapi, web) resolve it from schemas: in the
+      # introspect output, so the field list is not duplicated per action
+      def schema_ref name
+        @@opts[:schema_ref] = name.to_s
+      end
+
       # api method icon
       # you can find great icons at https://boxicons.com/ - export to svg
       def icon data

@@ -17,11 +17,32 @@ module Lux
           version:  SCHEMA_VERSION,
           mount_on: mount_on,
           apis:     apis(mount_on),
+          schemas:  schemas,
           errors:   errors
         }
       end
 
       private
+
+      # collect model schemas for documented APIs that opt in by defining
+      # self.api_schema (returning a Lux::Schema). Keyed by api_schema_ref so
+      # per-method entries can $ref into here without duplicating field lists.
+      def schemas
+        out = {}
+
+        Lux::Api.documented.each do |klass|
+          next if klass.to_s == 'Lux::Api::SysApi'
+          next unless klass.respond_to?(:api_schema) && klass.respond_to?(:api_schema_ref)
+
+          name = klass.api_schema_ref.to_s
+          next if name.empty? || out.key?(name)
+
+          rules = klass.api_schema.rules rescue nil
+          out[name] = rules if rules
+        end
+
+        out.empty? ? nil : out
+      end
 
       def apis mount_on
         out = {}
@@ -55,6 +76,11 @@ module Lux
         base = mount_on.to_s.sub(/\/$/, '')
         out  = {}
 
+        # implicit schema_ref for classes that expose a top-level model schema
+        # (any class with api_schema_ref). Falls through to explicit per-action
+        # schema_ref set via the DSL.
+        implicit_ref = klass.respond_to?(:api_schema_ref) ? klass.api_schema_ref.to_s : nil
+
         raw.each do |action, mopts|
           next if (mopts || {})[:annotations]&.key?(:undocumented)
 
@@ -64,12 +90,18 @@ module Lux
           path_parts << ':ref' if type == :member
           path_parts << action.to_s
 
+          schema_ref = cleaned[:schema_ref]
+          if !schema_ref && implicit_ref && %i(create update).include?(action.to_sym)
+            schema_ref = implicit_ref
+          end
+
           out[action] = {
-            path:   path_parts.join('/'),
-            http:   (['POST'] | Array(cleaned[:allow])),
-            desc:   cleaned[:desc],
-            detail: cleaned[:detail],
-            params: cleaned[:params]
+            path:       path_parts.join('/'),
+            http:       (['POST'] | Array(cleaned[:allow])),
+            desc:       cleaned[:desc],
+            detail:     cleaned[:detail],
+            params:     cleaned[:params],
+            schema_ref: schema_ref
           }.compact
         end
 
