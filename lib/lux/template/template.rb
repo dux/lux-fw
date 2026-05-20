@@ -44,7 +44,9 @@ module Lux
       end
 
       def find_layout root, layout_template
-        pointer = Lux.env.reload? ? Lux.current.var : Lux.var
+        # Cache only in production. In dev/test we re-resolve so layout-file
+        # changes are picked up without restarting the process.
+        pointer = Lux.env.production? ? Lux.var : Lux.current.var
         cache = (pointer[:_cached_layouts] ||= {})
         cache_key = "#{root}/#{layout_template}"
 
@@ -104,11 +106,13 @@ module Lux
     private
 
     def compile_template template
+      # Cache compiled Tilt templates only in production. In dev/test we
+      # recompile so edits show up without a restart.
       pointer =
-      if Lux.env.reload?
-        Lux.current.var
-      else
+      if Lux.env.production?
         Lux.var
+      else
+        Lux.current.var
       end
 
       pointer = (pointer[:_cached_templates] ||= {})

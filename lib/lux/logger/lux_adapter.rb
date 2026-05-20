@@ -22,7 +22,11 @@ module Lux
 
   # Lux.log 'message' or Lux.log { 'lazy message' }
   # convenience shortcut for Lux.logger.info
+  # Skips block evaluation when the logger would drop the message (e.g. log_level=:error
+  # in production), so callers can freely pass colorize/sprintf/`Lux.app_caller` blocks
+  # without paying for them in prod.
   def log what = nil, &block
+    return unless Lux.logger.info?
     what = block.call if block
     Lux.logger.info(what) if what
   end

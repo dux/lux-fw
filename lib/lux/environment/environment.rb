@@ -9,7 +9,7 @@ module Lux
       if env_name.empty?
         raise ArgumentError.new('RACK_ENV is not defined') # never default to "development", because it could be loaded as default in production
       elsif !ENVS.include?(env_name)
-        raise ArgumentError.new('Unsupported environemt: %s (supported are %s)' % [env_name, ENVS])
+        raise ArgumentError.new('Unsupported environment: %s (supported are %s)' % [env_name, ENVS])
       end
 
       @env_name = env_name

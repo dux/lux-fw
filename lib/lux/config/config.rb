@@ -106,7 +106,7 @@ module Lux
           raise "Secrets :default root not defined in %s" % source
         end
       else
-        puts Lux.info '%s not found' % source
+        Lux.info '%s not found' % source
         {}
       end
     end

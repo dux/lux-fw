@@ -387,9 +387,15 @@ module Lux
 
     # True if any Tilt-recognised extension exists at the given (extension-less)
     # path. Used by render_template to decide whether to fall back from
-    # `<action>_ref` to `<action>`.
+    # `<action>_ref` to `<action>`. Memoized in Lux.var (prod, process-wide) or
+    # Lux.current.var (dev/test, per-request) so we don't stat the disk on every
+    # render.
     def template_file_exists? path
-      Tilt.default_mapping.template_map.keys.any? { |ext| File.exist?("#{path}.#{ext}") }
+      pointer = Lux.env.production? ? Lux.var : Lux.current.var
+      cache   = (pointer[:_template_exists] ||= {})
+      return cache[path] if cache.key?(path)
+
+      cache[path] = Tilt.default_mapping.template_map.keys.any? { |ext| File.exist?("#{path}.#{ext}") }
     end
 
     def render_cache key = :_nil
@@ -411,7 +417,7 @@ module Lux
         end
 
         self.class.define_method(name) {}
-        Lux.log ' created method %s#%s | found template %s'.colorize(:yellow) % [self.class, name, template]
+        Lux.log { ' created method %s#%s | found template %s'.colorize(:yellow) % [self.class, name, template] }
         return true
       else
         # if called via super from `action_missing', return false,

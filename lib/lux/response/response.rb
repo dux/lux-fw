@@ -95,9 +95,9 @@ module Lux
 
       if !@status && !current.no_cache? && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
         if Lux.env.reload?
-          Lux.log " * etag match at #{Lux.app_caller || ':lux'} (skiping for env.reload?)" unless current.nav.format
+          Lux.log { " * etag match at #{Lux.app_caller || ':lux'} (skiping for env.reload?)" } unless current.nav.format
         else
-          Lux.log ' * etag match'
+          Lux.log { ' * etag match' }
           @status = 304
           @body   = ''
           true
@@ -358,7 +358,10 @@ module Lux
         @headers['set-cookie'] = cookie if cookie
       end
 
-      if current.request.request_method == 'GET'
+      # Auto-etag only for cacheable 2xx GETs. Redirects (3xx), errors (4xx/5xx)
+      # and no-store responses don't benefit from a conditional-GET round-trip,
+      # so skipping saves a full-body SHA1 on the response path.
+      if current.request.request_method == 'GET' && !@cache.no_store? && @status.to_i < 300
         etag(@body)
       end
 
