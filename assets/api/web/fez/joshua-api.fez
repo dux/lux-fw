@@ -1,0 +1,76 @@
+<script>
+  class {
+    init(props) {
+      this.state.name      = props.name
+      this.state.api       = props.api
+      this.state.mount_on  = props.mount_on
+    }
+
+    collectionEntries() {
+      const c = this.state.api.collection || {}
+      return Object.keys(c).map(k => ({ action: k, kind: 'collection', ...c[k] }))
+    }
+
+    memberEntries() {
+      const m = this.state.api.member || {}
+      return Object.keys(m).map(k => ({ action: k, kind: 'member', ...m[k] }))
+    }
+  }
+</script>
+
+<style>
+  :fez {
+    .method-group + .method-group { margin-top: 28px; }
+    .method-list   > hr { border: 0; border-top: 1px solid #d1d5db; margin: 20px 0; }
+  }
+</style>
+
+<section id={'api-' + state.name} class="scroll-mt-20 mt-10">
+  <header class="pb-6 mb-8 border-b border-gray-200">
+    <div class="flex items-center gap-3">
+      {#if state.api.icon}
+        <span class="inline-flex items-center justify-center mt-1 w-4 h-10 rounded-lg bg-gray-100 text-gray-700 -ml-7.5">
+          <material-icon name={state.api.icon} size="24"></material-icon>
+        </span>
+      {/if}
+      <h2 class="mb-0">{state.name}</h2>
+    </div>
+
+    {#if state.api.desc}
+      <p class="text-gray-600 mb-0 max-w-3xl mt-3">{state.api.desc}</p>
+    {/if}
+    {#if state.api.detail}
+      <p class="small-text text-gray-500 mt-1 max-w-3xl">{state.api.detail}</p>
+    {/if}
+  </header>
+
+  {#if fez.collectionEntries().length}
+    <div class="method-group">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="label blue">collection</span>
+        <span class="small-text text-gray-400">actions on the resource set</span>
+      </div>
+      <div class="method-list">
+        {#each fez.collectionEntries() as entry, i}
+          {#if i > 0}<hr>{/if}
+          <joshua-method api_name={state.name} :entry="entry" />
+        {/each}
+      </div>
+    </div>
+  {/if}
+
+  {#if fez.memberEntries().length}
+    <div class="method-group">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="label purple">member</span>
+        <span class="small-text text-gray-400">actions on a single record (requires <code class="small-text text-violet-600">:ref</code>)</span>
+      </div>
+      <div class="method-list">
+        {#each fez.memberEntries() as entry, i}
+          {#if i > 0}<hr>{/if}
+          <joshua-method api_name={state.name} :entry="entry" />
+        {/each}
+      </div>
+    </div>
+  {/if}
+</section>

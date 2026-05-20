@@ -1,0 +1,35 @@
+<script>
+  class {
+    init(props) {
+      this.local.api_name = props.api_name
+      this.local.entry    = props.entry
+    }
+
+    anchor() {
+      return 'method-' + this.local.api_name + '-' + this.local.entry.action
+    }
+  }
+</script>
+
+<article id={fez.anchor()} class="scroll-mt-20">
+  <h3>{local.entry.action}</h3>
+
+  <div class="mt-3">
+    <joshua-runner api_name={local.api_name} :entry="local.entry" />
+  </div>
+
+  {#if local.entry.desc}
+    <p class="text-gray-700 mt-4 mb-0">{local.entry.desc}</p>
+  {/if}
+
+  {#if local.entry.detail}
+    <p class="small-text text-gray-500 mt-2">{local.entry.detail}</p>
+  {/if}
+
+  {#if local.entry.params && Object.keys(local.entry.params).length}
+    <div class="mt-5">
+      <h6 class="mb-2">Params</h6>
+      <joshua-params :params="local.entry.params" />
+    </div>
+  {/if}
+</article>

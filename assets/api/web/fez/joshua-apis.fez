@@ -1,0 +1,52 @@
+<script>
+  // Main content column: one <joshua-api> per namespace plus an optional
+  // named-errors section at the bottom. Waits for the schema to arrive,
+  // then renders.
+  //
+  // Subscribes:
+  //   joshua:schema-loaded  - the API introspection document
+  class {
+    init() {
+      this.state.schema = window.joshua && window.joshua.api_schema || null
+      this.subscribe('joshua:schema-loaded', (schema) => { this.state.schema = schema })
+    }
+
+    entries() {
+      const apis = this.state.schema && this.state.schema.apis || {}
+      return Object.keys(apis).map(name => ({ name, api: apis[name] }))
+    }
+
+    errorEntries() {
+      const errs = this.state.schema && this.state.schema.errors || {}
+      return Object.keys(errs).map(code => ({ code, message: errs[code] }))
+    }
+
+    mountOn() {
+      return this.state.schema && this.state.schema.mount_on
+    }
+  }
+</script>
+
+<div class="flex-1 min-w-0 space-y-20">
+  {#if !state.schema}
+    <div class="text-gray-400">Loading schema...</div>
+  {:else}
+    {#each fez.entries() as entry}
+      <joshua-api name={entry.name} :api="entry.api" mount_on={fez.mountOn()} />
+    {/each}
+
+    {#if fez.errorEntries().length}
+      <section id="named-errors" class="pt-8 border-t border-gray-200">
+        <h6 class="mb-2">Named errors</h6>
+        <div class="rounded-lg border border-gray-200 overflow-hidden bg-white">
+          {#each fez.errorEntries() as err}
+            <div class="flex items-baseline gap-3 px-3 py-2 border-b border-gray-100 last:border-0">
+              <code class="text-rose-700">{err.code}</code>
+              <span class="small-text text-gray-600">{err.message}</span>
+            </div>
+          {/each}
+        </div>
+      </section>
+    {/if}
+  {/if}
+</div>

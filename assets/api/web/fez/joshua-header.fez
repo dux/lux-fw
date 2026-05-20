@@ -1,0 +1,126 @@
+<script>
+  // Top app header: logo, action filter input, bearer token toggle/editor.
+  // Owns the bearer: persists it in localStorage('joshua_bearer'), adopts
+  // it from URL params (api_key / bearer_token in the query string or the
+  // fragment - stripped after read so refresh / bookmarks don't re-leak),
+  // and publishes every change so other components can react.
+  //
+  // Publishes:
+  //   joshua:search-changed  - filter string (lowercased, trimmed)
+  //   joshua:bearer-changed  - new bearer value (string, '' when cleared)
+  const BEARER_KEY = 'joshua_bearer'
+  const readBearer = () => localStorage.getItem(BEARER_KEY) || ''
+
+  class {
+    init() {
+      const fromUrl = this._adoptUrlToken()
+      this.state.bearer = readBearer()
+      this.state.draft  = this.state.bearer
+      this.state.open   = false
+
+      // briefly reveal the panel if the bearer was picked up from the URL
+      if (fromUrl) {
+        this.state.open      = true
+        this._autoCloseTimer = setTimeout(() => { this.state.open = false }, 500)
+      }
+    }
+
+    // Pull api_key / bearer_token from query string or fragment, persist it
+    // as the bearer, and strip both keys from the visible URL. Returns true
+    // if a token was found.
+    _adoptUrlToken() {
+      const KEYS = ['api_key', 'bearer_token']
+      const pull = (params) => {
+        for (const k of KEYS) {
+          const v = params.get(k)
+          if (v) { KEYS.forEach(x => params.delete(x)); return v }
+        }
+        return null
+      }
+
+      const u   = new URL(location.href)
+      let token = pull(u.searchParams)
+
+      const hashIdx = u.hash.indexOf('?')
+      if (hashIdx >= 0) {
+        const hashParams = new URLSearchParams(u.hash.slice(hashIdx + 1))
+        token = token || pull(hashParams)
+        const rest = hashParams.toString()
+        u.hash = u.hash.slice(0, hashIdx) + (rest ? '?' + rest : '')
+      }
+
+      if (!token) return false
+      history.replaceState(null, '', u.toString())
+      this._persist(token)
+      return true
+    }
+
+    _persist(value) {
+      const v = (value || '').trim()
+      if (v) localStorage.setItem(BEARER_KEY, v)
+      else   localStorage.removeItem(BEARER_KEY)
+      this.state.bearer = v
+      this.state.draft  = v
+      Fez.publish('joshua:bearer-changed', v)
+    }
+
+    toggle() {
+      if (this._autoCloseTimer) { clearTimeout(this._autoCloseTimer); this._autoCloseTimer = null }
+      this.state.open = !this.state.open
+    }
+
+    save() {
+      this._persist(this.state.draft)
+      this.state.open = false
+    }
+
+    clear() {
+      this._persist('')
+    }
+
+    search(value) {
+      Fez.publish('joshua:search-changed', (value || '').trim().toLowerCase())
+    }
+  }
+</script>
+
+<style>
+  :fez {
+    .bearer-panel       { display: grid; grid-template-rows: 0fr;
+                          transition: grid-template-rows 220ms ease; }
+    .bearer-panel.open  { grid-template-rows: 1fr; }
+    .bearer-panel > div { overflow: hidden; }
+  }
+</style>
+
+<header class="sticky top-0 z-30 bg-white border-b border-gray-200">
+  <div class="max-w-[1200px] mx-auto px-6 h-14 flex items-center justify-between">
+    <a href="#top" class="flex items-center gap-2 text-gray-900 no-underline">
+      <h4>Joshua</h4>
+      <span class="label gray">API</span>
+    </a>
+
+    <div class="flex-1 flex justify-center px-6">
+      <input type="text" placeholder="filter actions..." class="jh-search w-full max-w-md"
+             oninput="fez.search(event.target.value)">
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button class="btn btn-outline" onclick="fez.toggle()">
+        bearer <span>{state.bearer ? '✓' : '·'}</span>
+      </button>
+    </div>
+  </div>
+
+  <div class={'bearer-panel border-t border-gray-100 bg-gray-50 ' + (state.open ? 'open' : '')}>
+    <div>
+      <div class="max-w-[1200px] mx-auto px-6 py-3 flex items-center gap-2">
+        <h6 class="w-24" style="color:#6b7280;">Bearer</h6>
+        <input type="text" class="jh-input flex-1" value={state.draft}
+               oninput="fez.state.draft = event.target.value">
+        <button class="btn btn-primary" onclick="fez.save()">save</button>
+        <button class="btn btn-ghost"   onclick="fez.clear()">clear</button>
+      </div>
+    </div>
+  </div>
+</header>

@@ -1,0 +1,458 @@
+<script>
+  // ---- module-level: snippet generators ---------------------------------
+  // Joshua is JSON-RPC style: every call is POST with a JSON body of params.
+  const SNIPPETS = {
+    'curl': (c) => {
+      const lines = [
+        `curl -X POST '${c.url}' \\`,
+        `  -H 'Content-Type: application/json'`
+      ]
+      if (c.bearer) lines[1] += ` \\`, lines.push(`  -H 'Authorization: Bearer ${c.bearer}'`)
+      if (Object.keys(c.params).length) {
+        lines[lines.length - 1] += ` \\`
+        lines.push(`  -d '${JSON.stringify(c.params)}'`)
+      }
+      return lines.join('\n')
+    },
+
+    'rpc': (c) => {
+      // RPC envelope POSTed to the mount root.
+      // For member actions include `ref` (the resource id). The dispatcher
+      // accepts `id` as an alias for `ref`.
+      const body = { class: c.api, action: c.action }
+      if (c.kind === 'member') body.ref = c.ref
+      if (c.bearer)            body.token = c.bearer
+      body.params = c.params
+      return `POST ${c.rpc_url}
+Content-Type: application/json
+
+${JSON.stringify(body, null, 2)}`
+    },
+
+    'ruby': (c) => {
+      let out = `require 'net/http'
+require 'json'
+
+uri = URI('${c.url}')
+req = Net::HTTP::Post.new(uri)
+req['Content-Type'] = 'application/json'
+`
+      if (c.bearer) out += `req['Authorization'] = 'Bearer ${c.bearer}'\n`
+      out += `req.body = ${JSON.stringify(JSON.stringify(c.params))}
+
+res = Net::HTTP.start(uri.hostname, uri.port) { |h| h.request(req) }
+JSON.parse(res.body)`
+      return out
+    },
+
+    'python': (c) => {
+      const headers = { 'Content-Type': 'application/json' }
+      if (c.bearer) headers['Authorization'] = `Bearer ${c.bearer}`
+      const py = (v) => JSON.stringify(v).replace(/true/g,'True').replace(/false/g,'False').replace(/null/g,'None')
+      return `import requests
+
+r = requests.post(
+  '${c.url}',
+  headers=${py(headers)},
+  json=${py(c.params)},
+)
+r.json()`
+    },
+
+    'csharp': (c) => {
+      const body = JSON.stringify(c.params)
+      let out = `using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+
+var client  = new HttpClient();
+`
+      if (c.bearer) out += `client.DefaultRequestHeaders.Authorization =
+  new AuthenticationHeaderValue("Bearer", "${c.bearer}");
+
+`
+      out += `var content = new StringContent(
+  ${JSON.stringify(body)},
+  Encoding.UTF8,
+  "application/json"
+);
+
+var res  = await client.PostAsync("${c.url}", content);
+var body = await res.Content.ReadAsStringAsync();`
+      return out
+    },
+
+    'java': (c) => {
+      const body = JSON.stringify(c.params)
+      let out = `import java.net.URI;
+import java.net.http.*;
+
+var body = ${JSON.stringify(body)};
+
+var req = HttpRequest.newBuilder()
+  .uri(URI.create("${c.url}"))
+  .header("Content-Type", "application/json")
+`
+      if (c.bearer) out += `  .header("Authorization", "Bearer ${c.bearer}")\n`
+      out += `  .POST(HttpRequest.BodyPublishers.ofString(body))
+  .build();
+
+var res = HttpClient.newHttpClient()
+  .send(req, HttpResponse.BodyHandlers.ofString());
+
+System.out.println(res.body());`
+      return out
+    }
+  }
+
+  // pick the right input widget for a typero param
+  function widgetFor(spec, name) {
+    const t = (spec.type || '').toLowerCase()
+    if (t === 'boolean')                    return 'checkbox'
+    if (spec.values)                        return 'select'
+    if (t === 'date' || t === 'datetime')   return 'date'
+    if (t === 'color' || /color/i.test(name)) return 'color'
+    if (t === 'integer' || t === 'float')   return 'number'
+    return 'text'
+  }
+
+  // ---- component class --------------------------------------------------
+  class {
+    init(props) {
+      this.state.api_name = props.api_name
+      this.state.entry    = props.entry
+      this.state.tab      = null
+      this.state.bearer   = localStorage.getItem('joshua_bearer') || ''
+      this.state.values   = this.defaultValues(props.entry.params || {})
+      this.state.ref      = ''
+      this.state.copied   = false
+      this._lastResponse  = null     // non-reactive: avoids re-render flicker
+
+      this.subscribe('joshua:bearer-changed', (bearer) => { this.state.bearer = bearer; this.refresh() })
+    }
+
+    defaultValues(params) {
+      const out = {}
+      Object.keys(params).forEach(k => {
+        const spec = params[k]
+        if (spec.default !== undefined && spec.default !== null) out[k] = spec.default
+      })
+      return out
+    }
+
+    allFields() {
+      return Object.keys(this.state.entry.params || {}).map(name => ({
+        name,
+        spec:   this.state.entry.params[name],
+        widget: widgetFor(this.state.entry.params[name], name)
+      }))
+    }
+
+    setField(name, value) {
+      this.state.values = { ...this.state.values, [name]: value }
+    }
+
+    setTab(name) {
+      this.state.tab = (this.state.tab === name) ? null : name
+    }
+
+    isMember() {
+      return this.state.entry.kind === 'member'
+    }
+
+    resolvedPath() {
+      let p = this.state.entry.path
+      if (this.isMember()) p = p.replace(':ref', this.state.ref || ':ref')
+      return p
+    }
+
+    snippetCtx() {
+      const filled = {}
+      Object.keys(this.state.entry.params || {}).forEach(k => {
+        const spec = this.state.entry.params[k]
+        const v    = this.state.values[k]
+        filled[k]  = v !== undefined && v !== '' ? v : (spec.default !== undefined ? spec.default : `<${spec.type || 'value'}>`)
+      })
+      const path  = this.isMember()
+        ? this.state.entry.path.replace(':ref', this.state.ref || ':ref')
+        : this.state.entry.path
+      const mount = (window.joshua.api_schema?.mount_on || '/').replace(/\/+$/, '')
+      return {
+        url:     location.origin + path,
+        rpc_url: location.origin + (mount || '/'),
+        path,
+        params:  filled,
+        bearer:  this.state.bearer,
+        action:  this.state.entry.action,
+        api:     this.state.api_name,
+        kind:    this.state.entry.kind,
+        ref:     this.state.ref || ':ref'
+      }
+    }
+
+    snippet() {
+      const fn = SNIPPETS[this.state.tab]
+      return fn ? fn(this.snippetCtx()) : ''
+    }
+
+    // Direct-DOM send: no this.state mutations on send/receive so the form
+    // doesn't re-render. Avoids flicker for fast APIs and preserves input
+    // focus / cursor position. The result is stashed in this._lastResponse
+    // so a later re-render (e.g. tab switch back to 'try') can repaint via
+    // onRefresh().
+    async send() {
+      const btn  = this.root.querySelector('.send-btn')
+      const pane = this.root.querySelector('.response-pane')
+      if (!btn || !pane) return
+
+      btn.classList.add('sending')
+      btn.disabled = true
+
+      const path = this.resolvedPath()
+      const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+      if (this.state.bearer) headers['Authorization'] = 'Bearer ' + this.state.bearer
+
+      const t0 = performance.now()
+      let resp
+      try {
+        const res = await fetch(path, {
+          method:  'POST',
+          headers,
+          body:    JSON.stringify(this.state.values || {})
+        })
+        const text = await res.text()
+        let body = text
+        try { body = JSON.parse(text) } catch (e) {}
+        resp = {
+          status: res.status,
+          ms:     Math.round(performance.now() - t0),
+          text:   typeof body === 'string' ? body : JSON.stringify(body, null, 2)
+        }
+      } catch (err) {
+        resp = { status: 'ERR', ms: Math.round(performance.now() - t0), text: err.message }
+      } finally {
+        btn.classList.remove('sending')
+        btn.disabled = false
+      }
+
+      this._lastResponse = resp
+      this._renderResponse(pane, resp)
+    }
+
+    // Re-paint the response pane after fez re-renders the try block
+    // (which happens on setField, setTab, etc.) - keeps the result visible.
+    onRefresh() {
+      if (!this._lastResponse || this.state.tab !== 'try') return
+      const pane = this.root.querySelector('.response-pane')
+      if (pane && !pane.firstChild) this._renderResponse(pane, this._lastResponse)
+    }
+
+    _renderResponse(pane, resp) {
+      const s = String(resp.status)
+      const klass = s.startsWith('2') ? 'r-status-ok'
+                  : s.startsWith('4') ? 'r-status-warn'
+                  : 'r-status-err'
+
+      const head = document.createElement('div')
+      head.className = 'response-head'
+      head.innerHTML =
+        '<span class="r-status ' + klass + '">' + s + '</span>' +
+        '<span class="runner-meta off">' + resp.ms + 'ms</span>'
+
+      const pre = document.createElement('pre')
+      pre.className = 'pre-code response-body'
+      pre.textContent = resp.text      // textContent = safe, no escaping needed
+
+      pane.replaceChildren(head, pre)
+      pane.style.display = ''
+    }
+
+    async copy() {
+      try {
+        await navigator.clipboard.writeText(this.snippet())
+        this.state.copied = true
+        setTimeout(() => { this.state.copied = false; this.refresh() }, 1200)
+      } catch (e) {}
+    }
+
+    tabs() {
+      return [
+        { key: 'try',    label: 'try it'   },
+        { key: 'curl',   label: 'curl'     },
+        { key: 'rpc',    label: 'json-rpc' },
+        { key: 'ruby',   label: 'ruby'     },
+        { key: 'python', label: 'python'   },
+        { key: 'csharp', label: 'c#'       },
+        { key: 'java',   label: 'java'     }
+      ]
+    }
+  }
+</script>
+
+<style>
+  :fez {
+    .runner       { border-radius: 12px; background: #0f172a; color: #e2e8f0; overflow: hidden;
+                    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 0 0 1px #1e293b; }
+    .tabs         { display: flex; align-items: stretch; gap: 6px; padding: 0 12px; border-bottom: 1px solid #1e293b; }
+    .tab          { padding: 14px 18px; margin: 0; font-size: 12px; font-weight: 600;
+                    color: #94a3b8; cursor: pointer; background: transparent; border: 0;
+                    border-bottom: 2px solid transparent; border-radius: 0; line-height: 1;
+                    text-transform: uppercase; letter-spacing: 0.06em; }
+    .tab:hover    { color: #e2e8f0; background: rgba(255,255,255,0.03); }
+    .tab.active   { color: #fff; border-bottom-color: #818cf8; }
+    .tabs .spacer { flex: 1; }
+    .pre-code     { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 14px; line-height: 1.55;
+                    color: #e2e8f0; white-space: pre; margin: 0; padding: 16px; }
+    .field        { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+    .field label  { font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
+                    color: #cbd5e1; width: 140px; flex-shrink: 0; }
+    .field input[type=text], .field input[type=number], .field select, .field input:not([type]) {
+                    flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 6px;
+                    padding: 8px 12px; color: #e2e8f0; font-size: 14px; }
+    .field input::placeholder { color: #64748b; }
+    .field input:focus, .field select:focus { outline: none; border-color: #6366f1; }
+    .r-status     { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
+    .r-status-ok   { color: #6ee7b7; background: rgba(16,185,129,0.15); }
+    .r-status-warn { color: #fcd34d; background: rgba(245,158,11,0.15); }
+    .r-status-err  { color: #fda4af; background: rgba(244,63,94,0.15); }
+    .runner-collapsed { padding: 14px 16px; font-size: 13px; color: #94a3b8; display: flex; align-items: center; justify-content: space-between; }
+    .runner-meta  { font-size: 13px; }
+    .runner-meta.ok  { color: #34d399; }
+    .runner-meta.off { color: #64748b; }
+
+    /* close button in tab strip menu (upper right) */
+    .tab.tab-close { color: #64748b; font-size: 16px; padding-left: 14px; padding-right: 14px; }
+    .tab.tab-close:hover { color: #fff; background: rgba(244,63,94,0.15); }
+
+    /* send row uses the same label-width + gap as form fields so the
+       button aligns flush with the input column */
+    .send-row { padding-top: 14px; }
+
+    /* send/test button at end of try-it form */
+    .send-btn { display: inline-flex; align-items: center; gap: 8px;
+                padding: 10px 22px; background: #2563eb; color: #fff;
+                border: 0; border-radius: 8px; font-size: 14px; font-weight: 600;
+                cursor: pointer; letter-spacing: 0.02em; }
+    .send-btn:hover    { background: #3b82f6; }
+    .send-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .send-btn .spinner { display: none; width: 12px; height: 12px;
+                         border: 2px solid rgba(255,255,255,0.25);
+                         border-top-color: #fff; border-radius: 50%;
+                         animation: send-spin 0.6s linear infinite; }
+    .send-btn.sending .spinner { display: inline-block; }
+    .send-btn.sending           { background: #1d4ed8; cursor: progress; }
+    @keyframes send-spin { to { transform: rotate(360deg); } }
+    .send-path { font-family: 'JetBrains Mono', ui-monospace, monospace;
+                 color: #94a3b8; font-size: 11px; }
+
+    .response-pane { margin-top: 12px; padding-top: 12px;
+                     border-top: 1px solid #1e293b; }
+    .response-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .response-body { padding: 0; }
+
+    /* PayPal-style preview bar - the default collapsed state */
+    .runner-preview { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+    .preview-pill   { display: inline-block; padding: 4px 12px; border-radius: 999px;
+                      background: #10b981; color: #fff; font-size: 11px; font-weight: 700;
+                      letter-spacing: 0.05em; }
+    .preview-path   { flex: 1; min-width: 0; color: #e2e8f0; font-size: 15px;
+                      font-family: 'JetBrains Mono', ui-monospace, monospace;
+                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .preview-path .chev { color: #64748b; margin-left: 8px; }
+    .preview-try    { padding: 8px 18px; background: #2563eb; color: #fff; border: 0;
+                      border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .preview-try:hover { background: #3b82f6; }
+  }
+</style>
+
+<div class="runner">
+
+  {#if !state.tab}
+    <!-- collapsed: PayPal-style preview bar -->
+    <div class="runner-preview">
+      <span class="preview-pill">POST</span>
+      <code class="preview-path">{state.entry.path}<span class="chev">›</span></code>
+      <button class="preview-try" onclick="fez.setTab('try')">Try it</button>
+    </div>
+  {:else}
+    <!-- expanded: tab strip + content -->
+    <div class="tabs">
+      {#for t in fez.tabs()}
+        <button class={'tab ' + (state.tab === t.key ? 'active' : '')} onclick="fez.setTab('{t.key}')">{t.label}</button>
+      {/for}
+      <div class="spacer"></div>
+      {#if state.tab !== 'try'}
+        <button class="tab" onclick="fez.copy()" title="copy">{state.copied ? 'copied' : 'copy'}</button>
+      {/if}
+      <button class="tab tab-close" onclick="fez.setTab(null)" title="close">✕</button>
+    </div>
+  {/if}
+
+  <!-- TRY tab -->
+  {#if state.tab === 'try'}
+    <div class="p-4 space-y-1">
+      {#if fez.isMember()}
+        <div class="field">
+          <label>ref</label>
+          <input type="text" value={state.ref} oninput="fez.state.ref = event.target.value" placeholder="resource id (required)">
+        </div>
+      {/if}
+
+      {#for field in fez.allFields()}
+        <div class="field">
+          <label>{field.name}{field.spec.required ? ' *' : ''}</label>
+          {#if field.widget === 'checkbox'}
+            <input type="checkbox" checked={state.values[field.name]}
+              onchange="fez.setField(event.target.dataset.name, event.target.checked)" data-name={field.name}>
+          {:else if field.widget === 'select'}
+            <select onchange="fez.setField(event.target.dataset.name, event.target.value)" data-name={field.name}>
+              <option value="">(unset)</option>
+              {#for opt in field.spec.values}
+                <option value={opt} selected={state.values[field.name] === opt}>{opt}</option>
+              {/for}
+            </select>
+          {:else if field.widget === 'date'}
+            <input-date name={field.name} value={state.values[field.name] ?? ''}
+              onchange="fez.setField('{field.name}', event.target.value)" />
+          {:else if field.widget === 'color'}
+            <input-color name={field.name} value={state.values[field.name] || '#4f46e5'}
+              onchange="fez.setField('{field.name}', event.target.value)" />
+          {:else if field.widget === 'number'}
+            <input type="number" placeholder={field.spec.type}
+              value={state.values[field.name] ?? ''}
+              oninput="fez.setField(event.target.dataset.name, event.target.value)"
+              data-name={field.name}>
+          {:else}
+            <input type="text" placeholder={field.spec.type || 'string'}
+              value={state.values[field.name] ?? ''}
+              oninput="fez.setField(event.target.dataset.name, event.target.value)"
+              data-name={field.name}>
+          {/if}
+        </div>
+      {/for}
+
+      <div class="field send-row">
+        <label></label>
+        <button class="send-btn" onclick="fez.send()">
+          <span class="spinner"></span>
+          <span>Send →</span>
+        </button>
+        <code class="send-path">POST {fez.resolvedPath()}</code>
+        <div class="spacer"></div>
+        {#if state.bearer}
+          <span class="runner-meta ok">with bearer</span>
+        {:else}
+          <span class="runner-meta off">no bearer</span>
+        {/if}
+      </div>
+
+      <!-- response pane: written via DOM by fez.send() to avoid re-render flicker -->
+      <div class="response-pane" style="display: none"></div>
+    </div>
+  {/if}
+
+  <!-- snippet tabs -->
+  {#if state.tab && state.tab !== 'try'}
+    <pre class="pre-code">{fez.snippet()}</pre>
+  {/if}
+</div>

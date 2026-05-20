@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Joshua API</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
+  <script src="?file=vendor/postwind.js"></script>
+  <script src="?file=vendor/fez.js"></script>
+
+  <!-- TEMP debug: fez ai-bridge (remove before commit) -->
+  <script src="http://127.0.0.1:47832/bridge.js" async></script>
+
+  <style>
+    /* --- design tokens --------------------------------------------------- */
+    /* The ONLY text styles we use: h1-h6, body (17px), .small-text (14px).
+       Do not add ad-hoc text-* utility classes in markup. */
+
+    html, body { background: #f7f7f8; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 17px; line-height: 1.55; color: #111827;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; }
+    h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.015em; }
+    h3 { font-size: 18px; font-weight: 700; }
+    h4 { font-size: 15px; font-weight: 600; }
+    h5 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
+    h6 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; }
+
+    .small-text { font-size: 14px; line-height: 1.5; }
+
+    code, pre, .mono {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    /* inline code inherits parent font-size by default; standalone <code>
+       in body text should keep body size unless inside a small-text region */
+
+    /* --- label / chip --------------------------------------------------- */
+    /* <span class="label">default</span>
+       <span class="label green">success</span>
+       Modifiers: green red blue purple yellow gray mono  */
+    .label {
+      display: inline-block;
+      padding: 2px 7px;
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      line-height: 1.4; white-space: nowrap;
+      background: #f3f4f6; color: #4b5563;
+      border: 1px solid #e5e7eb; border-radius: 4px;
+    }
+    .label.green  { background: #ecfdf5; color: #047857; border-color: #d1fae5; }
+    .label.red    { background: #fff1f2; color: #be123c; border-color: #ffe4e6; }
+    .label.blue   { background: #f0f9ff; color: #0369a1; border-color: #e0f2fe; }
+    .label.purple { background: #f5f3ff; color: #6d28d9; border-color: #ede9fe; }
+    .label.yellow { background: #fffbeb; color: #b45309; border-color: #fef3c7; }
+    .label.gray   { background: #f3f4f6; color: #4b5563; border-color: #e5e7eb; }
+    .label.mono   {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      text-transform: none; letter-spacing: 0; font-weight: 500;
+    }
+
+    /* --- buttons (.btn) ------------------------------------------------ */
+    /* Use the joshua-btn component or apply these classes directly to <a>/<button>. */
+    .btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 6px 12px;
+      font-size: 13px; font-weight: 500; line-height: 1;
+      color: #374151; background: #fff;
+      border: 1px solid #e5e7eb; border-radius: 6px;
+      cursor: pointer; text-decoration: none;
+      transition: background 120ms, color 120ms, border-color 120ms;
+    }
+    .btn:hover { background: #f9fafb; }
+    .btn.btn-sm { padding: 4px 8px; font-size: 11px; border-radius: 4px; }
+
+    .btn.btn-primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+    .btn.btn-primary:hover { background: #6366f1; border-color: #6366f1; }
+
+    .btn.btn-ghost { background: transparent; border-color: transparent; color: #6b7280; }
+    .btn.btn-ghost:hover { background: #f3f4f6; color: #111827; }
+
+    .btn.btn-outline { background: #fff; color: #374151; border-color: #d1d5db; }
+    .btn.btn-outline:hover { background: #f9fafb; }
+
+    .btn.btn-on-dark { background: transparent; color: #94a3b8; border-color: transparent; }
+    .btn.btn-on-dark:hover { background: rgba(255,255,255,0.06); color: #fff; }
+    .btn.btn-on-dark.btn-primary { background: #6366f1; color: #fff; border-color: #6366f1; }
+    .btn.btn-on-dark.btn-primary:hover { background: #818cf8; border-color: #818cf8; }
+
+    .btn[disabled] { opacity: 0.5; pointer-events: none; cursor: not-allowed; }
+
+    /* --- form inputs (light) -------------------------------------------- */
+    .jh-input, .jh-search {
+      display: block;
+      padding: 6px 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      background: #fff;
+      color: #111827;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .jh-input:focus, .jh-search:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    }
+    .jh-search { width: 240px; }
+
+    /* --- misc ------------------------------------------------------------ */
+    .fez { display: contents; }
+    [hidden] { display: none !important; }
+    .code-pane::-webkit-scrollbar { height: 6px; }
+    .code-pane::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+  </style>
+</head>
+<body class="text-gray-900">
+
+  <joshua-header></joshua-header>
+
+  <main class="max-w-[1200px] mx-auto px-6 py-8 flex gap-8">
+
+    <joshua-sidebar></joshua-sidebar>
+
+    <joshua-apis></joshua-apis>
+  </main>
+
+  <script src="?file=boot.js"></script>
+
+  <!-- fez components: reusable widgets (lib/web/fez/*.fez) -->
+  <script fez="?file=/fez/joshua-btn.fez"></script>
+  <script fez="?file=/fez/material-icon.fez"></script>
+  <script fez="?file=/fez/input-date.fez"></script>
+  <script fez="?file=/fez/input-color.fez"></script>
+  <script fez="?file=/fez/joshua-header.fez"></script>
+  <script fez="?file=/fez/joshua-sidebar.fez"></script>
+  <script fez="?file=/fez/joshua-apis.fez"></script>
+  <script fez="?file=/fez/joshua-api.fez"></script>
+  <script fez="?file=/fez/joshua-method.fez"></script>
+  <script fez="?file=/fez/joshua-params.fez"></script>
+  <script fez="?file=/fez/joshua-runner.fez"></script>
+</body>
+</html>

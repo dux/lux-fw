@@ -1,0 +1,165 @@
+<script>
+  // Left navigation: namespace groups + actions, plus a sliding selection
+  // marker that follows the section currently in view.
+  //
+  // Subscribes:
+  //   joshua:schema-loaded   - to (re)build the list
+  //   joshua:search-changed  - to filter visible items
+  class {
+    init() {
+      this.state.groups = []
+      this._activeLink  = null
+
+      // schema may already be loaded by the time we mount; if so, use it
+      if (window.joshua && window.joshua.api_schema) this._loadSchema(window.joshua.api_schema)
+
+      this.subscribe('joshua:schema-loaded', (schema) => this._loadSchema(schema))
+      this.subscribe('joshua:search-changed', (q) => this._filter(q))
+    }
+
+    _loadSchema(schema) {
+      this.state.groups = Object.keys(schema.apis).map(name => {
+        const api = schema.apis[name]
+        const actions = [
+          ...Object.keys(api.collection || {}).map(a => ({ a, kind: 'collection' })),
+          ...Object.keys(api.member     || {}).map(a => ({ a, kind: 'member'     }))
+        ]
+        return { name, actions }
+      })
+      this.refresh()
+      // wait for method sections to mount, then set up scroll-spy
+      setTimeout(() => this._setupSpy(), 250)
+    }
+
+    _setupSpy() {
+      const ul = this.root.querySelector('.nav-list')
+      if (!ul) return
+      const marker = this.root.querySelector('.nav-marker')
+      const linkFor = (id) => ul.querySelector('a[href="#' + id + '"]')
+
+      const setActive = (link) => {
+        if (link === this._activeLink) return
+        if (this._activeLink) this._activeLink.classList.remove('active')
+        this._activeLink = link
+        if (!link) { marker.classList.remove('on'); return }
+        link.classList.add('active')
+        const a = link.getBoundingClientRect()
+        const u = ul.getBoundingClientRect()
+        marker.style.top    = (a.top - u.top + ul.scrollTop) + 'px'
+        marker.style.height = a.height + 'px'
+        marker.classList.add('on')
+      }
+      this._setActive = setActive
+
+      const visible = new Map()
+      if (this._io) this._io.disconnect()
+      this._io = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) visible.set(e.target.id, e.boundingClientRect.top)
+          else                  visible.delete(e.target.id)
+        }
+        let bestId = null, bestTop = Infinity
+        for (const [id, top] of visible) if (top < bestTop) { bestTop = top; bestId = id }
+        if (bestId) setActive(linkFor(bestId))
+      }, { rootMargin: '-80px 0px -60% 0px', threshold: 0 })
+
+      document.querySelectorAll('[id^="method-"]').forEach(el => this._io.observe(el))
+
+      // initial state from URL hash
+      if (location.hash) {
+        const link = linkFor(location.hash.slice(1))
+        if (link) requestAnimationFrame(() => setActive(link))
+      }
+    }
+
+    _filter(q) {
+      const query = (q || '').trim().toLowerCase()
+      this.root.querySelectorAll('[data-search]').forEach(el => {
+        const m = !query || el.dataset.search.toLowerCase().includes(query)
+        el.style.display = m ? '' : 'none'
+      })
+      // re-position marker since item offsets may have shifted
+      if (this._activeLink && this._setActive) this._setActive(this._activeLink)
+    }
+
+    schemaUrl()  { return window.joshua && window.joshua.schema_url }
+    postmanUrl() { return window.joshua && window.joshua.postman_url }
+    openapiUrl() { return window.joshua && window.joshua.openapi_url }
+  }
+</script>
+
+<style>
+  :fez {
+    aside              { display: block; }
+    .nav-list          { position: relative; list-style: none; margin: 0 0 24px;
+                         padding: 0; }
+    .nav-group         { margin-bottom: 12px; }
+    .nav-group-title   { display: block; margin-bottom: 6px; padding: 0 2px;
+                         color: #111827; text-decoration: none; }
+    .nav-group-title h6 { font-size: 14px; letter-spacing: 0.04em; color: #111827; }
+    .nav-group-title:hover h6 { color: #4f46e5; }
+    .nav-items         { list-style: none; margin: 0; padding: 0 0 0 12px;
+                         border-left: 1px solid #e5e7eb; }
+    .nav-items li      { margin: 0; }
+    .nav-item          { display: block; padding: 4px 10px; border-radius: 4px;
+                         color: #4b5563; text-decoration: none; font-size: 15px;
+                         line-height: 1.6; transition: background 80ms, color 80ms; }
+    .nav-item:hover    { background: #f3f4f6; color: #111827; }
+    .nav-item.active   { color: #4f46e5; }
+    .nav-ref           { color: #7c3aed; opacity: 0.65; }
+    .nav-item:hover .nav-ref { opacity: 0.9; }
+
+    /* sliding selection marker - one bar that travels to the active item */
+    .nav-marker        { position: absolute; left: 0; width: 3px;
+                         background: #4f46e5; border-radius: 2px;
+                         pointer-events: none; opacity: 0;
+                         transition: top 220ms cubic-bezier(.2,.7,.2,1),
+                                     height 220ms cubic-bezier(.2,.7,.2,1),
+                                     opacity 160ms ease; }
+    .nav-marker.on     { opacity: 1; }
+
+    /* export links */
+    .nav-export        { list-style: none; margin: 0; padding: 0 0 0 2px; }
+    .nav-export a      { display: block; padding: 3px 8px; border-radius: 4px;
+                         font-size: 13px; color: #6b7280; text-decoration: none; }
+    .nav-export a:hover { background: #f3f4f6; color: #111827; }
+  }
+</style>
+
+<aside class="w-72 shrink-0 sticky top-14 self-start max-h-[calc(100vh-3.5rem)] overflow-y-auto py-8 -my-8 pr-2">
+  <nav>
+    <h6 class="mb-4 px-1">Namespaces</h6>
+    <ul class="nav-list">
+      {#if !state.groups.length}
+        <li class="px-2 py-1 small-text text-gray-400">loading...</li>
+      {/if}
+      {#each state.groups as group}
+        <li class="nav-group" data-search={group.name}>
+          <a href={'#api-' + group.name} class="nav-group-title"><h6>{group.name}</h6></a>
+          <ul class="nav-items">
+            {#each group.actions as entry}
+              <li>
+                <a href={'#method-' + group.name + '-' + entry.a}
+                   data-search={group.name + ' ' + entry.a}
+                   class="nav-item">
+                  {#if entry.kind === 'member'}
+                    <span class="nav-ref">:ref/</span>
+                  {/if}
+                  {entry.a}
+                </a>
+              </li>
+            {/each}
+          </ul>
+        </li>
+      {/each}
+      <div class="nav-marker"></div>
+    </ul>
+
+    <h6 class="mb-2 px-1">Export</h6>
+    <ul class="nav-export">
+      <li><a href={fez.schemaUrl()}  target="_blank">raw schema</a></li>
+      <li><a href={fez.postmanUrl()} target="_blank">postman</a></li>
+      <li><a href={fez.openapiUrl()} target="_blank">openapi</a></li>
+    </ul>
+  </nav>
+</aside>

@@ -1,0 +1,174 @@
+<info>
+  <ul>
+    <li>Beautiful date picker with calendar popup</li>
+    <li>Powered by <code>flatpickr</code> library</li>
+    <li>Supports date ranges, time selection, and custom formats</li>
+  </ul>
+</info>
+
+<demo>
+  <h4>Basic Date Picker</h4>
+  <input-date name="date"></input-date>
+
+  <h4>With Initial Value, title and change handler</h4>
+  <input-date
+    name="birth_date"
+    value="2024-01-15"
+    title="Birth Date"
+    :onchange="(v)=>Toast.info('Date selected: ' + v)"
+  ></input-date>
+
+  <h4>Styled Date Picker</h4>
+  <input-date name="styled_date" class="btn-primary" title="Choose Date"></input-date>
+</demo>
+
+<script>
+  // init with yesterday
+  // <input-date name="date" value="-1" title="Birth Date" onchange="..." />
+
+  import flatpickr from 'https://cdn.jsdelivr.net/npm/flatpickr/+esm'
+
+  Fez.head({css: 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css'})
+
+  class {
+    
+    init() {
+      // Initialize state
+      this.state.selectedDate = ''
+      this.state.buttonText = this.props.title || 'Select date'
+      this.state.oldValue = null
+    }
+
+    onMount(props) {
+      let initialDate = null
+
+      // Process initial value if provided
+      if (this.props.value !== undefined && this.props.value !== '') {
+        const val = String(this.props.value).trim()
+
+        // Skip invalid/empty values (including things like "/" or empty)
+        if (val && !/^[\s\/\-\.]*$/.test(val)) {
+          try {
+            // If value is a small integer (-365 to 365), treat as days offset from today
+            if (Number.isInteger(+val) && Math.abs(+val) <= 365) {
+              initialDate = new Date()
+              initialDate.setDate(initialDate.getDate() + parseInt(val))
+            } else if (Number(val) && Number(val) > 365) {
+              // Unix timestamp
+              initialDate = new Date(parseInt(val) * 1000)
+            } else {
+              // Date string - validate before using
+              const parsed = new Date(val)
+              if (!isNaN(parsed.getTime())) {
+                initialDate = parsed
+              }
+            }
+
+            if (initialDate && !isNaN(initialDate.getTime())) {
+              this.state.oldValue = this.state.selectedDate = flatpickr.formatDate(initialDate, "d.m.Y")
+            } else {
+              initialDate = null
+            }
+          } catch (e) {
+            console.warn('input-date: Invalid date value:', val)
+            initialDate = null
+          }
+        }
+      }
+
+      // Use wrap mode to handle custom trigger button
+      this.picker = flatpickr(this.find('.date-picker-wrapper'), {
+        wrap: true,
+        onChange: (selectedDates, dateStr) => {
+          this.setDate(dateStr)
+        },
+        enableTime: false,
+        dateFormat: "d.m.Y",
+        defaultDate: initialDate || undefined
+      })
+    }
+
+    onDestroy() {
+      this.picker?.destroy()
+    }
+
+    setDate(value) {
+      value ||= ''
+      this.state.selectedDate = value
+      this.inputElement.value = value
+
+      if (this.state.oldValue != value) {
+        this.state.oldValue = value
+
+        // Trigger onchange handler if provided
+        if (this.props.onchange) {
+          Fez.resolveFunction(this.props.onchange, this.inputElement)
+        }
+      }
+    }
+
+    loadScript(src) {
+      if (!document.querySelector(`script[src="${src}"]`)) {
+        const script = document.createElement('script')
+        script.src = src
+        document.head.appendChild(script)
+      }
+    }
+
+    loadStyle(href) {
+      if (!document.querySelector(`link[href="${href}"]`)) {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = href
+        document.head.appendChild(link)
+      }
+    }
+  }
+</script>
+
+<style>
+  :fez {
+    display: inline-block;
+
+    .date-picker-wrapper {
+      position: relative;
+    }
+
+    input[data-input] {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    span.close {
+      margin-left: 5px;
+    }
+  }
+
+  .flatpickr-calendar {
+    &.arrowTop {
+      margin-top: 40px !important;
+    }
+
+    &.arrowBottom {
+      margin-top: -7px !important;
+    }
+  }
+</style>
+
+<div class="date-picker-wrapper">
+  <input fez:this="inputElement" type="text" name={props.name} data-input value={state.selectedDate} />
+  <span data-toggle class="btn {props.class || ''} {state.selectedDate ? 'has-date' : 'no-date'}">
+    {state.selectedDate || state.buttonText}
+  </span>
+  {#if state.selectedDate}
+    <span onclick="fez.setDate('')" class="close btn {props.class || ''}">&times;</span>
+  {/if}
+</div>

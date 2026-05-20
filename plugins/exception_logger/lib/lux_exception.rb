@@ -13,7 +13,7 @@ class LuxException < ApplicationModel
     last_at Time, index: true
   end
 
-  IGNORE ||= ['Lux::Error', 'Joshua::Error']
+  IGNORE ||= ['Lux::Error', 'Lux::Api::Error']
 
   class << self
     def fingerprint error

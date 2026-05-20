@@ -1,0 +1,171 @@
+#!/usr/bin/env ruby
+
+require 'net/http'
+require 'uri'
+require 'json'
+
+# --- flags ---
+
+args   = ARGV.dup
+format = :json
+
+help = args.delete('--help') || args.delete('-h')
+args.delete('--json') # default, just strip it
+format = :yaml if args.delete('--yaml')
+format = :text if args.delete('--text')
+
+if help
+  $stderr.puts 'Usage: lux-api [flags] [path] [key=value ...] [\'{"json":"data"}\']'
+  $stderr.puts
+  $stderr.puts 'Flags:'
+  $stderr.puts '  --json   JSON output (default)'
+  $stderr.puts '  --yaml   YAML output'
+  $stderr.puts '  --text   Plain text output'
+  $stderr.puts
+  $stderr.puts 'Environment:'
+  $stderr.puts '  LUX_API_HOST   - API base URL (required)'
+  $stderr.puts '  LUX_API_BEARER - Bearer token (optional)'
+  $stderr.puts
+  $stderr.puts 'Examples:'
+  $stderr.puts '  lux-api                                          # list all endpoints'
+  $stderr.puts '  lux-api board                                    # list endpoints for a namespace'
+  $stderr.puts '  lux-api users/login email=foo@bar.com pass=secret'
+  $stderr.puts '  lux-api users/123/show'
+  $stderr.puts '  lux-api --yaml users/login \'{"email":"foo@bar.com"}\''
+  exit 0
+end
+
+# --- env ---
+
+HOST   = ENV['LUX_API_HOST']
+BEARER = ENV['LUX_API_BEARER']
+
+unless HOST
+  $stderr.puts 'LUX_API_HOST not set (e.g. http://localhost:3000/api)'
+  exit 1
+end
+
+# --- output formatter ---
+
+def format_output(data, format)
+  case format
+  when :yaml
+    require 'yaml'
+    data.to_yaml
+  when :text
+    format_text(data)
+  else
+    JSON.pretty_generate(data)
+  end
+end
+
+def format_text(data, indent = 0)
+  out = []
+  prefix = '  ' * indent
+
+  case data
+  when Hash
+    data.each do |k, v|
+      case v
+      when Hash, Array
+        out << "#{prefix}#{k}:"
+        out << format_text(v, indent + 1)
+      else
+        out << "#{prefix}#{k}: #{v}"
+      end
+    end
+  when Array
+    data.each { |v| out << format_text(v, indent) }
+  else
+    out << "#{prefix}#{data}"
+  end
+
+  out.join("\n")
+end
+
+# --- parse path and params ---
+
+path   = args.shift
+params = {}
+
+args.each do |arg|
+  if arg.start_with?('{')
+    begin
+      params.merge!(JSON.parse(arg))
+    rescue JSON::ParserError => e
+      $stderr.puts "Bad JSON: #{e.message}"
+      exit 1
+    end
+  elsif arg.include?('=')
+    key, value = arg.split('=', 2)
+    params[key] = value
+  else
+    $stderr.puts "Unknown argument: #{arg}"
+    exit 1
+  end
+end
+
+# --- build url ---
+
+base = HOST.chomp('/')
+namespace_filter = nil
+
+url = if path.nil? || path == '/'
+  URI("#{base}/sys/schema")
+elsif !path.include?('/') && params.empty?
+  namespace_filter = path
+  URI("#{base}/sys/schema")
+else
+  URI("#{base}/#{path.sub(%r{^/}, '')}")
+end
+
+# --- request ---
+
+http = Net::HTTP.new(url.host, url.port)
+http.use_ssl = url.scheme == 'https'
+
+request = Net::HTTP::Post.new(url)
+request['Accept'] = 'application/json'
+request['Authorization'] = "Bearer #{BEARER}" if BEARER
+
+request.set_form_data(params) unless params.empty?
+
+begin
+  response = http.request(request)
+rescue Errno::ECONNREFUSED
+  $stderr.puts "Connection refused: #{url.host}:#{url.port}"
+  exit 1
+rescue => e
+  $stderr.puts "Request failed: #{e.message}"
+  exit 1
+end
+
+# --- output ---
+
+begin
+  data = JSON.parse(response.body)
+
+  # /sys/schema returns a wrapper envelope; the per-namespace listing
+  # lives under `apis`. Unwrap so CLI consumers see the flat namespace map.
+  if url.path.end_with?('/sys/schema') && data.is_a?(Hash) && data.key?('apis')
+    data = data['apis']
+  end
+
+  if namespace_filter
+    if data.key?(namespace_filter)
+      data = { namespace_filter => data[namespace_filter] }
+    else
+      $stderr.puts "Unknown namespace: #{namespace_filter}"
+      $stderr.puts "Available: #{data.keys.join(', ')}"
+      exit 1
+    end
+  end
+
+  puts format_output(data, format)
+
+  # exit 1 on api error (but not for index which has no success key)
+  exit 1 if data.key?('success') && !data['success']
+rescue JSON::ParserError
+  puts response.body
+  exit 1 unless response.code.start_with?('2')
+end

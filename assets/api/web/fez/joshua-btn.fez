@@ -1,0 +1,22 @@
+<script>
+  // Button component - modeled on fez ui-btn idiom.
+  // Variants: <joshua-btn>, primary, ghost, sm, on-dark, disabled, loading
+  // Renders as <a href> when href is provided, else <button>.
+  class {
+    NAME = (n) => n.getAttribute('href') ? 'a' : 'button'
+
+    init() {
+      this.copy('id', 'class', 'style', 'href', 'target', 'onclick', 'title', 'name', 'type', 'data-name')
+      this.root.classList.add('btn')
+
+      if (this.prop('sm')       !== undefined) this.root.classList.add('btn-sm')
+      if (this.prop('primary')  !== undefined) this.root.classList.add('btn-primary')
+      if (this.prop('ghost')    !== undefined) this.root.classList.add('btn-ghost')
+      if (this.prop('outline')  !== undefined) this.root.classList.add('btn-outline')
+      if (this.prop('on-dark')  !== undefined) this.root.classList.add('btn-on-dark')
+      if (this.prop('disabled') !== undefined) this.root.setAttribute('disabled', '')
+    }
+  }
+</script>
+
+<slot />

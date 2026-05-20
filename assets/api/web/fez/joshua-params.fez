@@ -1,0 +1,43 @@
+<script>
+  class {
+    init(props) {
+      this.state.params = props.params
+    }
+
+    rows() {
+      return Object.keys(this.state.params).map(name => {
+        const spec = this.state.params[name] || {}
+        return {
+          name,
+          type:     spec.type,
+          required: !!spec.required,
+          default:  spec.default,
+          values:   spec.values,
+          desc:     spec.desc
+        }
+      })
+    }
+  }
+</script>
+
+<div class="rounded-lg border border-gray-200 overflow-hidden bg-white small-text">
+  {#for row in fez.rows()}
+    <div class="flex items-baseline gap-3 px-4 py-2.5 border-b border-gray-100 last:border-0">
+      <code class="text-gray-900 shrink-0 min-w-[80px]" style="font-weight: 600;">{row.name}</code>
+      {#if row.type}
+        <span class="label gray mono">{row.type}</span>
+      {/if}
+      {#if row.required}
+        <span class="label red">required</span>
+      {/if}
+      <div class="flex-1 text-right text-gray-400 truncate">
+        {#if row.default !== undefined && row.default !== null}
+          default <code class="text-gray-600">{JSON.stringify(row.default)}</code>
+        {/if}
+        {#if row.values}
+          <span class="ml-2">values <code class="text-gray-600">{row.values.join(' | ')}</code></span>
+        {/if}
+      </div>
+    </div>
+  {/for}
+</div>
