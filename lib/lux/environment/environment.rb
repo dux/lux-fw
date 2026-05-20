@@ -1,6 +1,9 @@
 module Lux
   class Environment
-    ENVS ||= %w(development production test)
+    ENVS         ||= %w(development production test)
+    WEB_BINARIES ||= %w(puma rackup unicorn falcon thin iodine pitchfork).freeze
+    WEB_CLASSES  ||= %w(Rack::Server Puma::Launcher Unicorn::HttpServer Falcon::Server Thin::Server).freeze
+    TEST_BINARIES ||= %w(rspec minitest m).freeze
 
     def initialize env_name
       if env_name.empty?
@@ -23,29 +26,37 @@ module Lux
     alias :prod? :production?
 
     def test?
-      @env_name == 'test' || $0.end_with?('/rspec') || $0.end_with?('/minitest') || $0.include?('minitest')
+      @env_name == 'test' || TEST_BINARIES.include?(File.basename($PROGRAM_NAME))
     end
 
     def rake?
-      $0.end_with?('/rake')
+      File.basename($PROGRAM_NAME) == 'rake'
     end
 
     def live?
       return false if cli?
-      ENV['LUX_LIVE'] == 'true' || Lux.current.request.port < 450
+      ENV['LUX_LIVE'] == 'true'
     end
 
     def local?
       !live?
     end
 
+    # True when running under a web server. Detection is layered:
+    #   1. ENV['LUX_WEB'] override ('true'/'false')
+    #   2. Known server binary in $PROGRAM_NAME
+    #   3. Live instance of a known server class in ObjectSpace
+    # Memoized after the first call.
     def web?
-      if @env_web.nil?
-        list = ObjectSpace.each_object(Class).map(&:to_s)
-        @env_web = list.include?('#<Class:Rack::Server>') || list.include?('Puma::Launcher')
-      end
+      return @env_web unless @env_web.nil?
 
-      @env_web
+      @env_web =
+        case ENV['LUX_WEB']
+          when 'true'  then true
+          when 'false' then false
+          else
+            WEB_BINARIES.include?(File.basename($PROGRAM_NAME)) || web_instance_running?
+        end
     end
 
     # runs in cli?
@@ -58,12 +69,12 @@ module Lux
     #   Lux.env.log?                       # => bool
     #   Lux.env.log?('short') { 'long' }   # => 'short' or 'long'
     def log? short = nil
-      @log = ENV['LUX_ENV'].include?('l') if @log.nil?
+      @log = ENV['LUX_ENV'].to_s.include?('l') if @log.nil?
       block_given? ? (@log ? yield : short) : @log
     end
 
     def reload?
-      @reload = ENV['LUX_ENV'].include?('r') if @reload.nil?
+      @reload = ENV['LUX_ENV'].to_s.include?('r') if @reload.nil?
       @reload
     end
 
@@ -72,11 +83,24 @@ module Lux
     # Lux.env == :dev
     def == what
       return true if what.to_s == @env_name
-      send '%s?' % what
+      predicate = '%s?' % what
+      respond_to?(predicate) ? send(predicate) : false
     end
 
     def to_s
-      production? ? 'production' : 'development'
+      @env_name
+    end
+
+    private
+
+    def web_instance_running?
+      WEB_CLASSES.any? do |name|
+        klass = name.split('::').inject(Object) do |scope, const|
+          break nil unless scope.const_defined?(const, false)
+          scope.const_get(const)
+        end
+        klass && ObjectSpace.each_object(klass).any?
+      end
     end
   end
 end

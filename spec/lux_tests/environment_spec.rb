@@ -44,13 +44,10 @@ describe Lux::Environment do
   end
 
   describe '#to_s' do
-    it 'returns "production" for production' do
+    it 'returns the actual env name' do
       expect(Lux::Environment.new('production').to_s).to eq('production')
-    end
-
-    it 'returns "development" for non-production' do
       expect(Lux::Environment.new('development').to_s).to eq('development')
-      expect(Lux::Environment.new('test').to_s).to eq('development')
+      expect(Lux::Environment.new('test').to_s).to eq('test')
     end
   end
 
@@ -69,6 +66,26 @@ describe Lux::Environment do
     it 'delegates to predicate methods' do
       expect(env == :dev).to be true  # test is not production, so dev? is true
       expect(env == :prod).to be false
+    end
+
+    it 'returns false for unknown keys instead of raising' do
+      expect { env == :totally_unknown_env }.not_to raise_error
+      expect(env == :totally_unknown_env).to be false
+    end
+  end
+
+  describe '#log? / #reload?' do
+    it 'does not raise when LUX_ENV is unset' do
+      previous = ENV.delete('LUX_ENV')
+      begin
+        env = Lux::Environment.new('development')
+        expect { env.log? }.not_to raise_error
+        expect { env.reload? }.not_to raise_error
+        expect(env.log?).to be false
+        expect(env.reload?).to be false
+      ensure
+        ENV['LUX_ENV'] = previous
+      end
     end
   end
 
