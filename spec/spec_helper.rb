@@ -17,8 +17,6 @@ class Object
   end
 end
 
-ENV['LUX_ENV'] = 'e'
-
 # basic config
 RSpec.configure do |config|
   # Use color in STDOUT

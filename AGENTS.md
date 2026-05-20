@@ -218,18 +218,28 @@ Thin exception class (`Lux::Error < StandardError`). HTTP status is set on respo
 
 ### Lux::Environment (`lib/lux/environment/environment.rb`)
 
-Environment detection via `Lux.env`. Three valid environments: `development`, `production`, `test` (set via `RACK_ENV` or `LUX_ENV`):
+Environment name via `Lux.env`. Three valid environments: `development`, `production`, `test` (set via `RACK_ENV`):
 * `Lux.env.development?` / `Lux.env.dev?` - True when NOT production (includes test)
 * `Lux.env.production?` / `Lux.env.prod?` - True only in production
-* `Lux.env.test?` - True in test or when run via rspec
-* `Lux.env.web?` - True when running under Rack/Puma server
-* `Lux.env.cli?` - True when NOT running as web server
-* `Lux.env.rake?` - True when run via rake
-* `Lux.env.live?` - True when `ENV['LUX_LIVE'] == 'true'`
-* `Lux.env.local?` - Inverse of `live?`
-* `Lux.env.reload?` - True when `LUX_ENV` includes `r` flag
-* `Lux.env.log?` - True when `LUX_ENV` includes `l` flag
-* `Lux.env == :dev` - Comparison operator
+* `Lux.env.test?` - True in test or when run via rspec/minitest
+* `Lux.env.to_s` - Returns raw env name (`'development'`, `'production'`, `'test'`)
+* `Lux.env == :dev` - Comparison operator (symbol/string, delegates to predicates)
+
+### Lux::Mode (`lib/lux/environment/mode.rb`)
+
+Behavior toggles via `Lux.mode`. Env defaults: dev=on, prod=off, test=off for all flags.
+* `Lux.mode.log?` - Screen dev logging (console only): Lux.log, cache hits, SQL echo, pretty JSON
+* `Lux.mode.errors?` - Error visibility on screen AND browser: dev backtrace in response, verbose 404s, console error log. Supports block-form: `Lux.mode.errors?('short') { 'long' }`
+* `Lux.mode.reload?` - Per-request code reload (dev-style)
+* ENV overrides: `LUX_LOG`, `LUX_ERRORS`, `LUX_RELOAD` (case-insensitive `true`/`false`; empty = unset; other = raise at boot)
+* Runtime setters: `Lux.mode.log = true` (also `errors=`, `reload=`) override ENV
+
+### Lux::Runtime (`lib/lux/environment/runtime.rb`)
+
+Runtime kind detection via `Lux.runtime`. Pure derivation from `$PROGRAM_NAME` / ObjectSpace.
+* `Lux.runtime.web?` - True when running under puma/rackup/falcon/etc. (LUX_WEB=true|false override)
+* `Lux.runtime.cli?` - Inverse of `web?`
+* `Lux.runtime.rake?` - True when invoked via the rake binary
 
 ### Lux::Config (`lib/lux/config/config.rb`)
 

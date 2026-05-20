@@ -1,5 +1,5 @@
 # Reloads source files modified since the last check.
-# Called per-request in dev (Lux.env.reload? && Lux.env.web?) and explicitly
+# Called per-request in dev (Lux.mode.reload? && Lux.runtime.web?) and explicitly
 # from the console via `reload!`.
 module Lux
   module Reloader
@@ -18,7 +18,7 @@ module Lux
           load file
         end
       else
-        Lux.info 'No code changes found' if Lux.env.cli?
+        Lux.info 'No code changes found' if Lux.runtime.cli?
       end
 
       if source == :cli

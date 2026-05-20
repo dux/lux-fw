@@ -15,7 +15,7 @@ module Sequel::Plugins::LuxLinks
     # link :user, class: 'OrgUser' -> custom class
     # link :user, field: 'owner_ref' -> custom field
     def link name = :_nil, opts = {}
-      opts = opts.to_hwia :class, :field, :cache
+      opts = opts.to_lux_hash :class, :field, :cache
 
       if name == :_nil
         return ('%s_ref' % self.to_s.underscore).to_sym

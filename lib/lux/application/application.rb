@@ -84,7 +84,7 @@ module Lux
     def render_base
       run_callback :before, lux.nav.path
 
-      if Lux.env.reload? && Lux.env.web?
+      if Lux.mode.reload? && Lux.runtime.web?
         Lux::Reloader.run
       end
 
@@ -182,7 +182,7 @@ module Lux
         status:  out[0],
         session: lux.session.hash,
         headers: out[1]
-      }.to_hwia
+      }.to_lux_hash
     end
 
     def mount opts
@@ -204,7 +204,7 @@ module Lux
         if icon.exist?
           lux.response.send_file(icon, inline: true)
         else
-          Lux.error.not_found Lux.env.log?('404 Not Found') { '%s not found' % path }
+          Lux.error.not_found Lux.mode.errors?('404 Not Found') { '%s not found' % path }
         end
       end
     end

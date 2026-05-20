@@ -56,7 +56,7 @@ module Lux
       def subdomain name
         return unless lux.nav.subdomain == name.to_s
         yield
-        Lux.error.not_found Lux.env.log?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
+        Lux.error.not_found Lux.mode.errors?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
       end
 
       # Main routing DSL. All forms match against the current route cursor first,
@@ -163,7 +163,7 @@ module Lux
       # ```
       def call object=nil, action=nil, opts=nil, &block
         # log original app caller (skipped in production - caller() is expensive)
-        if Lux.env.log?
+        if Lux.mode.log?
           root    = Lux.root.join('app/').to_s
           sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
           Lux.log { ' Routed from: %s' % sources.join(' ') } if sources.first
@@ -224,11 +224,11 @@ module Lux
         action ||= resourceful_action(lux.route.path)
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
-          Lux.error.not_found Lux.env.log?('404 Not Found') { "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" }
+          Lux.error.not_found Lux.mode.errors?('404 Not Found') { "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" }
         end
 
         if opts[:except] && opts[:except].include?(action.to_sym)
-          Lux.error.not_found Lux.env.log?('404 Not Found') { "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" }
+          Lux.error.not_found Lux.mode.errors?('404 Not Found') { "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" }
         end
 
         if object.respond_to?(:action)

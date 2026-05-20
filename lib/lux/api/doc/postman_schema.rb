@@ -82,7 +82,7 @@ module Lux
           # `formdata_model` that returns list of fields for that model
           formdata_value = if respond_to?(formdata_custom)
             opts = { key: key, value: value, name: name, type: type, group: object_name }
-            [send(formdata_custom, opts.to_hwia)].flatten
+            [send(formdata_custom, opts.to_lux_hash)].flatten
           else
             { key: key, description: value[:type] }
           end

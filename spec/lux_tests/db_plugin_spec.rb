@@ -944,7 +944,7 @@ describe 'plugins/db/enums_plugin.rb', :db_plugin do
 
   describe '.enums class method' do
     it 'defines a class method returning all values' do
-      expect(User.steps).to eq({ 'a' => 'Active', 'i' => 'Inactive', 'd' => 'Disabled' }.to_hwia)
+      expect(User.steps).to eq({ 'a' => 'Active', 'i' => 'Inactive', 'd' => 'Disabled' }.to_lux_hash)
     end
 
     it 'returns single value when called with id' do

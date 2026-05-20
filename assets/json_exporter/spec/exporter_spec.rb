@@ -171,13 +171,13 @@ describe Lux::JsonExporter do
   end
 
   it 'exports via generic exporter' do
-    data   = HashWia.new({ name: 'foo', surname: 'bar', num: 5 })
+    data   = Lux::Hash.new({ name: 'foo', surname: 'bar', num: 5 })
     result = GenericExporter.export data
     expect(result[:calc]).to eq(15)
   end
 
   it 'applies filters as it should' do
-    data   = HashWia.new({ name: 'dux', num: 1 })
+    data   = Lux::Hash.new({ name: 'dux', num: 1 })
     result = GenericExporterChild.export data
 
     expect(result[:bhistory].join('-')).to eq('first-second-third')

@@ -118,7 +118,7 @@ module Lux
       def default_error_page status, error
         name      = ::Rack::Utils::HTTP_STATUS_CODES[status] || 'Error'
         message   = error.message.to_s.gsub('<', '&lt;').gsub('>', '&gt;')
-        show_dev  = Lux.env.dev? || Lux.env.log?
+        show_dev  = Lux.mode.errors?
         backtrace = (show_dev && error.respond_to?(:backtrace) && error.backtrace) ?
                     error.backtrace.first(40).join("\n").gsub('<', '&lt;').gsub('>', '&gt;') : nil
         color     = status >= 500 ? '#dc2626' : status >= 400 ? '#d97706' : '#374151'
@@ -363,7 +363,7 @@ module Lux
           yield if block_given?
           true
         elsif lux.nav.format
-          Lux.error.not_found Lux.env.log?('404 Not Found') { '%s document Not Found' % lux.nav.format.to_s.upcase }
+          Lux.error.not_found Lux.mode.errors?('404 Not Found') { '%s document Not Found' % lux.nav.format.to_s.upcase }
         end
       else
         yield lux.nav.format
@@ -425,7 +425,7 @@ module Lux
         return false if caller[0].include?("`action_missing'")
       end
 
-      message = Lux.env.log? '404 Method Not Found' do
+      message = Lux.mode.errors? '404 Method Not Found' do
         base = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, lux.nav]
         defined_methods = (methods - Lux::Controller.instance_methods).map(&:to_s)
         defined = '<br /><br />Defined methods %s' % defined_methods.sort.to_ul

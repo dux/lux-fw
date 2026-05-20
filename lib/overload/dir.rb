@@ -64,7 +64,7 @@ class Dir
           file: file,
           ext: fparts.pop,
           name: fparts.join('.')
-        }.to_hwia
+        }.to_lux_hash
       end
     end
 

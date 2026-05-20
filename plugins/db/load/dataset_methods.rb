@@ -178,7 +178,7 @@ Sequel::Model.dataset_module do
     sqlq = sql.split(' FROM ')[1]
     sqlq = "select lower(unnest(#{field})) as tag FROM " + sqlq
     sqlq = "select tag as name, count(tag) as cnt from (#{sqlq}) as tags group by tag order by cnt desc limit #{limit}"
-    DB.fetch(sqlq).map(&:to_hwia).or([])
+    DB.fetch(sqlq).map(&:to_lux_hash).or([])
   end
 
   # Example: Job.where_any(@location.id, :location_ids).count

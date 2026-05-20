@@ -13,12 +13,13 @@ module Lux
       @load_info ||= begin
         info = []
 
-        config = []
-        %w(reload log).each do |name|
-          value = Lux.env.send("#{name}?")
-          config.push value ? "#{name} (yes)".colorize(:yellow) : "#{name} (no)".colorize(:green)
+        info.push "Lux env:  #{Lux.env.to_s.colorize(:yellow)}"
+
+        flags = %w(log errors reload).map do |name|
+          on = Lux.mode.send("#{name}?")
+          on ? "#{name} (yes)".colorize(:yellow) : "#{name} (no)".colorize(:green)
         end
-        info.push "Lux env: #{config.join(', ')}"
+        info.push "Lux mode: #{flags.join(', ')}"
 
         if $lux_start_time.class == Array
           # $lux_start_time ||= Time.now added to Gemfile
@@ -31,26 +32,19 @@ module Lux
           speed = 'in %s sec' % time_diff($lux_start_time).colorize(:white)
         end
 
-        info.push "* Lux loaded in #{ENV['RACK_ENV']} mode, #{speed}, uses #{ram.to_s.colorize(:white)} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.colorize(:white)} gems in spec"
+        info.push "* Lux loaded #{speed}, uses #{ram.to_s.colorize(:white)} MB RAM with total of #{Gem.loaded_specs.keys.length.to_s.colorize(:white)} gems in spec"
         info.join($/)
       end
     end
 
     def set_defaults
-      ENV['LUX_ENV'] ||= ''
       ENV['TZ'] ||= 'UTC'
-
-      # LUX_LOG=true|false forces log? on/off, overriding the 'l' flag in LUX_ENV
-      case ENV['LUX_LOG']
-        when 'true'  then ENV['LUX_ENV'] += 'l' unless ENV['LUX_ENV'].include?('l')
-        when 'false' then ENV['LUX_ENV'] = ENV['LUX_ENV'].delete('l')
-      end
 
       # Delay
       Lux.config.delay_timeout = Lux.env.dev? ? 3600 : 30
 
       # Logger
-      Lux.config.log_level            = Lux.env.log? ? :info : :error
+      Lux.config.log_level            = Lux.mode.log? ? :info : :error
       Lux.config.logger_path_mask     = './log/%s.log'
       Lux.config.logger_files_to_keep = 3
       Lux.config.logger_file_max_size = 10_240_000

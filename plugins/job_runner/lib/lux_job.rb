@@ -36,7 +36,7 @@ class LuxJob < ApplicationModel
     end
 
     def init
-      return if Lux.env.cli?
+      return if Lux.runtime.cli?
       init!
     end
 
@@ -108,7 +108,7 @@ class LuxJob < ApplicationModel
         job.update status_sid: 'r', run_at: next_run
 
         timeout = opts[:timeout] || DEFAULT_TIMEOUT
-        response = Timeout.timeout(timeout) { opts[:proc].call job.opts.to_hwia }
+        response = Timeout.timeout(timeout) { opts[:proc].call job.opts.to_lux_hash }
         if response.is_a?(String) && response.length < 255
           job.response = response
         else

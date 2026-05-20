@@ -118,7 +118,7 @@ class Object
         func ? send(func) : self
       end
     else
-      block_given? || func ? nil : {}.to_hwia
+      block_given? || func ? nil : {}.to_lux_hash
     end
   end
 

@@ -35,7 +35,7 @@ module Lux
         begin
           connect(url)
         rescue Sequel::DatabaseConnectionError
-          raise unless Lux.env.rake?
+          raise unless Lux.runtime.rake?
           connect(url.sub(/\/[^\/]+$/, '/postgres'))
         end
       end
@@ -92,7 +92,7 @@ module Lux
           Lux.info "DB :#{name} connected (#{CONNECTIONS[name].opts[:database]})"
         rescue Sequel::DatabaseConnectionError => e
           Lux.info "DB :#{name} connection failed - #{e.message}"
-          raise unless Lux.env.rake?
+          raise unless Lux.runtime.rake?
         end
       end
     end

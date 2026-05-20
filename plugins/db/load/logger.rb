@@ -14,7 +14,7 @@ logger.formatter = proc do |severity, datetime, progname, msg|
       Lux.log formated
     end
   else
-    if ENV['DB_LOG'] || (!Lux.env.rake? && !msg.include?('SELECT "pg_attribute"."attname"') && !msg.end_with?('SELECT NULL'))
+    if ENV['DB_LOG'] || (!Lux.runtime.rake? && !msg.include?('SELECT "pg_attribute"."attname"') && !msg.end_with?('SELECT NULL'))
       Thread.current[:last_sql_command] = msg
       Lux.log formated
     end
@@ -28,7 +28,7 @@ if ENV['RAKE_ENV'] != 'test' || ENV['DB_LOG'] == 'true'
     db.loggers << logger
   end
 
-  if Lux.env.log?
+  if Lux.mode.log?
     Lux.app do
       before do
         Thread.current[:db_q] = { time: 0.0, cnt: 0, list:{} }

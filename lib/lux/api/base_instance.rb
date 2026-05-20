@@ -45,8 +45,8 @@ module Lux
       @api.request       = api_host ? api_host.request : nil
       @api.method_opts   = self.class.opts.dig(@api.id ? :member : :collection, @api.action) || {}
       @api.development   = !!development
-      @api.params        = HashWia.new params
-      @api.opts          = HashWia.new opts
+      @api.params        = Lux::Hash.new params
+      @api.opts          = Lux::Hash.new opts
       @api.api_host      = api_host
       @api.response      = ::Lux::Api::Response.new @api
 

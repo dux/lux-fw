@@ -59,7 +59,7 @@ module Lux
     ###
 
     def initialize
-      @mail = {}.to_hwia :subject, :body, :to, :cc, :from
+      @mail = {}.to_lux_hash :subject, :body, :to, :cc, :from
     end
 
     def body

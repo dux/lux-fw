@@ -29,7 +29,7 @@ module Lux
       # Lux::Template.render(scope, layout_template) { layout_data }
       def render scope, opts, &block
         opts = { template: opts } if opts.is_a?(String)
-        opts = opts.to_hwia :layout, :template, :dev_info
+        opts = opts.to_lux_hash :layout, :template, :dev_info
 
         if opts.layout
           part_data = render(scope, opts.template)
@@ -59,7 +59,7 @@ module Lux
         if path
           cache[cache_key] = path.sub(/\.[\w]+$/, '')
         else
-          Lux.error 404, Lux.env.log?('404 Not Found') { %[Layout path for #{layout_template} not found. Looked in #{base1} & #{base2}] }
+          Lux.error 404, Lux.mode.errors?('404 Not Found') { %[Layout path for #{layout_template} not found. Looked in #{base1} & #{base2}] }
         end
       end
     end
@@ -132,7 +132,7 @@ module Lux
       end
 
       unless @template
-        Lux.error 404, Lux.env.log?('404 Not Found') { %[Lux::Template "#{template}.{erb,haml}" not found] }
+        Lux.error 404, Lux.mode.errors?('404 Not Found') { %[Lux::Template "#{template}.{erb,haml}" not found] }
       end
 
       @tilt = Tilt.new(@template, escape_html: false)

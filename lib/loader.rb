@@ -3,6 +3,7 @@ Encoding.default_internal = Encoding.default_external = 'utf-8'
 # load basic lux libs (defines Lux, Lux.env, Lux.config)
 require_relative './overload/dir'
 require_relative './lux/lux'
+require_relative './lux/hash/hash'
 
 # eager-load config.yaml so values are available to the rest of boot
 Lux.config

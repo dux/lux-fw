@@ -36,9 +36,6 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_dependency 'class-cattr'
   gem.add_dependency 'class-callbacks'
 
-  # hash inifferent access, hash to struct
-  gem.add_dependency 'hash_wia'
-
   # mail sending ruby gold
   gem.add_dependency 'mail'
 

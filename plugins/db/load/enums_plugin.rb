@@ -20,8 +20,8 @@ class Sequel::Model
 
       opts[:default] ||= opts[:values].first if opts[:values].is_a?(Array)
 
-      values = opts[:values] || {}.to_hwia.tap { |_| block.call(_) }
-      values = values.inject({}.to_hwia) { |h, (k,v)| h[k.to_s] = v; h }
+      values = opts[:values] || {}.to_lux_hash.tap { |_| block.call(_) }
+      values = values.inject({}.to_lux_hash) { |h, (k,v)| h[k.to_s] = v; h }
 
       opts[:method]  ||= name.to_s.singularize
       opts[:default]   = values.keys.first unless opts.key?(:default)

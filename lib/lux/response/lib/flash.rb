@@ -19,7 +19,7 @@ module Lux
       ###
 
       def initialize h = nil
-        @msg = (h || {}).to_hwia
+        @msg = (h || {}).to_lux_hash
       end
 
       def clear

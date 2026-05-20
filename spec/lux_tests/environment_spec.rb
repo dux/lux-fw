@@ -2,17 +2,45 @@ require 'spec_helper'
 
 describe Lux::Environment do
   describe 'initialization' do
-    it 'raises for empty env name' do
-      expect { Lux::Environment.new('') }.to raise_error(ArgumentError, /RACK_ENV is not defined/)
-    end
-
     it 'raises for unsupported env name' do
       expect { Lux::Environment.new('staging') }.to raise_error(ArgumentError, /Unsupported/)
+    end
+
+    it 'raises for empty env name' do
+      expect { Lux::Environment.new('') }.to raise_error(ArgumentError, /Unsupported/)
     end
 
     it 'accepts valid environment names' do
       %w(development production test).each do |name|
         expect { Lux::Environment.new(name) }.not_to raise_error
+      end
+    end
+  end
+
+  describe '.resolve_name' do
+    def with_env vars
+      saved = vars.keys.each_with_object({}) { |k, h| h[k] = ENV[k] }
+      vars.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+      yield
+    ensure
+      saved.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+    end
+
+    it 'prefers LUX_ENV over RACK_ENV' do
+      with_env('LUX_ENV' => 'production', 'RACK_ENV' => 'test') do
+        expect(Lux::Environment.resolve_name).to eq('production')
+      end
+    end
+
+    it 'falls back to RACK_ENV when LUX_ENV is empty' do
+      with_env('LUX_ENV' => '', 'RACK_ENV' => 'test') do
+        expect(Lux::Environment.resolve_name).to eq('test')
+      end
+    end
+
+    it "defaults to 'development' when neither is set" do
+      with_env('LUX_ENV' => nil, 'RACK_ENV' => nil) do
+        expect(Lux::Environment.resolve_name).to eq('development')
       end
     end
   end
@@ -73,28 +101,4 @@ describe Lux::Environment do
       expect(env == :totally_unknown_env).to be false
     end
   end
-
-  describe '#log? / #reload?' do
-    it 'does not raise when LUX_ENV is unset' do
-      previous = ENV.delete('LUX_ENV')
-      begin
-        env = Lux::Environment.new('development')
-        expect { env.log? }.not_to raise_error
-        expect { env.reload? }.not_to raise_error
-        expect(env.log?).to be false
-        expect(env.reload?).to be false
-      ensure
-        ENV['LUX_ENV'] = previous
-      end
-    end
-  end
-
-  describe '#cli?' do
-    it 'returns inverse of web?' do
-      env = Lux::Environment.new('test')
-      expect(env.cli?).to eq(!env.web?)
-    end
-  end
-
-
 end

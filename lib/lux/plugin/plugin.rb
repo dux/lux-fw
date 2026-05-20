@@ -22,7 +22,7 @@ module Lux
     def load plugin_name
       plugin_name = Pathname.new(plugin_name) unless plugin_name.is_a?(Pathname)
 
-      opts = { folder: plugin_name.to_s, name: plugin_name.basename.to_s }.to_hwia
+      opts = { folder: plugin_name.to_s, name: plugin_name.basename.to_s }.to_lux_hash
 
       return PLUGIN[opts.name] if PLUGIN[opts.name]
 

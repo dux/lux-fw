@@ -40,7 +40,7 @@ module Lux
       @session      = Lux::Current::Session.new @request
       @nav          = Lux::Application::Nav.new @request
       @route        = Lux::Application::Route.new @nav
-      @var          = { cache: {} }.to_hwia
+      @var          = { cache: {} }.to_lux_hash
 
       @opt.session.or({}).each {|k,v| @session[k] = v }
     end
@@ -199,7 +199,7 @@ module Lux
     private
 
     def prepare_params
-      @params = (@request.params.dup || {}).to_hwia
+      @params = (@request.params.dup || {}).to_lux_hash
       @params.merge! @opt.query_string if @opt.query_string
 
       # remove empty parametars in GET request

@@ -167,7 +167,7 @@ module Lux
     end
 
     def log_get name
-      if Lux.env.log?
+      if Lux.mode.log?
         if Lux.current.params[:lux_show_cache_get]
           Lux.config[:show_cache_log] = true
         end

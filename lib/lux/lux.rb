@@ -27,7 +27,7 @@ module ::Lux
   rescue => err
     Lux.logger.error Lux::Error.format(err, message: true)
 
-    if Lux.env.log?
+    if Lux.mode.log?
       raise
     else
       [500, {}, ['Server error: %s' % err.message]]
@@ -171,6 +171,8 @@ end
 ###
 
 require_relative 'environment/environment'
+require_relative 'environment/mode'
+require_relative 'environment/runtime'
 require_relative 'environment/lux_adapter'
 
 require_relative 'logger/lux_adapter'

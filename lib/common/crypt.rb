@@ -57,7 +57,7 @@ module Crypt
   # Crypt.encrypt('secret')
   # Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
   def encrypt data, opts = {}
-    opts          = opts.to_hwia :ttl, :password
+    opts          = opts.to_lux_hash :ttl, :password
     payload       = { data:data }
     payload[:ttl] = Time.now.to_i + opts.ttl.to_i if opts.ttl
 
@@ -67,7 +67,7 @@ module Crypt
   # Crypt.decrypt('secret')
   # Crypt.decrypt('secret', password:'pa$$w0rd', unsafe: true)
   def decrypt token, opts={}
-    opts = opts.to_hwia :password, :ttl, :unsafe
+    opts = opts.to_lux_hash :password, :ttl, :unsafe
 
     token_data = JWT.decode token, secret+opts.password.to_s, true, { algorithm: ALGORITHM }
     data = token_data[0]

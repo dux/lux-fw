@@ -1,6 +1,6 @@
 module Lux
   CACHE_SERVER ||= Lux::Cache.new
-  VARS         ||= {}.to_hwia
+  VARS         ||= {}.to_lux_hash
 
   def var
     VARS

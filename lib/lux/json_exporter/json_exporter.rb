@@ -47,7 +47,7 @@ module Lux
       opts[:current_depth] += 1
 
       @model = model
-      @opts  = opts.to_hwia
+      @opts  = opts.to_lux_hash
       @block = __find_exporter
       @json  = {}
     end

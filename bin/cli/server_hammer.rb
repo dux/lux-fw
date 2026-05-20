@@ -4,18 +4,20 @@ task :server do
   opt :port,  alias: :p, desc: 'Port number'
   opt :env,   alias: :e, desc: 'Environment (test, dev, prod)'
   opt :rerun, alias: :r, type: :boolean, default: false, desc: 'Rerun app on every file change'
-  opt :opt,   alias: :o, default: 'lr', desc: 'Lux options (l=log, r=reload)'
 
   proc do |opts|
     trap('SIGINT') { error 'ctrl+c exit' }
 
-    ENV['RACK_ENV'] = opts[:env] if opts[:env]
-    ENV['LUX_ENV']  = opts[:opt]
+    ENV['RACK_ENV']    = opts[:env] if opts[:env]
+    ENV['LUX_LOG']    ||= 'true'
+    ENV['LUX_ERRORS'] ||= 'true'
+    ENV['LUX_RELOAD'] ||= 'true'
 
     port = opts[:port] || ENV.fetch('PORT', '3000')
     ENV['PORT'] = port.to_s
 
-    base = "RACK_ENV=#{ENV['RACK_ENV']} LUX_ENV=#{ENV['LUX_ENV']} bundle exec puma"
+    flags = %w(LUX_LOG LUX_ERRORS LUX_RELOAD).map { |k| "#{k}=#{ENV[k]}" }.join(' ')
+    base  = "RACK_ENV=#{ENV['RACK_ENV']} #{flags} bundle exec puma"
 
     if opts[:rerun]
       sh "find #{LUX_ROOT} . -name *.rb | entr -r #{base} -p #{port}"

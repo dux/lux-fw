@@ -44,7 +44,9 @@ task :console do
   needs :app
 
   proc do |opts|
-    ENV['LUX_ENV'] = 'clre'
+    ENV['LUX_LOG']    ||= 'true'
+    ENV['LUX_ERRORS'] ||= 'true'
+    ENV['LUX_RELOAD'] ||= 'true'
 
     require 'pry'
     require 'amazing_print'

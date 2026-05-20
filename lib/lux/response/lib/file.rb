@@ -73,7 +73,7 @@ module Lux
         if @opt.content
           etag Crypt.sha1 @opt.content
         else
-          Lux.error 404, Lux.env.log?('404 Not Found') { 'File not found: %s' % @opt.file } unless @opt.file.exist?
+          Lux.error 404, Lux.mode.errors?('404 Not Found') { 'File not found: %s' % @opt.file } unless @opt.file.exist?
           file_mtime = @opt.file.mtime.utc.to_s
           @opt.content = @opt.file.read
           response.headers['last-modified'] = file_mtime

@@ -25,7 +25,7 @@ module CdnAsset
         name = '%s/assets/%s' % [root, file]
       else
         return unless File.exist?("./public/assets/#{name}")
-        tim_stamp = Lux.env.reload? ? get_time_stamp : TIME_STAMP
+        tim_stamp = Lux.mode.reload? ? get_time_stamp : TIME_STAMP
         name = '/assets/%s?%s' % [name, tim_stamp]
       end
     end
