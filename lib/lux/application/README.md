@@ -1,13 +1,34 @@
-## Lux.app (Lux::Application)
+## Lux (Lux::Application)
 
 Main application controller and router.
 
 * catches errors and dispatches to the active controller's `:error` action — every controller inherits a default one from `Lux::Controller`; override on any controller (e.g. `MainController#error`, `Api::BaseController#error`) for custom rendering
 * calls `before`, `routes`, and `after` class filters on every request
-* `map`, `root`, `match`, `subdomain`, `mount`, `favicon`, `plugin_route`, and the HTTP-method predicates work at the top level of `Lux.app do ... end` — no `routes do` wrapper required. `routes do ... end` is still supported when a single block is needed for runtime conditionals.
+* `map`, `root`, `match`, `subdomain`, `mount`, `favicon`, `plugin_route`, and the HTTP-method predicates work at the top level of `Lux do ... end` — no `routes do` wrapper required. `routes do ... end` is still supported when a single block is needed for runtime conditionals.
+
+### Boot
+
+In `config.ru`:
 
 ```ruby
-Lux.app do
+require 'lux-fw'
+
+Lux do
+  routes do
+    body 'hello'
+  end
+end
+```
+
+`Lux do ... end` (called from inside `Rack::Builder`) class-evals the block into
+`Lux::Application`, mounts Lux as the Rack app, and prints the start banner.
+For specs or scripts (no Rack), use `Lux.app do ... end` instead — same DSL,
+no Rack registration.
+
+### Routes DSL
+
+```ruby
+Lux do
 
   def api_router
     Lux.error.forbidden 'Only POST requests are allowed' if Lux.env.prod? && !post?

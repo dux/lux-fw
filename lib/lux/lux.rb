@@ -160,14 +160,12 @@ end
 
 ###
 
-def Lux
-  if self.class == Rack::Builder
-    $rack_handler = self
-    run Lux
-    puts Lux::Config.start_info
-  else
-    raise 'Lux error: Rack not found'
-  end
+def Lux &block
+  raise 'Lux error: Rack not found' unless self.class == Rack::Builder
+  $rack_handler = self
+  Lux::Application.class_eval(&block) if block
+  run Lux
+  puts Lux::Config.start_info
 end
 
 ###

@@ -53,6 +53,10 @@ module Lux
       PLUGIN.values
     end
 
+    def loaded? name
+      PLUGIN.key?(name.to_s)
+    end
+
     def keys
       PLUGIN.keys
     end

@@ -73,6 +73,13 @@ module Lux
       Lux::Current.new env, opts
     end
 
+    # Sinatra-style shorthand for setting/getting the response body inside a
+    # routes block. Forwards to Lux::Response#body, which handles all arg shapes
+    # (data, data+opts, block transform, no-arg getter).
+    def body *args, &blk
+      args.empty? && !blk ? response.body : response.body(*args, &blk)
+    end
+
     # main render called by Lux.call
     def render_base
       run_callback :before, lux.nav.path

@@ -1,3 +1,7 @@
-require_relative 'config/app'
+require 'lux-fw'
 
-Lux()
+Lux do
+  routes do
+    body 'hello'
+  end
+end

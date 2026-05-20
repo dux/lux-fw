@@ -41,7 +41,7 @@ rescue => err
 end
 ```
 
-`config.ru` integration (`lib/lux/lux.rb:84`) hooks `Rack::Builder` so a bare `Lux` call inside the rackup file registers the framework as the Rack app and prints `Lux::Config.start_info`.
+`config.ru` integration (`lib/lux/lux.rb:163`) hooks `Rack::Builder`. A `Lux do ... end` (or bare `Lux()`) call inside the rackup file class-evals the block into `Lux::Application` (same DSL as `Lux.app do ... end`), registers the framework as the Rack app, and prints `Lux::Config.start_info`.
 
 Thread-local context is exposed two ways:
 
