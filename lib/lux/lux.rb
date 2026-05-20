@@ -1,8 +1,6 @@
 module ::Lux
   extend self
 
-  VERSION ||= File.read(File.expand_path('../../../.version', __FILE__)).chomp
-
   # Sentinel for "no argument given". Use when nil/false are valid explicit values.
   # Compare with .equal?(Lux::UNSET), never ==.
   UNSET ||= Object.new.tap do |obj|
@@ -15,8 +13,10 @@ module ::Lux
   end
 
   def fw_root
-    @lux_fw_root ||= Pathname.new(File.expand_path('../../', File.dirname(__FILE__))).freeze
+    @lux_fw_root ||= Pathname.new(__dir__).join('../..').expand_path.freeze
   end
+
+  VERSION ||= fw_root.join('.version').read.chomp
 
   # main rack response
   def call env = nil

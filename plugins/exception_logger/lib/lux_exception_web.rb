@@ -40,7 +40,7 @@ class LuxExceptionWeb < Sinatra::Base
   set :bind, '0.0.0.0'
   set :protection, false
   set :host_authorization, { allow_if: ->(_env) { true } }
-  set :views, File.expand_path('../views', __dir__)
+  set :views, Lux.fw_root.join('plugins/exception_logger/views').to_s
 
   before do
     if self.class.password
