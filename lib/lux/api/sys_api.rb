@@ -41,6 +41,14 @@ module Lux
       end
 
       allow :get
+      desc 'AGENTS.md for LLMs/AIs - how to call this API and build tools against it. Generated from introspection.'
+      def agents
+        response('text/markdown; charset=utf-8') do
+          Lux::Api::AgentsMd.new(@api, mount_on: derive_mount_on).render
+        end
+      end
+
+      allow :get
       desc 'Health probe.'
       def health
         response('application/json') do

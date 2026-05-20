@@ -1,0 +1,257 @@
+# AGENTS.md - <%= request && request.host %> API
+
+Schema version: `<%= doc[:version] %>`.
+
+This document tells AIs/LLMs how to **call** this API and how to **build tools**
+(MCP servers, function-calling shims, SDK clients) against it. Everything below
+is derived from the same introspection schema the OpenAPI and Postman generators
+consume, so it cannot drift from the running code.
+
+## Server
+
+- Base URL: `<%= base_url %>`
+- Mount point: `<%= mount_on.empty? ? '/' : mount_on %>`
+
+## Machine-readable schemas
+
+If you are generating code or building a tool, prefer the structured exports
+over parsing this document.
+
+| Format | URL | Use for |
+|---|---|---|
+| Raw introspection (canonical) | `<%= absolute("#{mount_on}/sys/schema") %>` | Bespoke clients, full fidelity |
+| OpenAPI 3 | `<%= absolute("#{mount_on}/sys/openapi") %>` | Swagger UI, Redoc, openapi-generator |
+| Postman 2.1 | `<%= absolute("#{mount_on}/sys/postman") %>` | Postman / Insomnia import |
+| Interactive explorer | `<%= absolute("#{mount_on}/sys/web") %>` | Humans poking at the API |
+| Health probe | `<%= absolute("#{mount_on}/sys/health") %>` | Liveness / readiness checks |
+| This document | `<%= absolute("#{mount_on}/sys/AGENTS.md") %>` | Re-fetch latest agent guide |
+
+## Authentication
+
+Pass a bearer token in any of these forms (first match wins):
+
+1. `Authorization: Bearer <token>` header **(preferred)**
+2. `api_token=<token>` query string / form param
+3. `{ "token": "<token>", ... }` inside a JSON-RPC envelope body (see below)
+
+Endpoints flagged as `unsafe` in code do not require a token. All others do.
+
+## Invocation styles
+
+There are two equivalent ways to call any endpoint. Use whichever fits your
+HTTP client best.
+
+### 1. URL form (REST-like)
+
+The path encodes class + (optional ref) + action. Body is the params object.
+
+```bash
+# Collection action: POST <mount>/<api>/<action>
+curl -X POST '<%= absolute("#{mount_on}/example/create") %>' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"foo"}'
+
+# Member action: POST <mount>/<api>/<ref>/<action>
+curl -X POST '<%= absolute("#{mount_on}/example/123/update") %>' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"bar"}'
+```
+
+### 2. JSON-RPC envelope
+
+Send a JSON body with a top-level `class` or `action` key. The URL path is
+ignored - everything routes from the envelope. Useful for batching or for
+clients that prefer a single endpoint.
+
+```bash
+curl -X POST '<%= absolute("#{mount_on}/") %>' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "class":  "example",
+    "action": "update",
+    "ref":    "123",
+    "params": { "name": "bar" }
+  }'
+```
+
+Envelope fields:
+
+- `class` - API class name (e.g. `"company"`, `"admin/users"`)
+- `action` - action name
+- `ref` (alias `id`) - resource id for member actions; omit for collection
+- `params` - the action's params object
+- `token` - bearer token (alternative to header)
+
+### HTTP verbs
+
+Every endpoint accepts `POST`. Actions declared with `allow :get` (or other
+verbs) accept those too. The tables below list the declared verb; assume `POST`
+is always available.
+
+## Response shape
+
+JSON endpoints return either:
+
+- **Success**: `{ "data": ..., "meta": {...} }`
+- **Error**: `{ "error": "message", "status": 4xx|5xx, "details": {...} }`
+
+Non-JSON endpoints (files, generated docs, this page) return raw bodies with
+the appropriate `Content-Type`.
+
+## Known error codes
+
+<% if doc[:errors] && !doc[:errors].empty? -%>
+| Code | Meaning |
+|---|---|
+<% doc[:errors].each do |code, desc| -%>
+| `<%= code %>` | <%= desc %> |
+<% end -%>
+<% else -%>
+_No custom errors registered via `rescue_from` in this API._
+<% end -%>
+
+## API surface
+
+<% if doc[:apis].empty? -%>
+_No documented API classes are mounted. Add `documented` inside your API class
+to expose it here._
+<% else -%>
+<% doc[:apis].each do |api_name, api_doc| -%>
+### `<%= api_name %>`
+
+<% if api_doc[:desc] -%>
+<%= api_doc[:desc] %>
+<% end -%>
+<% if api_doc[:detail] -%>
+
+<%= api_doc[:detail] %>
+<% end -%>
+
+<% unless has_methods?(api_doc) -%>
+_No public actions._
+
+<% else -%>
+<% if api_doc[:collection] && !api_doc[:collection].empty? -%>
+#### Collection actions
+
+<% api_doc[:collection].each do |action, entry| -%>
+##### `<%= primary_verb(entry) %> <%= entry[:path] %>` &mdash; `<%= action %>`
+
+<% if entry[:desc] -%>
+<%= entry[:desc] %>
+
+<% end -%>
+<% if entry[:detail] -%>
+<%= entry[:detail] %>
+
+<% end -%>
+<% if entry[:params] && !entry[:params].empty? -%>
+Params:
+
+<%= params_table(entry[:params]) %>
+
+<% end -%>
+Example:
+
+```bash
+<%= curl_example(entry, api_name, action, :collection) %>
+```
+
+<% end -%>
+<% end -%>
+<% if api_doc[:member] && !api_doc[:member].empty? -%>
+#### Member actions (require `:ref`)
+
+<% api_doc[:member].each do |action, entry| -%>
+##### `<%= primary_verb(entry) %> <%= entry[:path] %>` &mdash; `<%= action %>`
+
+<% if entry[:desc] -%>
+<%= entry[:desc] %>
+
+<% end -%>
+<% if entry[:detail] -%>
+<%= entry[:detail] %>
+
+<% end -%>
+<% if entry[:params] && !entry[:params].empty? -%>
+Params:
+
+<%= params_table(entry[:params]) %>
+
+<% end -%>
+Example:
+
+```bash
+<%= curl_example(entry, api_name, action, :member) %>
+```
+
+<% end -%>
+<% end -%>
+<% end -%>
+<% end -%>
+<% end -%>
+
+## Building a tool against this API
+
+If you are an LLM building a function-calling tool, MCP server, or client SDK:
+
+1. **Fetch** `<%= absolute("#{mount_on}/sys/schema") %>` for the canonical shape.
+2. **One tool per action.** Use `<api>.<action>` (collection) or
+   `<api>.<ref>.<action>` (member) as the tool name. Required params from the
+   `params` map become required tool args.
+3. **Always POST** unless the action declares an alternate verb. POST is
+   universally accepted, so a tool that only knows POST will work.
+4. **Pass bearer token** as `Authorization: Bearer <token>`. The user supplies
+   it; never bake it into tool definitions.
+5. **Parse errors** by checking for the `error` key in the response body.
+6. **Use the JSON-RPC envelope** if your HTTP layer cannot do dynamic URLs;
+   a single POST endpoint with `{ class, action, ref, params }` covers
+   everything.
+
+## Extending the API (Ruby)
+
+To add a new endpoint, drop a class under your app's `./app/api/` (or wherever
+your project loads APIs from):
+
+```ruby
+class ExampleApi < ApplicationApi
+  documented
+  class_desc 'Short description for AGENTS.md / OpenAPI / Postman.'
+
+  desc 'List all examples.'
+  allow :get
+  def root
+    Example.all
+  end
+
+  desc 'Create an example.'
+  params do
+    name! String
+    note  String
+  end
+  def create
+    Example.create params
+  end
+
+  ref do
+    desc 'Show one example.'
+    allow :get
+    def show
+      Example[@ref]
+    end
+  end
+end
+```
+
+After reload, this endpoint appears in:
+
+- `<%= absolute("#{mount_on}/sys/AGENTS.md") %>` (this document)
+- `<%= absolute("#{mount_on}/sys/schema") %>`
+- `<%= absolute("#{mount_on}/sys/openapi") %>`
+- `<%= absolute("#{mount_on}/sys/postman") %>`
+
+No manual registration needed - `documented` is the only thing that opts the
+class in.

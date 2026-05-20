@@ -2,40 +2,42 @@ module Lux
   class Cache
     class SqliteServer
       def initialize path = nil
-        file = Pathname.new path || './tmp/lux_cache.sqlite'
-        # file.delete if file.exist?
+        file = Pathname.new(path || './tmp/lux_cache.sqlite')
+        FileUtils.mkdir_p(file.dirname)
         @db = Sequel.sqlite file.to_s
+        @db.run 'PRAGMA journal_mode=WAL'
+        @db.run 'PRAGMA busy_timeout=5000'
 
         unless @db.tables.include?(:cache)
           @db.create_table :cache do
             primary_key :id
             datetime :valid_to
-            string   :key
+            String   :key
             blob     :value
+            index    :key, unique: true
           end
-
-          @db.add_index :cache, :key
         end
 
         @cache = @db[:cache]
       end
 
       def set key, data, ttl = nil
-        self.delete key
         ttl ||= 60 * 60 * 24
         value = Base64.encode64 Marshal.dump(data)
-        @cache.insert(key: key, value: value, valid_to: Time.now + ttl.seconds)
+        valid_to = Time.now + ttl.seconds
+        @cache.insert_conflict(:replace).insert(key: key, value: value, valid_to: valid_to)
         data
       end
 
       def get key
-        row = @cache.where(key: key).to_a.first
+        row = @cache.where(key: key).first
 
         if row
           if row[:valid_to] >= Time.now
             Marshal.load Base64.decode64 row[:value]
           else
             self.delete key
+            nil
           end
         end
       end

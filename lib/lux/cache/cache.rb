@@ -1,11 +1,12 @@
 module Lux
   class Cache
-    OPTS ||= Struct.new 'LuxCacheOpts', :ttl, :force, :if, :unless, :speed, :delete_if_empty
+    OPTS ||= Struct.new(:ttl, :force, :if, :unless, :speed, :delete_if_empty)
+
     def initialize server_name = nil
       self.server= server_name || :memory
     end
 
-    # sert cache server
+    # set cache server
     # Lux.cache.server = :memory
     # Lux.cache.server = :memcached
     # Lux.cache.server = Dalli::Client.new('localhost:11211', { :namespace=>Digest::MD5.hexdigest(__FILE__)[0,4], :compress => true,  :expires_in => 1.hour })
@@ -48,11 +49,12 @@ module Lux
     end
     alias :set :write
 
-    def delete key, data=nil
+    # 2nd arg is kept for backwards-compat; ignored
+    def delete key, _data=nil
       key = generate_key key
 
       Lux.log do
-        if Lux.config[:show_cache_log]
+        if Lux.current.var[:show_cache_log]
           %[ Cache.delete "#{key}", at: #{Lux.app_caller}].colorize(:yellow)
         end
       end
@@ -66,7 +68,7 @@ module Lux
       key = generate_key key
 
       opts = { ttl: opts } unless opts.is_hash?
-      opt = OPTS.new **opts
+      opt = OPTS.new(**opts)
 
       return yield(key) if opt.if.is_a?(FalseClass)
 
@@ -78,14 +80,15 @@ module Lux
       log_key_name = "Cache.fetch.get #{opt.compact.to_jsonc}:#{key.trim(30)}"
       log_get log_key_name
 
-      data = @server.fetch key, opt.ttl do
-        opt.speed = Lux.speed { data = yield }
+      data = @server.fetch(key, opt.ttl) do
+        yield_value = nil
+        opt.speed = Lux.speed { yield_value = yield }
         Lux.log { " #{log_key_name}, at: #{Lux.app_caller}".colorize(:yellow) }
-        Marshal.dump data
+        yield_value
       end
 
-      Marshal.load(data).tap do |out|
-        if opt.delete_if_empty && out.empty?
+      data.tap do |out|
+        if opt.delete_if_empty && out.respond_to?(:empty?) && out.empty?
           @server.delete key
         end
       end
@@ -106,20 +109,20 @@ module Lux
       data
     end
 
-    # lock execution of a block for some time and allow only once instance running in time slot
-    # give some block 3 seconds to run, if another instance executes same block after 1 second, if will wait 2 seconds till it wil continue
+    # cooperative process-local rate limit (NOT a cross-process mutex).
+    # Two concurrent callers may race past the check; for true mutual exclusion
+    # use a backend with atomic add/setnx and adapt accordingly.
     # Lux.cache.lock 'some-key', 3 do ...
     def lock key, time
       key = "syslock-#{key}"
-      cache_time = Lux.cache.get key
+      cache_time = @server.get(key)
 
       if cache_time && cache_time > (Time.monotonic - time)
         diff = time - (Time.monotonic - cache_time)
         sleep diff.abs
-      else
-        Lux.cache.set(key, Time.monotonic, time)
       end
 
+      @server.set(key, Time.monotonic, time)
       yield
     end
 
@@ -128,14 +131,13 @@ module Lux
     end
 
     def is_available?
-      set('lux-test', 9)
-      get('lux-test') == 9
+      k = Crypt.sha1('__lux_cache_health__')
+      @server.set(k, 9)
+      @server.get(k) == 9
     end
 
     def generate_key *data
-      if data[0].class == String && !data[1]
-        return data[0]
-      end
+      return data[0] if data[0].class == String && !data[1]
 
       keys = []
 
@@ -152,9 +154,7 @@ module Lux
         end
       end
 
-      key = keys.join('-')
-
-      @key = Crypt.sha1(key)
+      Crypt.sha1(keys.join('-'))
     end
 
     def []= key, value
@@ -167,18 +167,15 @@ module Lux
     end
 
     def log_get name
-      if Lux.mode.log?
-        if Lux.current.params[:lux_show_cache_get]
-          Lux.config[:show_cache_log] = true
-        end
+      return unless Lux.mode.log?
 
-        if Lux.config[:show_cache_log]
-          Lux.log { " Cache.get #{name}, at: #{Lux.app_caller}".colorize(:green) }
-        else
-          if Lux.current.once(:show_cache_log)
-            Lux.log { " Cache.get info is suppressed: enable? -> #{Lux.current.nav.base}#{Lux.current.request.path}?lux_show_cache_get=true".colorize(:green) }
-          end
-        end
+      var = Lux.current.var
+      var[:show_cache_log] = true if Lux.current.params[:lux_show_cache_get]
+
+      if var[:show_cache_log]
+        Lux.log { " Cache.get #{name}, at: #{Lux.app_caller}".colorize(:green) }
+      elsif Lux.current.once(:show_cache_log)
+        Lux.log { " Cache.get info is suppressed: enable? -> #{Lux.current.nav.base}#{Lux.current.request.path}?lux_show_cache_get=true".colorize(:green) }
       end
     end
   end

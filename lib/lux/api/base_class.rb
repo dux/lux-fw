@@ -111,6 +111,15 @@ module Lux
             path     = request.url.split(mount_on, 2).last.split('?').first.to_s
             parts    = path.split('/')
 
+            # Format-suffix sugar: the last path segment may carry a recognized
+            # file extension (.md / .json / .txt) so URLs look like real files
+            # (e.g. /api/sys/AGENTS.md). The extension is stripped and the
+            # segment is lower-cased before dispatch, so the action stays a
+            # plain Ruby method name (`agents`).
+            if parts.last && parts.last =~ /\A([A-Za-z_][A-Za-z0-9_]*)\.(md|json|txt)\z/
+              parts[-1] = $1.downcase
+            end
+
             @@after_auto_mount.call parts, opts if @@after_auto_mount
 
             opts[:class] = parts.shift

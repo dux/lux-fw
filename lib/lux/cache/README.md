@@ -12,23 +12,36 @@ Lux::Cache.server = Dalli::Client.new('localhost:11211', { :namespace=>Digest::M
 
 # read cache
 Lux.cache.read key
-Lux.cache.get key
+Lux.cache.get key   # alias
 
-# multi read
+# multi read (keys are passed through to the backend as-is)
 Lux.cache.read_multi(*args)
-Lux.cache.get_multi(*args)
+Lux.cache.get_multi(*args)   # alias
 
 # write
 Lux.cache.write(key, data, ttl=nil)
-Lux.cache.set(key, data, ttl=nil)
+Lux.cache.set(key, data, ttl=nil)   # alias
 
 # delete
-Lux.cache.delete(key, data=nil)
+Lux.cache.delete(key)
 
 # fetch or set
 Lux.cache.fetch(key, ttl: 60) do
   # ...
 end
+
+# fetch options:
+#   ttl: Integer            - expire after N seconds
+#   force: true             - bypass cache, recompute and store
+#   if: false               - skip caching entirely, just yield
+#   delete_if_empty: true   - if computed value is empty?, drop from cache
+#   speed                   - filled by the cache with the compute time
+
+# fetch only if block returns truthy (security-check pattern)
+Lux.cache.fetch_if_true(key, ttl: 60) { ... }
+
+# process-local cooperative rate limit (NOT a cross-process mutex)
+Lux.cache.lock('some-key', 3) { ... }
 
 Lux.cache.is_available?
 
@@ -38,3 +51,11 @@ Lux.cache.is_available?
 Lux.cache.generate_key *args
 Lux.cache.generate_key(caller.first, User, Product.find(3), 'data')
 ```
+
+### Backends
+
+* `:memory`    -- per-process in-RAM, TTL-aware, periodic sweep.
+* `:memcached` -- via Dalli. Honors `MEMCACHE_SERVERS`; namespace from
+  `MEMCACHE_NAMESPACE` or hash of `Lux.root`.
+* `:sqlite`    -- file-backed (`./tmp/lux_cache.sqlite` by default); WAL mode.
+* `:null`      -- no-op; useful for tests.
