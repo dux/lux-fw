@@ -18,8 +18,8 @@ module Lux
     module Web
       extend self
 
-      WEB_DIR     ||= File.expand_path('../../../assets/api/web', __dir__)
-      WEB_DIR_ABS ||= File.expand_path(WEB_DIR) + '/'
+      WEB_DIR     ||= Lux.fw_root.join('assets/api/web').to_s
+      WEB_DIR_ABS ||= WEB_DIR + '/'
 
       DEFAULT_FILE ||= 'index.html'
 

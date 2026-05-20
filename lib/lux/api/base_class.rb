@@ -14,7 +14,7 @@ module Lux
           [
             200,
             { 'Cache-Control'=>'public; max-age=1000000' },
-            [File.read(File.expand_path('../../../assets/api/web/favicon.png', __dir__))]
+            [Lux.fw_root.join('assets/api/web/favicon.png').read]
           ]
         else
           api_host = Struct.new(:request, :response).new(

@@ -9,7 +9,7 @@ module Lux
     include ClassCallbacks
     include Lifecycle
 
-    DEFAULT_ERROR_TEMPLATE ||= ERB.new(File.read(File.expand_path('error_page.html.erb', __dir__)))
+    DEFAULT_ERROR_TEMPLATE ||= ERB.new(Lux.fw_root.join('assets/controller/error_page.html.erb').read)
 
     # define master layout
     # string is template, symbol is method pointer and lambda is lambda
