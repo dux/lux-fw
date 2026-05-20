@@ -9,12 +9,12 @@ class CompanyApi < ModelApi
   end
   allow :put
   desc 'List of available companies'
-  def index
-    message 'done'
+  define :index do
+    proc { message 'done' }
   end
 
-  def info
-    { countries_in_index: 123 }
+  define :info do
+    proc { { countries_in_index: 123 } }
   end
 
   ref do
@@ -23,20 +23,22 @@ class CompanyApi < ModelApi
       set      :is_active, false
       country?
     end
-    def index
-      message 'all ok'
-      @model.name
+    define :index do
+      proc do
+        message 'all ok'
+        @model.name
+      end
     end
 
-    def show
-      @model.name
+    define :show do
+      proc { @model.name }
     end
 
     params do
       company model: :company
     end
-    def update
-      params.company.to_h
+    define :update do
+      proc { params.company.to_h }
     end
 
     define :foo do

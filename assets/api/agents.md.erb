@@ -1,11 +1,16 @@
 # AGENTS.md - <%= request && request.host %> API
 
-Schema version: `<%= doc[:version] %>`.
+This document is a self-contained brief for an AI/LLM. You can paste it (or a
+URL to it) into a coding assistant and ask things like:
 
-This document tells AIs/LLMs how to **call** this API and how to **build tools**
-(MCP servers, function-calling shims, SDK clients) against it. Everything below
-is derived from the same introspection schema the OpenAPI and Postman generators
-consume, so it cannot drift from the running code.
+> Read `<%= absolute("#{mount_on}/sys/AGENTS.md") %>` and build me a client in
+> **Java / C# / Python / Ruby (Thor) / TypeScript** that consumes this API,
+> with login support.
+
+Everything you need to build that client - schema location, auth, invocation
+shapes, login pattern, error shape - is below. Per-action details (params,
+types, descriptions) live in the machine-readable schemas; **fetch the schema
+and loop over it** to emit one function/command per action.
 
 ## Server
 
@@ -14,17 +19,54 @@ consume, so it cannot drift from the running code.
 
 ## Machine-readable schemas
 
-If you are generating code or building a tool, prefer the structured exports
-over parsing this document.
+All four are generated from the same introspection source, so they cannot
+drift from the running code. Pick the one that matches your tooling:
 
-| Format | URL | Use for |
+| Endpoint | What it is | Use for |
 |---|---|---|
-| Raw introspection (canonical) | `<%= absolute("#{mount_on}/sys/schema") %>` | Bespoke clients, full fidelity |
-| OpenAPI 3 | `<%= absolute("#{mount_on}/sys/openapi") %>` | Swagger UI, Redoc, openapi-generator |
-| Postman 2.1 | `<%= absolute("#{mount_on}/sys/postman") %>` | Postman / Insomnia import |
-| Interactive explorer | `<%= absolute("#{mount_on}/sys/web") %>` | Humans poking at the API |
-| Health probe | `<%= absolute("#{mount_on}/sys/health") %>` | Liveness / readiness checks |
-| This document | `<%= absolute("#{mount_on}/sys/AGENTS.md") %>` | Re-fetch latest agent guide |
+| `<%= absolute("#{mount_on}/sys/schema") %>` | Canonical introspection JSON. Lists every API class, action, param spec, declared HTTP verbs, `unsafe` flag, and error codes. The single source of truth that all other generators consume. | Bespoke clients, code generators, custom tool builders |
+| `<%= absolute("#{mount_on}/sys/openapi") %>` | OpenAPI 3 specification derived from the schema. | Swagger UI, Redoc, openapi-generator |
+| `<%= absolute("#{mount_on}/sys/postman") %>` | Postman 2.1 collection. | Postman, Insomnia, Bruno |
+| `<%= absolute("#{mount_on}/sys/web") %>` | Interactive browser explorer. | Humans poking at the API |
+| `<%= absolute("#{mount_on}/sys/health") %>` | Liveness probe (`{ ok: true }`). | Uptime checks, k8s readiness |
+| `<%= absolute("#{mount_on}/sys/AGENTS.md") %>` | This document. | Re-fetch latest agent guide |
+
+If you are generating code, **prefer the raw schema**. OpenAPI and Postman
+exports are lossy convenience formats.
+
+### Schema shape (for code generators)
+
+The raw schema returns roughly:
+
+```json
+{
+  "mount_on": "<%= mount_on.empty? ? '/' : mount_on %>",
+  "apis": {
+    "<api_name>": {
+      "desc":   "...",
+      "detail": "...",
+      "collection": {
+        "<action>": {
+          "path":   "<%= mount_on %>/<api_name>/<action>",
+          "http":   ["POST", "GET"],
+          "unsafe": false,
+          "desc":   "...",
+          "params": {
+            "<name>": { "type": "string|integer|...", "required": true, "default": null, "desc": "..." }
+          }
+        }
+      },
+      "member": {
+        "<action>": { "path": "<%= mount_on %>/<api_name>/:ref/<action>", "http": [...], "params": {...} }
+      }
+    }
+  },
+  "errors": { "<code>": "<description>" }
+}
+```
+
+Generate one client function per `(api, action)` pair. Use `member` actions'
+`:ref` placeholder to require an id argument.
 
 ## Authentication
 
@@ -32,13 +74,46 @@ Pass a bearer token in any of these forms (first match wins):
 
 1. `Authorization: Bearer <token>` header **(preferred)**
 2. `api_token=<token>` query string / form param
-3. `{ "token": "<token>", ... }` inside a JSON-RPC envelope body (see below)
+3. `{ "token": "<token>", ... }` inside a JSON-RPC envelope body
 
-Endpoints flagged as `unsafe` in code do not require a token. All others do.
+Actions flagged `unsafe: true` in the schema do not require a token. All
+others do.
+
+## Login pattern (how to obtain a token)
+
+This API does **not** ship a fixed `/login` route. Instead, login is a
+regular action marked `unsafe`, and its return value is the token.
+
+How to discover and call it from generated code:
+
+1. Fetch the schema.
+2. Find an action whose name matches `/^(login|sign_?in|authenticate|token)$/i`
+   **and** whose `unsafe` flag is `true`. Its `params` block tells you what
+   credentials it expects (typically `user`/`email` + `pass`/`password`).
+3. POST credentials to that action's `path` with **no** `Authorization`
+   header.
+4. The response body (or the `data` field of it) is your token. Store it.
+5. Send it as `Authorization: Bearer <token>` on every subsequent call.
+
+Example (curl, against the demo API in this repo's specs):
+
+```bash
+TOKEN=$(curl -s -X POST '<%= absolute("#{mount_on}/user/login") %>' \
+  -H 'Content-Type: application/json' \
+  -d '{"user":"foo","pass":"bar"}' | jq -r '.data // .')
+
+curl '<%= absolute("#{mount_on}/user/123/update") %>' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"user":{"name":"new name"}}'
+```
+
+If no such action exists in this deployment, the token comes from outside
+the API (e.g. a web login flow) and the user supplies it as an env var.
 
 ## Invocation styles
 
-There are two equivalent ways to call any endpoint. Use whichever fits your
+Every endpoint can be called two equivalent ways. Use whichever fits your
 HTTP client best.
 
 ### 1. URL form (REST-like)
@@ -61,7 +136,7 @@ curl -X POST '<%= absolute("#{mount_on}/example/123/update") %>' \
 
 ### 2. JSON-RPC envelope
 
-Send a JSON body with a top-level `class` or `action` key. The URL path is
+Send a JSON body with a top-level `class` / `action` key. The URL path is
 ignored - everything routes from the envelope. Useful for batching or for
 clients that prefer a single endpoint.
 
@@ -88,18 +163,43 @@ Envelope fields:
 ### HTTP verbs
 
 Every endpoint accepts `POST`. Actions declared with `allow :get` (or other
-verbs) accept those too. The tables below list the declared verb; assume `POST`
-is always available.
+verbs) accept those too. When in doubt, POST works.
+
+## Collection vs member actions (`ref` blocks)
+
+The schema splits each API class into two action sets:
+
+- **Collection actions** act on the whole resource set. No `ref` in the URL
+  or envelope. Examples: `list`, `create`, `search`.
+- **Member actions** act on one specific record identified by `ref`. They
+  appear under `member` in the schema because the Ruby class declared them
+  inside a `ref do ... end` block. Examples: `show`, `update`, `delete`.
+
+For a member action you **must** provide the id:
+
+- URL form: as a path segment - `POST /example/123/update`
+- Envelope form: as the top-level `ref` (or `id`) field
+
+In a generated client, expose member actions as functions whose first
+argument is the id: `client.example.update(id, params)`.
 
 ## Response shape
 
 JSON endpoints return either:
 
-- **Success**: `{ "data": ..., "meta": {...} }`
+- **Success**: `{ "data": ..., "meta": {...} }` (some actions return a bare
+  value instead of a `data` envelope - inspect the schema's response info
+  or just accept both shapes)
 - **Error**: `{ "error": "message", "status": 4xx|5xx, "details": {...} }`
 
-Non-JSON endpoints (files, generated docs, this page) return raw bodies with
-the appropriate `Content-Type`.
+Non-JSON endpoints (files, generated docs, this page) return raw bodies
+with the appropriate `Content-Type`.
+
+### Error handling rule
+
+Check for the `error` key first. If present, surface
+`status` + `error` + `details` to the caller. Don't trust HTTP status alone
+- some errors come back with 200 + an `error` body.
 
 ## Known error codes
 
@@ -113,145 +213,171 @@ the appropriate `Content-Type`.
 _No custom errors registered via `rescue_from` in this API._
 <% end -%>
 
-## API surface
+## Client-generation recipe (language-agnostic)
 
-<% if doc[:apis].empty? -%>
-_No documented API classes are mounted. Add `documented` inside your API class
-to expose it here._
-<% else -%>
-<% doc[:apis].each do |api_name, api_doc| -%>
-### `<%= api_name %>`
+For any target language:
 
-<% if api_doc[:desc] -%>
-<%= api_doc[:desc] %>
-<% end -%>
-<% if api_doc[:detail] -%>
+1. **Fetch** `<%= absolute("#{mount_on}/sys/schema") %>` at build time (or
+   at startup, for dynamic clients).
+2. **Emit one function per action**:
+   - Collection: `client.<api>.<action>(params)` -> POST `<path>`.
+   - Member: `client.<api>.<action>(id, params)` -> POST `<path with :ref
+     replaced>`.
+3. **Type the params** from the `params` map (`type`, `required`, `default`).
+4. **Add a `login(user, pass)` method** that calls the discovered `unsafe`
+   login action and stores the returned token on the client instance.
+5. **Inject `Authorization: Bearer <token>`** on every non-`unsafe` call.
+6. **Parse the response**: if `body.error` is set, raise; otherwise return
+   `body.data ?? body`.
 
-<%= api_doc[:detail] %>
-<% end -%>
+That gives you a usable, typed client in any language. Snippets for common
+targets follow.
 
-<% unless has_methods?(api_doc) -%>
-_No public actions._
-
-<% else -%>
-<% if api_doc[:collection] && !api_doc[:collection].empty? -%>
-#### Collection actions
-
-<% api_doc[:collection].each do |action, entry| -%>
-##### `<%= primary_verb(entry) %> <%= entry[:path] %>` &mdash; `<%= action %>`
-
-<% if entry[:desc] -%>
-<%= entry[:desc] %>
-
-<% end -%>
-<% if entry[:detail] -%>
-<%= entry[:detail] %>
-
-<% end -%>
-<% if entry[:params] && !entry[:params].empty? -%>
-Params:
-
-<%= params_table(entry[:params]) %>
-
-<% end -%>
-Example:
-
-```bash
-<%= curl_example(entry, api_name, action, :collection) %>
-```
-
-<% end -%>
-<% end -%>
-<% if api_doc[:member] && !api_doc[:member].empty? -%>
-#### Member actions (require `:ref`)
-
-<% api_doc[:member].each do |action, entry| -%>
-##### `<%= primary_verb(entry) %> <%= entry[:path] %>` &mdash; `<%= action %>`
-
-<% if entry[:desc] -%>
-<%= entry[:desc] %>
-
-<% end -%>
-<% if entry[:detail] -%>
-<%= entry[:detail] %>
-
-<% end -%>
-<% if entry[:params] && !entry[:params].empty? -%>
-Params:
-
-<%= params_table(entry[:params]) %>
-
-<% end -%>
-Example:
-
-```bash
-<%= curl_example(entry, api_name, action, :member) %>
-```
-
-<% end -%>
-<% end -%>
-<% end -%>
-<% end -%>
-<% end -%>
-
-## Building a tool against this API
-
-If you are an LLM building a function-calling tool, MCP server, or client SDK:
-
-1. **Fetch** `<%= absolute("#{mount_on}/sys/schema") %>` for the canonical shape.
-2. **One tool per action.** Use `<api>.<action>` (collection) or
-   `<api>.<ref>.<action>` (member) as the tool name. Required params from the
-   `params` map become required tool args.
-3. **Always POST** unless the action declares an alternate verb. POST is
-   universally accepted, so a tool that only knows POST will work.
-4. **Pass bearer token** as `Authorization: Bearer <token>`. The user supplies
-   it; never bake it into tool definitions.
-5. **Parse errors** by checking for the `error` key in the response body.
-6. **Use the JSON-RPC envelope** if your HTTP layer cannot do dynamic URLs;
-   a single POST endpoint with `{ class, action, ref, params }` covers
-   everything.
-
-## Extending the API (Ruby)
-
-To add a new endpoint, drop a class under your app's `./app/api/` (or wherever
-your project loads APIs from):
+### Ruby (with Thor)
 
 ```ruby
-class ExampleApi < ApplicationApi
-  documented
-  class_desc 'Short description for AGENTS.md / OpenAPI / Postman.'
+require 'thor'
+require 'net/http'
+require 'json'
 
-  desc 'List all examples.'
-  allow :get
-  def root
-    Example.all
+class Cli < Thor
+  BASE = '<%= base_url %><%= mount_on %>'
+
+  desc 'login USER PASS', 'log in and cache the token to ~/.api_token'
+  def login(user, pass)
+    res = post('/user/login', user: user, pass: pass, _no_auth: true)
+    File.write(File.expand_path('~/.api_token'), res.to_s)
+    say "ok"
   end
 
-  desc 'Create an example.'
-  params do
-    name! String
-    note  String
-  end
-  def create
-    Example.create params
+  desc 'example-create NAME', 'create an example'
+  def example_create(name)
+    say post('/example/create', name: name).inspect
   end
 
-  ref do
-    desc 'Show one example.'
-    allow :get
-    def show
-      Example[@ref]
+  desc 'example-update ID NAME', 'update an example by id'
+  def example_update(id, name)
+    say post("/example/#{id}/update", name: name).inspect
+  end
+
+  no_commands do
+    def post(path, **params)
+      uri = URI("#{BASE}#{path}")
+      req = Net::HTTP::Post.new(uri, 'Content-Type' => 'application/json')
+      unless params.delete(:_no_auth)
+        req['Authorization'] = "Bearer #{File.read(File.expand_path('~/.api_token')).strip}"
+      end
+      req.body = params.to_json
+      res = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') { |h| h.request(req) }
+      body = JSON.parse(res.body) rescue res.body
+      raise "API error: #{body['error']}" if body.is_a?(Hash) && body['error']
+      body.is_a?(Hash) ? (body['data'] || body) : body
     end
+  end
+end
+
+Cli.start(ARGV)
+```
+
+### Ruby (with `lux-hammer`)
+
+`lux-hammer` (`gem install lux-hammer`) is a zero-dep CLI builder with a
+`task :name do ... end` DSL. Same idea as the Thor example, terser:
+
+```ruby
+BASE  ||= '<%= base_url %><%= mount_on %>'
+STATE ||= File.expand_path('~/.api_token')
+
+def api_post(path, params = {}, no_auth: false)
+  uri  = URI("#{BASE}#{path}")
+  req  = Net::HTTP::Post.new(uri, 'Content-Type' => 'application/json')
+  req['Authorization'] = "Bearer #{File.read(STATE).strip}" unless no_auth
+  req.body = params.to_json
+  res = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') { |h| h.request(req) }
+  body = JSON.parse(res.body) rescue res.body
+  raise "API error: #{body['error']}" if body.is_a?(Hash) && body['error']
+  body.is_a?(Hash) ? (body['data'] || body) : body
+end
+
+task :login do
+  desc 'log in and cache token'
+  opt :user, req: true
+  opt :pass, req: true
+  proc do |o|
+    File.write(STATE, api_post('/user/login', { user: o[:user], pass: o[:pass] }, no_auth: true).to_s)
+    say.green 'ok'
+  end
+end
+
+namespace :example do
+  task :create do
+    desc 'create example'
+    opt :name, req: true
+    proc { |o| say.green api_post('/example/create', name: o[:name]).inspect }
   end
 end
 ```
 
-After reload, this endpoint appears in:
+### Java (sketch)
 
-- `<%= absolute("#{mount_on}/sys/AGENTS.md") %>` (this document)
-- `<%= absolute("#{mount_on}/sys/schema") %>`
-- `<%= absolute("#{mount_on}/sys/openapi") %>`
-- `<%= absolute("#{mount_on}/sys/postman") %>`
+```java
+public class Client {
+    private final HttpClient http = HttpClient.newHttpClient();
+    private final String base;
+    private String token;
 
-No manual registration needed - `documented` is the only thing that opts the
-class in.
+    public Client(String base) { this.base = base; }
+
+    public void login(String user, String pass) throws Exception {
+        var body = post("/user/login", Map.of("user", user, "pass", pass), false);
+        this.token = body.toString();
+    }
+
+    public Object exampleCreate(String name) throws Exception {
+        return post("/example/create", Map.of("name", name), true);
+    }
+
+    private Object post(String path, Map<String,Object> params, boolean auth) throws Exception {
+        var b = HttpRequest.newBuilder(URI.create(base + path))
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(toJson(params)));
+        if (auth) b.header("Authorization", "Bearer " + token);
+        var res = http.send(b.build(), HttpResponse.BodyHandlers.ofString());
+        return parseAndCheck(res.body());
+    }
+}
+```
+
+### C# (sketch)
+
+```csharp
+public class ApiClient {
+    private readonly HttpClient _http = new();
+    private readonly string _base;
+    private string? _token;
+
+    public ApiClient(string baseUrl) { _base = baseUrl; }
+
+    public async Task LoginAsync(string user, string pass) {
+        var data = await Post("/user/login", new { user, pass }, auth: false);
+        _token = data?.ToString();
+    }
+
+    public Task<object?> ExampleCreate(string name) =>
+        Post("/example/create", new { name }, auth: true);
+
+    private async Task<object?> Post(string path, object body, bool auth) {
+        var req = new HttpRequestMessage(HttpMethod.Post, _base + path) {
+            Content = JsonContent.Create(body)
+        };
+        if (auth) req.Headers.Authorization = new("Bearer", _token);
+        var res = await _http.SendAsync(req);
+        var json = await res.Content.ReadFromJsonAsync<JsonElement>();
+        if (json.TryGetProperty("error", out var err)) throw new Exception(err.GetString());
+        return json.TryGetProperty("data", out var d) ? d : json;
+    }
+}
+```
+
+The pattern is identical in every language: `Authorization: Bearer <token>`,
+POST a JSON body, check for `error`, return `data` if present.

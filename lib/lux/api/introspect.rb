@@ -46,6 +46,8 @@ module Lux
       end
 
       # build the per-method entry; strips private (_*) keys like :_schema
+      # methods marked with the built-in `undocumented` annotation are skipped
+      # entirely - they remain callable, just hidden from generated schemas.
       def methods_for klass, type, mount_on, api_name
         raw = klass.opts[type] || {}
         return nil if raw.empty?
@@ -54,6 +56,8 @@ module Lux
         out  = {}
 
         raw.each do |action, mopts|
+          next if (mopts || {})[:annotations]&.key?(:undocumented)
+
           cleaned = (mopts || {}).reject { |k, _| k.to_s.start_with?('_') }
 
           path_parts = [base, api_name]
@@ -69,7 +73,7 @@ module Lux
           }.compact
         end
 
-        out
+        out.empty? ? nil : out
       end
 
       def errors

@@ -11,30 +11,34 @@ class UserApi < ModelApi
     user
     pass
   end
-  def login
-    if params.user == 'foo' && params.pass == 'bar'
-      'login ok'
-    else
-      error 'Wrong user & pass'
+  define :login do
+    proc do
+      if params.user == 'foo' && params.pass == 'bar'
+        'login ok'
+      else
+        error 'Wrong user & pass'
+      end
     end
   end
 
   allow :delete
-  def call_me_in_child
-    super! * 2
+  define :call_me_in_child do
+    proc { super! * 2 }
   end
 
   ref do
     params do
       user model: :user
     end
-    def update
-      params.user.to_h
+    define :update do
+      proc { params.user.to_h }
     end
 
-    def call_me_in_child
-      super!
-      @number * 2
+    define :call_me_in_child do
+      proc do
+        super!
+        @number * 2
+      end
     end
   end
 end

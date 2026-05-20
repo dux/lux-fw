@@ -10,22 +10,22 @@ class GenericApi < ApplicationApi
   class_desc   'Simple generic api'
   class_detail '<p>Nothing <b>specific</b>.</p>'
 
-  def about
-    2 * xxx
+  define :about do
+    proc { 2 * xxx }
   end
 
-  def get_money
-    error 405
+  define :get_money do
+    proc { error 405 }
   end
 
   desc 'This will just return ok'
   detail 'No need for big details'
-  def all_ok
-    'ok'
+  define :all_ok do
+    proc { 'ok' }
   end
 
-  def param_test_1
-    params.to_h
+  define :param_test_1 do
+    proc { params.to_h }
   end
 
   desc 'Passing params'
@@ -35,29 +35,31 @@ class GenericApi < ApplicationApi
     foo String, required: true
     bar?
   end
-  def param_test_2
-    params.to_h
+  define :param_test_2 do
+    proc { params.to_h }
   end
 
   anonymous
-  def anon_test
-    @anonymous_ok
+  define :anon_test do
+    proc { @anonymous_ok }
   end
 
-  def send_csv
-    out = []
-    out.push 'name;email'
-    out.push 'dux;foo@bar.baz'
-    out.push 'fox;bar@baz.baz'
+  define :send_csv do
+    proc do
+      out = []
+      out.push 'name;email'
+      out.push 'dux;foo@bar.baz'
+      out.push 'fox;bar@baz.baz'
 
-    response { out.join($/) }
+      response { out.join($/) }
+    end
   end
 
   params do
     labels_dup   Array[:label]
     labels_nodup Set[:label]
   end
-  def list_labels
-    params.to_h
+  define :list_labels do
+    proc { params.to_h }
   end
 end

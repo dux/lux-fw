@@ -229,16 +229,19 @@ module Lux
       response.message data
     end
 
-    # Compatibility shim. Plain `super` now works inside API methods because
-    # method names are not aliased anymore. `super!` resolves the calling
-    # method's name (stripping any `_ref` suffix), then calls the same-typed
-    # parent method.
+    # Compatibility shim. Plain `super` now works inside `def`-defined API
+    # methods. Inside a `define :foo do; proc { ... }; end` body, `super` and
+    # `caller_locations` resolve to the Proc's lexical scope (typically
+    # `<class:Foo>`), so we fall back to `@api.action`. Pass `name` explicitly
+    # to override the auto-detection.
     def super! name = nil
       if name.nil?
         loc   = caller_locations(1, 1).first
         label = (loc.base_label || loc.label).to_s
         label = label.sub(/^block in /, '')
-        name  = label.sub(/_ref$/, '')
+        # label like '<class:Foo>' / '<top (required)>' means we're inside a
+        # Proc body - use the active action instead
+        name = label.start_with?('<') ? @api.action.to_s : label.sub(/_ref$/, '')
       end
 
       method_name = @ref ? "#{name}_ref" : name.to_s

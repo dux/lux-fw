@@ -1,6 +1,6 @@
 class ModelApi < ApplicationApi
-  def call_me_in_child
-    @number = 2345
+  define :call_me_in_child do
+    proc { @number = 2345 }
   end
 
   ref do
@@ -19,17 +19,17 @@ class ModelApi < ApplicationApi
     params do
       show_all false
     end
-    def creator
-      '@dux'
+    define :creator do
+      proc { '@dux' }
     end
 
     desc 'Update the model'
-    def update
-      'updated'
+    define :update do
+      proc { 'updated' }
     end
 
-    def call_me_in_child
-      @number = 1234
+    define :call_me_in_child do
+      proc { @number = 1234 }
     end
   end
 end

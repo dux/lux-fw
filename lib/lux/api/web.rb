@@ -9,9 +9,11 @@
 #   - no '..' segments anywhere in the path
 #   - no scheme (e.g. http://)
 #   - resolved file must live under assets/api/web/
-#   - extension must be in ALLOWED_EXTS
+#   - extension must be in ALLOWED_EXTS (a trailing `.erb` is allowed and
+#     stripped before matching - so `foo.html.erb` resolves like `foo.html`
+#     and is evaluated through Lux::Api::ErbView)
 #
-# Content-Type is inferred from the extension.
+# Content-Type is inferred from the (inner) extension.
 
 module Lux
   class Api
@@ -46,27 +48,41 @@ module Lux
       # Returns { body:, content_type: } for the requested file, or for
       # index.html when file is nil/blank. Raises ArgumentError for any
       # unsafe input.
-      def render file: nil
+      #
+      # `api` / `mount_on` are forwarded to Lux::Api::ErbView so .erb
+      # templates can reach the live request and the introspection schema.
+      def render file: nil, api: nil, mount_on: nil
         raw = file.to_s.strip
         raw = DEFAULT_FILE if raw.empty?
 
         raise ArgumentError, 'absolute or remote URLs not allowed' if raw.include?('://')
         raise ArgumentError, "'..' segments are not allowed"       if raw.split(%r{[/\\]}).include?('..')
 
-        # strip leading '/' - URL sugar meaning "root of lib/lux/api/web/"
+        # strip leading '/' - URL sugar meaning "root of assets/api/web/"
         rel = raw.sub(/^\/+/, '')
 
-        ext = File.extname(rel).downcase
+        # Strip a trailing `.erb` for extension + content-type purposes;
+        # the actual on-disk file may have it (foo.html -> foo.html.erb).
+        bare = rel.sub(/\.erb\z/, '')
+        ext  = File.extname(bare).downcase
         raise ArgumentError, "file extension not allowed: #{ext.inspect}" unless ALLOWED_EXTS.include?(ext)
 
-        path_abs = File.expand_path(File.join(WEB_DIR, rel))
-        raise ArgumentError, 'path escapes web root'  unless path_abs.start_with?(WEB_DIR_ABS)
-        raise ArgumentError, "file not found: #{rel}" unless File.file?(path_abs)
+        path_abs = resolve(rel) || resolve("#{bare}.erb")
+        raise ArgumentError, "file not found: #{rel}" unless path_abs
 
         {
-          body:         File.read(path_abs),
+          body:         Lux::Api::ErbView.new(api, mount_on: mount_on).render(path_abs),
           content_type: CONTENT_TYPES[ext]
         }
+      end
+
+      private
+
+      def resolve rel
+        path_abs = File.expand_path(File.join(WEB_DIR, rel))
+        return nil unless path_abs.start_with?(WEB_DIR_ABS)
+        return nil unless File.file?(path_abs)
+        path_abs
       end
     end
   end

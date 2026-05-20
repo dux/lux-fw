@@ -6,8 +6,8 @@
 module KitchenSinkPing
   def self.included base
     base.class_eval do
-      def ping
-        'pong'
+      define :ping do
+        proc { 'pong' }
       end
     end
   end
@@ -16,8 +16,8 @@ end
 # --- plugin defined globally, used by the API class ------------------------
 
 Lux::Api.plugin :kitchen_sink_plugin do
-  def plugin_provided
-    'from_plugin'
+  define :plugin_provided do
+    proc { 'from_plugin' }
   end
 end
 
@@ -57,12 +57,12 @@ class KitchenSinkApi < KitchenSinkBaseApi
     response.meta :tag, 'kapi'
   end
 
-  # ---- collection: def with desc/detail/params/allow ---------------------
+  # ---- collection: define with desc/detail/params/allow ------------------
 
   desc 'List items'
   detail 'Returns a list (no params required)'
-  def list
-    [{ id: 1 }, { id: 2 }]
+  define :list do
+    proc { [{ id: 1 }, { id: 2 }] }
   end
 
   desc 'Stash item via PUT'
@@ -71,8 +71,8 @@ class KitchenSinkApi < KitchenSinkBaseApi
     nick? :label   # Typero built-in (slug-like normalization)
   end
   allow :put
-  def stash
-    { name: params.name, nick: params.nick }
+  define :stash do
+    proc { { name: params.name, nick: params.nick } }
   end
 
   # ---- collection: define with annotation + RESTful HTTP method ----------
@@ -93,18 +93,15 @@ class KitchenSinkApi < KitchenSinkBaseApi
   # ---- collection: unsafe ------------------------------------------------
 
   unsafe
-  def public_action
-    @api.method_opts[:unsafe]
+  define :public_action do
+    proc { @api.method_opts[:unsafe] }
   end
 
   # ---- collection: predicate helper extraction --------------------------
-  # `current_user?` is private (helper), used by other actions.
+  # `current_user?` is a private helper, used by other actions via plain Ruby.
 
-  def expose_user
-    # Call the public action's underlying logic directly. After helper
-    # extraction this would be `_show_for(user)`; here we just demonstrate
-    # plain-Ruby method calls between actions / helpers.
-    [@ref, @bearer_token, current_user?]
+  define :expose_user do
+    proc { [@ref, @bearer_token, current_user?] }
   end
 
   private
@@ -113,14 +110,15 @@ class KitchenSinkApi < KitchenSinkBaseApi
     !@bearer_token.nil?
   end
 
-  # also private with a trailing `?` to verify it is NOT exposed
+  # private with a trailing `?` to verify it is NOT exposed (and never was,
+  # because only `define` registers endpoints).
   def secret?
     'hidden'
   end
 
   public
 
-  # ---- ref scope: before-callback + def + define + private helper -------
+  # ---- ref scope: before-callback + define + private helper -------------
 
   ref do
     before do
@@ -128,8 +126,8 @@ class KitchenSinkApi < KitchenSinkBaseApi
     end
 
     desc 'Show item by ref'
-    def show
-      { ref: @ref, root_before: @root_before_count, ref_before: @ref_before_count }
+    define :show do
+      proc { { ref: @ref, root_before: @root_before_count, ref_before: @ref_before_count } }
     end
 
     define :detail_action do
@@ -142,12 +140,12 @@ class KitchenSinkApi < KitchenSinkBaseApi
       end
     end
 
-    def trigger_named_rescue
-      error :forbidden
+    define :trigger_named_rescue do
+      proc { error :forbidden }
     end
 
-    def trigger_class_rescue
-      raise ArgumentError, 'boom'
+    define :trigger_class_rescue do
+      proc { raise ArgumentError, 'boom' }
     end
 
     private
@@ -161,16 +159,18 @@ end
 # --- inheritance: child overrides + super! / super ------------------------
 
 class KitchenSinkChildApi < KitchenSinkApi
-  # plain Ruby super works for collection methods (no rename)
-  def list
-    super + [{ id: 3 }]
+  # super() (with parens) is required inside a Proc body
+  define :list do
+    proc { super() + [{ id: 3 }] }
   end
 
   ref do
     # super! is required inside ref do (UnboundMethod rename breaks plain super)
-    def show
-      base = super!
-      base.merge(extended: true)
+    define :show do
+      proc do
+        base = super!
+        base.merge(extended: true)
+      end
     end
   end
 end
