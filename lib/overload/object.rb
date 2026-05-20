@@ -1,30 +1,33 @@
 class Object
   LUX_AUTO_LOAD ||= {}
   LUX_AUTO_LOAD_MUTEX ||= Monitor.new
+  LUX_AUTO_LOAD_SCANNED ||= [false]
 
   def self.const_missing klass, path=nil
     LUX_AUTO_LOAD_MUTEX.synchronize do
-      # return if another thread already loaded it
-      return Object.const_get(klass) if Object.const_defined?(klass)
+      klass = klass.to_s
 
-      unless LUX_AUTO_LOAD.keys.first
+      # return if another thread already loaded it
+      return Object.const_get(klass) if Object.const_defined?(klass, false)
+
+      unless LUX_AUTO_LOAD_SCANNED[0]
         for file in Dir.glob('./app/**/*.rb').sort
           klass_file = file
             .split('/')
             .last
             .sub('.rb', '')
-            .classify
+            .camelize
           LUX_AUTO_LOAD[klass_file] ||= [false, file]
         end
+        LUX_AUTO_LOAD_SCANNED[0] = true
       end
 
-      klass = klass.to_s if klass.class == Symbol
-      path  = LUX_AUTO_LOAD[klass] || LUX_AUTO_LOAD[klass.classify] # this is because 'status'.classify -> 'Statu' and not 'Status'
-      error = %{Can't find and autoload module/class "%s"} % klass.classify
+      path  = LUX_AUTO_LOAD[klass]
+      error = %{Can't find and autoload module/class "%s"} % klass
 
       if path
         if path[0]
-          raise NameError.new('%s, found file "%s" is not defineing it.' % [error, path[1]])
+          raise NameError.new('%s, found file "%s" does not define it.' % [error, path[1]])
         else
           path[0] = true
           require path[1].sub('.rb', '')

@@ -1,4 +1,6 @@
 class Object
+  LUX_LOG_CLEAR_LAST ||= [0.0]
+
   # raise object
   def r what
     if what.is_a?(Method)
@@ -11,15 +13,14 @@ class Object
     raise StandardError.new(what.nil? ? 'nil' : what)
   end
 
-  # better console log dump
-  def rr what, as_jsonp = false
+  # shared dump style used by rr and LOG
+  def raise_log_style what
     klass = what.class
     klass = '%s at %s' % [klass, what.source_location.join(':').sub(Lux.root.to_s, '.')] if klass == Method
-    from = caller[0].include?('raise_variants.rb') ? caller[1] : caller[0]
+    from = caller.find { |line| !line.include?('raise_variants.rb') } || caller[0]
     from = from.sub(Lux.root.to_s+'/', './').split(':in ').first
     header = '--- START (%s) %s - %s ---' % [klass, from, Lux.current.request.url]
-    as_jsonp = true if ['Lux::Hash', 'Hash'].include?(what.class.to_s)
-    if as_jsonp
+    if ['Lux::Hash', 'Hash'].include?(what.class.to_s)
       puts header
       puts what.to_jsonp
       puts '--- END ---'
@@ -28,9 +29,30 @@ class Object
     end
   end
 
+  # better console log dump
+  def rr what
+    raise_log_style what
+  end
+
   # tail -f ./log/LOG.log
   def LOG what
-    from = caller[0]
+    from = caller[0].sub(Lux.root.to_s + '/', './').split(':in ').first
+
+    if Lux.runtime.web?
+      # silence other screen logs for the rest of this request
+      Lux.current.var[:lux_disable_screen_log] = true
+      unless Lux.current.var[:log_screen_cleared]
+        Lux.current.var[:log_screen_cleared] = true
+        now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        # throttle clear-screen to once per second across requests
+        if now - LUX_LOG_CLEAR_LAST[0] >= 1.0
+          LUX_LOG_CLEAR_LAST[0] = now
+          print "\e[H\e[2J"
+        end
+      end
+      raise_log_style what
+    end
+
     logger = Logger.new('./log/LOG.log')
     logger.formatter = proc do |severity, datetime, progname, msg|
       "#{Lux.app_caller} - #{from}\n#{msg}\n\n"

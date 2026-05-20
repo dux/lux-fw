@@ -25,8 +25,11 @@ module Lux
   # Skips block evaluation when the logger would drop the message (e.g. log_level=:error
   # in production), so callers can freely pass colorize/sprintf/`Lux.app_caller` blocks
   # without paying for them in prod.
+  # When LOG() has been called in the current request, screen logs are suppressed
+  # so only LOG output is visible.
   def log what = nil, &block
     return unless Lux.logger.info?
+    return if Lux.respond_to?(:current) && Lux.current.var[:lux_disable_screen_log]
     what = block.call if block
     Lux.logger.info(what) if what
   end
