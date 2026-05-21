@@ -46,6 +46,7 @@ Ruby web framework - Rack-based, Sequel ORM, PostgreSQL.
 * Use `FOO ||=` for constants, not `FOO =`
 * End all files with newline, no trailing spaces on empty lines
 * Prefer `Lux::Db.connections` over `Lux.config.sequel_dbs` (legacy)
+* Inside `module Lux`, never write `x.is_a?(Hash)` / `Array` / `String` - `Hash` lexically resolves to `Lux::Hash` (same for any `Lux::<CoreClass>`). Use the overload predicates `x.is_hash?`, `x.is_array?`, `x.is_string?` (from `lib/overload/object.rb`), or fully-qualified `::Hash`.
 
 ## Core components
 
@@ -250,6 +251,11 @@ Runtime kind detection via `Lux.runtime`. Pure derivation from `$PROGRAM_NAME` /
 * `Lux::Config.ram` - Current process RAM usage in MB
 * `Lux::Config.start_info` - Formatted boot time info
 * Hooks: `on_reload_code { }`, `on_mail_send { |mail| }`
+* `Lux.dotenv` - Rails-style .env loader. Called once during boot from `lib/loader.rb`.
+  Load order (most specific wins, since `Dotenv.load` is non-destructive):
+  `.env.<env>.local` -> `.env.local` -> `.env.<env>` -> `.env`. Env name resolves
+  from `LUX_ENV`, then `RACK_ENV`, defaulting to `development`. Returns the list
+  of files actually loaded.
 
 ### Lux::Plugin (`lib/lux/plugin/plugin.rb`)
 

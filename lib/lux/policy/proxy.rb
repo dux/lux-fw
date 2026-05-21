@@ -17,8 +17,7 @@ module Lux
       end
 
       def can model = nil, user = nil
-        # ::Hash to avoid Lux::Hash constant lookup inside module Lux
-        if model.is_a?(::Hash)
+        if model.is_hash?
           model, user = model[:model], model[:user]
         end
 

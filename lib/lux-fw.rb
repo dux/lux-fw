@@ -1,6 +1,4 @@
 require 'bundler/setup'
-require 'dotenv'
-Dotenv.load
 
 require 'amazing_print'
 require 'as-duration'

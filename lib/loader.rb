@@ -5,6 +5,10 @@ require_relative './overload/dir'
 require_relative './lux/lux'
 require_relative './lux/hash/hash'
 
+# load .env files (.env.<env>.local, .env.local, .env.<env>, .env) before
+# env-driven config / Lux.env resolution
+Lux.dotenv
+
 # eager-load config.yaml so values are available to the rest of boot
 Lux.config
 

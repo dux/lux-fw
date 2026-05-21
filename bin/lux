@@ -9,13 +9,13 @@ if File.exist?('lux-fw.gemspec')
   exit
 end
 
-require 'dotenv'
 require 'yaml'
 require_relative '../lib/overload/thread_simple'
 require_relative '../lib/overload/string'
 require_relative '../lib/overload/dir'
+require_relative '../lib/lux/lux'
 
-Dotenv.load
+Lux.dotenv
 
 LUX_ROOT ||= File.expand_path '../..', __FILE__
 
