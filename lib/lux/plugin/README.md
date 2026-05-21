@@ -56,9 +56,11 @@ map 'foo/widgets'
 
 # host app routes:
 Lux do
-  plugin_route :favicon              # at root
-  map 'admin' do
-    plugin_route :authcog            # mounted under /admin
+  routes do
+    plugin_route :favicon            # at root
+    map 'admin' do
+      plugin_route :authcog          # mounted under /admin
+    end
   end
 end
 

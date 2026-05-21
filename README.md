@@ -16,6 +16,23 @@ gem install lux-fw
 lux new my-app && cd my-app && bundle exec lux s
 ```
 
+### Sinatra-simple if that's all you need
+
+```ruby
+# config.ru
+require 'lux-fw'
+
+Lux do
+  routes do
+    map foo: 'foo#call'           # /foo -> FooController#call
+    body 'Hello world, this is 404'
+  end
+end
+```
+
+`rackup` it and you're up. Lux scales down to one file and up to a full
+enterprise backend through the same DSL.
+
 ## Why Lux
 
 Enterprise backends need the same set of things: schemas, type coercion,
@@ -157,7 +174,8 @@ end
 
 ### Lux::Application
 
-Router and request lifecycle. Top-level DSL inside `Lux do ... end`.
+Router and request lifecycle. Lifecycle callbacks at the top level of
+`Lux do ... end`; routing DSL inside `routes do ... end`.
 
 ```ruby
 Lux do
@@ -165,12 +183,23 @@ Lux do
     nav.path(:ref) { |el| el =~ /\A\d+\z/ ? el : nil }
   end
 
-  root 'main'
-  map about: 'static#about' if get?
-  map 'admin' do
-    map users: 'admin/users'
+  # post-render: expand T[key.path] placeholders to real translations
+  after do
+    response.body { |b| b.gsub(/T\[([\w.]+)\]/) { Translation.fetch($1) } }
   end
-  mount ApiApp => '/api'
+
+  rescue_from do |err|
+    call 'main#error'                          # MainController#error
+  end
+
+  routes do
+    root 'main'
+    map about: 'static#about' if get?
+    map 'admin' do
+      map users: 'admin/users'
+    end
+    mount ApiApp => '/api'
+  end
 end
 ```
 

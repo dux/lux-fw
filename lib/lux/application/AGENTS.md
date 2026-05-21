@@ -1,42 +1,54 @@
 # Lux::Application - agent guide
 
-Router + request lifecycle. Top-level DSL inside `Lux do ... end`.
+Router + request lifecycle. Lifecycle callbacks at the top of
+`Lux do ... end`; routing DSL inside a `routes do ... end` block.
 
 ## Canonical example
 
 ```ruby
-Lux do
+Lux.app do
+  # helper methods become instance methods on the application
   def api_router
     Lux::Api.call nav.path
   end
 
+  # lifecycle callbacks live at the top level of `Lux.app do`
   before do
     nav.path(:ref) { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
+  end
+
+  after do
+    # post-render hook: mutate body, tweak headers, audit-log, ...
   end
 
   rescue_from do |err|
     call '%s#error' % [user ? :main : :promo]
   end
 
-  root 'main'
-  map about: 'static#about' if get?
-  post? { map api: :api_router }
-  map '/foo/:bar/baz' => 'main#foo'
-  map 'boards'
-  map 'admin' do
-    root 'admin/dashboard'
-    map 'users', 'admin/users'
+  # all routing DSL goes inside `routes do ... end`
+  routes do
+    root 'main'
+    map about: 'static#about' if get?
+    post? { map api: :api_router }
+    map '/foo/:bar/baz' => 'main#foo'
+    map 'boards'
+    map 'admin' do
+      root 'admin/dashboard'
+      map 'users', 'admin/users'
+    end
+    mount ApiApp => '/api'
   end
-  mount ApiApp => '/api'
 end
 ```
 
 ## Rules
 
-* **Top-level DSL works directly.** No need for a `routes do` wrapper -
-  `map`, `root`, `match`, `subdomain`, `mount`, `favicon`, `plugin_route`,
-  `get?`/`post?`/... all register at the top level of `Lux do`. Use
-  `routes do` only for runtime conditionals as a single block.
+* **Routing DSL lives inside `routes do ... end`.** `map`, `root`,
+  `match`, `subdomain`, `mount`, `favicon`, `plugin_route`,
+  `get?`/`post?`/... all belong inside the routes block. The framework
+  technically supports them at the top level too (singleton DSL
+  wrappers), but every real app keeps routing inside `routes do` for
+  clarity and so runtime conditionals can interleave naturally.
 * **`map` matches and advances the cursor.** `call` dispatches
   unconditionally - use inside `rescue_from`.
 * **Id canonicalization happens in a `before` filter:**
@@ -54,6 +66,11 @@ end
 * **Subdomain matching:** `subdomain 'admin' do ... end` only enters the
   block when `nav.subdomain == 'admin'`.
 * **Mount Rack apps** with `mount Rack::App => '/prefix'`.
+* **`before` / `after` callbacks** at the top level fire on every
+  request. `before` runs pre-routing (use for nav canonicalization,
+  auth lookup); `after` runs post-render (use for body transforms,
+  header tweaks based on the final response). Both are top-level
+  DSL - no wrapper needed.
 
 ## Don't
 

@@ -8,14 +8,25 @@ per-subsystem validators.**
 
 ```ruby
 Lux.schema :user do
-  name     String, max: 30
-  email    type: :email, index: true
-  bio?     String                       # `?` suffix == optional
-  role     %w[admin user guest]         # enum
-  age      Integer, min: 13, max: 130
-  signed?  type: :boolean
-  tags?    [String]                     # array of strings
-  address  do                           # nested schema
+  name       String, max: 30
+  email      type: :email, index: true
+  bio?       String                          # `?` suffix == optional
+  role       %w[admin user guest]            # enum
+  age        Integer, min: 13, max: 130
+  signed?    type: :boolean
+  tags?      [String]                        # array of strings
+
+  # default-value shorthand: a bare literal sets type + default
+  is_active  true                            # boolean, default true
+  is_deleted false                           # boolean, default false
+  count      Integer, default: 0
+
+  # meta: UI hints consumed by the form builder / API explorer
+  status     max: 20, meta: { as: :buttons, collection: %w[draft live archived] }
+  logo?      :url,   meta: { as: :image, label: 'Square logo' }
+  notes?     :text,  meta: { hint: 'Markdown supported', placeholder: '...' }
+
+  address  do                                # nested schema
     street String
     city   String
   end
@@ -46,6 +57,15 @@ errors = Lux.schema(:user).validate(params, strict: true)
   named schemas for anything referenced by more than one caller.
 * `schema.only(:a, :b)` / `schema.except(:a)` build derived schemas without
   duplicating field declarations.
+* **`meta:` hash** carries non-validation metadata used by downstream
+  consumers (form builders, API explorer, generators). Common keys
+  observed in real apps: `as:` (`:image`, `:buttons`, `:checkbox`,
+  `:textarea`), `label:`, `hint:`, `placeholder:`, `collection:`
+  (enum-like values for picklists, can be a lambda).
+* **Literal-default shorthand:** `field true` / `field false` /
+  `field 0` is equivalent to `field type: :boolean, default: true` /
+  `field type: :integer, default: 0`. Use for simple boolean and
+  numeric defaults that read as documentation.
 
 ## Don't
 

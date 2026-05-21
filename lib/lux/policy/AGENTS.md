@@ -6,36 +6,57 @@ not write per-controller authorization branches - hoist to a policy.
 ## Canonical example
 
 ```ruby
-class BlogPolicy < Lux::Policy
+# app/models/application_policy.rb -- base class with shared helpers
+class ApplicationPolicy < Lux::Policy
+  private
+
+  # raise + display "please sign in" if no user is logged in
+  def session?
+    return true if @user
+    error 'Please sign in'
+  end
+
+  def is_admin?
+    @user && @user.role == 'admin'
+  end
+
+  # creator-owned record check
+  def my?
+    session? && @user.ref == @model[:creator_ref]
+  end
+
+  def my_or_admin?
+    is_admin? || my?
+  end
+end
+
+# app/models/blog/blog_policy.rb
+class BlogPolicy < ApplicationPolicy
   def before action
-    return true if user.can.admin?     # short-circuit for admins
+    return true if is_admin?       # admin override across every action
   end
 
   def read?
-    model.public? || model.created_by == user.id
+    @model.public? || my?
   end
 
   def write?
     error 'Read-only on Sundays' if Time.now.sunday?
-    model.created_by == user.id
+    my?
   end
 end
 
-# Model auto-resolves <Model>Policy when including the mixin
-class Blog < ApplicationModel
-  include Lux::Policy::Model
-end
+# usage
+@blog.can.read?                    # bool
+@blog.can.write!                   # raises Lux::Policy::Error or returns @blog
+authorize @blog.can.write?         # in a controller: 403 on fail
+is_authorized!                     # raises if not authorized
 
-@blog.can.read?          # bool
-@blog.can.write!         # raises Lux::Policy::Error or returns @blog
-
-# Controller mixin (auto-mixed into Lux::Controller)
-authorize @blog.can.write?     # 403 if false
-is_authorized!                 # raises if not authorized
-
-# Headless policy
-class DashboardPolicy < Lux::Policy
-  def access?; user.role == :admin; end
+# Headless policy (no model)
+class DashboardPolicy < ApplicationPolicy
+  def access?
+    is_admin?
+  end
 end
 DashboardPolicy.can.access?
 ```
@@ -43,18 +64,24 @@ DashboardPolicy.can.access?
 ## Rules
 
 * **Class name = `<Model>Policy`** for auto-resolution via
-  `Lux::Policy::Model`. Place in `app/policies/`.
-* **Action methods end with `?`.** Inside, `model`, `user`, `action` are
-  available. Return truthy to allow.
+  `Lux::Policy::Model`. Place in `app/models/<model>/<model>_policy.rb`.
+* **Define an `ApplicationPolicy < Lux::Policy`** as the app's base.
+  Add shared private helpers there (`session?`, `is_admin?`, `my?`,
+  `my_or_admin?`) and inherit per-model policies from it.
+* **Action methods end with `?`.** Inside, prefer ivar access (`@user`,
+  `@model`) over the `user` / `model` readers - matches the real-world
+  style and reads consistently with the helper privates below.
 * **`before(action)` hook** on a policy class: truthy short-circuits to
-  allow. Use for admin overrides.
-* **`error 'msg'` inside an action** raises `Lux::Policy::Error` with the
-  message; reported through the bang/block forms.
+  allow. Use for admin overrides (`return true if is_admin?`).
+* **`error 'msg'` inside an action** raises `Lux::Policy::Error` with
+  the message. The message is **user-facing** - keep it short, in the
+  app's language, suitable for a flash.
 * **Current user** resolves from `Thread.current[:current_user]`, then
   `User.current`, then `Current.user`. Override
   `Lux::Policy.current_user` if your app uses a different identity source.
 * **`.can`** returns a proxy; **`.can(user)`** overrides the user.
-* **`.read?` vs `.read!`:** bool vs raise. Block forms swallow.
+* **`.read?` vs `.read!`:** bool vs raise. Block forms swallow the
+  raise and yield the message.
 
 ## Don't
 

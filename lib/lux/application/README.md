@@ -1,9 +1,9 @@
 # Lux::Application
 
-Main router and request lifecycle. Top-level DSL: `map`, `root`, `match`,
-`subdomain`, `mount`, `favicon`, `plugin_route`, and the HTTP-method
-predicates work directly inside `Lux do ... end` - no `routes do` wrapper
-required.
+Main router and request lifecycle. Lifecycle callbacks
+(`before`/`after`/`rescue_from`) live at the top level of
+`Lux do ... end`; all routing DSL (`map`, `root`, ...) lives inside the
+`routes do ... end` block.
 
 ## Small example
 
@@ -16,9 +16,20 @@ Lux do
     nav.path(:ref) { |el| el =~ /\A\d+\z/ ? el : nil }
   end
 
-  root 'main'                          # / -> MainController#root
-  map about: 'static#about'            # /about -> Static#about
-  map 'users'                          # /users -> UsersController (resourceful)
+  # post-render: expand T[key.path] placeholders to real translations
+  after do
+    response.body { |b| b.gsub(/T\[([\w.]+)\]/) { Translation.fetch($1) } }
+  end
+
+  rescue_from do |err|
+    call 'main#error'                  # forwards to MainController#error
+  end
+
+  routes do
+    root 'main'                        # / -> MainController#root
+    map about: 'static#about'          # /about -> Static#about
+    map 'users'                        # /users -> UsersController (resourceful)
+  end
 end
 ```
 
@@ -29,14 +40,14 @@ as the Rack app, and prints the start banner. For specs use
 ## Full example
 
 ```ruby
-Lux do
-  # --- helpers (instance methods, callable from routes via method_missing)
+Lux.app do
+  # --- helpers (instance methods, callable from routes)
   def api_router
     Lux.error.forbidden if Lux.env.prod? && !post?
     Lux::Api.call nav.path
   end
 
-  # --- request callbacks
+  # --- request callbacks (top level)
   before do
     nav.path(:ref) { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
   end
@@ -48,30 +59,32 @@ Lux do
   end
 
   # --- routes ---------------------------------------------------------
-  root 'main'                                      # /
-  map about: 'static#about' if get?                # /about (GET only)
+  routes do
+    root 'main'                                    # /
+    map about: 'static#about' if get?              # /about (GET only)
 
-  post? { map api: :api_router }                   # POST scope block
+    post? { map api: :api_router }                 # POST scope block
 
-  map '/foo/:bar/baz' => 'main#foo'                # absolute path with capture
+    map '/foo/:bar/baz' => 'main#foo'              # absolute path with capture
 
-  map 'boards'                                     # resourceful BoardsController
-  map [:array1, :array2] => 'root'                 # multi-key map
-  map %r{^@} => [UsersController, :show]           # regex match
+    map 'boards'                                   # resourceful BoardsController
+    map [:array1, :array2] => 'root'               # multi-key map
+    map %r{^@} => [UsersController, :show]         # regex match
 
-  subdomain 'admin' do
-    map 'users', 'admin/users'                     # admin.host/users
+    subdomain 'admin' do
+      map 'users', 'admin/users'                   # admin.host/users
+    end
+
+    map 'admin' do                                 # nested scope
+      root 'admin/dashboard'                       # /admin
+      map users: 'admin/users'                     # /admin/users
+      map 'reports#monthly'                        # /admin/reports -> #monthly
+    end
+
+    mount ApiApp => '/api'                         # Rack app mount
+    favicon 'app/assets/favicon.ico'
+    plugin_route :authcog
   end
-
-  map 'admin' do                                   # nested scope
-    root 'admin/dashboard'                         # /admin
-    map users: 'admin/users'                       # /admin/users
-    map 'reports#monthly'                          # /admin/reports -> #monthly
-  end
-
-  mount ApiApp => '/api'                           # Rack app mount
-  favicon 'app/assets/favicon.ico'
-  plugin_route :authcog
 end
 ```
 

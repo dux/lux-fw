@@ -30,10 +30,15 @@ Mailer.deliver(:lost_password, user)
 * **Instance variables** in the method are visible in the template.
 * **`before` / `after` callbacks** at the class level run around every
   delivery. Use `after` to set defaults like the from-address.
-* **Three equivalent invocations:**
-  * `Mailer.deliver(:name, *args)` (preferred)
-  * `Mailer.prepare(:name, *args).deliver`
-  * `Mailer.name(*args).deliver` (method-missing style)
+* **Three equivalent invocations** (real apps use all three):
+  * `Mailer.deliver(:lost_password, user)` - symbol form
+  * `Mailer.lost_password(user).deliver` - method-style (most common
+    in real apps - reads like a normal Ruby method call)
+  * `Mailer.prepare(:lost_password, user).deliver` - explicit prepare
+* **Mailer methods accept any arg shape** the Ruby method signature
+  allows - positional, keyword, mixed. Example:
+  `def raw(to:, subject:, body:)` is called as
+  `Mailer.raw(to: '...', subject: '...', body: '...').deliver`.
 * **For async send**, wrap in `current.delay { Mailer.deliver(...) }`.
 * **For body-only** (preview / test), `Mailer.render(:name, *args)` or
   `Mailer.prepare(...).body`.

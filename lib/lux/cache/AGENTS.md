@@ -16,6 +16,9 @@ Lux.cache.delete('users/count')
 
 key = Lux.cache.generate_key(User, Product.find(3), 'data')
 Lux.cache.fetch(key, ttl: 60) { ... }
+
+# array keys are auto-serialized and stable across calls
+User.current.cache([Date.today, :my_daily]) { compute_daily }
 ```
 
 ## Rules
@@ -28,6 +31,9 @@ Lux.cache.fetch(key, ttl: 60) { ... }
 * **`lock(key, secs)`** is process-local cooperative rate limiting,
   **NOT** a cross-process mutex. Don't use for "only one worker"
   coordination - use Postgres advisory locks for that.
+* **Cache keys can be arrays.** `Lux.cache.fetch([scope, id], ttl: 60)`
+  is fine; the backend serializes. Avoids string interpolation noise
+  when keys are composite.
 * **Key generation:** `Lux.cache.generate_key(*args)` builds a stable
   key from anything responding to `:id`, `:updated_at`, `:created_at`.
 * **For request-scoped memoization**, use `current.cache(key) { ... }`

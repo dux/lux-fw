@@ -28,8 +28,8 @@ UserExporter.export(User.all)            # array passthrough
 
 ## Rules
 
-* **One exporter per model.** Name as `<Model>Exporter`. Place in
-  `app/exporters/`.
+* **One exporter per model.** Name as `<Model>Exporter`. In real apps
+  it usually sits next to the model: `app/models/<model>/<model>_exporter.rb`.
 * **`define` registers** under the exporter class name. `define :shape`
   registers a named variant; pass `shape:` to `.export` to select.
 * **`model`, `opts`, `json`** are available inside `define` / `before` /
@@ -39,6 +39,42 @@ UserExporter.export(User.all)            # array passthrough
   metadata or compaction.
 * **Compose**: an exporter can call another exporter
   (`OrgExporter.export(model.org)`) to embed.
+
+## App-level base class
+
+The framework ships the bones; apps typically **reopen `JsonExporter`**
+to add convention helpers shared by every model exporter. The
+canonical app-level base looks like:
+
+```ruby
+# app/models/json_exporter.rb
+class JsonExporter
+  def before
+    response[:ref]   = model.ref if model.ref
+    response[:klass] = model.class.to_s
+  end
+
+  def after
+    response.transform_values! { |v| v.is_a?(Time) ? v.to_i : v }
+  end
+
+  # prop :field -> json[:field] = model.field (and skip nil)
+  def prop name, value = :_nil
+    value = model.send(name) if value == :_nil
+    response[name.to_sym] = value unless value.nil?
+  end
+
+  # enum :status -> { name: ..., sid: ... } shape
+  def enum name
+    value = model.send(name) or return
+    response[name.to_sym] = value.is_a?(Hash) ? value : { name: value }
+  end
+end
+```
+
+Subclass exporters then call `prop :name` / `enum :status` instead of
+manual `json[:k] = model.k` writes. This pattern is repeated across all
+8 real apps - propose it whenever generating new model exporters.
 
 ## Don't
 
