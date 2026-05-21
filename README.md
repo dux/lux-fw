@@ -79,7 +79,8 @@ The win is twofold:
 * Memory / Memcached / SQLite / null cache with one API
 * Custom reloader that skips `Gem.path` - reload stays fast even with a
   fat Gemfile
-* `Lux.delay` background threads that preserve the request context
+* `Lux.defer` background threads with a clean `Lux.current` and parent
+  context passed explicitly to the block
 * HTML mailer + template rendering via Tilt (HAML, ERB, ...)
 * Pluggable plugin system with canonical folder layout
 * `lux` CLI built on [`lux-hammer`](https://github.com/dux/lux-hammer) -
@@ -250,7 +251,7 @@ current.params                         # validated/coerced params
 current.session[:user_id] = @user.id   # JWT-encrypted session
 current[:account] = @user.account      # request-scoped bag
 current.cache(:billing) { ... }        # request-scoped memo
-current.delay { Mailer.deliver(...) }  # bg w/ Lux context
+Lux.defer { Mailer.deliver(...) }  # bg thread, clean Lux.current inside
 ```
 
 ### Lux::Db

@@ -19,7 +19,8 @@ class UsersController < ApplicationController
     current.cache(:billing) { Billing.expensive_lookup(@user) }
     current.once(:audit)  { AuditLog.track(@user, 'viewed') }
 
-    current.delay { Mailer.deliver(:welcome, @user.email) }   # bg w/ ctx
+    Lux.defer { |ctx| Mailer.deliver(:welcome, ctx.session[:email]) }
+    Lux.defer(context: @user) { |u| Mailer.deliver(:welcome, u.email) }
   end
 end
 ```
@@ -37,8 +38,11 @@ end
   request. For cross-request caching use [`Lux.cache`](../cache/AGENTS.md).
 * **`current.once(key)`** returns truthy the first time, falsy after.
   Useful for "do this at most once per request" patterns.
-* **`current.delay { ... }`** spawns a thread that **preserves the Lux
-  context** (params, session, ...). Use for fire-and-forget side effects.
+* **`Lux.defer { |ctx| ... }`** spawns a thread with a **clean** `Lux.current`.
+  The parent context is passed explicitly as the block arg (a shallow dup of
+  `Lux.current`). Use `Lux.defer(context: x) { |x| ... }` to override. Reach
+  for the explicit `ctx`, not `Lux.current`, inside the block. Zero-arity
+  blocks (`Lux.defer { ... }`) still work.
 * **`current.locale`** is the i18n entry point. Read it inside templates,
   set it in a `before` filter.
 * **`current.ip`** is CF-aware (HTTP_CF_CONNECTING_IP first).
@@ -51,8 +55,10 @@ end
   the client.
 * Don't mutate `current.nav.path` after routing has started - use
   `lux.route` as the routing cursor.
-* Don't bypass `current.delay` with raw `Thread.new` - you'll lose the
-  request context and logging will get confused.
+* Don't bypass `Lux.defer` with raw `Thread.new` - you lose the timeout
+  guard and error logging.
+* Don't read `Lux.current` inside a `Lux.defer` block expecting parent
+  request state - use the explicit `ctx` arg instead.
 * Don't use `Thread.current[:lux]` directly - go through `Lux.current`
   or `lux`.
 

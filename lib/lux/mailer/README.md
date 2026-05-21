@@ -78,5 +78,5 @@ Instance variables set in the mailer method are visible in the template.
 ## See also
 
 * [`../template/README.md`](../template/README.md) - the rendering engine
-* [`../current/README.md`](../current/README.md) - `current.delay { Mailer.deliver(...) }` for async send
+* [`../current/README.md`](../current/README.md) - `Lux.defer { Mailer.deliver(...) }` for async send
 * [`AGENTS.md`](./AGENTS.md) - LLM guide

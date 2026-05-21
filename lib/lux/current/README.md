@@ -53,8 +53,8 @@ class UsersController < ApplicationController
     token = current.encrypt(@user.id)
     current.decrypt(token)
 
-    # background work (preserves Lux context)
-    current.delay { Mailer.deliver(:welcome, @user.email) }
+    # background work; parent ctx is an explicit arg, Lux.current is clean
+    Lux.defer(context: @user) { |u| Mailer.deliver(:welcome, u.email) }
 
     # request meta
     current.ip
@@ -98,7 +98,8 @@ current.cache(key) { ... }       # request-scoped memoization
 current.once(key) { ... }        # run once per request (returns false 2nd call)
 current.encrypt(data, ttl:)      # JWT-encrypt, IP-bound default
 current.decrypt(token)
-current.delay { ... }            # background thread w/ Lux context preserved
+Lux.defer { |ctx| ... }          # bg thread; ctx = Lux.current.dup, clean inside
+Lux.defer(context: x) { |x| ... }  # bg thread with an explicit context value
 current.files_in_use             # set of files touched this request
 ```
 

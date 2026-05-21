@@ -145,23 +145,12 @@ module Lux
       end
     end
 
-    # Thread.new but copies env to a thread
-    def delay *args
-      if block_given?
-        lux_env = self.dup
-        Thread.new do
-          begin
-            Thread.current[:lux] = lux_env
-            Timeout::timeout(Lux.config.delay_timeout) do
-              yield *args
-            end
-          rescue => e
-            Lux.logger.error ['Lux.current.delay error: %s' % e.message, e.backtrace].join($/)
-          end
-        end
-      else
-        raise ArgumentError, 'Block not given'
-      end
+    # Background thread; thin wrapper over Lux.defer.
+    # Positional arg becomes the explicit context passed to the block.
+    # See Lux.defer for full semantics (clean Lux.current inside the thread,
+    # parent context only via the block arg).
+    def defer context = nil, &block
+      Lux.defer(context: context, &block)
     end
 
     def ip

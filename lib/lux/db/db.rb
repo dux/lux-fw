@@ -56,11 +56,6 @@ module Lux
       url = ENV[env_key]
       return url if url && !url.empty?
 
-      if name == :main
-        url = ENV['DB_URL']
-        return url if url && !url.empty?
-      end
-
       url = dbs_config[name.to_s]
       return url if url && !url.empty?
 

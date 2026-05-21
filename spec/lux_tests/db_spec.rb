@@ -7,7 +7,7 @@ describe 'Lux::Db' do
     Lux.config[:db] = nil
     Lux.config[:db_url] = nil
     Lux.config[:db_config] = nil
-    %w[DB_MAIN DB_LOG DB_URL].each { |k| ENV.delete(k) }
+    %w[DB_MAIN DB_LOG].each { |k| ENV.delete(k) }
   end
 
   describe '.configured_names' do
@@ -48,16 +48,6 @@ describe 'Lux::Db' do
       expect(Lux::Db.url_for(:main)).to eq('sqlite://env.db')
     end
 
-    it 'DB_URL fallback for :main' do
-      ENV['DB_URL'] = 'sqlite://fallback.db'
-      expect(Lux::Db.url_for(:main)).to eq('sqlite://fallback.db')
-    end
-
-    it 'DB_URL does not apply to non-main' do
-      ENV['DB_URL'] = 'sqlite://fallback.db'
-      expect(Lux::Db.url_for(:log)).to be_nil
-    end
-
     it 'legacy db_url config fallback for :main' do
       Lux.config[:db_url] = 'sqlite://legacy.db'
       expect(Lux::Db.url_for(:main)).to eq('sqlite://legacy.db')
@@ -70,7 +60,6 @@ describe 'Lux::Db' do
     it 'ENV takes priority over all config' do
       Lux.config[:db] = { 'main' => 'sqlite://config.db' }
       Lux.config[:db_url] = 'sqlite://legacy.db'
-      ENV['DB_URL'] = 'sqlite://db_url.db'
       ENV['DB_MAIN'] = 'sqlite://env_main.db'
       expect(Lux::Db.url_for(:main)).to eq('sqlite://env_main.db')
     end

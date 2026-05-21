@@ -29,7 +29,7 @@ class AuthcogController < Lux::Controller
 
     if data[:avatar] && user.cached_avatar.blank?
       avatar = data[:avatar]
-      Lux.current.delay do
+      Lux.current.defer do
         uploaded = Cdn.upload_hash(avatar, path: 'avatars/users') rescue avatar
         user[:cached_avatar] = uploaded
         user.save

@@ -27,8 +27,8 @@ Lux::Db.disconnect_all  # close all pools
   it; use `Lux.db(:name)` to reach others.
 * **Config key is `db:`** (NOT `dbs:`). Accepts a string (single main DB)
   or a hash (named DBs).
-* **ENV overrides:** `DB_MAIN`, `DB_LOG`, etc. `DB_URL` as fallback for
-  `:main`. Then `Lux.config[:db_url]`.
+* **ENV overrides:** `DB_MAIN`, `DB_LOG`, etc. Then `Lux.config[:db_url]`
+  as legacy fallback for `:main`.
 * **Boot behavior:** `Lux.plugin :db` runs `loader.rb` which calls
   `Lux::Db.boot!`. All configured DBs connect eagerly; errors surface
   here. The plugin then auto-requires `plugins/db/load/*.rb` for Sequel

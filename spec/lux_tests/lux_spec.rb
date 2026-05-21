@@ -49,11 +49,79 @@ describe Lux do
     end
   end
 
-  describe '.delay' do
+  describe '.defer' do
     it 'returns a Thread' do
-      thread = Lux.delay { true }
+      thread = Lux.defer { true }
       expect(thread).to be_a(Thread)
       thread.join(1)
+    end
+
+    it 'raises ArgumentError without a block' do
+      expect { Lux.defer }.to raise_error(ArgumentError, /Block not given/)
+    end
+
+    it 'defaults context to Lux.current.dup' do
+      parent = Lux::Current.new('http://test')
+      parent[:marker] = 'from-parent'
+
+      received = nil
+      Lux.defer { |ctx| received = ctx }.join(1)
+
+      expect(received).to be_a(Lux::Current)
+      expect(received).not_to equal(parent)
+      expect(received[:marker]).to eq('from-parent')
+    end
+
+    it 'passes a custom context through untouched' do
+      custom = { user_id: 42 }
+      received = nil
+      Lux.defer(context: custom) { |ctx| received = ctx }.join(1)
+
+      expect(received).to equal(custom)
+    end
+
+    it 'starts with a clean Lux.current inside the thread' do
+      parent = Lux::Current.new('http://test')
+
+      inside = nil
+      Lux.defer { inside = Lux.current }.join(1)
+
+      expect(inside).to be_a(Lux::Current)
+      expect(inside).not_to equal(parent)
+    end
+
+    it 'does not mutate the parent Lux.current binding' do
+      parent = Lux::Current.new('http://test')
+
+      Lux.defer do
+        # touching Lux.current in the bg thread should not leak across
+        Lux.current[:bg_only] = true
+      end.join(1)
+
+      expect(Thread.current[:lux]).to equal(parent)
+      expect(parent[:bg_only]).to be_nil
+    end
+
+    it 'supports zero-arity blocks' do
+      called = false
+      Lux.defer { called = true }.join(1)
+      expect(called).to be true
+    end
+
+    it 'passes context to one-arity blocks' do
+      custom = Object.new
+      received = nil
+      Lux.defer(context: custom) { |ctx| received = ctx }.join(1)
+      expect(received).to equal(custom)
+    end
+
+    it 'respects an explicit timeout' do
+      logged = nil
+      allow(Lux.logger).to receive(:error) { |msg| logged = msg }
+
+      Lux.defer(timeout: 0.05) { sleep 0.5 }.join(1)
+
+      expect(logged.to_s).to match(/execution expired|Lux\.defer error/)
     end
   end
 

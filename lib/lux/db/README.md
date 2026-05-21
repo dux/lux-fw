@@ -31,9 +31,8 @@ production:
     log:  postgres://user:pass@host:5432/myapp_log
 ```
 
-`DB_MAIN`, `DB_LOG`, ... environment variables override. `DB_URL`
-resolves to `:main` for backwards compat, then falls back to
-`Lux.config[:db_url]`.
+`DB_MAIN`, `DB_LOG`, ... environment variables override, then falls back
+to `Lux.config[:db_url]` for `:main`.
 
 ## Full example
 

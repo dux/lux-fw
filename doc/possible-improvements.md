@@ -107,7 +107,7 @@ Recurring but lower frequency.
   backoff, dead-letter handling. Sidekiq Web equivalent is a frequent
   ask.
 * **Async / Falcon / fiber-friendly.** Rails finally got it. lux uses
-  `Lux.delay` threads; fiber-safe `current` would future-proof.
+  `Lux.defer` threads; fiber-safe `current` would future-proof.
 * **API content-negotiation defaults.** Sinatra pain. lux/api seems
   to handle this; double-check JSON body parsing for
   `application/json` POST is default and not opt-in.

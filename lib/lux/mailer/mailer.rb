@@ -84,7 +84,7 @@ module Lux
 
     def deliver
       if m = build_mail_object
-        Lux.current.delay(m) { |mail| mail.deliver! }
+        Lux.current.defer(m) { |mail| mail.deliver! }
       end
     end
 

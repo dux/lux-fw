@@ -39,7 +39,9 @@ Mailer.deliver(:lost_password, user)
   allows - positional, keyword, mixed. Example:
   `def raw(to:, subject:, body:)` is called as
   `Mailer.raw(to: '...', subject: '...', body: '...').deliver`.
-* **For async send**, wrap in `current.delay { Mailer.deliver(...) }`.
+* **For async send**, wrap in `Lux.defer { Mailer.deliver(...) }`. The
+  built-in `deliver` already dispatches through `Lux.defer`; only wrap
+  manually when you want a different context arg.
 * **For body-only** (preview / test), `Mailer.render(:name, *args)` or
   `Mailer.prepare(...).body`.
 * **Logging hook:** `Lux.config.on_mail_send { |mail| ... }`. Use the
@@ -50,11 +52,11 @@ Mailer.deliver(:lost_password, user)
 * Build HTML strings in the method - use the template. The whole point.
 * Forget the layout file - the framework wraps automatically; if there's
   no `layout.haml` your mail will render unlayouted.
-* Send in the request thread without `current.delay` - mail servers are
-  the slowest dependency.
+* Send in the request thread without `Lux.defer` - mail servers are the
+  slowest dependency.
 * Use `Mail::Message` directly when you already have a Mailer subclass.
 
 ## See also
 
 * [`Lux::Template` AGENTS](../template/AGENTS.md)
-* [`Lux::Current` AGENTS](../current/AGENTS.md) - `current.delay`
+* [`Lux::Current` AGENTS](../current/AGENTS.md) - `Lux.defer`
