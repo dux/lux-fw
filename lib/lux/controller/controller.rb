@@ -3,11 +3,13 @@
 
 require 'erb'
 require_relative '../lifecycle'
+require_relative './params_dsl'
 
 module Lux
   class Controller
     include ClassCallbacks
     include Lifecycle
+    include ParamsDsl
 
     DEFAULT_ERROR_TEMPLATE ||= ERB.new(Lux.fw_root.join('assets/controller/error_page.html.erb').read)
 
@@ -170,14 +172,21 @@ module Lux
         unless lux.response.body?
           run_callback :before_action, @lux.action
 
-          # if action not found
-          if respond_to?(method_name)
-            send method_name, *args
-          else
-            action_missing method_name
-          end
+          # opt / params validation runs between before_action and the action
+          # method, so before filters see raw params and the action sees the
+          # filtered/coerced set. No-op when no opts are declared.
+          validate_action_params!
 
-          render
+          unless lux.response.body?
+            # if action not found
+            if respond_to?(method_name)
+              send method_name, *args
+            else
+              action_missing method_name
+            end
+
+            render
+          end
         end
       end
 

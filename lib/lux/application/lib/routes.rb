@@ -107,19 +107,23 @@ module Lux
           if target
             [route_object, target]
           else
-            case route_object
-            when Hash
+            # NOTE: inside module Lux, bare `Hash` resolves to Lux::Hash, so
+            # plain Ruby hashes never match `when Hash`. Use `is_hash?`.
+            if route_object.is_hash?
               [route_object.keys.first, route_object.values.first]
-            when String
-              # 'X' or 'X#Y' - the part before # is both match and controller
-              [route_object.split('#').first, route_object]
-            when Symbol
-              [route_object, route_object.to_s]
-            when Array
-              # legacy [match, target] tuple
-              [route_object[0], route_object[1]]
             else
-              Lux.error 'Unsupported route type "%s"' % route_object.class
+              case route_object
+              when String
+                # 'X' or 'X#Y' - the part before # is both match and controller
+                [route_object.split('#').first, route_object]
+              when Symbol
+                [route_object, route_object.to_s]
+              when Array
+                # legacy [match, target] tuple
+                [route_object[0], route_object[1]]
+              else
+                Lux.error 'Unsupported route type "%s"' % route_object.class
+              end
             end
           end
 
@@ -172,11 +176,15 @@ module Lux
         action    = action.gsub('-', '_').to_sym if action && action.is_a?(String)
         object  ||= block if block_given?
 
+        # NOTE: bare `Hash` inside module Lux is Lux::Hash, so handle plain
+        # Ruby hashes via is_hash? before the case statement.
+        if object.is_hash?
+          object = [object.keys.first, object.values.first]
+        end
+
         case object
         when Symbol
           return send(object)
-        when Hash
-          object = [object.keys.first, object.values.first]
         when String
           if object.include?('#') && !object.end_with?('#')
             # explicit 'controller#action'

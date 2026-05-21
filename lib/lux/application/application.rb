@@ -2,12 +2,19 @@
 
 require_relative '../lifecycle'
 require_relative './lib/routes'
+require_relative './lib/routes_dumper'
 
 module Lux
   class Application
     include ClassCallbacks
     include Lifecycle
     include Routes
+
+    # Returns a flat list of route Entries by replaying the routes block
+    # against a recorder. See lib/routes_dumper.rb for limitations.
+    def self.dump_routes
+      RoutesDumper.new(self).dump
+    end
 
     define_callback :before       # before any page load
     define_callback :routes       # routes resolve

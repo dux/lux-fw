@@ -120,6 +120,17 @@ Request controllers with Rails-like interface:
   - `namespace` - Get controller namespace as symbol
   - `error` - Default error action (override per controller for custom error rendering)
 
+#### Params contract (`lib/lux/controller/params_dsl.rb`)
+
+* `params do ... end` - class-level block, applies to every action. Same DSL as `Lux.schema do ... end` (reuses `Lux::Schema::Define`).
+* `opt :name, type: String, max: 30` - method-level declaration above a `def`. Applies only to the next method.
+* Allowed keys for action X = (class `params do`) ∪ (`opt` lines above `def X`).
+* Non-empty → strict: undeclared keys dropped from `current.params`, required keys validated, types coerced. Empty → loose passthrough.
+* Method-level `opt` wins on collision with class-level `params do` (Ruby method-override semantics).
+* `?` suffix marks a field optional: `opt :email?, type: :email`. Both `opt :name, type: String` and the shortcut `name type: String` (inside the block) parse identically via `Lux::Schema::Define`.
+* On failure: JSON requests halt 422 with `{errors: {field: msg}}`. HTML requests stash errors in `current.var[:param_errors]` and fall through so the form can re-render with the original input.
+* Validation runs between `before_action` and the action method, so before-filters see raw params and the action sees the filtered/coerced set.
+
 ### Lux::Current (`lib/lux/current/`)
 
 Thread-local request context accessible via `Lux.current` or `current`:
@@ -598,6 +609,7 @@ lux server       # Start web server (aliases: s, ss, silent)
 lux console      # Start Pry console (alias: c)
 lux evaluate     # Eval ruby string in Lux context (alias: e)
 lux render /path # Render page via Lux.render (session, bearer token, headers)
+lux routes       # Print mounted route tree (shadow-executor; see lib/lux/application/lib/routes_dumper.rb)
 lux generate     # Generate models, cells, controllers
 lux test         # Recreate test DB + run full test suite (alias: t)
 lux secrets      # Display/edit ENV and secrets
@@ -606,6 +618,12 @@ lux memory       # Profile memory usage
 lux new APP      # Create new Lux application
 lux sysd         # Systemd service management
 ```
+
+`lux routes` replays the application's routing DSL against a recorder
+(`Lux::Application::RoutesDumper`). It descends every branch unconditionally
+- the dump shows "everything that could match", not "what will match for THIS
+request". Dynamic dispatch (`call :symbol`, runtime predicates) is marked
+`[dynamic]` with the source location.
 
 ## Testing
 

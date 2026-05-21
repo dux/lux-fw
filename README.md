@@ -462,6 +462,70 @@ class RootController < ApplicationController
 end
 ```
 
+### Action params contract: `opt` and `params do`
+
+Declare expected params on the controller. Reuses `Lux::Schema::Define`,
+so the line parser is identical to `Lux.schema do`. Allowed keys for an
+action are the union of class-level `params do ... end` and method-level
+`opt` lines. When that set is non-empty, undeclared keys are dropped,
+required keys are validated, and types are coerced before the action
+method runs. When it is empty, params pass through unchanged.
+
+```ruby
+class UsersController < Lux::Controller
+  # applies to every action in this class
+  params do
+    org_id   :uuid                  # shortcut form: method-name == field-name
+    api_key? :string                # `?` suffix marks the field optional
+  end
+
+  # applies only to the next def
+  opt :name,  String, max: 30       # equivalent to: name String, max: 30
+  opt :email, type: :email          # mix shorthand and longer style freely
+  opt :age,   Integer, req: false
+  def create
+    # current.params already coerced + validated, undeclared keys dropped
+  end
+
+  opt :term?, String
+  def search
+    # allowed: org_id, api_key, term (org_id required)
+  end
+
+  def index
+    # only class-level applies; allowed: org_id, api_key
+  end
+end
+```
+
+* JSON request with bad params → halts 422 with `{ errors: { field: msg } }`
+* HTML request with bad params → errors stashed in `current.var[:param_errors]`,
+  action continues so the form can re-render with the original input
+* Method-level `opt` wins on collision with class-level `params do`
+
+### Inspecting routes
+
+```bash
+lux routes              # tree dump of mounted routes
+lux routes -v           # add source location for each entry
+```
+
+The router is fully imperative (`map`/`call`/`match` dispatch at request
+time, no static registry), so `lux routes` replays the routes block against
+a recorder. Conditional branches are descended unconditionally — the dump
+shows "everything that could match", not "what will match for THIS request".
+Dynamic dispatch like `call :symbol` is flagged `[dynamic]`.
+
+```
+GET     /                       main
+*       /about                  static#about
+GET     /admin                  admin/dashboard
+*       /admin/users            admin/users
+*       /api/:v/:resource       api#call
+*       /health/*               [mounted] Object
+GET     /preview                main#preview
+```
+
 Render method can accept numerous parameters
 
 ```ruby
@@ -1420,6 +1484,7 @@ Commands:
   lux memory          # Profile memory usage
   lux new APP         # Create new Lux application
   lux render          # Render page via Lux.render "lux render /login -t TOKEN -i"
+  lux routes          # Print mounted route tree
   lux secrets         # Display ENV and secrets
   lux server          # Start web server
   lux stats           # Print project stats
