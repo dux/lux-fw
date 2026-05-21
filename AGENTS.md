@@ -1,644 +1,204 @@
-# Lux Framework
+# Lux framework - LLM index
 
-Ruby web framework - Rack-based, Sequel ORM, PostgreSQL.
+Ruby web framework. Rack + Sequel + PostgreSQL. Sinatra speed, Rails-shaped
+controllers, Hanami-style schemas, **one shared DSL across controllers,
+APIs, models, and schemas**.
 
-## Project structure
+This file is the agent index. Each subsystem has its own `AGENTS.md` next
+to its README with one full example and module-specific rules. Read those
+when working on the relevant code.
 
-* `lib/lux/` - core modules (application, cache, config, controller, current, db, environment, error, logger, mailer, plugin, render, response, template)
-* `lib/overload/` - Ruby core class extensions (18 files)
-* `lib/common/` - shared utilities (Crypt, StringBase, StructOpts, TimeDifference)
-* `plugins/` - framework plugins loaded via `Lux.plugin :name`
-  - Canonical layout per plugin (all folders optional):
-    - `loader.rb` - boot logic, required first if present
-    - `load/` - auto-required after loader (recursive, *_spec.rb / *_hammer.rb skipped)
-    - `Hammerfile` or `hammer/*_hammer.rb` - CLI tasks for the `lux` command
-    - `mount/` - reserved for future auto-mount of Rack apps
-    - Anything else (`lib/`, `views/`, `spec/`, ...) is plain convention, never auto-loaded
-  - A plugin must have at least `loader.rb` or `load/`
-  - `plugins/db/` - database (Sequel model extensions, auto-migrate)
-  - `plugins/assets/` - CDN asset pipeline (cdn_asset, lux_helper)
-  - `plugins/html/` - HTML builders (form, input, table, menu, paginate, filter, page_meta, time_zones)
-  - `plugins/job_runner/` - background job queue (LuxJob)
-  - `plugins/lux_logger/` - structured database logger (LuxLogger)
-  - `plugins/oauth/` - OAuth integration
-  - `plugins/auto_controller/` - auto controller routing
-  - `plugins/authcog/` - central-auth landing controller
-  - `plugins/exception_logger/` - PG-backed exception logger + mountable viewer
-* `spec/` - RSpec tests (`spec/lib_tests/`, `spec/lux_tests/`)
-* `bin/` - CLI (`lux` command, `bin/cli/` has 15+ subcommands)
-* `tasks/` - Rake tasks
+## Cross-cutting conventions (apply everywhere)
 
-## Key patterns
+* **Inside `module Lux`**, `Hash` lexically resolves to `Lux::Hash`. Use
+  `obj.is_hash?` (from `lib/overload/object.rb`) or fully-qualified
+  `::Hash`. Same for any `Lux::<CoreClass>` alias.
+* Use `FOO ||=` for module-level constants, not `FOO =`.
+* End files with newline. No trailing spaces on blank lines.
+* ASCII-only by default - prefer `-` over unicode dashes, `*` over `•`.
+* No emojis in code or generated docs unless explicitly requested.
+* Models use `ref` (string ULID) as primary key. Sequel-based ORM.
+* `Lux.current` (alias `lux`) is the thread-local request context.
 
-* Config loaded from `config/config.yaml` via `Lux.config` (HashWithIndifferentAccess)
-* Database connections managed by `Lux::Db` (`lib/lux/db/db.rb`)
-  - Config key is `db:` (not `dbs:`) - accepts string (single main DB) or hash (named DBs)
-  - `Lux.db(:name)` returns Sequel::Database, `DB` constant is a lazy proxy
-  - ENV override: `DB_MAIN`, `DB_LOG`, etc. `DB_URL` as fallback for `:main`, then `Lux.config[:db_url]`
-  - `Lux::Db.configured_names` - list of configured DB names
-  - `Lux::Db.disconnect_all` - disconnect and clear all connections
-* Models use `ref` (string) as primary key, not integer `id`
-* Sequel plugins registered under `plugins/db/load/` (hooks, links, parent_model, enums, etc.)
-* `Lux.plugin :db` runs `loader.rb` (calls `Lux::Db.boot!`), then auto-requires every file under `load/`
+## The unified DSL
 
-## Conventions
+`Lux::Schema::Define` (`lib/lux/schema/define.rb`) is the shared line parser
+used by:
 
-* Use `FOO ||=` for constants, not `FOO =`
-* End all files with newline, no trailing spaces on empty lines
-* Prefer `Lux::Db.connections` over `Lux.config.sequel_dbs` (legacy)
-* Inside `module Lux`, never write `x.is_a?(Hash)` / `Array` / `String` - `Hash` lexically resolves to `Lux::Hash` (same for any `Lux::<CoreClass>`). Use the overload predicates `x.is_hash?`, `x.is_array?`, `x.is_string?` (from `lib/overload/object.rb`), or fully-qualified `::Hash`.
+* `Lux::Controller#opt` and `Lux::Controller.params`
+* `Lux::Api.params`
+* `Lux::Schema do ... end` standalone
+* model `schema do ... end` blocks (via `plugins/db`)
+* DB migration definitions
 
-## Core components
-
-### Lux module (`lib/lux/lux.rb`)
-
-* `Lux.root` - Application root path (Pathname)
-* `Lux.fw_root` - Framework root path (Pathname)
-* `Lux.call(env)` - Main Rack entry point
-* `Lux.speed { }` - Block execution timing (returns formatted string like "123.5 ms" or "1.23 sec")
-* `Lux.delay(ttl) { }` - Execute block in background thread, optional time_to_live in seconds
-* `Lux.log(msg)` - Logging helper (via logger adapter)
-* `Lux.logger(:name)` - Named logger instance
-* `Lux.info(msg)` - Console info in magenta
-* `Lux.run(cmd)` - Run shell command with logging
-* `Lux.die(msg)` - Stop execution and log error
-* `Lux.app_caller` - Returns the application caller line (for logging context)
-
-### Lux::Application (`lib/lux/application/`)
-
-Router and request lifecycle:
-* Class callbacks: `before`, `routes`, `after`; class DSL: `config`, `boot`, `info`, `rescue_from`
-* Error sink in `render_base` → `render_error`. Resolution order: (1) `Lux.app rescue_from { ... }` block if registered (typically uses `map 'foo#error'` to forward), (2) active controller's `:error` action (every `Lux::Controller` ships a default), (3) `Lux::Error.render` floor.
-* Routing methods: `root`, `map`, `call`, `match`
-* `mount app_class => '/path'` - Mount Rack applications
-* `favicon(path)` - Serve favicon.ico and apple-touch-icon files
-* Request method helpers: `get?`, `post?`, `delete?`, `put?`, `patch?`, `head?` (also accept blocks)
-* Nav object (`current.nav`) for URL parsing and manipulation
-
-### Lux::Application::Nav (`lib/lux/application/lib/nav.rb`)
-
-Canonical request-path object, accessible via `current.nav`. Nav is the *canonical app path* - routing inspects it but does not mutate it. Router-local cursor state lives on `lux.route`; raw URL state is on `request.path`.
-
-* `nav.root` / `nav.root=` - First path segment
-* `nav.child` - Second path segment
-* `nav.path` / `nav.path=` - Path array; `nav.path(:ref) { |seg| ... }` rewrites ID-like segments to `:ref` symbol and records IDs in `nav.ref` / `nav.refs`
-* `nav.ref` / `nav.ref=` - First captured ref (single id)
-* `nav.refs` - Array of all captured refs in path order
-* `nav[index]` - Access canonical path segment by index (reflects `:ref` rewrites)
-* `nav.last` - Last path segment
-* `nav.format` - Request format (html, json, etc.) - stripped from path during init
-* `nav.locale` / `nav.locale=` - Locale extraction; consumes the locale segment when matched (canonicalization)
-* `nav.domain` / `nav.subdomain` - Domain parts. `nav.subdomain` is auto-derived from `request.host` (TLD-aware, handles two-part TLDs like `co.uk`) and returns `''` for bare domains, `nil` for IP hosts. Prefer this over manually parsing `request.host`.
-* `nav.base` - Base URL (scheme + host + port)
-* `nav.url(*args)` - URL object
-* `nav.remove_www` - Redirect www to non-www
-* `nav.rename_domain(from, to)` - Domain redirect
-* `nav.pathname(ends:, has:)` - Path testing against canonical path
-
-### Lux::Application::Route (`lib/lux/application/lib/route.rb`)
-
-Per-request router cursor over `nav.path`, accessible via `current.route` / `lux.route`. Does not mutate nav.
-
-* `route.path` - Remaining path slice after consumed offset
-* `route.root` - First remaining segment
-* `route.child` - Second remaining segment
-* `route.consumed` - Segments before the cursor
-* `route.with_scope(n) { ... }` - Push offset by `n` for the block (router internal; `map` uses this)
-
-### Lux::Controller (`lib/lux/controller/controller.rb`)
-
-Request controllers with Rails-like interface:
-* Callbacks: `before`, `before_action`, `before_render`, `after`
-* Class DSL: `rescue_from { |err| ... }` - sugar for defining the `:error` action via block
-* Class attributes: `layout`, `template_root`
-* `mock :show, :edit` - Create empty actions for template-only rendering (accepts multiple)
-* `action_missing` - Called when action not found; default looks for matching template (requires `Lux.config.use_autoroutes`)
-* Instance methods:
-  - `render`, `redirect_to`, `send_file`, `flash`, `action`, `helper`, `respond_to`
-  - `render_to_string(name, opts)` - Render template without setting response body
-  - `timeout(seconds)` - Set custom app timeout for this action
-  - `namespace` - Get controller namespace as symbol
-  - `error` - Default error action (override per controller for custom error rendering)
-
-#### Params contract (`lib/lux/controller/params_dsl.rb`)
-
-* `params do ... end` - class-level block, applies to every action. Same DSL as `Lux.schema do ... end` (reuses `Lux::Schema::Define`).
-* `opt :name, type: String, max: 30` - method-level declaration above a `def`. Applies only to the next method.
-* Allowed keys for action X = (class `params do`) ∪ (`opt` lines above `def X`).
-* Non-empty → strict: undeclared keys dropped from `current.params`, required keys validated, types coerced. Empty → loose passthrough.
-* Method-level `opt` wins on collision with class-level `params do` (Ruby method-override semantics).
-* `?` suffix marks a field optional: `opt :email?, type: :email`. Both `opt :name, type: String` and the shortcut `name type: String` (inside the block) parse identically via `Lux::Schema::Define`.
-* On failure: JSON requests halt 422 with `{errors: {field: msg}}`. HTML requests stash errors in `current.var[:param_errors]` and fall through so the form can re-render with the original input.
-* Validation runs between `before_action` and the action method, so before-filters see raw params and the action sees the filtered/coerced set.
-
-### Lux::Current (`lib/lux/current/`)
-
-Thread-local request context accessible via `Lux.current` or `current`:
-* `current.request` - Rack request
-* `current.response` - Lux response
-* `current.session` - JWT-encrypted session
-* `current.nav` - URL navigation helper
-* `current.params` - Request parameters
-* `current.cookies` - Rack cookies
-* `current.locale` - Current locale
-* `current.var` - Request-scoped variables (CleanHash)
-* `current[:key]` / `current[:key]=` - Shortcut for `current.var`
-* `current.cache(key) { }` - Request-scoped caching
-* `current.once { }` / `current.once(id) { }` - Execute only once per request
-* `current.uid` - Unique ID per response
-* `current.secure_token` - Session secure token
-* `current.bearer_token` - Extract Bearer token from Authorization header
-* `current.no_cache?` - Check if cache should be bypassed
-* `current.can_clear_cache` - Allow cache clearing with SHIFT+refresh
-* `current.ip` - Client IP address
-* `current.host` - Current host
-* `current.robot?` - Bot detection
-* `current.mobile?` - Mobile device detection
-* `current.encrypt(data)` / `current.decrypt(token)` - Request-scoped encryption
-* `current.delay { }` - Background thread execution
-* `current.files_in_use` - Track loaded files
-
-### Lux::Response (`lib/lux/response/response.rb`)
-
-HTTP response handling:
-* `response.body` / `response.body=` - Get/set response body (setting halts processing)
-* `response.body?` - Check if body is present
-* `response.status` / `response.status=` - HTTP status code
-* `response.header(key, value)` - Set response headers (no args returns headers hash)
-* `response.content_type` / `response.content_type=` - Get/set content type
-* `response.redirect_to(path)` - Redirect with flash support
-* `response.permanent_redirect_to(path)` - 301 redirect
-* `response.send_file(path, opts)` - File downloads (supports `inline:`, `file_name:`)
-* `response.flash` - Flash messages (`flash.info`, `flash.error`, `flash.warning`)
-* `response.etag(*args)` - ETag header with conditional response
-* `response.max_age=` - Cache-Control max-age in seconds
-* `response.public=` / `response.public?` - Set/check Cache-Control public
-* `response.cached?` - Check if response has max_age > 0
-* `response.halt(status, body)` - Halt and deliver response immediately
-* `response.early_hints(link, type)` - HTTP early hints
-* `response.auth(realm:, message:) { |user, pass| }` - Basic HTTP authentication
-* `response.rack(klass, mount_at:)` - Mount Rack app
-
-### Lux::Cache (`lib/lux/cache/cache.rb`)
-
-* `Lux.cache.server` - Default memory backend
-* `Lux.cache.server = :memcached` - Memcached backend
-* `Lux.cache.fetch(key, ttl:) { }` - Fetch or compute
-* `Lux.cache.fetch_if_true(key, opts) { }` - Like fetch but only caches truthy results
-* `Lux.cache.read(key)` / `Lux.cache.get(key)` - Read cache
-* `Lux.cache.write(key, data, ttl)` / `Lux.cache.set(key, data, ttl)` - Write cache
-* `Lux.cache.delete(key)` - Delete cache entry
-* `Lux.cache.read_multi(*keys)` / `Lux.cache.get_multi(*keys)` - Multi-read
-* `Lux.cache[key]` / `Lux.cache[key]=` - Direct get/set without key generation
-* `Lux.cache.lock(key, time) { }` - Distributed lock for block execution
-* `Lux.cache.generate_key(*args)` - Key generation from objects (uses `:id`, `:updated_at`)
-* `Lux.cache.is_available?` - Check if cache server is available
-
-### Lux::Template (`lib/lux/template/`)
-
-* `Lux::Template.render(scope, template:, layout:, &block)` - Block for layout content
-* `Lux::Template.helper(scope, :name)` - Create helper with module methods
-* Supports HAML, ERB, and other Tilt formats
-* Template caching enabled in production
-
-### Lux::Mailer (`lib/lux/mailer/mailer.rb`)
-
-* `Mailer.deliver(:template, *args)` - Render and deliver
-* `Mailer.render(:template, *args)` - Get body only
-* `Mailer.prepare(:template, *args).deliver` - Prepare then deliver
-* `Mailer.template_name(*args).deliver` - Rails-style via method_missing
-* Callbacks: `before`, `after`
-* Template rendering in `./app/views/mailer/`
-* Layout in `./app/views/mailer/layout.haml`
-
-### Lux::Error (`lib/lux/error/error.rb`)
-
-Thin exception class (`Lux::Error < StandardError`). HTTP status is set on response, not carried on the exception.
-* `Lux.error(code, msg)` - Set status on response and raise `Lux::Error` (canonical form)
-* `Lux.error.bad_request(msg)` - 400 (shortcuts via `Lux::ErrorProxy` in `lux_adapter.rb`)
-* `Lux.error.unauthorized(msg)` - 401
-* `Lux.error.payment_required(msg)` - 402
-* `Lux.error.forbidden(msg)` - 403
-* `Lux.error.not_found(msg)` - 404
-* `Lux.error.method_not_allowed(msg)` - 405
-* `Lux.error.not_acceptable(msg)` - 406
-* `Lux.error.internal_server_error(msg)` - 500
-* `Lux.error.not_implemented(msg)` - 501
-* `Lux::Error.render(error)` - Last-resort error page (only reached when no rescue_from and no controller :error)
-* `Lux::Error.inline(object, msg)` - Inline error display
-* `Lux::Error.format(error, opts)` - Format backtrace (supports `html:`, `message:`, `gems:`)
-
-### Lux::Environment (`lib/lux/environment/environment.rb`)
-
-Environment name via `Lux.env`. Three valid environments: `development`, `production`, `test` (set via `RACK_ENV`):
-* `Lux.env.development?` / `Lux.env.dev?` - True when NOT production (includes test)
-* `Lux.env.production?` / `Lux.env.prod?` - True only in production
-* `Lux.env.test?` - True in test or when run via rspec/minitest
-* `Lux.env.to_s` - Returns raw env name (`'development'`, `'production'`, `'test'`)
-* `Lux.env == :dev` - Comparison operator (symbol/string, delegates to predicates)
-
-### Lux::Mode (`lib/lux/environment/mode.rb`)
-
-Behavior toggles via `Lux.mode`. Env defaults: dev=on, prod=off, test=off for all flags.
-* `Lux.mode.log?` - Screen dev logging (console only): Lux.log, cache hits, SQL echo, pretty JSON
-* `Lux.mode.errors?` - Error visibility on screen AND browser: dev backtrace in response, verbose 404s, console error log. Supports block-form: `Lux.mode.errors?('short') { 'long' }`
-* `Lux.mode.reload?` - Per-request code reload (dev-style)
-* ENV overrides: `LUX_LOG`, `LUX_ERRORS`, `LUX_RELOAD` (case-insensitive `true`/`false`; empty = unset; other = raise at boot)
-* Runtime setters: `Lux.mode.log = true` (also `errors=`, `reload=`) override ENV
-
-### Lux::Runtime (`lib/lux/environment/runtime.rb`)
-
-Runtime kind detection via `Lux.runtime`. Pure derivation from `$PROGRAM_NAME` / ObjectSpace.
-* `Lux.runtime.web?` - True when running under puma/rackup/falcon/etc. (LUX_WEB=true|false override)
-* `Lux.runtime.cli?` - Inverse of `web?`
-* `Lux.runtime.rake?` - True when invoked via the rake binary
-
-### Lux::Config (`lib/lux/config/config.rb`)
-
-`Lux.config` returns a hash (with indifferent access) loaded from `config/config.yaml`:
-* `Lux.config.key = value` / `Lux.config.key`
-* `Lux.config.all` - Get all config
-* `Lux::Config.app_timeout` - Get current app timeout
-* `Lux::Config.ram` - Current process RAM usage in MB
-* `Lux::Config.start_info` - Formatted boot time info
-* Hooks: `on_reload_code { }`, `on_mail_send { |mail| }`
-* `Lux.dotenv` - Rails-style .env loader. Called once during boot from `lib/loader.rb`.
-  Load order (most specific wins, since `Dotenv.load` is non-destructive):
-  `.env.<env>.local` -> `.env.local` -> `.env.<env>` -> `.env`. Env name resolves
-  from `LUX_ENV`, then `RACK_ENV`, defaulting to `development`. Returns the list
-  of files actually loaded.
-
-### Lux::Plugin (`lib/lux/plugin/plugin.rb`)
-
-* `Lux.plugin(name_or_folder)` - Load a plugin
-* `Lux.plugin(name:, folder:, namespace:)` - Load with options
-* `Lux.plugin.get(:name)` - Get loaded plugin
-* `Lux.plugin.loaded` - All loaded plugin values
-* `Lux.plugin.keys` - Loaded plugin names
-* `Lux.plugin.folders(namespace)` - Plugin folders by namespace
-
-### Lux::Application::Render (`lib/lux/render/`)
-
-* `Lux.render(path, opts)` - Render full page
-* `Lux.render.get(path, params, opts)` - GET request render
-* `Lux.render.post(path, params, opts)` - POST request render
-* `Lux.render.delete(...)` / `.patch(...)` / `.put(...)` - Other methods
-* `Lux.render.controller('main#index')` - Render controller action directly (accepts block for setup)
-* `Lux.render.template(scope, template)` - Render template
-* `Lux.render.cell(name, context, opts)` - Render ViewCell
-
-### Lux::Policy (`lib/lux/policy/`)
-
-Framework- and ORM-agnostic access policy. Inherit from `Lux::Policy` and define
-question-mark methods. Resolves current user from `Thread.current[:current_user]`,
-then `User.current`, then `Current.user`.
+Line syntax (all equivalent):
 
 ```ruby
-class BlogPolicy < Lux::Policy
-  def before action
-    return true if user.can.admin?      # before-hook: truthy short-circuits
-  end
-
-  def read?
-    model.created_by == user.id
-  end
-
-  def write?
-    error 'Read only on Sundays' if Time.now.sunday?
-    model.created_by == user.id
-  end
-end
+opt :name, String, max: 30                 # method-level (above def)
+name String, max: 30                       # in-block shortcut
+set :name, type: String, max: 30           # explicit
 ```
 
-* `Lux::Policy.can(model:, user:)` - Build a proxy; resolves `<Model>Policy` class
-* `BlogPolicy.can(model: @blog, user: @user)` - Explicit policy class
-* Proxy actions:
-  - `.read?` -> `true` / `false` (rescues `Lux::Policy::Error`)
-  - `.read!` -> returns `model` on success, raises `Lux::Policy::Error` on fail
-  - `.read? { |msg| ... }` / `.read! { |msg| ... }` - block runs on failure
-* `before(action)` hook on a policy class: if it returns `true`, action is allowed
-* `error 'msg'` inside an action raises `Lux::Policy::Error` with a custom message
+Field name suffix `?` marks the field optional. Default required.
+Type vocabulary - any built-in (`String`, `Integer`, `Boolean`, ...) or a
+named `Lux::Type` (`:email`, `:url`, `:uuid`, `:slug`, `:locale`, ...).
 
-Adapter mixins (`lib/lux/policy/adapter.rb`):
-* `include Lux::Policy::Model` on a model class to enable `@model.can.read?`
-  (auto-resolves to `<Model>Policy`).
-* `Lux::Policy::Controller` is auto-mixed into `Lux::Controller`. Provides:
-  - `authorize(truthy_or_block)` - marks request authorized or raises
-  - `is_authorized?` - boolean check
-  - `is_authorized!` - raises `Lux::Policy::Error` if not authorized
-* Headless policies (no model): `class DashboardPolicy < Lux::Policy; def access?; ...; end`
-  then `DashboardPolicy.can.access?` or `authorize DashboardPolicy.can.access?`.
+**When generating params code in any subsystem, use this DSL.** Do not
+invent per-controller validators - the framework already wires the schema
+through `Lux::Schema#validate(params, strict: true)` which drops undeclared
+keys, validates required, coerces types.
 
-## Ruby core extensions (`lib/overload/`)
+## Where to look for each subsystem
 
-### Object (`object.rb`, `blank.rb`, `boolean.rb`, `raise_variants.rb`)
-* `obj.or(default)` - Return default if blank or zero
-* `obj.try(:method)` - Safe method call (nil on NilClass)
-* `obj.presence` - Return self if present, nil otherwise
-* `obj.present?` / `obj.blank?` - Presence checks
-* `obj.is!(Type)` - Type assertion (raises on mismatch), without arg checks presence
-* `obj.is?(Type)` - Boolean type check
-* `obj.is_hash?`, `obj.is_array?`, `obj.is_string?`, `obj.is_numeric?`, `obj.is_symbol?`, `obj.is_boolean?`
-* `obj.is_true?` / `obj.is_false?` - Truthy string check (`'true'`, `'on'`, `'1'`)
-* `obj.to_b` - Convert to boolean
-* `obj.andand(func)` - Safe chain (present? check)
-* `obj.die(msg)` - Print error and raise
-* `r(what)` - Raise with inspect/JSON (global)
-* `rr(what)` - Console log dump with context (global)
-* `LOG(what)` - Write to `./log/LOG.log` (global)
+| If user is touching... | Read first |
+|------------------------|------------|
+| HTTP routing / mount points | [`lib/lux/application/AGENTS.md`](./lib/lux/application/AGENTS.md) |
+| Controller action / params  | [`lib/lux/controller/AGENTS.md`](./lib/lux/controller/AGENTS.md) |
+| JSON API endpoint           | [`lib/lux/api/AGENTS.md`](./lib/lux/api/AGENTS.md) |
+| Schema or model definition  | [`lib/lux/schema/AGENTS.md`](./lib/lux/schema/AGENTS.md) |
+| Custom type / coercion      | [`lib/lux/type/AGENTS.md`](./lib/lux/type/AGENTS.md) |
+| Access control              | [`lib/lux/policy/AGENTS.md`](./lib/lux/policy/AGENTS.md) |
+| Request-scoped state        | [`lib/lux/current/AGENTS.md`](./lib/lux/current/AGENTS.md) |
+| Response / headers / files  | [`lib/lux/response/AGENTS.md`](./lib/lux/response/AGENTS.md) |
+| Rendering templates / cells | [`lib/lux/render/AGENTS.md`](./lib/lux/render/AGENTS.md) |
+| Sending email               | [`lib/lux/mailer/AGENTS.md`](./lib/lux/mailer/AGENTS.md) |
+| Caching                     | [`lib/lux/cache/AGENTS.md`](./lib/lux/cache/AGENTS.md) |
+| Database / Sequel           | [`lib/lux/db/AGENTS.md`](./lib/lux/db/AGENTS.md) + [`plugins/db/AGENTS.md`](./plugins/db/AGENTS.md) |
+| Errors / 4xx / 5xx          | [`lib/lux/error/AGENTS.md`](./lib/lux/error/AGENTS.md) |
+| Env / mode / runtime        | [`lib/lux/environment/AGENTS.md`](./lib/lux/environment/AGENTS.md) |
+| Config / `.env`             | [`lib/lux/config/AGENTS.md`](./lib/lux/config/AGENTS.md) |
+| Plugin layout               | [`lib/lux/plugin/AGENTS.md`](./lib/lux/plugin/AGENTS.md) |
+| Reloading                   | [`lib/lux/reloader/AGENTS.md`](./lib/lux/reloader/AGENTS.md) |
+| Logger                      | [`lib/lux/logger/AGENTS.md`](./lib/lux/logger/AGENTS.md) |
+| Hash / overloads            | [`lib/lux/hash/AGENTS.md`](./lib/lux/hash/AGENTS.md) |
+| JSON export                 | [`lib/lux/json_exporter/AGENTS.md`](./lib/lux/json_exporter/AGENTS.md) |
+| Templates engine            | [`lib/lux/template/AGENTS.md`](./lib/lux/template/AGENTS.md) |
+| Reusable view component     | [`lib/lux/view_cell/AGENTS.md`](./lib/lux/view_cell/AGENTS.md) |
 
-### String (`string.rb`)
-* `str.constantize` / `str.constantize?` - Convert to constant
-* `str.parameterize` / `str.to_url` - URL-safe string (max 50 chars)
-* `str.to_slug(len)` - Slug format with hyphens
-* `str.trim(len)` - Truncate with ellipsis
-* `str.squish` - Collapse whitespace
-* `str.html_escape` / `str.html_safe` / `str.html_unsafe` - HTML encoding
-* `str.as_html` - Simple markdown (newlines to `<br>`, URLs to links)
-* `str.sanitize` / `str.quick_sanitize` - HTML sanitization
-* `str.sha1` / `str.md5` - Hash digests
-* `str.wrap(:tag, opts)` - Wrap in HTML tag
-* `str.escape` / `str.unescape` - URL encoding
-* `str.colorize(:color)` / `str.decolorize` - ANSI terminal colors
-* `str.first` / `str.last(n)` - Character access
-* `str.qs_to_hash` - Parse query string to hash
+## Repo layout
 
-### Hash (`hash.rb`)
-* `hash.to_query` - Convert to URL query string
-* `hash.to_attributes` - Convert to HTML attributes
-* `hash.to_css` - Convert to CSS inline style
-* `hash.deep_sort` - Recursively sort keys
-* `hash.pluck(*keys)` - Select specific keys
-* `hash.remove_empty` - Remove blank entries
-* `hash.deep_compact` - Recursively remove empty values
-* `hash.to_js(opts)` - JSON without quoted keys
-
-### Array (`array.rb`)
-* `array.to_csv` - Convert to CSV (semicolon-delimited)
-* `array.to_sentence(opts)` - Rails-like sentence join
-* `array.toggle(el)` - Toggle element presence
-* `array.to_ul(class)` - Convert to HTML list
-* `array.wrap(tag, opts)` - Wrap each element in HTML tag
-* `array.xuniq` - Unique non-blank elements
-* `array.xmap` - Map with 1-based counter
-
-### Integer (`integer.rb`)
-* `int.pluralize(:noun)` - Smart pluralization (`0.pluralize(:cat)` -> `"no cats"`)
-* `int.dotted` - Dot-separated thousands (`1234567` -> `"1.234.567"`)
-* `int.to_filesize` - Human-readable file size
-* `int.string_id` - Encode to StringBase short string
-
-### Float (`float.rb`)
-* `float.as_currency(opts)` - Currency formatting (European style)
-* `float.dotted(round)` - Dot-thousands, comma-decimal
-
-### Dir (`dir.rb`)
-* `Dir.folders(dir)` - List subdirectories
-* `Dir.files(dir, opts)` - List files
-* `Dir.find(dir, opts)` - Deep file search with filtering
-* `Dir.require_all(folder)` - Require all `.rb` files recursively
-* `Dir.mkdir?(name)` - Create directory path
-
-### Other extensions
-* `Class#descendants` - All descendant classes (`class.rb`)
-* `Class#source_location` - Source file path (`class.rb`)
-* `File.write_p`, `File.append`, `File.ext`, `File.delete?`, `File.is_locked?` (`file.rb`)
-* `Pathname#touch`, `Pathname#write_p`, `Pathname#folders`, `Pathname#files` (`pathname.rb`)
-* `Struct#to_hash` (`struct.rb`)
-* `NilClass#empty?`, `NilClass#is?` (`nil.rb`)
-* `Boolean.parse`, `TrueClass#to_i`, `FalseClass#to_i` (`boolean.rb`)
-* `Thread::Simple` - Thread pool (`thread_simple.rb`)
-* `Hash#to_jsons`, `Hash#to_jsonp`, `Hash#to_jsonc` (`json.rb`)
-* `Time#short`, `Time#long`, `Time.speed`, `Time.ago` (`time.rb`)
-
-## Common utilities (`lib/common/`)
-
-### Crypt (`lib/common/crypt.rb`)
-* `Crypt.encrypt(data, ttl:, password:)` - JWT encryption (HS512)
-* `Crypt.decrypt(token, password:, unsafe:)` - JWT decryption
-* `Crypt.short_encrypt(data, ttl)` / `Crypt.short_decrypt(data)` - Lightweight Base64 encoding
-* `Crypt.simple_encode(str)` / `Crypt.simple_decode(str)` - Base64 + ROT13 (JS interop)
-* `Crypt.sha1(str)` / `Crypt.md5(str)` - Salted hash digests
-* `Crypt.uid(size)` - Random alphanumeric (default 32 chars)
-* `Crypt.random(length)` - Random string (no ambiguous chars)
-* `Crypt.bcrypt(plain, check)` - BCrypt password hashing
-* `Crypt.base64(str)` - URL-safe Base64
-* `Crypt.secret` - Secret from ENV or config
-
-### StringBase (`lib/common/string_base.rb`)
-* `StringBase.encode(int)` / `StringBase.decode(str)` - Obfuscated ID encoding
-* `StringBase.short` / `StringBase.medium` / `StringBase.long` - Different key sets
-* `StringBase.uid` - Time-based unique ID
-
-### StructOpts (`lib/common/struct_opts.rb`)
-* `StructOpts(vars, opts)` - Create Struct from hash with defaults
-
-### TimeDifference (`lib/common/time_difference.rb`)
-* `TimeDifference.new(start, end).humanize` - Human-readable time difference
-
-## Routing patterns
-
-`map 'X'` matches a path segment and dispatches resourcefully to `XController`.
-No `resources`/`resource` keyword - `map` handles both collection and member URLs
-via the `:ref` canonicalization. Top-level DSL works without a `routes do` wrapper
-(though `routes do ... end` is still supported for runtime conditionals).
-
-```ruby
-Lux.app do
-  before do
-    # canonicalize ID-like segments to :ref before routing
-    nav.path(:ref) { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
-  end
-
-  root 'main'                         # / -> MainController#root
-  map about: 'main#about' if get?     # if-at-class-eval is fine for constants
-
-  map 'admin' do
-    root 'admin/dashboard'            # /admin -> Admin::DashboardController#root
-    map users: 'admin/users'          # /admin/users -> Admin::UsersController, resourceful
-  end
-
-  map 'boards'                        # resourceful (see action table below)
-  map 'profile'                       # /profile -> ProfileController#root
-  map '/users/:id' => 'users#show'    # absolute-path match
-  mount ApiApp => '/api'
-
-  after { }
-end
+```
+lib/lux/<module>/         # core modules; each has README + AGENTS
+lib/overload/             # Ruby core class extensions (don't touch lightly)
+lib/common/               # Crypt, StringBase, StructOpts, TimeDifference
+plugins/<name>/           # optional plugins, canonical layout (see plugin AGENTS)
+spec/lux_tests/           # RSpec for framework features
+spec/lib_tests/           # RSpec for pure-ruby utilities
+bin/cli/<name>_hammer.rb  # CLI subcommands
 ```
 
-### Resourceful action resolution
+## Documentation conventions
 
-After `nav.path(:ref) { ... }` canonicalizes ID segments to `:ref`:
+Every sub-module under `lib/lux/<name>/` ships **two** docs side-by-side:
 
-| URL                          | action      | nav.ref |
-|------------------------------|-------------|--------|
-| `/boards`                    | `:root`     | nil    |
-| `/boards/edit`               | `:edit`     | nil    |
-| `/boards/new`                | `:new`      | nil    |
-| `/boards/123`                | `:show_ref` | "123"  |
-| `/boards/123/edit`           | `:edit_ref` | "123"  |
-| `/boards/users/123/edit`     | `:edit_ref` | "123"  |
-| `/boards/foo/bar`            | `:foo`      | nil    |
-| `/boards/123/foo/bar`        | `:foo_ref`  | "123"  |
+| File | Audience | Shape |
+|------|----------|-------|
+| `README.md` | humans browsing GitHub | What it is → small example → full example → see-also |
+| `AGENTS.md` | LLM agents | one canonical example → rules → don'ts → see-also |
 
-Rules: empty remaining → `:root`. Single `:ref` → `:show_ref`. 2+ segments → first
-non-`:ref` after position 0. If any `:ref` is in the path, append `_ref` suffix.
+### README.md shape (human-focused)
 
-### `ref do` controller DSL
+```markdown
+# Lux::Foo
 
-Methods defined inside `ref do ... end` get renamed to `<name>_ref` so they
-serve the ref-bearing routes. If a method of the same name exists outside the
-block, both coexist (collection vs member). Template lookup strips `_ref` so
-both share `show.haml`/`edit.haml`/etc.
+One- or two-sentence statement of what this module is and why it exists.
+End with the differentiator (what makes it Lux-specific).
 
-```ruby
-class BoardsController < Lux::Controller
-  def root        # /boards
-    @boards = Board.all
-  end
+## Small example
 
-  def archive     # /boards/archive
-  end
+The shortest piece of code that demonstrates the core value.
+Three to five lines. No setup boilerplate.
 
-  ref do
-    def show      # /boards/123    -> :show_ref, renders show.haml
-      @board = Board.find(nav.ref)
-    end
+## Full example
 
-    def edit      # /boards/123/edit -> :edit_ref, renders edit.haml
-      @board = Board.find(nav.ref)
-    end
-  end
-end
+A realistic example showing every feature worth knowing. Comment groups
+of related calls. Use `# ---` separators to break sections.
+
+## (Optional sections in this order)
+
+- API reference tables (`| method | notes |`)
+- Configuration / options
+- Conventions (file layout, naming)
+- Limitations / known gaps
+
+## See also
+
+Relative links to sibling READMEs and this module's AGENTS.md, e.g.:
+* [`../schema/README.md`](../schema/README.md) - the DSL parser
+* [`AGENTS.md`](./AGENTS.md) - LLM guide
 ```
 
-### `map` vs `call`
+### AGENTS.md shape (LLM-focused)
 
-* `map 'foo'`, `map 'A', 'foo'`, `map A: 'foo'`, `map 'A' do ... end` — match-and-dispatch (route_match required)
-* `map '/abs/:var' => 'foo#bar'` — absolute path match
-* `call 'foo'` / `call 'foo#bar'` — unconditional dispatch (used inside `rescue_from`)
+```markdown
+# Lux::Foo - agent guide
 
-For custom error handling, override `error` on the relevant controller:
-```ruby
-class MainController < Lux::Controller
-  def error
-    render @status == 404 ? :error_404 : :error_500
-  end
-end
+One sentence on the module's role. **Bold one sentence on the
+prescriptive guidance** (e.g. "Reuse this everywhere a list of fields
+needs validation").
+
+## Canonical example
+
+ONE example, end-to-end, showing the full feature surface. No "small
+vs full" split - LLMs do better with one complete worked example than
+multiple partial ones. Comment groups; mention edge cases inline.
+
+## Rules
+
+Bullet list. Each bullet leads with the rule, then a brief why. Cover:
+* DSL forms / naming conventions
+* Lifecycle / dispatch behavior
+* What's automatic vs opt-in
+* Cross-cutting conventions specific to this module
+
+## Don't
+
+Anti-patterns. Each bullet is one short sentence stating the mistake.
+Include common mistakes you'd expect an LLM to make from
+pattern-matching other frameworks.
+
+## See also
+
+Relative links to other AGENTS.md files for related modules.
 ```
 
-## Controller patterns
+### Rules for writing docs
 
-```ruby
-class UsersController < ApplicationController
-  layout :application
-  before { @user = User.current if nav.ref }
-  mock :new
+* **GitHub-relative links.** Use `../foo/README.md`, `./AGENTS.md`,
+  `../../../plugins/x/README.md`. Don't use absolute paths or HTTP URLs
+  to the repo. Clicking the link in GitHub must navigate to the file.
+* **One canonical example in AGENTS.md.** Multiple partial examples
+  confuse LLMs more than they help. Make the single example complete.
+* **No emojis** unless explicitly requested.
+* **ASCII only.** Use `-` not `—`, `*` not `•`.
+* **End files with newline.** No trailing spaces on blank lines.
+* **Don't duplicate instructions** between README and AGENTS - README is
+  the human reference, AGENTS is prescriptive ("use this", "don't do
+  that"). README answers "how do I?", AGENTS answers "what's the right
+  way?".
+* **Cross-reference, don't repeat.** If `Lux::Controller` uses
+  `Lux::Schema::Define`, link to the schema docs rather than re-explain
+  the DSL.
+* **Code examples use `ruby` fences.** Comments inside examples should
+  read as a senior dev's notes, not LLM narration ("X does Y because Z",
+  not "First we call X, then we call Y...").
+* **Length:** READMEs 50-200 lines; AGENTS 30-100 lines. If longer,
+  consider splitting the module.
 
-  # /users - no further segment -> :root
-  def root
-    @users = User.all
-    # Renders ./app/views/users/root.haml
-  end
+## Adding code
 
-  def archive
-    # /users/archive -> :archive
-  end
+* Edit an existing file in preference to creating a new one.
+* Comment only the non-obvious why - never the what.
+* When adding a feature, look for an existing primitive to reuse. The
+  framework's whole reason for being is that the same primitives compose
+  in every subsystem.
+* Specs go under `spec/lux_tests/` for framework code, `spec/lib_tests/`
+  for pure-ruby utilities. Run with `bundle exec rspec`.
+* Never commit or push without explicit user instruction.
 
-  # ID-bearing routes: each def NAME inside ref do becomes NAME_ref.
-  # Template lookup tries show_ref.haml first, falls back to show.haml,
-  # so you can share or override the template per action.
-  ref do
-    def show    # /users/123        -> :show_ref
-      @user = User.find(nav.ref)
-    end
+## When in doubt about a primitive
 
-    def edit    # /users/123/edit   -> :edit_ref
-      @user = User.find(nav.ref)
-    end
-  end
-end
-```
-
-Render options: `text:`, `plain:`, `html:`, `json:`, `javascript:`, `template:`
-
-## Model associations (`link`)
-
-```ruby
-class Task < ApplicationModel
-  schema do
-    link :board       # DB: board_ref column + index + foreign key
-  end
-
-  link :board         # Ruby: task.board -> Board.find(board_ref)
-  link :comments      # Ruby: task.comments -> Comment.where(task_ref: ref)
-end
-```
-
-* `link :user` - singular, belongs_to via `user_ref` column
-* `link :users` - plural, has_many via reverse lookup
-* `link :user, class: 'OrgUser'` - custom class
-* `link :user, field: 'owner_ref'` - custom field
-
-## Dirty tracking (`on_change`)
-
-```ruby
-user.on_change(:name) { |prev, cur| ... }
-```
-
-## Rake DB tasks
-
-* `rake db:info` - show configured databases and existence status
-* `rake db:create` - create databases if missing
-* `rake db:drop` - drop all databases (main + test)
-* `rake db:reset` - drop, create, auto migrate
-* `rake db:am` - auto migrate schema (`db:am[y]` to auto-confirm drops)
-* `rake db:seed` - reset + load seed data from `./db/seeds/`
-* `rake db:backup` / `rake db:restore` - SQL dump/restore to `./tmp/db_dump/`
-* `rake db:console` - open psql console (`db:console[name]` for named DB)
-* `rake db:create:test` - recreate test DBs (drop if exists, copy schema from main)
-* `rake db:drop:test` - drop test databases only
-
-Destructive tasks are blocked in production. Test databases use `_test` suffix.
-
-## CLI commands
-
-```bash
-lux server       # Start web server (aliases: s, ss, silent)
-lux console      # Start Pry console (alias: c)
-lux evaluate     # Eval ruby string in Lux context (alias: e)
-lux render /path # Render page via Lux.render (session, bearer token, headers)
-lux routes       # Print mounted route tree (shadow-executor; see lib/lux/application/lib/routes_dumper.rb)
-lux generate     # Generate models, cells, controllers
-lux test         # Recreate test DB + run full test suite (alias: t)
-lux secrets      # Display/edit ENV and secrets
-lux stats        # Print project statistics
-lux memory       # Profile memory usage
-lux new APP      # Create new Lux application
-lux sysd         # Systemd service management
-```
-
-`lux routes` replays the application's routing DSL against a recorder
-(`Lux::Application::RoutesDumper`). It descends every branch unconditionally
-- the dump shows "everything that could match", not "what will match for THIS
-request". Dynamic dispatch (`call :symbol`, runtime predicates) is marked
-`[dynamic]` with the source location.
-
-## Testing
-
-* `bundle exec rspec` from project root
-* Tests in `spec/lib_tests/` (pure ruby) and `spec/lux_tests/` (framework features)
-* `lux test` (or `lux t`) - recreate test DB + run full test suite
-* `lux test spec/path` - run specific test file (no DB recreation)
-
-## Dependencies
-
-Key gems: `rack`, `sequel_pg`, `haml`, `jwt`, `mail`, `hash_wia`, `class-callbacks`, `class-cattr`, `view-cell`, `as-duration`, `thor`, `pry`, `dotenv`, `deep_merge`, `amazing_print`, `niceql`, `whirly`, `tty-prompt`
-
-## Configuration files
-
-* `./config/environment.rb` - Main boot file
-* `./config/application.rb` - Application setup
-* `./config/config.yaml` - YAML configuration (default + per-environment)
-* `./app/routes.rb` - Route definitions
+Check `Lux.schema(:name)` in `SCHEMA_STORE` for existing schemas. Check
+`Lux::Type::*Type` under `lib/lux/type/types/` for existing types. Check
+`Lux::Policy` descendants for existing policies. **Do not invent new
+primitives that duplicate framework ones.**

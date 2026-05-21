@@ -1,125 +1,149 @@
-## Lux::Controller
+# Lux::Controller
 
-Similar to Rails Controllers
+HTTP controllers. Rails-shaped (`before`, `before_action`, `render`,
+`action`), but params are declared with the shared `opt` / `params do`
+DSL - identical to `Lux::Api` and `Lux::Schema`.
 
-* `before`, `before_action`, `before_render` and `after` class callbacks supported
-* default `error` action inherited from `Lux::Controller` — override per controller for custom error rendering. When invoked, `@error` (the exception) and `@status` (resolved HTTP status code) are set as instance variables.
-
-Two equivalent ways to override:
+## Small example
 
 ```ruby
-class MainController < Lux::Controller
-  def error
-    case @error
-    when Lux::Error then render @status == 404 ? :error_404 : :error_500
-    else                 render :error_500
+class UsersController < Lux::Controller
+  opt :name,  String, max: 30
+  opt :email, type: :email
+  def create
+    User.create!(current.params.to_h)
+    render json: { ok: true }
+  end
+end
+```
+
+* No `opt` declared on an action → params pass through untouched.
+* `opt` lines above a `def` → strict: undeclared keys dropped, required
+  keys validated, types coerced. Errors → 422 (JSON) or
+  `current.var[:param_errors]` (HTML).
+
+## Full example
+
+```ruby
+class BoardsController < ApplicationController
+  layout :application
+
+  before { @user = User.current or Lux.error.unauthorized }
+  before_action { |name| Lux.log "running #{name}" }
+
+  # class-level params: apply to every action in this class
+  params do
+    org_id type: :uuid                 # required for all actions
+  end
+
+  # method-level: union with the class-level set
+  opt :name,   String, max: 30
+  opt :tags?,  [String]
+  def create
+    board = @user.boards.create!(current.params.to_h)
+    redirect_to "/boards/#{board.ref}"
+  end
+
+  # action with no opt lines: only org_id (class-level) applies
+  def index
+    @boards = @user.boards
+  end
+
+  # member actions inside `ref do` get renamed to <name>_ref
+  ref do
+    def show         # /boards/123          -> :show_ref, nav.ref = '123'
+      @board = Board.find(nav.ref)
+    end
+
+    def edit         # /boards/123/edit     -> :edit_ref
+      @board = Board.find(nav.ref)
     end
   end
-end
 
-# Or via the rescue_from class macro (sugar — defines :error for you):
-class Api::BaseController < Lux::Controller
-  rescue_from do |err|
-    render json: { error: err.message, status: @status }
-  end
-end
-```
-* calls templates as default action, behaves as Rails controller.
-
-```ruby
-class RootController < ApplicationController
-  # action to perform before
-  before do
-    @org = Org.find @org_id if @org_id
-    # ...
-  end
-  # action to perform before
-
-  before_action do |action_name|
-    next if action_name == :index
-    # ...
-  end
-
-  template_location './app/views' # default
-
-  ###
-
-  mock :show # mock `show` action
-
-  def index
-    render text: 'Hello world'
-  end
-
-  def foo
-    # renders ./app/views/root/foo.(haml, erb)
-  end
-
-  def baz
-    send_file local_file, file_name: 'local.txt'
-  end
-
-  def bar
-    render json: { data: 'Bar text' }
-  end
-
-  def transfer
-    # transfer to :baz
-    action :baz
-
-    # transfer to Another::Foo#bar
-    action 'another/foo#bar'
+  # default :error action - inherited from Lux::Controller. Override
+  # for custom rendering. @error and @status are set before dispatch.
+  def error
+    render @status == 404 ? :not_found : :server_error
   end
 end
 ```
 
-Render method can accept numerous parameters
+## Render shortcuts
 
 ```ruby
-class MainController
-  def foo
-    render text: 'foo'
-    render plain: 'foo'
-    render html: '<html>...'
-    render json: {}
-    render javascript: '...'
-    render template: false, content_type: :text
-    render template: './some/template.haml', data: @template_data
-
-    # helpers
-    helper.link_to # MainHelper.link_to
-    helper(:bar)   # BarHelper.link_to
-
-    # respond to formats
-    respond_to :js do ...
-    respond_to do |format|
-      case format
-      when nil # /foo
-        # ...
-      when :js # /foo.js
-        # ...
-      end
-  end
+render text: 'foo'
+render plain: 'foo'
+render html: '<h1>hi</h1>'
+render json: { ok: true }
+render javascript: 'alert(1)'
+render xml: '<root />'
+render template: 'main/custom'        # explicit template
+render :foo, status: 201              # template by action-name + status
+render html: '...', cache: 'key/v1'   # page-level cache + etag
 ```
 
-Definable callbacks
+## Callbacks
 
 ```ruby
-before do ...        # before all
-before_action do ... # before action
-before_render do ... # before render
-after do ...         # after all
+before        do ... end   # before any action; runs once
+before_action do |name| .. end  # before each action
+before_render do ... end   # right before template render
+after         do ... end   # after action
 ```
 
-Definable class variables
+## Class DSL
 
 ```ruby
-# define master layout
-# string is template, symbol is method pointer and lambda is lambda
-layout './some/layout.haml'
+layout :application                   # template name, symbol, or lambda
+template_root './apps/admin/views'    # override the default ./app/views
+mock :show, :about                    # generate empty actions for templates
+ref do ... end                        # group member actions (id-bearing URLs)
 
-# define helper contest, by defult derived from class name
-helper :global
+rescue_from do |err|                  # sugar: defines :error action
+  render json: { error: err.message, status: @status }
+end
 
-# custom template root instead calcualted one
-template_root './apps/admin/views'
+# params / opt - see Small example above
 ```
+
+## Instance helpers
+
+| Method | Notes |
+|--------|-------|
+| `render`             | see Render shortcuts |
+| `render_to_string`   | render without setting body |
+| `redirect_to(path, flash = {})` | flash-aware redirect |
+| `send_file(path, opts)` | file download / inline |
+| `action(:other)` / `action('a/b#c')` | transfer to another action |
+| `flash` / `flash.error 'msg'` | response flash |
+| `helper` / `helper(:bar)` | helper module mix |
+| `respond_to :js do ... end` | format-based dispatch |
+| `cache(key, ttl:) { ... }` | request-level cache |
+| `etag(*args)` | conditional 304 |
+| `timeout(seconds)` | per-action timeout |
+| `current` / `lux` / `params` / `nav` / `session` / `user` / `request` / `response` | lifecycle delegates |
+
+## Routing primer
+
+URLs map to actions resourcefully when `nav.path(:ref) { ... }` is set in
+a `before` filter (see [`../application/README.md`](../application/README.md)
+for the routing DSL).
+
+| URL                       | Action       | `nav.ref` |
+|---------------------------|--------------|-----------|
+| `/users`                  | `:root`      | nil       |
+| `/users/edit`             | `:edit`      | nil       |
+| `/users/123`              | `:show_ref`  | "123"     |
+| `/users/123/edit`         | `:edit_ref`  | "123"     |
+| `/users/foo/bar`          | `:foo`       | nil       |
+| `/users/123/foo/bar`      | `:foo_ref`   | "123"     |
+
+`def NAME` inside `ref do ... end` becomes `:NAME_ref`. Template lookup
+tries `<name>_ref.haml` then falls back to `<name>.haml`.
+
+## See also
+
+* [`../schema/README.md`](../schema/README.md) - the `opt` line parser
+* [`../api/README.md`](../api/README.md) - same DSL for JSON APIs
+* [`../application/README.md`](../application/README.md) - routing
+* [`AGENTS.md`](./AGENTS.md) - LLM guide

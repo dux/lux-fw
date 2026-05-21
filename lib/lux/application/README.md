@@ -1,156 +1,156 @@
-## Lux (Lux::Application)
+# Lux::Application
 
-Main application controller and router.
+Main router and request lifecycle. Top-level DSL: `map`, `root`, `match`,
+`subdomain`, `mount`, `favicon`, `plugin_route`, and the HTTP-method
+predicates work directly inside `Lux do ... end` - no `routes do` wrapper
+required.
 
-* catches errors and dispatches to the active controller's `:error` action — every controller inherits a default one from `Lux::Controller`; override on any controller (e.g. `MainController#error`, `Api::BaseController#error`) for custom rendering
-* calls `before`, `routes`, and `after` class filters on every request
-* `map`, `root`, `match`, `subdomain`, `mount`, `favicon`, `plugin_route`, and the HTTP-method predicates work at the top level of `Lux do ... end` — no `routes do` wrapper required. `routes do ... end` is still supported when a single block is needed for runtime conditionals.
-
-### Boot
-
-In `config.ru`:
+## Small example
 
 ```ruby
+# config.ru
 require 'lux-fw'
 
 Lux do
-  routes do
-    body 'hello'
+  before do
+    nav.path(:ref) { |el| el =~ /\A\d+\z/ ? el : nil }
   end
+
+  root 'main'                          # / -> MainController#root
+  map about: 'static#about'            # /about -> Static#about
+  map 'users'                          # /users -> UsersController (resourceful)
 end
 ```
 
-`Lux do ... end` (called from inside `Rack::Builder`) class-evals the block into
-`Lux::Application`, mounts Lux as the Rack app, and prints the start banner.
-For specs or scripts (no Rack), use `Lux.app do ... end` instead — same DSL,
-no Rack registration.
+`Lux do ... end` (inside Rack) class-evals into `Lux::Application`, mounts
+as the Rack app, and prints the start banner. For specs use
+`Lux.app do ... end` (no Rack registration).
 
-### Routes DSL
+## Full example
 
 ```ruby
 Lux do
-
+  # --- helpers (instance methods, callable from routes via method_missing)
   def api_router
-    Lux.error.forbidden 'Only POST requests are allowed' if Lux.env.prod? && !post?
+    Lux.error.forbidden if Lux.env.prod? && !post?
     Lux::Api.call nav.path
   end
 
+  # --- request callbacks
   before do
-    check_subdomain
     nav.path(:ref) { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
   end
+  after { }
 
+  # --- error sink (always wins when present; defaults to controller :error)
   rescue_from do |err|
     call '%s#error' % [user ? :main : :promo]
   end
 
-  ###
+  # --- routes ---------------------------------------------------------
+  root 'main'                                      # /
+  map about: 'static#about' if get?                # /about (GET only)
 
-  root 'main'                          # / -> MainController#root
-  map about: 'static#about' if get?    # /about (GET only)
+  post? { map api: :api_router }                   # POST scope block
 
-  post? do                             # POST-only block
-    map api: :api_router
+  map '/foo/:bar/baz' => 'main#foo'                # absolute path with capture
+
+  map 'boards'                                     # resourceful BoardsController
+  map [:array1, :array2] => 'root'                 # multi-key map
+  map %r{^@} => [UsersController, :show]           # regex match
+
+  subdomain 'admin' do
+    map 'users', 'admin/users'                     # admin.host/users
   end
 
-  map '/foo/:bar/baz' => 'main#foo'    # absolute path match, :bar captured
-
-  map 'boards'                         # /boards -> BoardsController, resourceful
-  map 'users'                          # /users  -> UsersController, resourceful
-
-  map 'admin' do                       # scope at /admin
-    map 'users', 'admin/users'         # /admin/users -> Admin::UsersController
-    map 'reports#monthly'              # /admin/reports -> Admin::Reports#monthly
+  map 'admin' do                                   # nested scope
+    root 'admin/dashboard'                         # /admin
+    map users: 'admin/users'                       # /admin/users
+    map 'reports#monthly'                          # /admin/reports -> #monthly
   end
+
+  mount ApiApp => '/api'                           # Rack app mount
+  favicon 'app/assets/favicon.ico'
+  plugin_route :authcog
 end
 ```
 
-#### map vs call
+## `map` vs `call`
 
-`map` always checks whether the route matches before dispatching. `call`
-dispatches unconditionally (used inside `rescue_from` blocks).
+| Form | Match check | Dispatch |
+|------|-------------|----------|
+| `map 'foo'`             | match `/foo` | `FooController`, resourceful |
+| `map 'foo#bar'`         | match `/foo` | `FooController#bar` explicit |
+| `map 'a', 'foo'`        | match `/a`   | `FooController`, resourceful |
+| `map a: 'foo'`          | match `/a`   | `FooController`, resourceful |
+| `map 'foo' do ... end`  | match `/foo` | enter scope, block at request time |
+| `map '/abs/:var' => 'foo#bar'` | absolute path with capture | explicit |
+| `map [:foo, :bar] => 'root'` | match either | `RootController` |
+| `call 'foo#bar'`        | none (unconditional) | explicit |
+| `call -> { [200, {}, ['OK']] }` | none | return Rack tuple |
 
-* `map 'foo'`              - match /foo, resourceful dispatch to FooController
-* `map 'foo#bar'`          - match /foo, explicit dispatch to FooController#bar
-* `map 'a', 'foo'`         - match /a, resourceful dispatch to FooController
-* `map a: 'foo'`           - same as above (hash form)
-* `map a: :foo`            - same as above (symbol target)
-* `map 'foo' do ... end`   - match /foo, enter scope (block runs at request time)
-* `map '/abs/:var' => 'foo#bar'` - absolute path match with capture
-* `map [:foo, :bar] => 'root'`   - match either
-* `call 'foo'`             - unconditional resourceful dispatch
-* `call 'foo#bar'`         - unconditional explicit dispatch
-* `call [Foo, :bar]`       - unconditional dispatch via class+symbol
-* `call -> { [200, {}, ['OK']] }` - return Rack tuple directly
+## Resourceful action resolution
 
-#### Resourceful action resolution
+After `nav.path(:ref) { ... }` canonicalizes id segments to `:ref`:
 
-After `nav.path(:ref) { ... }` canonicalizes ID segments to `:ref`:
+| URL                        | Action       | `nav.ref` |
+|----------------------------|--------------|-----------|
+| `/boards`                  | `:root`      | nil       |
+| `/boards/edit`             | `:edit`      | nil       |
+| `/boards/new`              | `:new`       | nil       |
+| `/boards/123`              | `:show_ref`  | "123"     |
+| `/boards/123/edit`         | `:edit_ref`  | "123"     |
+| `/boards/users/123/edit`   | `:edit_ref`  | "123"     |
+| `/boards/foo/bar`          | `:foo`       | nil       |
+| `/boards/123/foo/bar`      | `:foo_ref`   | "123"     |
 
-| URL                         | action      | nav.ref |
-|-----------------------------|-------------|--------|
-| `/boards`                   | `:root`     | nil    |
-| `/boards/edit`              | `:edit`     | nil    |
-| `/boards/new`               | `:new`      | nil    |
-| `/boards/123`               | `:show_ref` | "123"  |
-| `/boards/123/edit`          | `:edit_ref` | "123"  |
-| `/boards/users/123/edit`    | `:edit_ref` | "123"  |
-| `/boards/foo/bar`           | `:foo`      | nil    |
-| `/boards/123/foo/bar`       | `:foo_ref`  | "123"  |
+Rules: empty remaining → `:root`. Only `:ref` → `:show_ref`. 2+ segments
+→ first non-`:ref` after position 0. Any `:ref` in remaining → append
+`_ref` to the action name.
 
-Rules: empty remaining → `:root`. Only `:ref` → `:show_ref`. 2+ segments → first
-non-`:ref` after position 0. Any `:ref` in the remaining path → append `_ref`.
+## Route cursor
 
-Controllers declare ref-bearing actions in a `ref do ... end` block — each
-`def NAME` inside becomes `NAME_ref`. Template lookup probes `show_ref.haml`
-first and falls back to `show.haml`, so you can share a single template or
-ship a dedicated ref-only one without renaming the action.
-
-```ruby
-class BoardsController < Lux::Controller
-  def root          # /boards
-    @boards = Board.all
-  end
-
-  def archive       # /boards/archive
-  end
-
-  ref do
-    def show        # /boards/123          -> :show_ref
-      @board = Board.find(nav.ref)
-    end
-
-    def edit        # /boards/123/edit     -> :edit_ref
-      @board = Board.find(nav.ref)
-    end
-  end
-end
-```
-
-#### Route cursor: `lux.route`
-
-`nav.path` is the canonical request path. The router maintains its own offset
-cursor on `lux.route` (also `current.route`) so routing doesn't mutate nav.
+`nav.path` is the canonical request path. `lux.route` is the per-request
+cursor over it; `map` advances the cursor without mutating nav.
 
 * `lux.route.path`     - remaining path after consumed segments
 * `lux.route.root`     - first remaining segment
 * `lux.route.child`    - second remaining segment
 * `lux.route.consumed` - segments before the cursor
-* `lux.route.with_scope(n) { ... }` - internal: push offset for the block
+* `lux.route.with_scope(n) { ... }` - internal (used by `map`)
 
-Inside `map 'admin' do ... end`, `lux.route.path` is the slice after `admin`
-was consumed; `nav.path` is still the full `['admin', ...]`.
+## Class filters
 
-#### Class filters
+```ruby
+config { ... }      # pre-boot
+boot   { ... }      # after rack app boot (web only)
+before { ... }      # before every request
+routes { ... }      # legacy block form
+after  { ... }      # after every request
+```
 
-* `config`      # pre boot app config
-* `boot`        # after rack app boot (web only)
-* `before`      # before any page load
-* `routes`      # legacy single-block routes callback (top-level DSL is preferred)
-* `after`       # after any page load
+## Error handling
 
 Errors anywhere in the routing/action pipeline are caught by
-`Application#render_error` and dispatched to the active controller's `:error`
-action. The action receives `@error` (the exception) and `@status` (resolved
-HTTP status code) as instance variables. Override `error` on any controller
-(or on a base class like `Api::BaseController`) to customise.
+`render_error`. Resolution order:
+
+1. `rescue_from { |err| ... }` if defined on the app (always wins)
+2. Active controller's `:error` action (every controller inherits a default)
+3. `Lux::Error.render` (last-resort framework page)
+
+The `:error` action receives `@error` (exception) and `@status` (resolved
+HTTP code) as ivars. Override per controller for custom rendering.
+
+## CLI
+
+```bash
+lux routes          # print the mounted route tree (shadow-executor)
+lux routes -v       # add source location per entry
+```
+
+## See also
+
+* [`../controller/README.md`](../controller/README.md) - actions
+* [`../current/README.md`](../current/README.md) - `nav`, `route`, request state
+* [`../response/README.md`](../response/README.md) - response builder
+* [`AGENTS.md`](./AGENTS.md) - LLM guide

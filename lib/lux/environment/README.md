@@ -1,24 +1,66 @@
-## Lux.env (Lux::Environment)
+# Lux::Environment
 
-Module provides access to environment settings.
+Three orthogonal facets of "where am I running?":
+
+* `Lux.env`     - environment name (`development`, `production`, `test`)
+* `Lux.mode`    - behavior toggles (`log?`, `errors?`, `reload?`)
+* `Lux.runtime` - process kind (`web?`, `cli?`, `rake?`)
+
+## Small example
 
 ```ruby
-Lux.env.development? # true in development and test
-Lux.env.production?  # true in production and log
-Lux.env.test?        # true for test
-Lux.env.log?         # true for log
-Lux.env.rake?        # true if run in rake
-Lux.env.cli?         # true if not run under web server
-
-# aliases
-Lux.env.dev?  # Lux.env.development?
-Lux.env.prod? # Lux.env.production?
+Lux.env.production?      # true only in production
+Lux.mode.log?            # screen logging on?
+Lux.runtime.web?         # under puma/falcon/rackup?
 ```
 
-Lux provides only 4 environent modes that are set via `ENV['RACK_ENV']` settings -
-  `development`, `production`, `test` and `log`.
-  * `test` and `log` are special modes
-    * `test`: will retun true to `Lux.env.test?` and `Lux.env.develoment?`
-    * `log`: Production mode with output logging. It will retun true for
-      `Lux.env.log?` and `Lux.env.production?` or `Lux.env.prod?`.
-      This mode is activated if you run server with `bundle exec lux ss`
+## Full example
+
+```ruby
+# --- Lux.env: name of the environment -----------------------------------
+
+Lux.env.development?     # NOT production (includes test)
+Lux.env.production?      # only in production
+Lux.env.test?            # only in test
+Lux.env.to_s             # 'development' / 'production' / 'test'
+Lux.env == :dev          # also accepts :prod, :test (and strings)
+Lux.env.dev?             # alias
+Lux.env.prod?            # alias
+
+# Set via RACK_ENV or LUX_ENV. Defaults to 'development'.
+
+# --- Lux.mode: behavior toggles -----------------------------------------
+
+# Defaults per env:
+#   dev:  log=on  errors=on  reload=on
+#   prod: log=off errors=off reload=off
+#   test: log=off errors=off reload=off
+
+Lux.mode.log?            # screen dev log: Lux.log, SQL echo, pretty JSON
+Lux.mode.errors?         # rich error pages, verbose 404s
+Lux.mode.reload?         # per-request code reload
+
+# Block form for env-conditioned messages:
+Lux.error.not_found Lux.mode.errors?('404 Not Found') { 'long debug msg' }
+
+# Runtime override (also via LUX_LOG / LUX_ERRORS / LUX_RELOAD env vars):
+Lux.mode.log = true
+Lux.mode.errors = false
+
+# --- Lux.runtime: how the process was started ---------------------------
+
+Lux.runtime.web?         # puma / falcon / rackup
+Lux.runtime.cli?         # otherwise
+Lux.runtime.rake?        # run via rake
+```
+
+## Notes
+
+* `LUX_LOG`, `LUX_ERRORS`, `LUX_RELOAD` accept `true`/`false`
+  (case-insensitive). Empty = unset. Other = boot-time error.
+* `lux server` accepts `-l`, `-e`, `-r` flags for these on the CLI.
+
+## See also
+
+* [`../config/README.md`](../config/README.md) - app config + `.env`
+* [`AGENTS.md`](./AGENTS.md) - LLM guide
