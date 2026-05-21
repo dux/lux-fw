@@ -29,8 +29,8 @@ plugins/<name>/
   every loaded plugin and evaluates each one's `routes.rb` if present).
   Not loaded automatically. Order and namespacing are the app's job.
 * Auto-mount convention for `plugin_routes`: the plugin's `routes.rb`
-  declares its own mount path, by convention
-  `mount LuxFooWeb => '/admin/plugins/<name>'`. Host app puts a single
+  routes its Rack class with `map`, by convention
+  `map '/admin/plugins/<name>' => LuxFooWeb`. Host app puts a single
   `plugin_routes` call at the bottom of its routes block.
 * **`Hammerfile` / `hammer/`** are NOT loaded at runtime - they're
   picked up by the `lux` CLI at startup so commands appear in `lux help`
@@ -49,8 +49,8 @@ plugins/<name>/
 * Put CLI commands under `hammer/` (one file per command).
 * Put route bindings in `routes.rb`. For plugins that should auto-mount
   (admin dashboards etc.), declare the full path inside -
-  `mount LuxFooWeb => '/admin/plugins/<name>'` - and tell the host app
-  to call `plugin_routes`. For plugins that need host-controlled mount
+  `map '/admin/plugins/<name>' => LuxFooWeb` - and tell the host app to
+  call `plugin_routes`. For plugins that need host-controlled mount
   position, document `plugin_route :name` instead.
 * If users need to drop config / templates into their app, put them in
   `mount/`. Tell them to run `lux mount`.

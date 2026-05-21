@@ -1,9 +1,6 @@
 require_relative 'date_type'
 
 class Lux::Type::DatetimeType < Lux::Type::DateType
-  opts :min, 'Smallest date allowed'
-  opts :max, 'Maximal date allowed'
-
   error :en, :invalid_datetime, 'is not a valid datetime'
 
   def coerce

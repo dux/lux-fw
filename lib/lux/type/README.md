@@ -40,7 +40,7 @@ Located in [`lib/lux/type/types/`](./types).
 | `:country`   | String  | ISO 3166-1 alpha-2, uppercased |
 | `:currency`  | Float   | parsed with locale |
 | `:currency_code` | String | ISO 4217, uppercased |
-| `:phone`     | String  | E.164 normalize |
+| `:phone`     | String  | strips parens/dashes, requires 5+ digits |
 | `:iban`      | String  | validates IBAN |
 | `:oib`       | String  | Croatian tax id |
 | `:label`     | String  | enum-friendly |

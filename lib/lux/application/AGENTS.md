@@ -36,7 +36,7 @@ Lux.app do
       root 'admin/dashboard'
       map 'users', 'admin/users'
     end
-    mount ApiApp => '/api'
+    map '/api' => ApiApp                     # any class responding to .call(env)
   end
 end
 ```
@@ -44,8 +44,8 @@ end
 ## Rules
 
 * **Routing DSL lives inside `routes do ... end`.** `map`, `root`,
-  `match`, `subdomain`, `mount`, `favicon`, `plugin_route`,
-  `plugin_routes`, `get?`/`post?`/... all belong inside the routes block. The framework
+  `match`, `subdomain`, `favicon`, `plugin_route`, `plugin_routes`,
+  `get?`/`post?`/... all belong inside the routes block. The framework
   technically supports them at the top level too (singleton DSL
   wrappers), but every real app keeps routing inside `routes do` for
   clarity and so runtime conditionals can interleave naturally.
@@ -65,7 +65,12 @@ end
   the full routing DSL is available.
 * **Subdomain matching:** `subdomain 'admin' do ... end` only enters the
   block when `nav.subdomain == 'admin'`.
-* **Mount Rack apps** with `mount Rack::App => '/prefix'`.
+* **No `mount`. Use `map`.** Any class responding to `.call(env)` is a
+  Rack app. Route it the same way as a controller:
+  `map '/api' => ApiApp` (absolute path) or `map api: ApiApp` (symbol).
+  Lux invokes `ApiApp.call(Lux.current.env)` and renders the Rack
+  response - `SCRIPT_NAME` is **not** rewritten, the app sees the full
+  path. Rails users: `mount Foo, at: '/x'` -> `map '/x' => Foo`.
 * **`before` / `after` callbacks** at the top level fire on every
   request. `before` runs pre-routing (use for nav canonicalization,
   auth lookup); `after` runs post-render (use for body transforms,

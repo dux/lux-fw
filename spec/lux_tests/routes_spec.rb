@@ -54,6 +54,13 @@ class RoutesTestController < Lux::Controller
   end
 end
 
+class MountedRackApp
+  def self.call(env)
+    body = 'mounted:%s:%s' % [env['SCRIPT_NAME'], env['PATH_INFO']]
+    [200, { 'content-type' => 'text/plain' }, [body]]
+  end
+end
+
 class BoardsController < Lux::Controller
   def root;    render text: 'boards:root';    end
   def new;     render text: 'boards:new';     end
@@ -130,6 +137,12 @@ Lux.app do
   map 'exploding-via-call' => 'exploding#boom_via_call'
   map 'after-mutate' => 'after_mutate#show'
 
+  # Rack-app dispatch: any class responding to .call(env) is routed via
+  # `map`/`call` exactly like a controller.
+  map '/r1'           => MountedRackApp     # absolute path
+  map '/foo/bar/baz'  => MountedRackApp     # deep absolute path
+  map r3:                MountedRackApp     # symbol shortcut (single segment)
+
   # Fallback 404 - this used to be a bare line inside `routes do` and ran on
   # every unmatched request. Wrap in a routes callback so it still fires last.
   routes { lux.response.body 'not found', status: 404 unless lux.response.body? }
@@ -167,6 +180,31 @@ describe Lux::Application do
   it 'should get bad routes' do
     expect(Lux.render.get('/not-found').status).to eq 404
     expect(Lux.render.get('/x@dux').status).to eq 404
+  end
+
+  describe 'Rack-class dispatch via map' do
+    it 'routes an absolute root prefix to RackClass.call(env)' do
+      res = Lux.render.get('/r1/hello')
+      expect(res.status).to eq 200
+      # SCRIPT_NAME is empty - the Rack app sees the full path verbatim
+      expect(res.body).to eq 'mounted::/r1/hello'
+    end
+
+    it 'routes a deep absolute prefix' do
+      res = Lux.render.get('/foo/bar/baz/sub/page')
+      expect(res.status).to eq 200
+      expect(res.body).to eq 'mounted::/foo/bar/baz/sub/page'
+    end
+
+    it 'routes via a symbol shortcut on a single segment' do
+      res = Lux.render.get('/r3')
+      expect(res.status).to eq 200
+      expect(res.body).to eq 'mounted::/r3'
+    end
+
+    it 'leaves unmatched requests alone' do
+      expect(Lux.render.get('/totally-different').status).to eq 404
+    end
   end
 
   it 'should render js route' do

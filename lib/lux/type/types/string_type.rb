@@ -7,16 +7,13 @@ class Lux::Type::StringType < Lux::Type
     value(&:to_s)
     value(&:downcase) if opts[:downcase]
 
-    # this is database default for string type and it is good to define default unless defined
-    opts[:max] ||= 255
-
-    error_for(:min_length_error, opts[:min], value.length) if opts[:min] && value.length < opts[:min]
-    error_for(:max_length_error, opts[:max], value.length) if opts[:max] && value.length > opts[:max]
+    # default 255 matches the DB string limit
+    check_min_max_length 255
   end
 
   def db_schema
     [:string, {
-      limit: @opts[:max] || 255
+      limit: opts[:max] || 255
     }]
   end
 end

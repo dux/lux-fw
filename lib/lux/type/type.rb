@@ -40,14 +40,18 @@ module Lux
 
     attr_reader :opts
 
+    LOAD_CACHE ||= {}
+
     class << self
       def load name
-        klass = 'Lux::Type::%sType' % name.to_s.gsub(/[^\w]/, '').classify
+        LOAD_CACHE[name] ||= begin
+          klass = 'Lux::Type::%sType' % name.to_s.gsub(/[^\w]/, '').classify
 
-        if const_defined? klass
-          klass.constantize
-        else
-          raise ArgumentError, 'Lux type "%s" is not defined (%s)' % [name, klass]
+          if const_defined? klass
+            klass.constantize
+          else
+            raise ArgumentError, 'Lux type "%s" is not defined (%s)' % [name, klass]
+          end
         end
       end
 
@@ -62,14 +66,19 @@ module Lux
         OPTS[self][key] = desc
       end
 
+      # walks ancestors so a subclass inherits its parent's declared opts
       def allowed_opt? name
         return true if OPTS_KEYS.include?(name)
 
-        OPTS[self] ||= {}
-        return true if OPTS[self][name]
+        klass = self
+        while klass.respond_to?(:opts) && klass <= Lux::Type
+          return true if OPTS[klass] && OPTS[klass][name]
+          klass = klass.superclass
+        end
 
+        own_keys = (OPTS[self] || {}).keys
         msg  = %[Unallowed param "#{name}" for type "#{to_s}" found. Allowed are "#{OPTS_KEYS.join(', ')}"]
-        msg += %[ + "#{OPTS[self].keys.join(', ')}"] if OPTS[self].keys.first
+        msg += %[ + "#{own_keys.join(', ')}"] if own_keys.first
 
         block_given? ? yield(msg) : raise(ArgumentError, msg)
 
@@ -125,6 +134,7 @@ module Lux
     def db_field
       out = db_schema
       out[1] ||= {}
+      # type's own db_schema default wins; user-supplied :default fills it in only when type left it blank
       out[1][:default] ||= opts[:default] unless opts[:default].nil?
       out[1][:null]      = false if !opts[:array] && opts[:required]
       out
@@ -135,12 +145,12 @@ module Lux
       get
     end
 
-    # coerce without validation - swallows TypeError from constraint checks
+    # coerce without validation - swallows any parse/constraint failure
     def coerce_value
       return nil if value.nil?
       begin
         coerce
-      rescue TypeError
+      rescue StandardError
       end
       value
     end
@@ -148,9 +158,26 @@ module Lux
     def input_value
       value
     end
-    alias :to_s :input_value
+
+    def to_s
+      input_value.to_s
+    end
 
     private
+
+    # shared comparable check for numeric types (Integer, Float, Date, ...)
+    def check_min_max
+      error_for(:min_value_error, opts[:min], value) if opts[:min] && value < opts[:min]
+      error_for(:max_value_error, opts[:max], value) if opts[:max] && value > opts[:max]
+    end
+
+    # shared length check for string-shaped types (String, Email, Slug, ...)
+    def check_min_max_length max_default = nil, min_default = nil
+      min = opts[:min] || min_default
+      max = opts[:max] || max_default
+      error_for(:min_length_error, min, value.length) if min && value.length < min
+      error_for(:max_length_error, max, value.length) if max && value.length > max
+    end
 
     def error_for name, *args
       locale =

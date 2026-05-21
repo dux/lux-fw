@@ -11,7 +11,6 @@ class DumpApp < Lux::Application
     map users: 'admin/users'
   end
   map '/abs/:id' => 'main#show'
-  mount Object => '/api'
 
   # conditional via http-method predicate: should still be visible in dump
   get? { map 'preview' => 'main#preview' }
@@ -41,12 +40,6 @@ describe Lux::Application::RoutesDumper do
     e = entries.find { |x| x.path == '/abs/:id' }
     expect(e).not_to be_nil
     expect(e.target).to eq('main#show')
-  end
-
-  it 'records mount as a /*-suffixed path' do
-    e = entries.find { |x| x.path == '/api/*' }
-    expect(e).not_to be_nil
-    expect(e.target).to include('[mounted]')
   end
 
   it 'records http-method-scoped routes with the right verb' do

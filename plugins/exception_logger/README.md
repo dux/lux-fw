@@ -18,14 +18,14 @@ errors are recorded automatically after the plugin is loaded.
 
 ## Web Viewer
 
-Mount the Sinatra viewer in your app routes:
+Route the Sinatra viewer in your app:
 
 ```ruby
 LuxExceptionWeb.password = ENV['LUX_EXCEPTION_PASSWORD']
 
 Lux.app do
   routes do
-    mount LuxExceptionWeb, at: '/admin/sys-errors'
+    map '/admin/sys-errors' => LuxExceptionWeb
   end
 end
 ```

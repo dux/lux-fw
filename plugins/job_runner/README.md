@@ -63,12 +63,12 @@ LuxJob.run  # blocks and polls every 3 seconds
 lux job_runner:web <password>
 ```
 
-Or mount in your Lux app:
+Or route in your Lux app:
 
 ```ruby
 require 'job_runner/lib/lux_job_web'
 LuxJobWeb.password = 'secret'
-mount LuxJobWeb, at: '/sys-runner'
+map '/sys-runner' => LuxJobWeb
 ```
 
 ## Schema

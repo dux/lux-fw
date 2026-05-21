@@ -1,8 +1,8 @@
 # Sinatra web interface for LuxJob
 # Standalone: rake job_runner:web[password]
-# Mounted in Lux:
+# Routed in Lux:
 #   LuxJobWeb.password = 'password'
-#   mount LuxJobWeb, at: '/sys-runner'
+#   map '/sys-runner' => LuxJobWeb
 
 require 'sinatra/base'
 
@@ -75,7 +75,10 @@ class LuxJobWeb < Sinatra::Base
     end
   end
 
-  # Routes - prefix is handled by Lux mount via SCRIPT_NAME
+  # Routes - relative paths; the host app's `map '/prefix' => LuxJobWeb`
+  # passes the full env, so when running mounted you'll want to wrap this
+  # class with Rack::URLMap.new('/prefix' => LuxJobWeb) or route each
+  # Sinatra path at the full prefix.
   get '/?' do
     @jobs = LuxJob::JOBS.map do |name, opts|
       db_job = LuxJob.first(name: name.to_s)

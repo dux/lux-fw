@@ -40,7 +40,12 @@ opt :age, type: :positive_integer, allow_zero: true
   `[:column_type, {opts}]`).
 * For new opt keys, declare them with `opts :key, 'description'` so
   `Lux::Schema::Define` accepts them. Otherwise validation will reject the
-  key as "unallowed param".
+  key as "unallowed param". Declared opts inherit down the class chain -
+  a subclass does not need to redeclare keys from its parent.
+* For min/max validation, prefer the shared helpers on the base class:
+  `check_min_max` (numeric/comparable) and
+  `check_min_max_length(max_default = nil, min_default = nil)` (length).
+  Both read `opts[:min]` / `opts[:max]` and raise the standard error keys.
 * Raise `TypeError` via `error_for(:key, *args)` so the message is
   locale-aware (defined in `Lux::Type::ERRORS[locale][key]`).
 * Built-in error keys: `:min_length_error`, `:max_length_error`,

@@ -1,5 +1,7 @@
 class Lux::Type::EmailType < Lux::Type
-  error :en, :not_8_chars_error, 'is not having at least 8 characters'
+  opts :min, 'Minimum email length'
+  opts :max, 'Maximum email length'
+
   error :en, :missing_monkey_error, 'is missing @'
 
   def coerce
@@ -7,13 +9,14 @@ class Lux::Type::EmailType < Lux::Type
       email.downcase.gsub(/\s+/, '')
     end
 
-    error_for(:not_8_chars_error) unless value.to_s.length > 7
+    check_min_max_length 120, 5
+
     error_for(:missing_monkey_error) unless value.include?('@')
   end
 
   def db_schema
     [:string, {
-      limit: @opts[:max] || 120
+      limit: opts[:max] || 120
     }]
   end
 end

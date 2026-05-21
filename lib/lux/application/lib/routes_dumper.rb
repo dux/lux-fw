@@ -118,12 +118,6 @@ module Lux
         @path = prev_path
       end
 
-      def mount opts
-        target = opts.keys.first
-        prefix = opts.values.first
-        record verb: '*', path: prefix.to_s + '/*', target: '[mounted] %s' % stringify(target)
-      end
-
       def favicon path
         record verb: 'GET', path: '/favicon.ico', target: '[favicon] %s' % path
       end

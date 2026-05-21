@@ -81,13 +81,42 @@ Lux.app do
       map 'reports#monthly'                        # /admin/reports -> #monthly
     end
 
-    mount ApiApp => '/api'                         # Rack app mount
+    map '/api' => ApiApp                           # any Rack-callable class
     favicon 'app/assets/favicon.ico'
     plugin_route :authcog                          # explicit single plugin
     plugin_routes                                  # auto-mount every plugin with routes.rb
   end
 end
 ```
+
+## Mounting Rack apps (no `mount` keyword)
+
+Lux has no separate `mount` method. Any class responding to `.call(env)`
+- Rack, Sinatra, Roda, a plain `class Foo; def self.call(env); ...; end`
+- is a valid target for `map` / `call`.
+
+```ruby
+routes do
+  map '/api'                  => ApiApp           # absolute path
+  map '/admin/sys/jobs'       => LuxJobWeb        # deep absolute path
+  map api:                       ApiApp           # symbol shortcut (single segment)
+  call ApiApp                                     # unconditional (inside rescue_from etc.)
+end
+```
+
+Behavior: when the path matches, Lux calls `target.call(Lux.current.env)`
+and renders the returned `[status, headers, body]` tuple as the response.
+`SCRIPT_NAME` is **not** rewritten - the mounted app sees the full path.
+If your Sinatra/Roda app needs prefix stripping, do it inside the app
+itself or wrap it with `Rack::URLMap` before passing it to `map`.
+
+Coming from Rails:
+
+| Rails                                  | Lux                                |
+|----------------------------------------|------------------------------------|
+| `mount Foo, at: '/x'`                  | `map '/x' => Foo`                  |
+| `mount Sidekiq::Web => '/admin/jobs'`  | `map '/admin/jobs' => Sidekiq::Web`|
+| `mount Foo => '/x'` (Rails 7+)         | `map '/x' => Foo`                  |
 
 ## `map` vs `call`
 

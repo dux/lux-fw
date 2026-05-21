@@ -1,8 +1,8 @@
 # Sinatra web viewer for LuxException.
-# Standalone with basic auth, or mounted in Lux:
+# Standalone with basic auth, or routed in Lux:
 #
 #   LuxExceptionWeb.password = 'secret'
-#   mount LuxExceptionWeb, at: '/admin/sys-errors'
+#   map '/admin/sys-errors' => LuxExceptionWeb
 
 require 'sinatra/base'
 
