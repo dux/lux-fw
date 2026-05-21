@@ -127,7 +127,7 @@ module ApplicationHelper
     begin
       builder = HtmlForm.new obj, opts
       builder.render &block
-    rescue Policy::Error => e
+    rescue Lux::Policy::Error => e
       msg = e.message.split(' - ')[0]
       return msg.tag 'ui-info', { type: :error }
     end

@@ -1,4 +1,21 @@
 <script>
+  // Resolve an `xxx_ref` field name to the api section that owns the
+  // referenced model, by matching the prefix against each api's schema_ref.
+  // Returns the schema name (e.g. 'user') or null when nothing matches.
+  function resolveRefSchema(fieldName) {
+    if (!/_ref$/.test(fieldName)) return null
+    const prefix  = fieldName.replace(/_ref$/, '')
+    const root    = window.lux_api && window.lux_api.api_schema
+    const apis    = (root && root.apis) || {}
+    const schemas = (root && root.schemas) || {}
+    for (const apiName of Object.keys(apis)) {
+      if (apis[apiName].schema_ref === prefix && schemas[prefix]) {
+        return { schema: prefix, api_anchor: 'api-' + apiName }
+      }
+    }
+    return null
+  }
+
   class {
     init(props) {
       this.state.params = props.params
@@ -7,37 +24,105 @@
     rows() {
       return Object.keys(this.state.params).map(name => {
         const spec = this.state.params[name] || {}
+        const ref  = resolveRefSchema(name)
         return {
           name,
-          type:     spec.type,
-          required: !!spec.required,
-          default:  spec.default,
-          values:   spec.values,
-          desc:     spec.desc
+          type:       spec.type,
+          required:   !!spec.required,
+          default:    spec.default,
+          values:     spec.values,
+          desc:       spec.desc,
+          ref_target: ref ? ref.api_anchor : null,
+          ref_schema: ref ? ref.schema     : null
         }
       })
+    }
+
+    refPreview(schemaName) {
+      const root    = window.lux_api && window.lux_api.api_schema
+      const schemas = (root && root.schemas) || {}
+      const fields  = schemas[schemaName]
+      if (!fields) return ''
+      const rows = Object.keys(fields).slice(0, 12).map(k => {
+        const s = fields[k] || {}
+        const parts = [k]
+        if (s.type)     parts.push('<em>' + s.type + '</em>')
+        if (s.required) parts.push('<span class="req">required</span>')
+        return parts.join(' ')
+      })
+      const more = Object.keys(fields).length > 12 ? '<div class="more">+ ' + (Object.keys(fields).length - 12) + ' more...</div>' : ''
+      return '<div class="ref-pop-title">' + schemaName + '</div>' + rows.map(r => '<div class="ref-pop-row">' + r + '</div>').join('') + more
     }
   }
 </script>
 
+<style>
+  :fez {
+    .row-name-link {
+      color: inherit; text-decoration: none;
+      border-bottom: 1px dotted #9ca3af;
+      position: relative;
+    }
+    .row-name-link:hover { color: #4f46e5; border-bottom-color: #4f46e5; }
+    .row-desc { color: #6b7280; margin-top: 2px; max-width: 720px; }
+
+    .ref-pop {
+      position: absolute;
+      top: 100%; left: 0;
+      margin-top: 6px;
+      min-width: 260px; max-width: 360px;
+      padding: 8px 10px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.02);
+      font-size: 12px; line-height: 1.5;
+      color: #374151;
+      z-index: 50;
+      display: none;
+      pointer-events: none;
+    }
+    .row-name-link:hover .ref-pop { display: block; }
+    .ref-pop-title { font-weight: 700; color: #111827; margin-bottom: 4px;
+                     font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .ref-pop-row   { font-family: 'JetBrains Mono', ui-monospace, monospace;
+                     padding: 2px 0; border-top: 1px solid #f3f4f6; color: #374151; }
+    .ref-pop-row em { color: #6b7280; font-style: normal; font-size: 11px; }
+    .ref-pop-row .req { color: #be123c; font-size: 10px; text-transform: uppercase;
+                        letter-spacing: 0.04em; margin-left: 4px; }
+    .ref-pop .more { color: #9ca3af; padding-top: 4px; font-style: italic; }
+  }
+</style>
+
 <div class="rounded-lg border border-gray-200 overflow-hidden bg-white small-text">
   {#for row in fez.rows()}
-    <div class="flex items-baseline gap-3 px-4 py-2.5 border-b border-gray-100 last:border-0">
-      <code class="text-gray-900 shrink-0 min-w-[80px]" style="font-weight: 600;">{row.name}</code>
-      {#if row.type}
-        <span class="label gray mono">{row.type}</span>
-      {/if}
-      {#if row.required}
-        <span class="label red">required</span>
-      {/if}
-      <div class="flex-1 text-right text-gray-400 truncate">
-        {#if row.default !== undefined && row.default !== null}
-          default <code class="text-gray-600">{JSON.stringify(row.default)}</code>
+    <div class="px-4 py-2.5 border-b border-gray-100 last:border-0">
+      <div class="flex items-baseline gap-3">
+        <code class="text-gray-900 shrink-0 w-[200px]" style="font-weight: 600;">
+          {#if row.ref_target}
+            <a class="row-name-link" href={'#' + row.ref_target} title="jump to referenced API">{row.name}<span class="ref-pop">{@html fez.refPreview(row.ref_schema)}</span></a>
+          {:else}
+            {row.name}
+          {/if}
+        </code>
+        {#if row.type}
+          <span class="label gray mono">{row.type}</span>
         {/if}
-        {#if row.values}
-          <span class="ml-2">values <code class="text-gray-600">{row.values.join(' | ')}</code></span>
+        {#if row.required}
+          <span class="label red">required</span>
         {/if}
+        <div class="flex-1 text-right text-gray-400 truncate">
+          {#if row.default !== undefined && row.default !== null}
+            default <code class="text-gray-600">{JSON.stringify(row.default)}</code>
+          {/if}
+          {#if row.values}
+            <span class="ml-2">values <code class="text-gray-600">{row.values.join(' | ')}</code></span>
+          {/if}
+        </div>
       </div>
+      {#if row.desc}
+        <div class="row-desc small-text">{@html window.luxMd(row.desc)}</div>
+      {/if}
     </div>
   {/for}
 </div>

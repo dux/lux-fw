@@ -45,7 +45,8 @@ module Lux
       end
 
       def apis mount_on
-        out = {}
+        out         = {}
+        schemas_map = schemas || {}
 
         Lux::Api.documented.each do |klass|
           next if klass.to_s == 'Lux::Api::SysApi'
@@ -58,12 +59,25 @@ module Lux
             desc:       class_opts[:desc],
             detail:     class_opts[:detail],
             icon:       class_opts[:icon],
+            schema_ref: class_schema_ref(klass, schemas_map),
             collection: methods_for(klass, :collection, mount_on, api_name),
             member:     methods_for(klass, :member,     mount_on, api_name)
           }.compact
         end
 
         out
+      end
+
+      # class-level schema link: the model name the class declares via
+      # api_schema_ref. Returned only when api_schema actually yields a
+      # truthy Lux::Schema and that name is present in the assembled
+      # schemas map (avoids dangling refs on the consumer side).
+      def class_schema_ref klass, schemas_map
+        return nil unless klass.respond_to?(:api_schema) && klass.respond_to?(:api_schema_ref)
+        return nil unless (klass.api_schema rescue nil)
+
+        name = klass.api_schema_ref.to_s
+        name.empty? || !schemas_map.key?(name) ? nil : name
       end
 
       # build the per-method entry; strips private (_*) keys like :_schema

@@ -1,2 +1,2 @@
-class LuxJobPolicy < ModelPolicy
+class LuxJobPolicy < Lux::Policy
 end

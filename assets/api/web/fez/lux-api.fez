@@ -25,8 +25,8 @@
   }
 </style>
 
-<section id={'api-' + state.name} class="scroll-mt-20 mt-10">
-  <header class="pb-6 mb-8 border-b border-gray-200">
+<section id={'api-' + state.name} class="scroll-mt-20 mt-10 pt-8 border-t-2 border-gray-300">
+  <header class="pb-6 mb-8">
     <div class="flex items-center gap-3">
       {#if state.api.icon}
         <span class="inline-flex items-center justify-center mt-1 w-4 h-10 rounded-lg bg-gray-100 text-gray-700 -ml-7.5">
@@ -37,12 +37,16 @@
     </div>
 
     {#if state.api.desc}
-      <p class="text-gray-600 mb-0 max-w-3xl mt-3">{state.api.desc}</p>
+      <p class="text-gray-600 mb-0 max-w-3xl mt-3">{@html window.luxMd(state.api.desc)}</p>
     {/if}
     {#if state.api.detail}
-      <p class="small-text text-gray-500 mt-1 max-w-3xl">{state.api.detail}</p>
+      <p class="small-text text-gray-500 mt-1 max-w-3xl">{@html window.luxMd(state.api.detail)}</p>
     {/if}
   </header>
+
+  {#if state.api.schema_ref}
+    <schema-view name={state.api.schema_ref} />
+  {/if}
 
   {#if fez.collectionEntries().length}
     <div class="method-group">

@@ -29,78 +29,46 @@ Content-Type: application/json
 ${JSON.stringify(body, null, 2)}`
     },
 
+    'js': (c) => {
+      // ky - 3kb fetch wrapper. Auto-parses JSON, throws on non-2xx.
+      const json = JSON.stringify(c.params, null, 2).replace(/\n/g, '\n    ')
+      let opts = `{\n    json: ${json}`
+      if (c.bearer) opts += `,\n    headers: { Authorization: 'Bearer ${c.bearer}' }`
+      opts += '\n  }'
+      return [
+        `import ky from 'ky'`,
+        ``,
+        `const data = await ky`,
+        `  .post('${c.url}', ${opts})`,
+        `  .json()`
+      ].join('\n')
+    },
+
     'ruby': (c) => {
-      let out = `require 'net/http'
-require 'json'
-
-uri = URI('${c.url}')
-req = Net::HTTP::Post.new(uri)
-req['Content-Type'] = 'application/json'
-`
-      if (c.bearer) out += `req['Authorization'] = 'Bearer ${c.bearer}'\n`
-      out += `req.body = ${JSON.stringify(JSON.stringify(c.params))}
-
-res = Net::HTTP.start(uri.hostname, uri.port) { |h| h.request(req) }
-JSON.parse(res.body)`
-      return out
+      // http.rb (gem 'http') - tiny, chainable, no ceremony.
+      let chain = 'HTTP'
+      if (c.bearer) chain += `\n  .auth('Bearer ${c.bearer}')`
+      chain += `\n  .post('${c.url}', json: ${JSON.stringify(c.params)})\n  .parse`
+      return `require 'http'\n\ndata = ${chain}`
     },
 
     'python': (c) => {
-      const headers = { 'Content-Type': 'application/json' }
-      if (c.bearer) headers['Authorization'] = `Bearer ${c.bearer}`
+      // httpx - same shape as requests, modern + async-capable.
       const py = (v) => JSON.stringify(v).replace(/true/g,'True').replace(/false/g,'False').replace(/null/g,'None')
-      return `import requests
-
-r = requests.post(
-  '${c.url}',
-  headers=${py(headers)},
-  json=${py(c.params)},
-)
-r.json()`
-    },
-
-    'csharp': (c) => {
-      const body = JSON.stringify(c.params)
-      let out = `using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
-
-var client  = new HttpClient();
-`
-      if (c.bearer) out += `client.DefaultRequestHeaders.Authorization =
-  new AuthenticationHeaderValue("Bearer", "${c.bearer}");
-
-`
-      out += `var content = new StringContent(
-  ${JSON.stringify(body)},
-  Encoding.UTF8,
-  "application/json"
-);
-
-var res  = await client.PostAsync("${c.url}", content);
-var body = await res.Content.ReadAsStringAsync();`
+      const headers = {}
+      if (c.bearer) headers['Authorization'] = `Bearer ${c.bearer}`
+      let out = `import httpx\n\nr = httpx.post(\n    '${c.url}',`
+      if (Object.keys(headers).length) out += `\n    headers=${py(headers)},`
+      out += `\n    json=${py(c.params)},\n)\ndata = r.json()`
       return out
     },
 
     'java': (c) => {
+      // OkHttp - Square's HTTP client; the de facto Java/Android choice.
       const body = JSON.stringify(c.params)
-      let out = `import java.net.URI;
-import java.net.http.*;
-
-var body = ${JSON.stringify(body)};
-
-var req = HttpRequest.newBuilder()
-  .uri(URI.create("${c.url}"))
-  .header("Content-Type", "application/json")
-`
-      if (c.bearer) out += `  .header("Authorization", "Bearer ${c.bearer}")\n`
-      out += `  .POST(HttpRequest.BodyPublishers.ofString(body))
-  .build();
-
-var res = HttpClient.newHttpClient()
-  .send(req, HttpResponse.BodyHandlers.ofString());
-
-System.out.println(res.body());`
+      let out = `import okhttp3.*;\n\nvar client = new OkHttpClient();\nvar body   = RequestBody.create(\n  ${JSON.stringify(body)},\n  MediaType.parse("application/json")\n);\n\nvar req = new Request.Builder()\n  .url("${c.url}")\n  .post(body)`
+      if (c.bearer) out += `\n  .header("Authorization", "Bearer ${c.bearer}")`
+      out += `\n  .build();\n\nvar data = client.newCall(req).execute().body().string();`
       return out
     }
   }
@@ -116,6 +84,84 @@ System.out.println(res.body());`
     return 'text'
   }
 
+  // ---- JSON tree renderer (HTML-string variant) -------------------------
+  // Returns an HTML string so the rendered tree can live in fez state and
+  // survive template re-renders untouched. Toggle clicks use a global
+  // handler (window.luxJvToggle, defined in boot.js) so collapse/expand
+  // works without per-render listener rebinding.
+  function escapeHtmlStr(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]))
+  }
+  function jsonNodeType(v) {
+    if (v === null)              return 'null'
+    if (Array.isArray(v))        return 'array'
+    if (typeof v === 'object')   return 'object'
+    return typeof v
+  }
+  function renderLeafHtml(v) {
+    const t = jsonNodeType(v)
+    let text
+    if (t === 'string')       text = JSON.stringify(v)
+    else if (t === 'null')    text = 'null'
+    else                      text = String(v)
+    return '<span class="jv-' + t + '">' + escapeHtmlStr(text) + '</span>'
+  }
+  function renderJsonNodeHtml(v, depth) {
+    const t = jsonNodeType(v)
+    if (t !== 'object' && t !== 'array') return renderLeafHtml(v)
+
+    const keys     = Object.keys(v)
+    const open     = true                      // expand all by default; toggle still works per-node
+    const opener   = t === 'array' ? '[' : '{'
+    const closer   = t === 'array' ? ']' : '}'
+    const toggleCh = open ? '▾' : '▸'
+    const openCls  = open ? ' is-open' : ''
+    const countStyle = open ? ' style="display:none"' : ''
+
+    let rows = ''
+    keys.forEach((k, i) => {
+      const sep = (i < keys.length - 1) ? ',' : ''
+      const keyPart = (t === 'object')
+        ? '<span class="jv-key">"' + escapeHtmlStr(k) + '"</span>: '
+        : ''
+      rows += '<div class="jv-row">' + keyPart + renderJsonNodeHtml(v[k], depth + 1) + sep + '</div>'
+    })
+
+    return '<div class="jv-group">' +
+      '<span class="jv-summary">' +
+        '<span class="jv-toggle' + openCls + '" onclick="window.luxJvToggle(this)">' + toggleCh + '</span> ' + opener +
+      '</span>' +
+      '<span class="jv-count"' + countStyle + '> ' + keys.length + (t === 'array' ? ' items' : ' keys') + '</span>' +
+      '<div class="jv-children' + openCls + '">' + rows + '</div>' +
+      ' ' + closer +
+    '</div>'
+  }
+
+  // ---- history (localStorage) -------------------------------------------
+  // Last N=5 sent calls per (api, action, kind). Stored as JSON array
+  // under a stable key. Entries: { t (ms), ref, values, status, ms }.
+  const HISTORY_MAX = 5
+  function historyKey(api, action, kind) {
+    return 'lux_api_hist:' + api + ':' + (kind || 'collection') + ':' + action
+  }
+  function historyLoad(api, action, kind) {
+    try { return JSON.parse(localStorage.getItem(historyKey(api, action, kind)) || '[]') }
+    catch (e) { return [] }
+  }
+  function historySave(api, action, kind, list) {
+    localStorage.setItem(historyKey(api, action, kind), JSON.stringify(list.slice(0, HISTORY_MAX)))
+  }
+  function historyPush(api, action, kind, entry) {
+    const list = historyLoad(api, action, kind)
+    list.unshift(entry)
+    historySave(api, action, kind, list)
+  }
+  function historyClear(api, action, kind) {
+    localStorage.removeItem(historyKey(api, action, kind))
+  }
+
   // ---- component class --------------------------------------------------
   class {
     init(props) {
@@ -123,12 +169,48 @@ System.out.println(res.body());`
       this.state.entry    = props.entry
       this.state.tab      = null
       this.state.bearer   = localStorage.getItem('lux_api_bearer') || ''
-      this.state.values   = this.defaultValues(props.entry.params || {})
-      this.state.ref      = ''
-      this.state.copied   = false
-      this._lastResponse  = null     // non-reactive: avoids re-render flicker
+      this.state.values        = this.defaultValues(props.entry.params || {})
+      this.state.ref           = ''
+      this.state.copied        = false
+      this.state.response_head = ''
+      this.state.response_body = ''
 
       this.subscribe('lux_api:bearer-changed', (bearer) => { this.state.bearer = bearer; this.refresh() })
+    }
+
+    // History is read straight from localStorage each access so send() can
+    // append without mutating state - mutating state.history would trigger
+    // a re-render that wipes the response pane between fetch and paint,
+    // making the first send look like it returned nothing.
+    historyList() {
+      return historyLoad(this.state.api_name, this.state.entry.action, this.state.entry.kind)
+    }
+
+    historyRows() {
+      return this.historyList().map((h, i) => Object.assign({ idx: i }, h))
+    }
+
+    hasHistory() {
+      return this.historyList().length > 0
+    }
+
+    loadFromHistory(i) {
+      const h = this.historyList()[i]
+      if (!h) return
+      this.state.values = Object.assign({}, h.values || {})
+      this.state.ref    = h.ref || ''
+      this.state.tab    = 'try'
+    }
+
+    clearHistory() {
+      historyClear(this.state.api_name, this.state.entry.action, this.state.entry.kind)
+      this.refresh()
+    }
+
+    formatTime(t) {
+      const d = new Date(t)
+      const pad = (n) => String(n).padStart(2, '0')
+      return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds())
     }
 
     defaultValues(params) {
@@ -154,6 +236,31 @@ System.out.println(res.body());`
 
     setTab(name) {
       this.state.tab = (this.state.tab === name) ? null : name
+      // After fez re-renders the pane classes, re-attach the height
+      // observer to the new active pane.
+      requestAnimationFrame(() => this._observeActivePane())
+    }
+
+    onMount() {
+      requestAnimationFrame(() => this._observeActivePane())
+    }
+
+    // Active pane is `position: relative` so it sets the viewport height
+    // naturally - but during slide transitions the previous active pane
+    // becomes absolute, and the new one's height may differ. We mirror the
+    // active pane's height onto the viewport via inline style and animate
+    // it; combined with the transform on each pane this gives a clean
+    // slide-and-resize.
+    _observeActivePane() {
+      const viewport = this.root && this.root.querySelector('.carousel-viewport')
+      const active   = this.root && this.root.querySelector('.carousel-pane.active')
+      if (!viewport || !active) return
+      if (this._paneObserver) this._paneObserver.disconnect()
+      this._paneObserver = new ResizeObserver(() => {
+        viewport.style.height = active.offsetHeight + 'px'
+      })
+      this._paneObserver.observe(active)
+      viewport.style.height = active.offsetHeight + 'px'
     }
 
     isMember() {
@@ -195,15 +302,61 @@ System.out.println(res.body());`
       return fn ? fn(this.snippetCtx()) : ''
     }
 
+    // Carousel pane class: 'active' for the visible one, 'before-active'
+    // for panes earlier in the tab order (slid off-screen left), default
+    // (no class beyond .carousel-pane) for panes after the active one
+    // (slid off-screen right). CSS does the actual translateX.
+    paneClass(key) {
+      const tabs = this.tabs()
+      const active = tabs.findIndex(t => t.key === this.state.tab)
+      const idx    = tabs.findIndex(t => t.key === key)
+      if (idx === active) return 'carousel-pane active'
+      if (idx <  active)  return 'carousel-pane before-active'
+      return 'carousel-pane'
+    }
+
+    snippetFor(key) {
+      const fn = SNIPPETS[key]
+      return fn ? fn(this.snippetCtx()) : ''
+    }
+
     // Direct-DOM send: no this.state mutations on send/receive so the form
     // doesn't re-render. Avoids flicker for fast APIs and preserves input
     // focus / cursor position. The result is stashed in this._lastResponse
     // so a later re-render (e.g. tab switch back to 'try') can repaint via
     // onRefresh().
+    validate() {
+      const errors = {}
+      const params = this.state.entry.params || {}
+      Object.keys(params).forEach(name => {
+        const spec = params[name] || {}
+        const v    = this.state.values[name]
+        const isBlank = v === undefined || v === null || v === ''
+        if (spec.required && isBlank) {
+          errors[name] = 'required'
+          return
+        }
+        if (!isBlank && Array.isArray(spec.values) && !spec.values.map(String).includes(String(v))) {
+          errors[name] = 'must be one of ' + spec.values.join(', ')
+          return
+        }
+        if (!isBlank && (spec.type === 'integer' || spec.type === 'float') && Number.isNaN(Number(v))) {
+          errors[name] = 'not a number'
+        }
+      })
+      if (this.isMember() && !this.state.ref) errors.__ref = 'required'
+      return errors
+    }
+
     async send() {
-      const btn  = this.root.querySelector('.send-btn')
-      const pane = this.root.querySelector('.response-pane')
-      if (!btn || !pane) return
+      const btn = this.root.querySelector('.send-btn')
+      if (!btn) return
+
+      // Client-side validation: surface field errors inline and stop the
+      // POST so the server doesn't see obvious 422s.
+      const errors = this.validate()
+      this._renderFieldErrors(errors)
+      if (Object.keys(errors).length) return
 
       btn.classList.add('sending')
       btn.disabled = true
@@ -235,36 +388,60 @@ System.out.println(res.body());`
         btn.disabled = false
       }
 
-      this._lastResponse = resp
-      this._renderResponse(pane, resp)
+      // Record in history (localStorage only - reading is lazy via
+      // historyList(), so this doesn't trigger a state-driven re-render).
+      historyPush(this.state.api_name, this.state.entry.action, this.state.entry.kind, {
+        t:      Date.now(),
+        ref:    this.isMember() ? this.state.ref : null,
+        values: Object.assign({}, this.state.values || {}),
+        status: resp.status,
+        ms:     resp.ms
+      })
+
+      this._renderResponse(null, resp)
     }
 
-    // Re-paint the response pane after fez re-renders the try block
-    // (which happens on setField, setTab, etc.) - keeps the result visible.
-    onRefresh() {
-      if (!this._lastResponse || this.state.tab !== 'try') return
-      const pane = this.root.querySelector('.response-pane')
-      if (pane && !pane.firstChild) this._renderResponse(pane, this._lastResponse)
+    _renderFieldErrors(errors) {
+      // Wipe previous error annotations, then mark fields that failed.
+      this.root.querySelectorAll('.field.has-error').forEach(f => f.classList.remove('has-error'))
+      this.root.querySelectorAll('.field-error').forEach(e => e.remove())
+
+      Object.keys(errors).forEach(name => {
+        let field
+        if (name === '__ref') {
+          field = this.root.querySelector('.field-ref')
+        } else {
+          const input = this.root.querySelector('[data-name="' + name + '"]')
+          field = input && input.closest('.field')
+        }
+        if (!field) return
+        field.classList.add('has-error')
+        const note = document.createElement('span')
+        note.className = 'field-error'
+        note.textContent = errors[name]
+        field.appendChild(note)
+      })
     }
 
-    _renderResponse(pane, resp) {
+    _renderResponse(_pane, resp) {
       const s = String(resp.status)
       const klass = s.startsWith('2') ? 'r-status-ok'
                   : s.startsWith('4') ? 'r-status-warn'
                   : 'r-status-err'
 
-      const head = document.createElement('div')
-      head.className = 'response-head'
-      head.innerHTML =
-        '<span class="r-status ' + klass + '">' + s + '</span>' +
-        '<span class="runner-meta off">' + resp.ms + 'ms</span>'
+      let parsed = null
+      try { parsed = JSON.parse(resp.text) } catch (e) {}
 
-      const pre = document.createElement('pre')
-      pre.className = 'pre-code response-body'
-      pre.textContent = resp.text      // textContent = safe, no escaping needed
+      const body = (parsed !== null && typeof parsed === 'object')
+        ? '<div class="json-tree response-body">' + renderJsonNodeHtml(parsed, 0) + '</div>'
+        : '<pre class="pre-code response-body">' + escapeHtmlStr(resp.text) + '</pre>'
 
-      pane.replaceChildren(head, pre)
-      pane.style.display = ''
+      // Stuffing rendered HTML into state means it lives inside the template
+      // and survives every re-render the runner does (form input, tab switch,
+      // history changes). No DOM patching, no onRefresh races.
+      this.state.response_head = '<span class="r-status ' + klass + '">' + s + '</span>' +
+                                 '<span class="runner-meta off">' + resp.ms + 'ms</span>'
+      this.state.response_body = body
     }
 
     async copy() {
@@ -276,15 +453,17 @@ System.out.println(res.body());`
     }
 
     tabs() {
-      return [
-        { key: 'try',    label: 'try it'   },
+      const base = [
+        { key: 'try',    label: 'try'      },
         { key: 'curl',   label: 'curl'     },
         { key: 'rpc',    label: 'json-rpc' },
+        { key: 'js',     label: 'js'       },
         { key: 'ruby',   label: 'ruby'     },
         { key: 'python', label: 'python'   },
-        { key: 'csharp', label: 'c#'       },
         { key: 'java',   label: 'java'     }
       ]
+      if (this.hasHistory()) base.push({ key: 'history', label: 'history' })
+      return base
     }
   }
 </script>
@@ -293,6 +472,24 @@ System.out.println(res.body());`
   :fez {
     .runner       { border-radius: 12px; background: #0f172a; color: #e2e8f0; overflow: hidden;
                     box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 0 0 1px #1e293b; }
+
+    /* Carousel: panes overlap (position absolute); the active pane is
+       position relative so it sets viewport height. JS mirrors that height
+       onto the viewport via inline style so the slide and resize animate
+       together. */
+    .carousel-viewport {
+      position: relative;
+      overflow: hidden;
+      transition: height 320ms cubic-bezier(.2,.7,.2,1);
+    }
+    .carousel-pane {
+      position: absolute; top: 0; left: 0; right: 0;
+      transform: translateX(100%);
+      transition: transform 320ms cubic-bezier(.2,.7,.2,1);
+      will-change: transform;
+    }
+    .carousel-pane.active        { position: relative; transform: translateX(0); }
+    .carousel-pane.before-active { transform: translateX(-100%); }
     .tabs         { display: flex; align-items: stretch; gap: 6px; padding: 0 12px; border-bottom: 1px solid #1e293b; }
     .tab          { padding: 14px 18px; margin: 0; font-size: 12px; font-weight: 600;
                     color: #94a3b8; cursor: pointer; background: transparent; border: 0;
@@ -311,6 +508,8 @@ System.out.println(res.body());`
                     padding: 8px 12px; color: #e2e8f0; font-size: 14px; }
     .field input::placeholder { color: #64748b; }
     .field input:focus, .field select:focus { outline: none; border-color: #6366f1; }
+    .field.has-error input, .field.has-error select { border-color: #be123c; }
+    .field-error   { margin-left: 8px; color: #fda4af; font-size: 12px; }
     .r-status     { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
     .r-status-ok   { color: #6ee7b7; background: rgba(16,185,129,0.15); }
     .r-status-warn { color: #fcd34d; background: rgba(245,158,11,0.15); }
@@ -323,6 +522,10 @@ System.out.println(res.body());`
     /* close button in tab strip menu (upper right) */
     .tab.tab-close { color: #64748b; font-size: 16px; padding-left: 14px; padding-right: 14px; }
     .tab.tab-close:hover { color: #fff; background: rgba(244,63,94,0.15); }
+
+    /* icon-only tab (copy snippet) */
+    .tab.tab-icon { padding-left: 14px; padding-right: 14px; color: #94a3b8; }
+    .tab.tab-icon:hover { color: #fff; }
 
     /* send row uses the same label-width + gap as form fields so the
        button aligns flush with the input column */
@@ -362,6 +565,44 @@ System.out.println(res.body());`
     .preview-try    { padding: 8px 18px; background: #2563eb; color: #fff; border: 0;
                       border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
     .preview-try:hover { background: #3b82f6; }
+
+    .hist-list   { padding: 8px 0; }
+    .hist-row    { display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+                   cursor: pointer; border-bottom: 1px solid #1e293b; }
+    .hist-row:last-child { border-bottom: 0; }
+    .hist-row:hover     { background: #1e293b; }
+    .hist-time   { color: #64748b; font-size: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace;
+                   width: 70px; flex-shrink: 0; }
+    .hist-ms     { color: #94a3b8; font-size: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace;
+                   width: 60px; text-align: right; flex-shrink: 0; }
+    .hist-body   { flex: 1; min-width: 0; color: #cbd5e1; font-size: 13px;
+                   font-family: 'JetBrains Mono', ui-monospace, monospace;
+                   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hist-empty  { padding: 24px 16px; color: #64748b; font-size: 13px; text-align: center; }
+    .hist-clear  { background: transparent; border: 0; color: #64748b; font-size: 11px;
+                   padding: 8px 16px; cursor: pointer; text-transform: uppercase;
+                   letter-spacing: 0.06em; }
+    .hist-clear:hover { color: #fda4af; }
+
+    /* JSON tree viewer (response body) */
+    .json-tree   { font-family: 'JetBrains Mono', ui-monospace, monospace;
+                   font-size: 14px; line-height: 1.55; color: #e2e8f0;
+                   padding: 16px;
+                   max-height: 700px; overflow: auto;
+                   white-space: pre; }
+    .jv-group    { display: inline; }
+    .jv-children { display: none; padding-left: 18px; border-left: 1px dashed #1e293b; }
+    .jv-children.is-open { display: block; }
+    .jv-toggle   { color: #64748b; display: inline-block; width: 14px; user-select: none; }
+    .jv-toggle.is-open { color: #94a3b8; }
+    .jv-summary  { }
+    .jv-count    { color: #475569; font-size: 12px; font-style: italic; }
+    .jv-row      { padding: 1px 0; }
+    .jv-key      { color: #93c5fd; }
+    .jv-string   { color: #86efac; }
+    .jv-number   { color: #fcd34d; }
+    .jv-boolean  { color: #f0abfc; }
+    .jv-null     { color: #fda4af; font-style: italic; }
   }
 </style>
 
@@ -382,77 +623,107 @@ System.out.println(res.body());`
       {/for}
       <div class="spacer"></div>
       {#if state.tab !== 'try'}
-        <button class="tab" onclick="fez.copy()" title="copy">{state.copied ? 'copied' : 'copy'}</button>
+        <button class="tab tab-icon" onclick="fez.copy()" title={state.copied ? 'copied' : 'copy snippet'}>
+          <material-icon name={state.copied ? 'check' : 'content_copy'} size="16"></material-icon>
+        </button>
       {/if}
       <button class="tab tab-close" onclick="fez.setTab(null)" title="close">✕</button>
     </div>
   {/if}
 
-  <!-- TRY tab -->
-  {#if state.tab === 'try'}
-    <div class="p-4 space-y-1">
-      {#if fez.isMember()}
-        <div class="field">
-          <label>ref</label>
-          <input type="text" value={state.ref} oninput="fez.state.ref = event.target.value" placeholder="resource id (required)">
-        </div>
-      {/if}
+  <!-- carousel: all tabs rendered, only the active one is in-flow and
+       visible; the others sit translateX'd off-screen waiting their turn -->
+  {#if state.tab}
+    <div class="carousel-viewport">
+      {#for t in fez.tabs()}
+        <div class={fez.paneClass(t.key)}>
+          {#if t.key === 'try'}
+            <div class="p-4 space-y-1">
+              {#if fez.isMember()}
+                <div class="field field-ref">
+                  <label>ref</label>
+                  <input type="text" value={state.ref} oninput="fez.state.ref = event.target.value" placeholder="resource id (required)">
+                </div>
+              {/if}
 
-      {#for field in fez.allFields()}
-        <div class="field">
-          <label>{field.name}{field.spec.required ? ' *' : ''}</label>
-          {#if field.widget === 'checkbox'}
-            <input type="checkbox" checked={state.values[field.name]}
-              onchange="fez.setField(event.target.dataset.name, event.target.checked)" data-name={field.name}>
-          {:else if field.widget === 'select'}
-            <select onchange="fez.setField(event.target.dataset.name, event.target.value)" data-name={field.name}>
-              <option value="">(unset)</option>
-              {#for opt in field.spec.values}
-                <option value={opt} selected={state.values[field.name] === opt}>{opt}</option>
+              {#for field in fez.allFields()}
+                <div class="field">
+                  <label>{field.name}{field.spec.required ? ' *' : ''}</label>
+                  {#if field.widget === 'checkbox'}
+                    <input type="checkbox" checked={state.values[field.name]}
+                      onchange="fez.setField(event.target.dataset.name, event.target.checked)" data-name={field.name}>
+                  {:else if field.widget === 'select'}
+                    <select onchange="fez.setField(event.target.dataset.name, event.target.value)" data-name={field.name}>
+                      <option value="">(unset)</option>
+                      {#for opt in field.spec.values}
+                        <option value={opt} selected={state.values[field.name] === opt}>{opt}</option>
+                      {/for}
+                    </select>
+                  {:else if field.widget === 'date'}
+                    <input-date name={field.name} value={state.values[field.name] ?? ''}
+                      onchange="fez.setField('{field.name}', event.target.value)" />
+                  {:else if field.widget === 'color'}
+                    <input-color name={field.name} value={state.values[field.name] || '#4f46e5'}
+                      onchange="fez.setField('{field.name}', event.target.value)" />
+                  {:else if field.widget === 'number'}
+                    <input type="number" placeholder={field.spec.type}
+                      value={state.values[field.name] ?? ''}
+                      oninput="fez.setField(event.target.dataset.name, event.target.value)"
+                      data-name={field.name}>
+                  {:else}
+                    <input type="text" placeholder={field.spec.type || 'string'}
+                      value={state.values[field.name] ?? ''}
+                      oninput="fez.setField(event.target.dataset.name, event.target.value)"
+                      data-name={field.name}>
+                  {/if}
+                </div>
               {/for}
-            </select>
-          {:else if field.widget === 'date'}
-            <input-date name={field.name} value={state.values[field.name] ?? ''}
-              onchange="fez.setField('{field.name}', event.target.value)" />
-          {:else if field.widget === 'color'}
-            <input-color name={field.name} value={state.values[field.name] || '#4f46e5'}
-              onchange="fez.setField('{field.name}', event.target.value)" />
-          {:else if field.widget === 'number'}
-            <input type="number" placeholder={field.spec.type}
-              value={state.values[field.name] ?? ''}
-              oninput="fez.setField(event.target.dataset.name, event.target.value)"
-              data-name={field.name}>
+
+              <div class="field send-row">
+                <label></label>
+                <button class="send-btn" onclick="fez.send()">
+                  <span class="spinner"></span>
+                  <span>Send →</span>
+                </button>
+                <code class="send-path">POST {fez.resolvedPath()}</code>
+                <div class="spacer"></div>
+                {#if state.bearer}
+                  <span class="runner-meta ok">with bearer</span>
+                {:else}
+                  <span class="runner-meta off">no bearer</span>
+                {/if}
+              </div>
+
+              {#if state.response_head || state.response_body}
+                <div class="response-pane">
+                  <div class="response-head">{@html state.response_head}</div>
+                  {@html state.response_body}
+                </div>
+              {/if}
+            </div>
+
+          {:else if t.key === 'history'}
+            {#if fez.hasHistory()}
+              <div class="hist-list">
+                {#for h in fez.historyRows()}
+                  <div class="hist-row" onclick="fez.loadFromHistory({h.idx})" title="reload into try-it">
+                    <span class="hist-time">{fez.formatTime(h.t)}</span>
+                    <span class={'r-status ' + (String(h.status).startsWith('2') ? 'r-status-ok' : (String(h.status).startsWith('4') ? 'r-status-warn' : 'r-status-err'))}>{h.status}</span>
+                    <span class="hist-body">{h.ref ? '(ref ' + h.ref + ') ' : ''}{JSON.stringify(h.values)}</span>
+                    <span class="hist-ms">{h.ms}ms</span>
+                  </div>
+                {/for}
+              </div>
+              <button class="hist-clear" onclick="fez.clearHistory()">clear history</button>
+            {:else}
+              <div class="hist-empty">no requests yet - send something from the try tab</div>
+            {/if}
+
           {:else}
-            <input type="text" placeholder={field.spec.type || 'string'}
-              value={state.values[field.name] ?? ''}
-              oninput="fez.setField(event.target.dataset.name, event.target.value)"
-              data-name={field.name}>
+            <pre class="pre-code">{fez.snippetFor(t.key)}</pre>
           {/if}
         </div>
       {/for}
-
-      <div class="field send-row">
-        <label></label>
-        <button class="send-btn" onclick="fez.send()">
-          <span class="spinner"></span>
-          <span>Send →</span>
-        </button>
-        <code class="send-path">POST {fez.resolvedPath()}</code>
-        <div class="spacer"></div>
-        {#if state.bearer}
-          <span class="runner-meta ok">with bearer</span>
-        {:else}
-          <span class="runner-meta off">no bearer</span>
-        {/if}
-      </div>
-
-      <!-- response pane: written via DOM by fez.send() to avoid re-render flicker -->
-      <div class="response-pane" style="display: none"></div>
     </div>
-  {/if}
-
-  <!-- snippet tabs -->
-  {#if state.tab && state.tab !== 'try'}
-    <pre class="pre-code">{fez.snippet()}</pre>
   {/if}
 </div>

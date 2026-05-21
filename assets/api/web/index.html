@@ -137,6 +137,7 @@
   <script fez="?file=/fez/material-icon.fez"></script>
   <script fez="?file=/fez/input-date.fez"></script>
   <script fez="?file=/fez/input-color.fez"></script>
+  <script fez="?file=/fez/nav-block.fez"></script>
   <script fez="?file=/fez/lux-api-header.fez"></script>
   <script fez="?file=/fez/lux-api-sidebar.fez"></script>
   <script fez="?file=/fez/lux-api-apis.fez"></script>
@@ -144,5 +145,66 @@
   <script fez="?file=/fez/lux-api-method.fez"></script>
   <script fez="?file=/fez/lux-api-params.fez"></script>
   <script fez="?file=/fez/lux-api-runner.fez"></script>
+  <script fez="?file=/fez/schema-view.fez"></script>
 </body>
 </html>
+
+<!--
+# Lux::Api explorer - feature list
+
+Every feature is driven off the single introspection document at
+`/<mount>/sys/schema`. All export formats and views are derived from it.
+
+## Schema & exports
+
+- Single-source introspection (`/sys/schema`) - canonical JSON, never edited by hand.
+- OpenAPI 3 export (`/sys/openapi`) - feeds Swagger UI, Redoc, openapi-generator.
+- Postman 2.1 export (`/sys/postman`) - import into Postman, Insomnia, Bruno.
+- AGENTS.md export (`/sys/AGENTS.md`) - LLM-targeted markdown brief. *Original to this explorer.*
+- Health probe (`/sys/health`) - liveness check.
+- Format-suffix routing - `/sys/AGENTS.md`, `/sys/schema.json` etc. resolve to the same actions as the bare names.
+
+## Navigation
+
+- Left sidebar with namespace groups and active-section scroll-spy marker.
+- Live filter input that narrows visible actions.
+- Permalink `#` button per method (hover-reveal, writes to clipboard + URL hash). *Convention from GitHub markdown anchors / Stripe docs.*
+- Keyboard shortcuts - `/` focus filter, `j`/`k` step methods, `?` cheatsheet, `Esc` close. *Vim-style; cheatsheet pattern from GitHub / Linear / Slack.*
+
+## Per-API view
+
+- Schema view (`<schema-view>`) under each API class showing the model fields, types, required flags, defaults. Auto-mounted when the class declares `api_schema` + `api_schema_ref`.
+- Collection vs. member action groups (blue / purple labels).
+- Class-level description / detail rendered with inline markdown (`**bold**`, `*italic*`, `` `code` ``, `[link](url)`, bare URLs).
+- Horizontal divider above each API class title for visual separation.
+
+## Per-method view
+
+- Method title with `#` permalink button on hover.
+- Action description + detail with markdown rendering.
+- Parameters hidden by default behind a "Show params" toggle with slide-down animation.
+- Field rows show name (200px column), type chip, required badge, default, allowed values, and optional description on a second line.
+- `xxx_ref` fields are rendered as dotted-underline links to the referenced API section.
+- Hover popover on `_ref` links previews the target schema's fields without leaving the page. *Inspired by Stoplight Studio's nested `$ref` previews.*
+
+## Runner / try-it panel
+
+- PayPal-style collapsed preview bar with `Try it` button. *Borrowed from PayPal Developer docs.*
+- Smart inputs per param type: text, number, checkbox, select (when `values:` declared), date, color.
+- Inline client-side validation - required, allowed values, numeric coercion - before the POST fires. *Pattern from Postman's request validator.*
+- Send button with spinner, response time, status pill (green / yellow / red), and resolved path display.
+- Bearer token persists across reloads via `localStorage` and is shared by every runner. *Fix for Swagger UI's default loss-on-refresh behavior.*
+- Multi-language snippet tabs - curl, JSON-RPC envelope, JS (ky), Ruby (http.rb), Python (httpx), C# (Flurl), Java (OkHttp). *Multi-language coverage inspired by Stripe / Twilio docs; lib picks favor terse "hacker" HTTP clients over stdlib boilerplate.*
+- Copy button per snippet tab.
+- Request history (last 5 per endpoint, persisted in `localStorage`). Click a row to repopulate the form and jump to the try tab. *Inspired by Postman / Insomnia history.*
+- JSON tree response viewer - collapsible, type-colored, max-height 700px with auto scroll, all keys expanded by default, per-node manual toggle. *Inspired by Postman / Bruno response previews.*
+
+## Architecture (developer-facing)
+
+- Built with fez.js (no React / Vue / build step). Single static index.html + component files.
+- Tiny inline markdown renderer (`window.luxMd`) for desc / detail strings.
+- Global JSON tree toggle handler (`window.luxJvToggle`) so response trees survive fez template re-renders without re-binding.
+- Component files live in `assets/api/web/fez/`. Add a new component by dropping a `.fez` file there and including it in this index.html.
+
+-->
+

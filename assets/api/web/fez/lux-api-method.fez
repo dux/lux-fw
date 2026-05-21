@@ -1,35 +1,114 @@
 <script>
   class {
     init(props) {
-      this.local.api_name = props.api_name
-      this.local.entry    = props.entry
+      this.local.api_name    = props.api_name
+      this.local.entry       = props.entry
+      this.state.show_params = false
+      this.state.copied      = false
     }
 
     anchor() {
       return 'method-' + this.local.api_name + '-' + this.local.entry.action
     }
+
+    hasParams() {
+      const p = this.local.entry.params
+      return p && Object.keys(p).length > 0
+    }
+
+    toggleParams() {
+      this.state.show_params = !this.state.show_params
+    }
+
+    async copyLink() {
+      const url = location.origin + location.pathname + '#' + this.anchor()
+      try {
+        await navigator.clipboard.writeText(url)
+        history.replaceState(null, '', '#' + this.anchor())
+        this.state.copied = true
+        setTimeout(() => { this.state.copied = false }, 1200)
+      } catch (e) {}
+    }
   }
 </script>
 
+<style>
+  :fez {
+    .params-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: #4b5563;
+      cursor: pointer;
+      font: inherit;
+    }
+    .params-toggle:hover { color: #111827; }
+    .params-toggle .chevron {
+      display: inline-block;
+      transition: transform 160ms ease;
+    }
+    .params-toggle.is-open .chevron { transform: rotate(90deg); }
+
+    .params-slide {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height 220ms ease, opacity 160ms ease;
+    }
+    .params-slide.is-open {
+      max-height: 1600px;
+      opacity: 1;
+    }
+
+    .permalink {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px;
+      margin-left: 8px;
+      color: #9ca3af; background: transparent;
+      border: 0; border-radius: 4px;
+      cursor: pointer; font-size: 14px; line-height: 1;
+      vertical-align: middle;
+      opacity: 0;
+      transition: opacity 120ms, color 120ms, background 120ms;
+    }
+    article:hover .permalink { opacity: 1; }
+    .permalink:hover  { color: #4f46e5; background: #eef2ff; }
+    .permalink.copied { opacity: 1; color: #047857; background: #ecfdf5; }
+  }
+</style>
+
 <article id={fez.anchor()} class="scroll-mt-20">
-  <h3>{local.entry.action}</h3>
+  <h3>
+    {local.entry.action}
+    <button type="button" class={'permalink' + (state.copied ? ' copied' : '')} onclick="fez.copyLink()" title="copy link to this method">
+      {state.copied ? '✓' : '#'}
+    </button>
+  </h3>
 
   <div class="mt-3">
     <lux-api-runner api_name={local.api_name} :entry="local.entry" />
   </div>
 
   {#if local.entry.desc}
-    <p class="text-gray-700 mt-4 mb-0">{local.entry.desc}</p>
+    <p class="text-gray-700 mt-4 mb-0">{@html window.luxMd(local.entry.desc)}</p>
   {/if}
 
   {#if local.entry.detail}
-    <p class="small-text text-gray-500 mt-2">{local.entry.detail}</p>
+    <p class="small-text text-gray-500 mt-2">{@html window.luxMd(local.entry.detail)}</p>
   {/if}
 
-  {#if local.entry.params && Object.keys(local.entry.params).length}
+  {#if fez.hasParams()}
     <div class="mt-5">
-      <h6 class="mb-2">Params</h6>
-      <lux-api-params :params="local.entry.params" />
+      <button type="button" class={'params-toggle small-text' + (state.show_params ? ' is-open' : '')} onclick="fez.toggleParams()">
+        <span class="chevron">&rsaquo;</span>
+        <span>{state.show_params ? 'Hide' : 'Show'} params</span>
+      </button>
+      <div class={'params-slide mt-2' + (state.show_params ? ' is-open' : '')}>
+        <lux-api-params :params="local.entry.params" />
+      </div>
     </div>
   {/if}
 </article>

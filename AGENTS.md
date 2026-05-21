@@ -270,6 +270,48 @@ Runtime kind detection via `Lux.runtime`. Pure derivation from `$PROGRAM_NAME` /
 * `Lux.render.template(scope, template)` - Render template
 * `Lux.render.cell(name, context, opts)` - Render ViewCell
 
+### Lux::Policy (`lib/lux/policy/`)
+
+Framework- and ORM-agnostic access policy. Inherit from `Lux::Policy` and define
+question-mark methods. Resolves current user from `Thread.current[:current_user]`,
+then `User.current`, then `Current.user`.
+
+```ruby
+class BlogPolicy < Lux::Policy
+  def before action
+    return true if user.can.admin?      # before-hook: truthy short-circuits
+  end
+
+  def read?
+    model.created_by == user.id
+  end
+
+  def write?
+    error 'Read only on Sundays' if Time.now.sunday?
+    model.created_by == user.id
+  end
+end
+```
+
+* `Lux::Policy.can(model:, user:)` - Build a proxy; resolves `<Model>Policy` class
+* `BlogPolicy.can(model: @blog, user: @user)` - Explicit policy class
+* Proxy actions:
+  - `.read?` -> `true` / `false` (rescues `Lux::Policy::Error`)
+  - `.read!` -> returns `model` on success, raises `Lux::Policy::Error` on fail
+  - `.read? { |msg| ... }` / `.read! { |msg| ... }` - block runs on failure
+* `before(action)` hook on a policy class: if it returns `true`, action is allowed
+* `error 'msg'` inside an action raises `Lux::Policy::Error` with a custom message
+
+Adapter mixins (`lib/lux/policy/adapter.rb`):
+* `include Lux::Policy::Model` on a model class to enable `@model.can.read?`
+  (auto-resolves to `<Model>Policy`).
+* `Lux::Policy::Controller` is auto-mixed into `Lux::Controller`. Provides:
+  - `authorize(truthy_or_block)` - marks request authorized or raises
+  - `is_authorized?` - boolean check
+  - `is_authorized!` - raises `Lux::Policy::Error` if not authorized
+* Headless policies (no model): `class DashboardPolicy < Lux::Policy; def access?; ...; end`
+  then `DashboardPolicy.can.access?` or `authorize DashboardPolicy.can.access?`.
+
 ## Ruby core extensions (`lib/overload/`)
 
 ### Object (`object.rb`, `blank.rb`, `boolean.rb`, `raise_variants.rb`)

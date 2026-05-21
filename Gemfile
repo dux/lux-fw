@@ -7,3 +7,7 @@ gem 'lux-hammer', path: '../lux-hammer' if File.directory?(File.expand_path('../
 
 gem 'rspec'
 gem 'sqlite3'
+
+# used by assets/*/spec specs (clean-mock for mock factories, faker for sample data)
+gem 'clean-mock'
+gem 'faker'

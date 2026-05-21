@@ -1,0 +1,94 @@
+<script>
+  // Collapsible navigation group used in the API sidebar (and reusable for
+  // any "title + collapsible list of links" pattern).
+  //
+  // Props:
+  //   title       - heading text
+  //   href        - optional anchor; the title link points here. If the
+  //                 group is collapsed when clicked, the click is intercepted
+  //                 and the group expands instead.
+  //   data-search - copied onto the root so the sidebar's filter (which
+  //                 walks [data-search]) can show/hide whole blocks.
+  //
+  // Slot: action items go between the opening and closing tags.
+  //
+  // Pub/sub:
+  //   listens 'nav-block:set-all'  -> set local collapsed state
+  //   publishes 'nav-block:toggled' -> after any toggle (collapse or expand),
+  //                                    so an outer scroll-spy can re-measure.
+  class {
+    init(props) {
+      this.local.title = props.title
+      this.local.href  = props.href || ''
+      this.state.collapsed = false
+
+      this.copy('data-search')
+
+      this.subscribe('nav-block:set-all', (collapsed) => {
+        this.state.collapsed = !!collapsed
+      })
+    }
+
+    toggle() {
+      this.state.collapsed = !this.state.collapsed
+      Fez.publish('nav-block:toggled')
+    }
+
+    // Clicking the title expands a collapsed block (and suppresses the
+    // anchor jump); on an already-expanded block the click navigates as
+    // a normal link.
+    clickTitle(event) {
+      if (this.state.collapsed) {
+        event.preventDefault()
+        this.state.collapsed = false
+        Fez.publish('nav-block:toggled')
+      }
+    }
+  }
+</script>
+
+<style>
+  :fez {
+    .nav-group         { position: relative; margin-bottom: 12px; }
+    .nav-group-title   { display: block; margin-bottom: 6px; padding: 0 2px;
+                         color: #111827; text-decoration: none; user-select: none; }
+    .nav-group-title h6 { font-size: 14px; letter-spacing: 0.04em; color: #111827; margin: 0; }
+    .nav-group-title:hover h6 { color: #4f46e5; }
+
+    .nav-group-toggle  { position: absolute;
+                         left: -22px; top: 1px;
+                         width: 18px; height: 18px;
+                         display: inline-flex; align-items: center; justify-content: center;
+                         background: #eef2ff; border: 0; padding: 0;
+                         color: #4f46e5; font-size: 14px; line-height: 1;
+                         cursor: pointer; border-radius: 4px;
+                         transform: rotate(90deg);
+                         transition: transform 220ms cubic-bezier(.2,.7,.2,1),
+                                     color 120ms, background 120ms; }
+    .nav-group.is-collapsed .nav-group-toggle { transform: rotate(0deg); }
+    .nav-group-toggle:hover { color: #4338ca; background: #e0e7ff; }
+
+    .nav-items         { list-style: none; margin: 0; padding: 0 0 0 12px;
+                         border-left: 1px solid #e5e7eb;
+                         max-height: 2400px; opacity: 1; overflow: hidden;
+                         transition: max-height 280ms cubic-bezier(.2,.7,.2,1),
+                                     opacity 200ms ease,
+                                     padding 280ms cubic-bezier(.2,.7,.2,1),
+                                     border-color 200ms ease; }
+    .nav-group.is-collapsed .nav-items {
+                         max-height: 0; opacity: 0;
+                         padding-top: 0; padding-bottom: 0;
+                         border-color: transparent; }
+    .nav-items li      { margin: 0; }
+  }
+</style>
+
+<div class={'nav-group' + (state.collapsed ? ' is-collapsed' : '')}>
+  <button class="nav-group-toggle" onclick="fez.toggle()" title="expand / collapse">›</button>
+  <a href={local.href} class="nav-group-title" onclick="fez.clickTitle(event)">
+    <h6>{local.title}</h6>
+  </a>
+  <ul class="nav-items">
+    <slot />
+  </ul>
+</div>

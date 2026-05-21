@@ -1,0 +1,32 @@
+<script>
+  // Renders an object schema (label + field rows) from the schemas map
+  // published on window.lux_api.api_schema. Pass the schema name; if it
+  // is missing/empty in the loaded document, the component renders
+  // nothing.
+  //
+  //   <schema-view name="user" />
+  class {
+    init(props) {
+      this.local.name   = props.name
+      this.local.fields = this.lookup(props.name)
+    }
+
+    lookup(name) {
+      if (!name) return null
+      const root    = window.lux_api && window.lux_api.api_schema
+      const schemas = (root && root.schemas) || {}
+      const fields  = schemas[name]
+      return fields && Object.keys(fields).length ? fields : null
+    }
+  }
+</script>
+
+{#if local.fields}
+  <div class="-mt-4 mb-10">
+    <div class="flex items-center gap-2 mb-4">
+      <span class="label gray">schema</span>
+      <code class="small-text text-gray-600">{local.name}</code>
+    </div>
+    <lux-api-params :params="local.fields" />
+  </div>
+{/if}
