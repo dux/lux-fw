@@ -1,7 +1,13 @@
-# /favicon.svg is served from public/favicon.svg by the static-file handler,
-# which runs before route resolution - so it never reaches here. The routes
-# below short-circuit browser polling for legacy .ico and apple-touch-icon
-# variants by returning 204 No Content.
+# Serves public/favicon.svg for legacy favicon polling:
+#   /favicon.<ext>          - .ico, .png, ... (any extension)
+#   /apple-touch-icon*      - including size suffixes and -precomposed
+#
+# /favicon.svg itself is served by the static-file handler, which runs
+# before route resolution and never reaches here.
 
-map 'favicon',             proc { [204, {}, ['']] }
-map /\Aapple-touch-icon/,  proc { [204, {}, ['']] }
+serve_favicon = proc {
+  Lux::Response::File.send file: Lux.root.join('public/favicon.svg')
+}
+
+map 'favicon',             serve_favicon
+map /\Aapple-touch-icon/,  serve_favicon

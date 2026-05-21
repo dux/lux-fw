@@ -50,9 +50,6 @@ Gem::Specification.new 'lux-fw' do |gem|
 
   ### possible removal in the future
 
-  # better errors in developmet
-  # gem.add_dependency 'better_errors'
-
   # ruby web server for development
   # gem.add_dependency 'puma'
 
@@ -78,9 +75,6 @@ Gem::Specification.new 'lux-fw' do |gem|
 
   # HTML builder DSL used by plugins/html and lib/lux/error
   gem.add_dependency 'html-tag'
-
-  # better development errors
-  # gem.add_dependency 'binding_of_caller'
 
   # gem.add_dependency 'dry-inflector' # replace with sequel inflector
 

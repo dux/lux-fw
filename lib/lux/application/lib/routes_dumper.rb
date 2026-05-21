@@ -132,6 +132,13 @@ module Lux
         record verb: '*', path: build_path, target: '[plugin] %s' % name
       end
 
+      def plugin_routes
+        Lux::Plugin::PLUGIN.each_value do |plugin|
+          next unless ::File.exist?(::File.join(plugin.folder, 'routes.rb'))
+          record verb: '*', path: build_path, target: '[plugin] %s' % plugin.name
+        end
+      end
+
       %w(get head post delete put patch).each do |verb|
         define_method('%s?' % verb) do |*args, &block|
           prev = @verb
@@ -148,10 +155,10 @@ module Lux
 
       # Catch-all for arbitrary instance method calls inside routes blocks
       # (e.g. helper defs, side-effect callbacks like nav.path(:ref) { ... }
-      # that pre-process the request). Silently swallow so they cannot
-      # mutate state or raise.
+      # that pre-process the request). Return a chainable noop so calls
+      # like `request.path` inside conditionals do not raise.
       def method_missing _name, *_args, **_kw, &_block
-        nil
+        NoopCurrent.new
       end
 
       def respond_to_missing? _name, _priv = false

@@ -44,11 +44,12 @@ Serves a single SVG favicon and silences browser polling for the legacy
   <link rel="apple-touch-icon" href="/favicon.svg" />
   ```
 
-* Routes return `204 No Content` for:
+* Routes serve `public/favicon.svg` for:
   * `/favicon.ico` (and other extensions under `/favicon.*`)
   * `/apple-touch-icon*` (including size suffixes and `-precomposed`)
 
-  This stops browsers and crawlers from re-requesting these paths.
+  All legacy polling paths return the same SVG, so browsers and crawlers
+  get a real icon instead of a 404 or empty response.
 
 ## Browser support
 

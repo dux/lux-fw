@@ -16,7 +16,7 @@ Lux.plugin :db, :authcog, :html      # several
 plugins/<name>/
   loader.rb       # OPTIONAL. boot logic, required first
   load/           # OPTIONAL. *.rb auto-required after loader
-  routes.rb       # OPTIONAL. routing DSL evaluated by `plugin_route :name`
+  routes.rb       # OPTIONAL. routing DSL evaluated by `plugin_route :name` or `plugin_routes`
   Hammerfile      # OPTIONAL. single-file CLI tasks
   hammer/         # OPTIONAL. multi-file CLI tasks (*_hammer.rb)
   mount/          # OPTIONAL. files symlinked into the app by `lux mount`
@@ -57,10 +57,14 @@ map 'foo/widgets'
 # host app routes:
 Lux do
   routes do
-    plugin_route :favicon            # at root
+    plugin_route :favicon            # explicit, at root
     map 'admin' do
-      plugin_route :authcog          # mounted under /admin
+      plugin_route :authcog          # explicit, mounted under /admin
     end
+
+    plugin_routes                    # loops every loaded plugin with routes.rb;
+                                     # each plugin declares its own mount path
+                                     # (convention: /admin/plugins/<name>)
   end
 end
 
@@ -77,7 +81,7 @@ end
 |--------|--------------|---------|
 | `loader.rb`  | yes, first | boot logic; required-before-load |
 | `load/`      | yes        | classes/modules that must be ready when the plugin is loaded |
-| `routes.rb`  | only via `plugin_route :name` | routing DSL body |
+| `routes.rb`  | only via `plugin_route :name` or `plugin_routes` | routing DSL body |
 | `Hammerfile` | only by CLI | tasks for `lux <cmd>` |
 | `hammer/`    | only by CLI | multi-file CLI tasks |
 | `mount/`     | only by `lux mount` | files symlinked into the app |
@@ -111,5 +115,5 @@ Each descriptor exposes `.name` and `.folder`.
 
 ## See also
 
-* [`../application/README.md`](../application/README.md) - `plugin_route :name`
+* [`../application/README.md`](../application/README.md) - `plugin_route :name`, `plugin_routes`
 * [`AGENTS.md`](./AGENTS.md) - LLM guide

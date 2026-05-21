@@ -9,7 +9,7 @@ when.
 plugins/<name>/
   loader.rb       # OPTIONAL. boot logic, required first
   load/           # OPTIONAL. *.rb auto-required after loader
-  routes.rb       # OPTIONAL. routing DSL, evaluated via `plugin_route :name`
+  routes.rb       # OPTIONAL. routing DSL, evaluated via `plugin_route :name` or `plugin_routes`
   Hammerfile      # OPTIONAL. single-file CLI tasks
   hammer/         # OPTIONAL. multi-file CLI tasks (*_hammer.rb)
   mount/          # OPTIONAL. files symlinked into the app by `lux mount`
@@ -25,8 +25,13 @@ plugins/<name>/
 * **`load/`** is auto-required depth-first, alphabetical. Files
   matching `*_spec.rb` / `*_hammer.rb` are skipped.
 * **`routes.rb`** is evaluated only when the host app calls
-  `plugin_route :name`. Not loaded automatically. Order and namespacing
-  are the app's job.
+  `plugin_route :name` (explicit, one plugin) or `plugin_routes` (loops
+  every loaded plugin and evaluates each one's `routes.rb` if present).
+  Not loaded automatically. Order and namespacing are the app's job.
+* Auto-mount convention for `plugin_routes`: the plugin's `routes.rb`
+  declares its own mount path, by convention
+  `mount LuxFooWeb => '/admin/plugins/<name>'`. Host app puts a single
+  `plugin_routes` call at the bottom of its routes block.
 * **`Hammerfile` / `hammer/`** are NOT loaded at runtime - they're
   picked up by the `lux` CLI at startup so commands appear in `lux help`
   without the plugin being active.
@@ -42,8 +47,11 @@ plugins/<name>/
 * Put boot logic in `loader.rb`.
 * Put always-on classes in `load/`.
 * Put CLI commands under `hammer/` (one file per command).
-* Put route bindings in `routes.rb` and document that the host app needs
-  `plugin_route :name`.
+* Put route bindings in `routes.rb`. For plugins that should auto-mount
+  (admin dashboards etc.), declare the full path inside -
+  `mount LuxFooWeb => '/admin/plugins/<name>'` - and tell the host app
+  to call `plugin_routes`. For plugins that need host-controlled mount
+  position, document `plugin_route :name` instead.
 * If users need to drop config / templates into their app, put them in
   `mount/`. Tell them to run `lux mount`.
 
@@ -51,11 +59,12 @@ plugins/<name>/
 
 * Put class definitions in `loader.rb` if they'd work in `load/` - the
   former runs once, the latter is auto-discovered.
-* Auto-include `routes.rb` - it must be opt-in via `plugin_route` so the
-  host app controls mount path + ordering.
+* Auto-include `routes.rb` at framework boot - it must be opt-in via
+  `plugin_route` (single) or `plugin_routes` (all-with-routes.rb) so the
+  host app controls when and where plugin routes get evaluated.
 * Bypass `Lux.plugin` with `require './plugins/foo/whatever'` - boot
   order matters; `Lux.plugin` ensures `loader.rb` runs first.
 
 ## See also
 
-* [`Lux::Application` AGENTS](../application/AGENTS.md) - `plugin_route`
+* [`Lux::Application` AGENTS](../application/AGENTS.md) - `plugin_route`, `plugin_routes`

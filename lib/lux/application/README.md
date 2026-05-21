@@ -83,7 +83,8 @@ Lux.app do
 
     mount ApiApp => '/api'                         # Rack app mount
     favicon 'app/assets/favicon.ico'
-    plugin_route :authcog
+    plugin_route :authcog                          # explicit single plugin
+    plugin_routes                                  # auto-mount every plugin with routes.rb
   end
 end
 ```

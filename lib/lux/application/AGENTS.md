@@ -45,7 +45,7 @@ end
 
 * **Routing DSL lives inside `routes do ... end`.** `map`, `root`,
   `match`, `subdomain`, `mount`, `favicon`, `plugin_route`,
-  `get?`/`post?`/... all belong inside the routes block. The framework
+  `plugin_routes`, `get?`/`post?`/... all belong inside the routes block. The framework
   technically supports them at the top level too (singleton DSL
   wrappers), but every real app keeps routing inside `routes do` for
   clarity and so runtime conditionals can interleave naturally.

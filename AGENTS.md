@@ -65,6 +65,7 @@ keys, validates required, coerces types.
 | Caching                     | [`lib/lux/cache/AGENTS.md`](./lib/lux/cache/AGENTS.md) |
 | Database / Sequel           | [`lib/lux/db/AGENTS.md`](./lib/lux/db/AGENTS.md) + [`plugins/db/AGENTS.md`](./plugins/db/AGENTS.md) |
 | Errors / 4xx / 5xx          | [`lib/lux/error/AGENTS.md`](./lib/lux/error/AGENTS.md) |
+| Localization / translations | [`lib/lux/locale/AGENTS.md`](./lib/lux/locale/AGENTS.md) |
 | Env / mode / runtime        | [`lib/lux/environment/AGENTS.md`](./lib/lux/environment/AGENTS.md) |
 | Config / `.env`             | [`lib/lux/config/AGENTS.md`](./lib/lux/config/AGENTS.md) |
 | Plugin layout               | [`lib/lux/plugin/AGENTS.md`](./lib/lux/plugin/AGENTS.md) |

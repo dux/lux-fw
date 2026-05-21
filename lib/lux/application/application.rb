@@ -30,7 +30,7 @@ module Lux
     # order. We bypass the public `routes` method because class-callbacks keys
     # by `caller[0]`, which would collapse to the same key for every call from
     # inside our wrapper.
-    ROUTING_DSL ||= %i[map root match subdomain plugin_route mount favicon
+    ROUTING_DSL ||= %i[map root match subdomain plugin_route plugin_routes mount favicon
                        get? head? post? delete? put? patch?]
 
     ROUTING_DSL.each do |name|

@@ -272,6 +272,20 @@ module Lux
         instance_eval ::File.read(path), path, 1
       end
 
+      # Evaluates `routes.rb` for every loaded plugin that ships one. Plugins
+      # without `routes.rb` are silently skipped. Each file is responsible for
+      # declaring its own mount path; convention is `/admin/plugins/<name>`.
+      #
+      # Usage in app routes:
+      #   plugin_routes
+      def plugin_routes
+        Lux::Plugin::PLUGIN.each_value do |plugin|
+          path = ::File.join(plugin.folder, 'routes.rb')
+          next unless ::File.exist?(path)
+          instance_eval ::File.read(path), path, 1
+        end
+      end
+
       # Pure predicate: checks if the current route cursor's root matches (no side effects)
       def route_match? route
         root = lux.route.root.to_s
