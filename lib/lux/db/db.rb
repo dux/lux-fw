@@ -84,9 +84,9 @@ module Lux
 
         begin
           CONNECTIONS[name] = connect(url)
-          Lux.info "DB :#{name} connected (#{CONNECTIONS[name].opts[:database]})"
+          Lux.shell.info "DB :#{name} connected (#{CONNECTIONS[name].opts[:database]})"
         rescue Sequel::DatabaseConnectionError => e
-          Lux.info "DB :#{name} connection failed - #{e.message}"
+          Lux.shell.info "DB :#{name} connection failed - #{e.message}"
           raise unless Lux.runtime.rake?
         end
       end
@@ -127,11 +127,14 @@ module Lux
       test_db = db_name_from_url(test_url)
       source_db = test_db.sub(/_test$/, '')
 
-      return if system("psql -lqt | cut -d \\| -f 1 | grep -qw #{test_db}")
+      return if Lux.shell.capture('psql', '-tAc',
+        "SELECT 1 FROM pg_database WHERE datname = '#{test_db.gsub("'", "''")}'").strip == '1'
 
-      Lux.info "DB create: %s (schema from %s)" % [test_db, source_db]
-      system 'createdb %s 2>/dev/null' % test_db
-      system 'pg_dump --schema-only --no-owner --no-privileges %s | psql -q %s > /dev/null 2>&1' % [source_db, test_db]
+      Lux.shell.info "DB create: %s (schema from %s)" % [test_db, source_db]
+      Lux.shell.run 'createdb', test_db
+      # shell mode for pipe + redirect; values are shellescaped.
+      Lux.shell.run 'pg_dump --schema-only --no-owner --no-privileges %s | psql -q %s > /dev/null 2>&1' %
+        [source_db.shellescape, test_db.shellescape], shell: true
     end
   end
 end

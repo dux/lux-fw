@@ -30,9 +30,9 @@ end
 plugins = Lux.config[:plugins] || []
 if plugins.any?
   Lux.plugin(*plugins)
-  Lux.info "Lux plugins: #{plugins.join(', ')}"
+  Lux.shell.info "Lux plugins: #{plugins.join(', ')}"
 else
-  Lux.info 'Lux: no plugins'
+  Lux.shell.info 'Lux: no plugins'
 end
 
 Sequel.inflections do |inflect|
@@ -62,5 +62,5 @@ Haml::Template.options[:escape_html] = false
 # ensure we are not loading lux in lux folder
 if Lux.root != Lux.fw_root
   # create folders if needed
-  ['./log', './tmp'].each { |d| `mkdir #{d}` unless Dir.exist?(d) }
+  ['./log', './tmp'].each { |d| Dir.mkdir(d) unless Dir.exist?(d) }
 end

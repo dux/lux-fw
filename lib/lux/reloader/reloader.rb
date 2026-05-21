@@ -24,7 +24,7 @@ module Lux
           load file
         end
       else
-        Lux.info 'No code changes found' if Lux.runtime.cli?
+        Lux.shell.info 'No code changes found' if Lux.runtime.cli?
       end
 
       if source == :cli

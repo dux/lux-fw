@@ -150,6 +150,7 @@ docs) and an `AGENTS.md` (LLM docs).
 | [`Lux::Render`](./lib/lux/render/README.md)             | `Lux.render` / `Lux.render.get(...)`       | [AGENTS](./lib/lux/render/AGENTS.md) |
 | [`Lux::Response`](./lib/lux/response/README.md)         | `response` / `Lux.current.response`        | [AGENTS](./lib/lux/response/AGENTS.md) |
 | [`Lux::Schema`](./lib/lux/schema/README.md)             | `Lux.schema(:name) { ... }`                | [AGENTS](./lib/lux/schema/AGENTS.md) |
+| [`Lux::Shell`](./lib/lux/shell/README.md)               | `Lux.shell.exec` / `.info` / `.error`      | [AGENTS](./lib/lux/shell/AGENTS.md) |
 | [`Lux::Template`](./lib/lux/template/README.md)         | `Lux::Template.render`                     | [AGENTS](./lib/lux/template/AGENTS.md) |
 | [`Lux::Type`](./lib/lux/type/README.md)                 | `Lux::Type.load(:email)` / type symbols    | [AGENTS](./lib/lux/type/AGENTS.md) |
 | [`Lux::ViewCell`](./lib/lux/view_cell/README.md)        | `class X < Lux::ViewCell`                  | [AGENTS](./lib/lux/view_cell/AGENTS.md) |

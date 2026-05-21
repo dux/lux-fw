@@ -157,11 +157,9 @@ out = doc.render
 
 File.write './README.md', out
 
-`rm -rf misc/demo/public/assets`
-`rm -rf misc/demo/node_modules`
-`rm -rf misc/demo/tmp`
-`rm -rf misc/demo/Gemfile.lock`
-`rm -rf misc/demo/package.json`
+%w[misc/demo/public/assets misc/demo/node_modules misc/demo/tmp misc/demo/Gemfile.lock misc/demo/package.json].each do |path|
+  Lux.shell.run 'rm', '-rf', path
+end
 
 File.write('misc/demo/Gemfile', "gem 'lux-fw'\n")
 

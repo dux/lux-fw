@@ -90,7 +90,7 @@ class LuxJobWeb < Sinatra::Base
       }
     end
 
-    @recent_runs = `tail -n 100 ./log/lux_job.log 2>/dev/null`.split("\n").reverse
+    @recent_runs = Lux.shell.capture('tail -n 100 ./log/lux_job.log 2>/dev/null', shell: true).split("\n").reverse
     @last_id = @recent_runs.first&.match(/\[(\d{4}-\d{2}-\d{2}T[\d:\.]+)/)[1] rescue nil
 
     erb :index
@@ -102,7 +102,8 @@ class LuxJobWeb < Sinatra::Base
     halt 404, "Job not found" unless @job_info
 
     @db_job = LuxJob.first(name: @name)
-    @log_lines = `grep -i '\\[#{safe_job_name(@name)}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1000`.split("\n").reverse
+    # safe_job_name strips to [a-zA-Z0-9_-]; shell mode used for the pipe.
+    @log_lines = Lux.shell.capture("grep -i '\\[#{safe_job_name(@name)}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1000", shell: true).split("\n").reverse
     @last_id = @log_lines.first&.match(/\[(\d{4}-\d{2}-\d{2}T[\d:\.]+)/)[1] rescue nil
 
     erb :job
@@ -113,9 +114,9 @@ class LuxJobWeb < Sinatra::Base
     job_name = params[:job].to_s.empty? ? nil : params[:job]
 
     last_line = if job_name
-      `grep -i '\\[#{safe_job_name(job_name)}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1`.strip
+      Lux.shell.capture("grep -i '\\[#{safe_job_name(job_name)}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1", shell: true).strip
     else
-      `tail -n 1 ./log/lux_job.log 2>/dev/null`.strip
+      Lux.shell.capture('tail -n 1 ./log/lux_job.log 2>/dev/null', shell: true).strip
     end
 
     last_id = last_line.match(/\[(\d{4}-\d{2}-\d{2}T[\d:\.]+)/)[1] rescue nil
@@ -126,7 +127,7 @@ class LuxJobWeb < Sinatra::Base
 
   get '/log/:job_name' do
     content_type 'text/plain'
-    `grep -i '\\[#{safe_job_name(params[:job_name])}\\]' ./log/lux_job.log 2>/dev/null | tail -n 10000`
+    Lux.shell.capture("grep -i '\\[#{safe_job_name(params[:job_name])}\\]' ./log/lux_job.log 2>/dev/null | tail -n 10000", shell: true)
   end
 
   # POST /job/:name - trigger job with JSON payload

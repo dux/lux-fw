@@ -97,7 +97,7 @@ class LuxJob < ApplicationModel
 
     def run_job job, verbose: false
       opts = JOBS[job.name.to_sym] || begin
-        Lux.info "LuxJob ERROR: Job [#{job.name}] not defined"
+        Lux.shell.error "LuxJob ERROR: Job [#{job.name}] not defined"
         job.delete
         return
       end
@@ -197,6 +197,6 @@ class LuxJob < ApplicationModel
 
   def log_lines
     safe_name = name.to_s.gsub(/[^a-zA-Z0-9_\-]/, '')
-    `grep -i '\\[#{safe_name}\\]' ./log/lux_job.log | tac | tail -n 100`
+    Lux.shell.capture("grep -i '\\[#{safe_name}\\]' ./log/lux_job.log | tac | tail -n 100", shell: true)
   end
 end

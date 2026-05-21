@@ -31,10 +31,11 @@ Look at the generated code and play with it.
 Main `Lux` module has a few usefull methods.
 
 ```ruby
-Lux.root     # Pathname to application root
-Lux.fw_root  # Pathname to lux gem root
-Lux.speed {} # execute block and return speed in ms
-Lux.info     # show console info in magenta
-Lux.run      # run a command on a server and log it
-Lux.die      # stop execution of a program and log
+Lux.root         # Pathname to application root
+Lux.fw_root      # Pathname to lux gem root
+Lux.speed { }    # execute block and return speed in ms
+Lux.shell.info   # magenta status to STDERR
+Lux.shell.error  # red status to STDERR
+Lux.shell.die    # logger.fatal + exit 1
+Lux.shell.exec   # safe argv-mode process execution (see lib/lux/shell)
 ```

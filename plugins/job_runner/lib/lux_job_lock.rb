@@ -41,7 +41,7 @@ class LuxJobLock
           run_at: Time.now,
           updated_at: Time.now
         )
-        Lux.info "LuxJobLock: Took over stale lock from #{old_owner}"
+        Lux.shell.info "LuxJobLock: Took over stale lock from #{old_owner}"
       else
         locked_by = existing.opts['locked_by'] || existing.opts[:locked_by]
         raise "Job runner already running (#{locked_by} since #{existing.created_at})"
@@ -53,15 +53,15 @@ class LuxJobLock
         run_at: Time.now,
         status_sid: 'r'
       )
-      Lux.info "LuxJobLock: Acquired lock as #{@lock_id}"
+      Lux.shell.info "LuxJobLock: Acquired lock as #{@lock_id}"
     end
   end
 
   def release
     LuxJob.where(name: LOCK_NAME).delete
-    Lux.info "LuxJobLock: Released lock"
+    Lux.shell.info "LuxJobLock: Released lock"
   rescue => e
-    Lux.info "LuxJobLock: Error releasing lock: #{e.message}"
+    Lux.shell.info "LuxJobLock: Error releasing lock: #{e.message}"
   end
 
   def start_heartbeat
@@ -81,7 +81,7 @@ class LuxJobLock
   def update_heartbeat
     LuxJob.where(name: LOCK_NAME).update(run_at: Time.now)
   rescue => e
-    Lux.info "LuxJobLock: Heartbeat error: #{e.message}"
+    Lux.shell.info "LuxJobLock: Heartbeat error: #{e.message}"
   end
 
   private

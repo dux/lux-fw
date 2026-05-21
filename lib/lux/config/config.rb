@@ -6,7 +6,7 @@ module Lux
     extend self
 
     def ram
-      `ps -o rss -p #{$$}`.chomp.split("\n").last.to_i / 1000
+      Lux.shell.capture('ps', '-o', 'rss', '-p', $$.to_s).split("\n").last.to_i / 1000
     end
 
     def start_info
@@ -100,7 +100,7 @@ module Lux
           raise "Secrets :default root not defined in %s" % source
         end
       else
-        Lux.info '%s not found' % source
+        Lux.shell.info '%s not found' % source
         {}
       end
     end

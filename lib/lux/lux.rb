@@ -48,24 +48,9 @@ module ::Lux
     end
   end
 
-  # Status/notice output. Routed to STDERR so that CLI tasks (lux render, etc.)
-  # can produce clean machine-parseable output on STDOUT.
-  def info text
-    if text.class == Array
-      text.each {|line| self.info line }
-    else
-      STDERR.puts '* %s' % text.to_s.colorize(:magenta)
-    end
-  end
-
-  def run command, get_result = false
-    Lux.logger.info command
-    get_result ? `#{command}` : system(command)
-  end
-
-  def die text
-    Lux.logger.fatal "Lux FATAL: #{text}"
-    exit
+  # Shell/process execution + status output. See lib/lux/shell/.
+  def shell
+    Lux::Shell
   end
 
   def app_caller
@@ -191,6 +176,11 @@ def Lux &block
 end
 
 ###
+
+# Shell + status output. Loaded early so Lux.shell.info works during boot.
+require_relative 'shell/error'
+require_relative 'shell/result'
+require_relative 'shell/shell'
 
 require_relative 'environment/environment'
 require_relative 'environment/mode'

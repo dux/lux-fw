@@ -43,7 +43,7 @@ class LuxStat
       .select { |it| File.directory?('./app/views/%s' % it) }
 
     for dir in view_dirs
-      files = `find app/views/#{dir}/ -type f`.count($/)
+      files = Lux.shell.capture('find', 'app/views/%s/' % dir, '-type', 'f').count($/)
       puts " #{files.pluralize(:file).rjust(9).colorize(:white)} in #{dir.colorize(:blue)}"
     end
   end
@@ -55,7 +55,10 @@ class LuxStat
     puts '  To find: find . -type file | grep \\\\.ext$'
     puts
 
-    files = `git ls-files | grep -v #{excluding.map { |el| " -e './#{el}/'" }.join(' ')}`.split($/)
+    # `git ls-files | grep -v` pipeline kept in shell mode; excluding values
+    # come from a hardcoded list above, not user input.
+    grep_args = excluding.map { |el| " -e './#{el}/'" }.join(' ')
+    files = Lux.shell.capture("git ls-files | grep -v#{grep_args}", shell: true).split($/)
     for file in files
       ext = file.split('.').last
       next if ext.length > 6

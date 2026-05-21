@@ -70,6 +70,7 @@ keys, validates required, coerces types.
 | Plugin layout               | [`lib/lux/plugin/AGENTS.md`](./lib/lux/plugin/AGENTS.md) |
 | Reloading                   | [`lib/lux/reloader/AGENTS.md`](./lib/lux/reloader/AGENTS.md) |
 | Logger                      | [`lib/lux/logger/AGENTS.md`](./lib/lux/logger/AGENTS.md) |
+| Shell / process / CLI output | [`lib/lux/shell/AGENTS.md`](./lib/lux/shell/AGENTS.md) |
 | Hash / overloads            | [`lib/lux/hash/AGENTS.md`](./lib/lux/hash/AGENTS.md) |
 | JSON export                 | [`lib/lux/json_exporter/AGENTS.md`](./lib/lux/json_exporter/AGENTS.md) |
 | Templates engine            | [`lib/lux/template/AGENTS.md`](./lib/lux/template/AGENTS.md) |

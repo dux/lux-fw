@@ -114,7 +114,7 @@ module Lux
       return @status if num.equal?(Lux::UNSET)
 
       unless num.is_numeric?
-        Lux.info %[LUX error: Not numeric status code "#{num}", reverting to 400]
+        Lux.shell.error %[LUX error: Not numeric status code "#{num}", reverting to 400]
         num = 400
       end
 

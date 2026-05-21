@@ -60,7 +60,7 @@ module LuxAssets
         File.write(file, css)
       end
 
-      Lux.info info.join(' - ')
+      Lux.shell.info info.join(' - ')
     end
   end
 

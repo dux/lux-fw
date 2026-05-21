@@ -13,6 +13,15 @@ module LuxDb
     '%s/%s.sql' % [folder, name]
   end
 
+  # Use psql -tAc with a quoted SELECT so we don't depend on shell-piped
+  # output parsing and never interpolate name into the SQL text. Casting
+  # the bound parameter keeps libpq happy when datname is unset.
+  def db_exists? name
+    result = Lux.shell.capture('psql', '-tAc',
+      "SELECT 1 FROM pg_database WHERE datname = '#{name.to_s.gsub("'", "''")}'")
+    result.strip == '1'
+  end
+
   def dev_check!
     if Lux.env.prod?
       puts 'Refused: destructive DB operations are not allowed in production'.colorize(:red)
@@ -30,12 +39,12 @@ module LuxDb
         info += ' (skipping)'
       end
 
-      Lux.info info
+      Lux.shell.info info
     elsif external
-      Lux.info info
-      Lux.run "DB_MIGRATE=false bundle exec lux e #{file}"
+      Lux.shell.info info
+      Lux.shell.run('bundle', 'exec', 'lux', 'e', file, env: { 'DB_MIGRATE' => 'false' })
     else
-      Lux.info info
+      Lux.shell.info info
       load file
     end
   end
@@ -49,7 +58,7 @@ namespace :db do
       Lux::Db.configured_names.each do |name|
         url = Lux::Db.url_for(name)
         db_name = LuxDb.db_name_from_url(url)
-        exists = system("psql -lqt | cut -d \\| -f 1 | grep -qw #{db_name}")
+        exists = LuxDb.db_exists?(db_name)
         status = exists ? 'exists'.colorize(:green) : 'missing'.colorize(:red)
         puts '  :%-10s %s (%s)' % [name, db_name, status]
       end
@@ -63,10 +72,10 @@ namespace :db do
       Lux::Db.configured_names.each do |name|
         db_name = LuxDb.db_name_from_url(Lux::Db.url_for(name))
 
-        if system("psql -lqt | cut -d \\| -f 1 | grep -qw #{db_name}")
+        if LuxDb.db_exists?(db_name)
           puts "Database '#{db_name}' already exists".colorize(:yellow)
         else
-          Lux.run 'createdb %s' % db_name
+          Lux.shell.run 'createdb', db_name
           puts "Database '#{db_name}' created".colorize(:green)
         end
       end
@@ -85,8 +94,8 @@ namespace :db do
         db_name = LuxDb.db_name_from_url(Lux::Db.url_for(name))
 
         for db in [db_name + '_test', db_name]
-          if system("psql -lqt | cut -d \\| -f 1 | grep -qw #{db}")
-            system 'dropdb %s' % db
+          if LuxDb.db_exists?(db)
+            Lux.shell.run 'dropdb', db
             puts "Database '#{db}' dropped".colorize(:green)
           else
             puts "Database '#{db}' does not exist, skipping".colorize(:yellow)
@@ -115,9 +124,11 @@ namespace :db do
         url = Lux::Db.url_for(name)
         db_name = LuxDb.db_name_from_url(url)
         sql_file = LuxDb.db_backup_file_location(db_name)
-        Lux.run "pg_dump --no-privileges --no-owner '#{url}' > #{sql_file}"
+        # shell mode needed for stdout redirect (>); interpolated values are
+        # shellescaped to keep injection-prone characters from leaking through.
+        Lux.shell.run "pg_dump --no-privileges --no-owner #{url.shellescape} > #{sql_file.shellescape}", shell: true
         puts "Backed up '#{db_name}' to #{sql_file}".colorize(:green)
-        system 'ls -lh %s' % sql_file
+        Lux.shell.run 'ls', '-lh', sql_file
       end
     end
   end
@@ -140,9 +151,10 @@ namespace :db do
           next
         end
 
-        system 'dropdb --if-exists %s' % db_name
-        system 'createdb %s' % db_name
-        Lux.run 'psql -q %s < %s' % [db_name, sql_file]
+        Lux.shell.run 'dropdb', '--if-exists', db_name
+        Lux.shell.run 'createdb', db_name
+        # shell mode for stdin redirect (<); both values are shellescaped.
+        Lux.shell.run 'psql -q %s < %s' % [db_name.shellescape, sql_file.shellescape], shell: true
         puts "Database '#{db_name}' restored from #{sql_file}".colorize(:green)
       end
     end
@@ -158,19 +170,21 @@ namespace :db do
           source_db = LuxDb.db_name_from_url(url)
           test_db = source_db + '_test'
 
-          if system("psql -lqt | cut -d \\| -f 1 | grep -qw #{test_db}")
-            system 'dropdb %s' % test_db
+          if LuxDb.db_exists?(test_db)
+            Lux.shell.run 'dropdb', test_db
             puts "Test database '#{test_db}' dropped".colorize(:yellow)
           end
 
-          unless system("psql -lqt | cut -d \\| -f 1 | grep -qw #{source_db}")
+          unless LuxDb.db_exists?(source_db)
             puts "Main database '#{source_db}' missing, creating and running db:am".colorize(:yellow)
-            system 'createdb %s' % source_db
+            Lux.shell.run 'createdb', source_db
             hammer 'db:am'
           end
 
-          system 'createdb %s' % test_db
-          system 'pg_dump --schema-only --no-owner --no-privileges %s | psql -q %s > /dev/null 2>&1' % [source_db, test_db]
+          Lux.shell.run 'createdb', test_db
+          # shell mode for pipe + redirect; values are shellescaped.
+          Lux.shell.run 'pg_dump --schema-only --no-owner --no-privileges %s | psql -q %s > /dev/null 2>&1' %
+            [source_db.shellescape, test_db.shellescape], shell: true
           puts "Test database '#{test_db}' created (schema from #{source_db})".colorize(:green)
         end
       end
@@ -184,8 +198,8 @@ namespace :db do
           url = Lux::Db.url_for(name)
           test_db = LuxDb.db_name_from_url(url) + '_test'
 
-          if system("psql -lqt | cut -d \\| -f 1 | grep -qw #{test_db}")
-            system 'dropdb %s' % test_db
+          if LuxDb.db_exists?(test_db)
+            Lux.shell.run 'dropdb', test_db
             puts "Test database '#{test_db}' dropped".colorize(:green)
           else
             puts "Test database '#{test_db}' does not exist".colorize(:yellow)
@@ -243,7 +257,7 @@ namespace :db do
       DB.run %[CREATE TABLE lux_tests (int_array integer[] default '{}');]
       DB.run %[INSERT INTO lux_tests DEFAULT VALUES;]
       row = DB[:lux_tests].first
-      Lux.die('"DB.extension :pg_array" not loaded') unless row[:int_array].is_a?(Sequel::Postgres::PGArray)
+      Lux.shell.die('"DB.extension :pg_array" not loaded') unless row[:int_array].is_a?(Sequel::Postgres::PGArray)
       DB.run %[DROP TABLE IF EXISTS lux_tests;]
 
       LuxDb.load_migrate_file './db/before.rb'

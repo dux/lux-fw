@@ -86,7 +86,7 @@ class Dir
         begin
           require ruby_file
         rescue Exception => error
-          Lux.info "Dir.require_all('#{folder}') # error in #{ruby_file}"
+          Lux.shell.info "Dir.require_all('#{folder}') # error in #{ruby_file}"
           raise error
         end
       end
