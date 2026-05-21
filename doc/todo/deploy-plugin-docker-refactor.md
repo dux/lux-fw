@@ -248,7 +248,7 @@ Keep `config/deploy.json`, but make the Docker shape explicit and small:
     },
     "env": {
       "RACK_ENV": "production",
-      "DB_URL": "postgres://postgres:postgres@db:5432/myapp",
+      "DB_MAIN": "postgres://postgres:postgres@db:5432/myapp",
       "SECRET_KEY_BASE": true
     },
     "services": {
@@ -526,7 +526,7 @@ Suggested profile:
       "POSTGRES_DB": "app",
       "POSTGRES_USER": "app",
       "POSTGRES_PASSWORD": "$generate",
-      "DB_URL": "postgres://app:{{env.POSTGRES_PASSWORD}}@db:5432/app"
+      "DB_MAIN": "postgres://app:{{env.POSTGRES_PASSWORD}}@db:5432/app"
     },
     "services": {
       "web": {
@@ -754,7 +754,7 @@ and the operator passes `--volumes`.
   },
   "env_schema": {
     "RACK_ENV": "literal",
-    "DB_URL": "literal",
+    "DB_MAIN": "literal",
     "SECRET_KEY_BASE": "required"
   },
   "volumes": [],
