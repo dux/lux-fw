@@ -3,28 +3,25 @@
 Cache with a uniform API across backends (memory, memcached, sqlite, null).
 Pick a backend - the methods are the same.
 
-## Small example
-
-```ruby
-Lux.cache.fetch('users/count', ttl: 60) { User.count }
-```
+`Lux.cache` returns the shared cache server; `Lux.cache(:key) { ... }` is a
+process-local memoize (no TTL, no clear) backed by `Lux.var`.
 
 ## Full example
 
 ```ruby
-# --- pick a backend (in ./config/initializers/cache.rb) -----------------
+# --- pick a backend (typically in ./config/initializers/cache.rb) -------
 
-Lux::Cache.server                     # default :memory
-Lux::Cache.server = :memcached        # uses MEMCACHE_SERVERS / Dalli
-Lux::Cache.server = :sqlite           # ./tmp/lux_cache.sqlite (WAL)
-Lux::Cache.server = :null             # no-op (tests)
+Lux::Cache.server                    # current backend; default :memory
+Lux::Cache.server = :memcached       # uses MEMCACHE_SERVERS / Dalli
+Lux::Cache.server = :sqlite          # ./tmp/lux_cache.sqlite (WAL)
+Lux::Cache.server = :null            # no-op (tests)
 Lux::Cache.server = Dalli::Client.new('localhost:11211', namespace: 'app', expires_in: 1.hour)
 
 # --- read / write -------------------------------------------------------
 
-Lux.cache.write('key', value, 60)     # ttl seconds
-Lux.cache.read('key')                  # alias: get
-Lux.cache.read_multi('a', 'b', 'c')   # alias: get_multi
+Lux.cache.write('key', value, 60)    # ttl seconds
+Lux.cache.read('key')                 # alias: get
+Lux.cache.read_multi('a', 'b', 'c')  # alias: get_multi
 Lux.cache.delete('key')
 
 # --- fetch (the workhorse) ---------------------------------------------
@@ -55,8 +52,17 @@ Lux.cache.lock('expensive-task', 3) { do_it }
 
 # --- inspect ------------------------------------------------------------
 
-Lux.cache.is_available?               # backend reachable?
-Lux.cache.server                      # current backend
+Lux.cache.is_available?              # backend reachable?
+Lux.cache.server                     # current backend
+
+# --- process-local memoize (no TTL, no clear) ---------------------------
+
+Lux.cache(:boot_config) { JSON.parse(File.read('config.json')) }
+# subsequent calls in this process return the cached value verbatim.
+# Backed by Lux.var (a process-local hash); use it for "compute once
+# per boot" data that doesn't belong on a cache server.
+
+Lux.var                              # the underlying Hash if you need direct access
 ```
 
 ## Backends

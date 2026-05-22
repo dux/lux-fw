@@ -3,12 +3,27 @@
 Plugin loader. Looks under `Lux.root/plugins/<name>/` first, then
 `Lux.fw_root/plugins/<name>/`.
 
-## Small example
+`Lux.plugin(*names)` loads plugins; `Lux.plugin` (no args) returns the
+`Lux::Plugin` module for introspection.
+
+## Full example
 
 ```ruby
-Lux.plugin :db                       # load one
-Lux.plugin :db, :authcog, :html      # several
+# --- loading ---------------------------------------------------------
+
+Lux.plugin :db                      # load one
+Lux.plugin :db, :authcog, :html     # several
+
+# --- introspection ---------------------------------------------------
+
+Lux.plugin                          # the Lux::Plugin module itself
+Lux.plugin.get(:foo)                # descriptor for an already-loaded plugin
+Lux.plugin.loaded                   # all loaded descriptors
+Lux.plugin.keys                     # names
+Lux.plugin.folders                  # filesystem folders
 ```
+
+Each descriptor exposes `.name` and `.folder`.
 
 ## Canonical layout
 
@@ -17,13 +32,13 @@ plugins/<name>/
   config.yaml     # OPTIONAL. merged into Lux.config before loader.rb
   loader.rb       # OPTIONAL. boot logic, required before load/
   load/           # OPTIONAL. *.rb auto-required after loader
-  routes.rb       # OPTIONAL. routing DSL evaluated by `plugin_route :name` or `plugin_routes`
+  routes.rb       # OPTIONAL. routing DSL evaluated by plugin_route :name / plugin_routes
   Hammerfile      # OPTIONAL. single-file CLI tasks
   hammer/         # OPTIONAL. multi-file CLI tasks (*_hammer.rb)
   mount/          # OPTIONAL. files symlinked into the app by `lux mount`
 ```
 
-A plugin needs at least `config.yaml`, `loader.rb` or `load/`. Otherwise
+A plugin needs at least `config.yaml`, `loader.rb`, or `load/`. Otherwise
 `Lux.plugin :x` raises.
 
 ## Load order
@@ -38,7 +53,7 @@ A plugin needs at least `config.yaml`, `loader.rb` or `load/`. Otherwise
 discovers them at startup so commands are visible without loading the
 plugin.
 
-## Full example
+## Authoring a plugin
 
 ```yaml
 # plugins/foo/config.yaml -- merged before loader.rb
@@ -47,7 +62,7 @@ default:
     enabled: true
 
 plugins:
-  - bar
+  - bar                              # plugin dependency; appended to plugin list
 ```
 
 ```ruby
@@ -67,24 +82,26 @@ end
 map 'foo' => 'foo#root'
 map 'foo/widgets'
 
-# host app routes:
-Lux do
-  routes do
-    plugin_route :favicon            # explicit, at root
-    map 'admin' do
-      plugin_route :authcog          # explicit, mounted under /admin
-    end
-
-    plugin_routes                    # loops every loaded plugin with routes.rb;
-                                     # each plugin declares its own mount path
-                                     # (convention: /admin/plugins/<name>)
-  end
-end
-
-# plugins/foo/Hammerfile (or hammer/*_hammer.rb) -- CLI tasks
+# plugins/foo/Hammerfile -- CLI tasks
 task :foo do
   desc 'Run foo'
   proc { Foo.do_it }
+end
+```
+
+In the host:
+
+```ruby
+Lux do
+  routes do
+    plugin_route :favicon              # explicit, at root
+    map 'admin' do
+      plugin_route :authcog            # explicit, mounted under /admin
+    end
+
+    plugin_routes                      # loops every loaded plugin with routes.rb;
+                                       # convention: /admin/plugins/<name>
+  end
 end
 ```
 
@@ -99,20 +116,6 @@ end
 | `Hammerfile` | only by CLI | tasks for `lux <cmd>` |
 | `hammer/`    | only by CLI | multi-file CLI tasks |
 | `mount/`     | only by `lux mount` | files symlinked into the app |
-| anything else | no | convention; `loader.rb` can `require_relative` if needed |
-
-## Config semantics (`config.yaml`)
-
-Plugin config follows the same shape as app `config/config.yaml`: merge
-`default` with the current environment, then merge the result into
-`Lux.config`. The production section remains available as
-`Lux.config.production`, including production values contributed by
-plugins.
-
-A top-level `plugins:` list in plugin config appends to the existing
-`Lux.config[:plugins]` list instead of replacing it. Use it for simple
-plugin dependencies; keep ordering-sensitive setup in `loader.rb` so the
-boot sequence stays explicit.
 
 ## Mount semantics (`mount/`)
 
@@ -124,21 +127,8 @@ or config templates a plugin needs to drop into the host app.
   location (gem path drift across machines) are silently rewritten.
 * Foreign files at the destination are skipped with a warning. Never
   overwritten.
-* `lux mount:list` / `lux mount:doctor` to inspect, `lux mount:remove NAME`
+* `lux mount:list` / `lux mount:doctor` to inspect; `lux mount:remove NAME`
   to unlink.
-
-## API
-
-```ruby
-Lux.plugin                       # => Lux::Plugin module
-Lux.plugin :foo                  # load; returns descriptor
-Lux.plugin.get(:foo)             # descriptor for an already-loaded plugin
-Lux.plugin.loaded                # all loaded descriptors
-Lux.plugin.keys                  # names
-Lux.plugin.folders               # filesystem folders
-```
-
-Each descriptor exposes `.name` and `.folder`.
 
 ## See also
 

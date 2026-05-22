@@ -160,6 +160,12 @@ module Lux
       '127.0.0.1'
     end
 
+    # Per-request browser-state accumulator. Chain-set keys land in window.<root>
+    # via `lux.browser.script_tag` in the layout. See lib/lux/browser/.
+    def browser
+      @browser ||= Lux::Browser.new
+    end
+
     def bearer_token
       auth = request.env['HTTP_AUTHORIZATION'].to_s
       auth.start_with?('Bearer ') ? auth[7..].presence : nil

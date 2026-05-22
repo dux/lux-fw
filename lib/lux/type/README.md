@@ -5,17 +5,34 @@ type defines its own coercion, validation, and DB column shape. The same
 type works in a controller `opt`, an API `params do`, a schema, or a
 migration.
 
-## Small example
+`Lux.type(name)` returns the type class; `Lux.type(name, value)` coerces
+a value through the type (raising on failure, or yielding to a block).
+
+## Full example
 
 ```ruby
-# anywhere you can name a type:
+# --- look up / coerce ---------------------------------------------------
+
+Lux.type(:email)                         # => Lux::Type::EmailType class
+Lux.type(:email, 'd@x.com')              # => 'd@x.com' (lowercased, validated)
+Lux.type(:email, 'not-an-email')         # raises TypeError
+
+Lux.type(:integer, '42')                 # => 42
+Lux.type(:slug, 'My Title!')             # => 'my-title'
+
+# Block form: yields the TypeError instead of raising; coerce returns false
+Lux.type(:email, 'bad') { |err| flash.error err.message }
+
+# --- usage in a schema / opt block --------------------------------------
+
 opt :email,   type: :email
 opt :country, type: :country
 opt :id,      type: :uuid
 
-# direct use:
-Lux::Type.load(:email).new('foo@bar.baz').get
-# => 'foo@bar.baz'  (or raises TypeError with message)
+Lux.schema :user do
+  email   type: :email
+  country type: :country, default: 'HR'
+end
 ```
 
 ## Built-in types
@@ -49,7 +66,7 @@ Located in [`lib/lux/type/types/`](./types).
 | `:image`     | upload  | works with `plugins/html` form |
 | `:model`     | nested schema | set automatically by `name do ... end` |
 
-## Full example: defining a custom type
+## Defining a custom type
 
 ```ruby
 # lib/lux/type/types/positive_integer_type.rb
@@ -70,11 +87,8 @@ module Lux
     end
   end
 end
-```
 
-Now usable anywhere:
-
-```ruby
+# Use anywhere:
 opt :age, type: :positive_integer, allow_zero: true
 ```
 
@@ -82,7 +96,6 @@ opt :age, type: :positive_integer, allow_zero: true
 
 ```ruby
 # default English errors live in Lux::Type::ERRORS[:en]
-# add your own locale:
 Lux::Type.error :hr, :min_length_error, 'minimalna duljina je %s, imate %s'
 Lux::Type.error :hr, :max_length_error, 'maksimalna duljina je %s, imate %s'
 
@@ -98,5 +111,5 @@ opt :name, String, max: 30, meta: { hr: { max_length_error: 'predugo' } }
 
 ## See also
 
-* [`Lux::Schema` README](../schema/README.md) - the DSL that consumes types
+* [`../schema/README.md`](../schema/README.md) - the DSL that consumes types
 * [`AGENTS.md`](./AGENTS.md) - LLM guide for adding new types

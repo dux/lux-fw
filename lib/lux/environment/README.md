@@ -6,26 +6,20 @@ Three orthogonal facets of "where am I running?":
 * `Lux.mode`    - behavior toggles (`log?`, `errors?`, `reload?`)
 * `Lux.runtime` - process kind (`web?`, `cli?`, `rake?`)
 
-## Small example
-
-```ruby
-Lux.env.production?      # true only in production
-Lux.mode.log?            # screen logging on?
-Lux.runtime.web?         # under puma/falcon/rackup?
-```
-
 ## Full example
 
 ```ruby
 # --- Lux.env: name of the environment -----------------------------------
 
-Lux.env.development?     # NOT production (includes test)
-Lux.env.production?      # only in production
-Lux.env.test?            # only in test
+Lux.env                  # Lux::Environment instance, stringifies to env name
 Lux.env.to_s             # 'development' / 'production' / 'test'
-Lux.env == :dev          # also accepts :prod, :test (and strings)
-Lux.env.dev?             # alias
-Lux.env.prod?            # alias
+Lux.env.production?      # true only in production
+Lux.env.development?     # NOT production (includes test)
+Lux.env.test?            # only in test
+Lux.env.prod?            # alias for production?
+Lux.env.dev?             # alias for development?
+Lux.env == :prod         # accepts :dev / :prod / :test and strings
+Lux.env(:prod)           # same: Lux.env(:prod) -> bool
 
 # Set via RACK_ENV or LUX_ENV. Defaults to 'development'.
 
@@ -46,11 +40,12 @@ Lux.error.not_found Lux.mode.errors?('404 Not Found') { 'long debug msg' }
 # Runtime override (also via LUX_LOG / LUX_ERRORS / LUX_RELOAD env vars):
 Lux.mode.log = true
 Lux.mode.errors = false
+Lux.mode.reload = false
 
 # --- Lux.runtime: how the process was started ---------------------------
 
 Lux.runtime.web?         # puma / falcon / rackup
-Lux.runtime.cli?         # otherwise
+Lux.runtime.cli?         # otherwise (no Rack::Handler)
 Lux.runtime.rake?        # run via rake
 ```
 

@@ -1,30 +1,17 @@
 # Lux::ViewCell
 
 Reusable view components. Each cell is a class with its own templates,
-helpers, and instance variables. Cells compose: a cell can render
+helpers, and instance variables. Cells compose - a cell can render
 another cell.
 
-## Small example
-
-```ruby
-# app/cells/user_cell.rb
-class UserCell < ApplicationCell
-  def avatar user
-    @user = user
-    render :avatar           # renders app/cells/user/avatar.haml
-  end
-end
-
-# in a template or controller:
-UserCell.new.avatar(@user)
-Lux.render.cell(:user).avatar(@user)
-```
+Subclass per component; instantiate directly or via `Lux.render.cell(:name)`.
 
 ## Full example
 
 ```ruby
+# app/cells/user_cell.rb
 class UserCell < ApplicationCell
-  helper :avatar             # mixes AvatarHelper into render scope
+  helper :avatar                 # mixes AvatarHelper into the render scope
 
   # initializer args become instance vars in the cell
   def initialize ctx = nil, opts = {}
@@ -33,7 +20,7 @@ class UserCell < ApplicationCell
   end
 
   def card
-    render :card             # app/cells/user/card.haml
+    render :card                 # app/cells/user/card.haml
   end
 
   def avatar user, size: 64
@@ -43,11 +30,11 @@ class UserCell < ApplicationCell
   end
 
   def link
-    "<a href=\"/users/#{@user.ref}\">#{@user.name}</a>"
+    %[<a href="/users/#{@user.ref}">#{@user.name}</a>]
   end
 end
 
-# --- ways to use ------------------------------------------------------
+# --- ways to use -----------------------------------------------------
 
 # direct
 UserCell.new.card
@@ -71,7 +58,7 @@ Lux.render.cell(:user, self, org: @org).card
 ## Layout
 
 ```
-app/cells/<name>/<method>.haml      # template per cell method
+app/cells/<name>/<method>.haml      # one template per cell method
 app/cells/<name>/_partial.haml      # private partial (underscore-prefixed)
 ```
 

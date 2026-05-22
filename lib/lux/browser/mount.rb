@@ -1,5 +1,5 @@
 module Lux
-  module Browser
+  class Browser
     # Handles requests under /lux/*. Called from Application#render_base
     # before route resolution.
     #

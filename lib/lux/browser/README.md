@@ -1,67 +1,107 @@
 # Lux::Browser
 
-Server-side composer for the `window.Lux` client surface. Subsystems
-register JS modules; the framework serves the composed bundle at
-`/lux/*.js` with per-request state (csrf, locale, host) interpolated
-through ERB.
+Two roles in one class:
 
-The `/lux` URL path is reserved for framework-served assets and is
-intercepted in `Lux::Application#render_base` before route resolution.
+1. **Class-level** - server-side composer for the `window.Lux` client
+   surface. Subsystems register JS modules; the composed bundle is served
+   at `/lux/*.js` (a reserved framework path).
+2. **Instance-level** - per-request state accumulator, accessed via
+   `lux.browser`. Chain-set arbitrary nested keys; emit as a `<script>`
+   tag in the page head. Lands as `window.<root>` (separate namespace
+   from `window.Lux` on purpose).
 
-## Small example
+## Full example
 
 ```ruby
-# A subsystem registers its client-side module on load.
-Lux::Browser.register :sse, file: 'assets/lux/sse.js'
+# --- CLASS-LEVEL: JS bundling (boot-time, in any subsystem) ---
 
-# Anywhere on the server you can get the composed bundle as a string.
-Lux::Browser.client          # core + every registered module
-Lux::Browser.client(:sse)    # core + sse
+Lux::Browser.register :sse, file: 'assets/lux/sse.js'    # registers a module
+Lux.browser.modules                                       # [:core, :sse, ...]
+Lux.browser.registered?(:sse)                             # true
+Lux.browser.client                                        # all modules, core first
+Lux.browser.client(:sse)                                  # core + sse only
+Lux.browser.client(:sse, :api)                            # core + listed
+
+# Served URLs (intercepted before route resolution; /lux/* is reserved):
+#   /lux/client.js                  -> all registered modules
+#   /lux/client.js?modules=sse,api  -> just those
+#   /lux/<name>.js                  -> core + that one (404 if unknown)
+
+# --- INSTANCE-LEVEL: per-request state (controller / before-filter) ---
+
+lux.browser.app.config.host    = Lux.config.host
+lux.browser.app.config.locale  = lux.locale
+lux.browser.app.data.user      = lux.user&.to_h
+lux.browser.app.data.user.foo  = 'bar'                    # deep chain ok
+lux.browser.app.config[:flag]  = true                     # bracket form
+lux.browser.api.url            = '/api'                   # multiple top-level namespaces
+
+# Read-back / debug:
+lux.browser.app.config.host                               # "..."
+lux.browser.to_h                                          # full nested hash
+
+# --- EMIT in the layout head (Haml example) ---
+#   != lux.browser.script_tag
+# ->
+#   <script id="lux-state">
+#     window.app ||= {};
+#     window.app.config = {"host":"...","locale":"en","flag":true};
+#     window.app.data = {"user":{...,"foo":"bar"}};
+#     window.api ||= {};
+#     window.api.url = "/api";
+#   </script>
 ```
 
-In a template:
+## Emit rule
 
-```html
-<script src="/lux/client.js"></script>
-<script>
-  Lux.sse.on('user:42', msg => inbox.update(msg))
-  Lux.sse.connect('/stream')
-</script>
-```
+* **Level 1** (root namespaces: `window.app`, `window.api`) - `||= {}`
+  bootstrap so pjax-driven re-renders preserve untouched buckets.
+* **Level 2** (`window.app.config`, `window.app.data`, ...) - atomic
+  JSON assignment of the entire subtree below the level-2 key.
+* **Deep chains** collapse into the level-2 JSON.
+* **Empty state** still emits `<script id="lux-state">window.<ns> ||= {};</script>`
+  so pjax has a stable target. Default `ns` is `app`; override via
+  `Lux.config.browser_namespace`.
+* **`</` in string values is escaped to `<\/`** so the payload can't
+  break out of the surrounding `<script>` tag.
 
-## How it composes
+## Pjax granularity
 
-* **`:core` is always first.** It sets up `window.Lux`, injects the
-  per-request state (`Lux.csrf`, `Lux.config.host`, `Lux.config.locale`),
-  and adds `Lux.fetch` (a CSRF+JSON-aware wrapper over `fetch`).
-* Every other module is appended in the order requested.
-* Each file is rendered through ERB, so module sources may use
-  `<%= ... %>` to inject server values too.
+Updates are atomic at the level-2 bucket. If a new page sets
+`window.app.config`, an untouched `window.app.data` survives. Inside a
+bucket it's a full replace - no per-key diff. Group state into level-2
+buckets that ship as a unit.
 
-## Served URLs
+## Security
 
-| URL                          | What it serves |
-|------------------------------|----------------|
-| `/lux/client.js`             | core + every registered module |
-| `/lux/client.js?modules=sse` | core + just the listed modules |
-| `/lux/<name>.js`             | core + just `<name>` (404 if unknown) |
-
-Cache headers are `private, no-cache, no-store` because each request
-carries the caller's CSRF token. If you want to cache, set up your own
-asset pipeline and point at static copies of `assets/lux/*.js`.
+Don't ship secrets via `lux.browser` - everything you set is visible in
+the page source. The framework-injected `Lux.csrf` (from `core.js`)
+lives under `window.Lux`, not `window.app`.
 
 ## API
 
-| call | returns | notes |
-|------|---------|-------|
-| `Lux::Browser.register(name, file:)` | nil | path is relative to `Lux.fw_root` unless absolute |
-| `Lux::Browser.client(*names)` | String | composed bundle; empty args = all modules |
-| `Lux::Browser.modules` | `[Symbol]` | registered names |
-| `Lux::Browser.registered?(name)` | Boolean | |
-| `Lux.browser` | `Lux::Browser` | shorthand |
+### Class-level (JS bundler)
+
+| call | notes |
+|------|-------|
+| `Lux.browser.register(name, file:)` | path is relative to `Lux.fw_root` unless absolute |
+| `Lux.browser.client(*names)` | composed JS string; no args = all modules |
+| `Lux.browser.modules` | `[Symbol]` |
+| `Lux.browser.registered?(name)` | Boolean |
+| `Lux.browser` | the class itself (lets you say `Lux.browser.register ...`) |
+
+### Instance-level (per-request)
+
+| call | notes |
+|------|-------|
+| `lux.browser.<root>.<key>...= value` | chained setter; auto-creates parents |
+| `lux.browser.<root>.<key>[k] = value` | bracket setter at any depth |
+| `lux.browser.<root>.<key>` | read; returns value or a fresh Node |
+| `lux.browser.script_tag` | renders the `<script id="lux-state">...</script>` |
+| `lux.browser.to_h` | deep-hash representation |
 
 ## See also
 
 * [`AGENTS.md`](./AGENTS.md) - LLM guide
-* [`../channel/README.md`](../channel/README.md) - pub/sub channels, registers `:sse`
-* [`../../../assets/lux/`](../../../assets/lux/) - the JS module sources
+* [`../channel/README.md`](../channel/README.md) - SSE channels, registers `:sse`
+* [`../../../assets/lux/`](../../../assets/lux/) - JS module sources

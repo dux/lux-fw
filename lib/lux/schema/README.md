@@ -4,9 +4,15 @@ The schema DSL at the heart of the framework. The same line parser drives
 controller params, API params, model field definitions, and standalone
 validation/coercion.
 
-## Small example
+`Lux.schema(name) { ... }` defines and stores a schema by name;
+`Lux.schema(name)` looks it up (raises if missing); `Lux.schema?(name)`
+returns nil if missing.
+
+## Full example
 
 ```ruby
+# --- inline (one-off, no store) ----------------------------------------
+
 schema = Lux.schema do
   name  String, max: 30
   email type: :email
@@ -14,30 +20,14 @@ schema = Lux.schema do
 end
 
 errors = schema.validate({ 'name' => 'Dux', 'email' => 'foo@bar.baz' })
-# => {}  (and the hash is now coerced + filtered)
-```
+# errors == {} ; hash is now coerced + filtered in place
 
-## Line forms
+# --- named (stored under SCHEMA_STORE; lookup with Lux.schema(:user)) -
 
-All three lines below produce the same rule:
-
-```ruby
-name String, max: 30                  # shortcut: method-missing -> set
-set :name, type: String, max: 30      # explicit
-name? String, max: 30                 # `?` suffix marks optional
-```
-
-Inside a controller / API, `opt :name, String, max: 30` is the above-method
-form. Same parser under the hood.
-
-## Full example
-
-```ruby
-# Define + store under a name for reuse anywhere via Lux.schema(:user)
 Lux.schema :user do
   name     String, max: 30
   email    type: :email, index: true
-  bio?     String                                  # optional
+  bio?     String                                  # `?` suffix = optional
   role     %w[admin user guest]                    # enum (allowed values)
   tags?    [String]                                # array of strings
   age      Integer, min: 13, max: 130
@@ -54,26 +44,48 @@ Lux.schema :user do
   org      type: Lux.schema(:org)
 end
 
-# --- validate + coerce ---
+# --- line forms (all equivalent) --------------------------------------
+
+# inside a `schema do ... end` block:
+name String, max: 30                  # method-missing -> set
+set :name, type: String, max: 30      # explicit
+name? String, max: 30                 # optional
+
+# above a controller / API def:
+opt :name, String, max: 30            # same parser, method-level form
+
+# --- lookup / introspect ----------------------------------------------
+
+Lux.schema(:user)                     # raises if missing
+Lux.schema?(:user)                    # nil if missing
+Lux.schema(type: :model)              # find all schemas matching an opt (returns class names)
+Lux.schema(:user).rules               # { name: { type: :string, ... }, ... }
+Lux.schema(:user).db_schema           # [[field, db_type, db_opts], ...]
+Lux.db_schema(:user)                  # shortcut
+
+# --- subset / superset -------------------------------------------------
+
+Lux.schema(:user).only(:name, :email)        # new Schema with those two
+Lux.schema(:user).except(:age, :country)     # new Schema without those
+
+# --- validate ----------------------------------------------------------
+
 data = { 'name' => 'Dux', 'email' => 'd@x.com', 'role' => 'admin', 'age' => '42' }
 errors = Lux.schema(:user).validate(data)
-# errors == {} ; data == { 'name' => 'Dux', email: ..., role: 'admin', age: 42, ... }
+# errors == {} ; data is now { 'name' => 'Dux', email: ..., role: 'admin', age: 42 (coerced), ... }
 
-# --- block form yields each error ---
+# Strict mode (default for controllers/APIs): also DROPS undeclared keys
+Lux.schema(:user).validate(data, strict: true)
+
+# Block form yields (field, message) for each error and returns nil
 Lux.schema(:user).validate(data) do |field, msg|
   puts "#{field}: #{msg}"
 end
 
-# --- subset / superset ---
-Lux.schema(:user).only(:name, :email)        # new Schema with two fields
-Lux.schema(:user).except(:age, :country)     # new Schema without those
-
-# --- introspect ---
-Lux.schema(:user).rules                      # { name: { type: :string, ... }, ... }
-Lux.schema(:user).db_schema                  # [[field, db_type, db_opts], ...]
+Lux.schema(:user).valid?(data)        # true / false
 ```
 
-## Option keys (recognized by every type)
+## Option keys (recognised by every type)
 
 | Key | Meaning |
 |-----|---------|
@@ -93,19 +105,19 @@ Lux.schema(:user).db_schema                  # [[field, db_type, db_opts], ...]
 Plus per-type options: `min`, `max` (numbers/strings), and anything declared
 on a custom type via `Lux::Type.opts :key, 'desc'`.
 
-## Validation behavior
+## Validation behaviour
 
 * `schema.validate(hash)` mutates the hash in place: coerced values
-  replace raw input, blank empty strings become `nil`
-* Pass `strict: true` to **also drop undeclared keys** (this is what
-  controllers and APIs do by default when any opts are declared)
+  replace raw input, blank empty strings become `nil`.
+* Pass `strict: true` to also drop undeclared keys (controllers and APIs
+  do this by default when any opts are declared).
 * Block form yields `(field, message)` for each error; otherwise returns
-  the errors hash
-* `schema.valid?(hash)` returns `true`/`false`
+  the errors hash.
+* `schema.valid?(hash)` returns `true`/`false`.
 
 ## See also
 
-* [`Lux::Type` README](../type/README.md) - the named-type vocabulary
-* [`Lux::Controller` README](../controller/README.md) - `opt` / `params do`
-* [`Lux::Api` README](../api/README.md) - same DSL for API endpoints
-* [`AGENTS.md`](./AGENTS.md) - LLM guide for adding/using schemas
+* [`../type/README.md`](../type/README.md) - the named-type vocabulary
+* [`../controller/README.md`](../controller/README.md) - `opt` / `params do`
+* [`../api/README.md`](../api/README.md) - same DSL for API endpoints
+* [`AGENTS.md`](./AGENTS.md) - LLM guide

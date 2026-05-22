@@ -10,43 +10,28 @@ JSON-RPC-ish API classes. Same `params do` / shared schema DSL as
 * `ref do ... end` for member endpoints
 * `rescue_from`, `before`, `after`, `define`, `annotation`, `plugin`
 
-## Small example
-
-```ruby
-class UsersApi < ApplicationApi
-  desc 'Create a new user'
-  params do
-    name  String, max: 30
-    email type: :email
-  end
-  def create
-    User.create!(@api.params.to_h)
-  end
-end
-```
-
-Call:
-
-```
-POST /api/users/create
-{ "name": "Dux", "email": "d@x.com" }
-```
-
 ## Full example
 
 ```ruby
 class BoardsApi < ApplicationApi
   class_desc 'Board management'
   icon File.read('./app/assets/icons/board.svg')
+  mount_on '/api'                                       # optional; default '/api'
+  documented                                            # show in /sys/openapi
+  unsafe                                                # endpoints callable without bearer
 
   before do
     @user = User.find_by_token(@api.bearer) or @api.error 'auth required', status: 401
   end
 
-  # collection actions ---------------------------------------------------
+  rescue_from Sequel::NoMatchingRow do |err|
+    @api.response.error 'Not found', status: 404
+  end
 
-  desc 'List boards'
-  define :list do
+  # --- collection actions ----------------------------------------------
+
+  desc 'List boards'                                    # `desc` opts the next def in as an endpoint
+  define :list do                                       # `define` registers explicitly (proc/lambda)
     proc { @user.boards.all }
   end
 
@@ -59,15 +44,13 @@ class BoardsApi < ApplicationApi
     @user.boards.create!(@api.params.to_h)
   end
 
-  # member actions (require `?ref=...` or path-id) -----------------------
+  # --- member actions (require ref) ------------------------------------
 
   ref do
     before { @board = @user.boards.find(@ref) }
 
     desc 'Get one board'
-    def show
-      @board
-    end
+    def show; @board; end
 
     desc 'Update a board'
     params do
@@ -79,19 +62,35 @@ class BoardsApi < ApplicationApi
     end
 
     desc 'Delete a board'
-    allow :delete
+    allow :delete                                        # additional verb (default POST)
     def destroy
       @board.destroy
-      message 'deleted'
+      message 'deleted'                                  # plain message body
     end
   end
 
-  # custom error handling ------------------------------------------------
+  # --- references / utilities ------------------------------------------
 
-  rescue_from Sequel::NoMatchingRow do |err|
-    @api.response.error 'Not found', status: 404
+  schema_ref :user                                       # reuse a Lux.schema instead of inline params
+
+  annotation :flag do |args|                             # custom marker, used like `unsafe`
+    # ...
+  end
+
+  plugin :pagination do                                  # reusable behavior
+    # ...
   end
 end
+
+# In controller-style endpoints you can also reach for:
+#   send_file(path, opts)   send_data(blob, opts)
+#   super!                  # call the superclass implementation
+```
+
+Call:
+```
+POST /api/boards/create
+{ "name": "todo", "tags": ["work"] }
 ```
 
 ## Endpoint registration

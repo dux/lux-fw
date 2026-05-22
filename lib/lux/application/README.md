@@ -5,110 +5,87 @@ Main router and request lifecycle. Lifecycle callbacks
 `Lux do ... end`; all routing DSL (`map`, `root`, ...) lives inside the
 `routes do ... end` block.
 
-## Small example
+`Lux do ... end` (inside Rack / `config.ru`) class-evals into
+`Lux::Application`, mounts as the Rack app, and prints the start banner.
+For specs use `Lux.app do ... end` (no Rack registration).
+
+## Full example
 
 ```ruby
 # config.ru
 require 'lux-fw'
 
-Lux do
-  before do
-    nav.path(:ref) { |el| el =~ /\A\d+\z/ ? el : nil }
-  end
-
-  # post-render: expand T[key.path] placeholders to real translations
-  after do
-    response.body { |b| b.gsub(/T\[([\w.]+)\]/) { Translation.fetch($1) } }
-  end
-
-  rescue_from do |err|
-    call 'main#error'                  # forwards to MainController#error
-  end
-
-  routes do
-    root 'main'                        # / -> MainController#root
-    map about: 'static#about'          # /about -> Static#about
-    map 'users'                        # /users -> UsersController (resourceful)
-  end
-end
-```
-
-`Lux do ... end` (inside Rack) class-evals into `Lux::Application`, mounts
-as the Rack app, and prints the start banner. For specs use
-`Lux.app do ... end` (no Rack registration).
-
-## Full example
-
-```ruby
 Lux.app do
-  # --- helpers (instance methods, callable from routes)
+  # --- class-level filters ------------------------------------------------
+  config { ... }                                # pre-boot
+  boot   { ... }                                # after rack app boot (web only)
+
+  # --- helpers (instance methods, callable from routes) -------------------
   def api_router
     Lux.error.forbidden if Lux.env.prod? && !post?
     Lux::Api.call nav.path
   end
 
-  # --- request callbacks (top level)
+  # --- request callbacks (top level; instance_exec'd on Application) ------
   before do
     nav.path(:ref) { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
   end
-  after { }
+  after do
+    response.body { |b| b.gsub(/T\[([\w.]+)\]/) { Translation.fetch($1) } }
+  end
 
-  # --- error sink (always wins when present; defaults to controller :error)
+  # --- error sink (always wins when present; default falls back to
+  #     active controller's :error action) ---------------------------------
   rescue_from do |err|
     call '%s#error' % [user ? :main : :promo]
   end
 
-  # --- routes ---------------------------------------------------------
+  # --- routes -------------------------------------------------------------
   routes do
-    root 'main'                                    # /
-    map about: 'static#about' if get?              # /about (GET only)
+    root 'main'                                  # /          -> MainController#root
+    map about: 'static#about' if get?            # /about     (GET only)
+    map 'users'                                  # resourceful UsersController
 
-    post? { map api: :api_router }                 # POST scope block
+    post? { map api: :api_router }               # POST scope block
 
-    map '/foo/:bar/baz' => 'main#foo'              # absolute path with capture
+    map '/foo/:bar/baz' => 'main#foo'            # absolute path with capture
+    map [:array1, :array2] => 'root'             # multi-key map
+    map %r{^@} => [UsersController, :show]       # regex match
 
-    map 'boards'                                   # resourceful BoardsController
-    map [:array1, :array2] => 'root'               # multi-key map
-    map %r{^@} => [UsersController, :show]         # regex match
+    map 'boards' do
+      root 'boards/index'                        # /boards
+      map favorites: 'boards#favorites'          # /boards/favorites
+    end
 
     subdomain 'admin' do
-      map 'users', 'admin/users'                   # admin.host/users
+      map 'users', 'admin/users'                 # admin.host/users
     end
 
-    map 'admin' do                                 # nested scope
-      root 'admin/dashboard'                       # /admin
-      map users: 'admin/users'                     # /admin/users
-      map 'reports#monthly'                        # /admin/reports -> #monthly
+    map 'admin' do                               # nested scope
+      root 'admin/dashboard'                     # /admin
+      map users: 'admin/users'                   # /admin/users
+      map 'reports#monthly'                      # /admin/reports -> #monthly
     end
 
-    map '/api' => ApiApp                           # any Rack-callable class
+    map '/api'           => ApiApp               # any Rack-callable class
+    map '/admin/sys/jobs' => LuxJobWeb           # deep absolute path
+    call '/api'          => ApiApp               # unconditional (for rescue_from etc.)
+
     favicon 'app/assets/favicon.ico'
-    plugin_route :authcog                          # explicit single plugin
-    plugin_routes                                  # auto-mount every plugin with routes.rb
+    plugin_route :authcog                        # explicit single plugin
+    plugin_routes                                # auto-mount every plugin with routes.rb
   end
 end
 ```
 
 ## Mounting Rack apps (no `mount` keyword)
 
-Lux has no separate `mount` method. Any class responding to `.call(env)`
-- Rack, Sinatra, Roda, a plain `class Foo; def self.call(env); ...; end`
-- is a valid target for `map` / `call`.
-
-```ruby
-routes do
-  map '/api'                  => ApiApp           # absolute path
-  map '/admin/sys/jobs'       => LuxJobWeb        # deep absolute path
-  map api:                       ApiApp           # symbol shortcut (single segment)
-  call ApiApp                                     # unconditional (inside rescue_from etc.)
-end
-```
-
-Behavior: when the path matches, Lux calls `target.call(Lux.current.env)`
-and renders the returned `[status, headers, body]` tuple as the response.
-`SCRIPT_NAME` is **not** rewritten - the mounted app sees the full path.
-If your Sinatra/Roda app needs prefix stripping, do it inside the app
-itself or wrap it with `Rack::URLMap` before passing it to `map`.
+Any class responding to `.call(env)` - Rack, Sinatra, Roda, a plain class
+with `self.call(env)` - is a valid target for `map` / `call`. When the
+path matches, Lux calls `target.call(Lux.current.env)` and renders the
+returned `[status, headers, body]` tuple. `SCRIPT_NAME` is **not**
+rewritten - the mounted app sees the full path; wrap it with
+`Rack::URLMap` (or strip inside the app) if it needs a prefix.
 
 Coming from Rails:
 
@@ -134,7 +111,7 @@ Coming from Rails:
 
 ## Resourceful action resolution
 
-After `nav.path(:ref) { ... }` canonicalizes id segments to `:ref`:
+After `nav.path(:ref) { ... }` canonicalises id segments to `:ref`:
 
 | URL                        | Action       | `nav.ref` |
 |----------------------------|--------------|-----------|
@@ -153,24 +130,14 @@ Rules: empty remaining → `:root`. Only `:ref` → `:show_ref`. 2+ segments
 
 ## Route cursor
 
-`nav.path` is the canonical request path. `lux.route` is the per-request
-cursor over it; `map` advances the cursor without mutating nav.
+`nav.path` is the canonical request path; `lux.route` is the per-request
+cursor over it. `map` advances the cursor without mutating nav.
 
 * `lux.route.path`     - remaining path after consumed segments
 * `lux.route.root`     - first remaining segment
 * `lux.route.child`    - second remaining segment
 * `lux.route.consumed` - segments before the cursor
 * `lux.route.with_scope(n) { ... }` - internal (used by `map`)
-
-## Class filters
-
-```ruby
-config { ... }      # pre-boot
-boot   { ... }      # after rack app boot (web only)
-before { ... }      # before every request
-routes { ... }      # legacy block form
-after  { ... }      # after every request
-```
 
 ## Error handling
 

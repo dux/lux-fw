@@ -1,16 +1,8 @@
 # Lux::Error
 
 Thin exception class. HTTP status is set on the response, not carried
-on the exception. Helper methods raise with the right status.
-
-## Small example
-
-```ruby
-def show
-  @user = User.find(nav.ref) or Lux.error.not_found
-  Lux.error.forbidden unless @user.can.read?
-end
-```
+on the exception. `Lux.error` returns a proxy with named helpers that
+raise with the right status.
 
 ## Full example
 
@@ -26,18 +18,29 @@ Lux.error.method_not_allowed 'POST only'         # 405
 Lux.error.not_acceptable                         # 406
 Lux.error.internal_server_error 'boom'           # 500
 Lux.error.not_implemented                        # 501
-Lux.error(418, "I'm a teapot")                   # arbitrary status
 
-# --- conditional rendering inside dev / prod -----------------------------
+# --- arbitrary status / generic ------------------------------------------
+
+Lux.error 404                                    # status 404, default message
+Lux.error 418, "I'm a teapot"                    # status + custom message
+Lux.error 'generic'                              # status 400, custom message
+
+# --- in-controller use ---------------------------------------------------
+
+def show
+  @user = User.find(nav.ref) or Lux.error.not_found
+  Lux.error.forbidden unless @user.can.read?
+end
+
+# --- conditional rendering across dev / prod -----------------------------
 
 # dev: include the detailed message; prod: bare 404
 Lux.error.not_found Lux.mode.errors?('404 Not Found') {
   'Subdomain "%s" matched but nothing called' % name
 }
 
-# --- rescue chain --------------------------------------------------------
+# --- override controller :error to customise rescue ---------------------
 
-# In a controller, override #error (or use rescue_from):
 class ApplicationController < Lux::Controller
   def error
     Lux.logger.error @error.message
@@ -49,7 +52,7 @@ class ApplicationController < Lux::Controller
   end
 end
 
-# --- last-resort rendering (used when no controller :error matches) ------
+# --- direct render helpers (used by the framework's fallback) ------------
 
 Lux::Error.render(exception)         # full HTML/JSON error page
 Lux::Error.inline(exception)         # inline panel (for embeds)

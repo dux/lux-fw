@@ -1,30 +1,15 @@
 # Lux::Policy
 
-Framework- and ORM-agnostic access policy. Inherit, define question-mark
-methods, use everywhere - on models, in controllers, in APIs. Same shape
-in all three.
+Framework- and ORM-agnostic access policy. Subclass `Lux::Policy`, define
+question-mark methods, use everywhere - on models, in controllers, in
+APIs. Same shape in all three.
 
-## Small example
-
-```ruby
-class BlogPolicy < Lux::Policy
-  def read?
-    model.created_by == user.id
-  end
-
-  def write?
-    user.admin? || read?
-  end
-end
-
-@blog.can.read?   # true / false
-@blog.can.write!  # returns model on success, raises Lux::Policy::Error on fail
-```
+Subclass per resource; `model.can.action?` is the canonical call.
 
 ## Full example
 
 ```ruby
-# 1. Define ---------------------------------------------------------------
+# --- 1. Define ----------------------------------------------------------
 
 class BlogPolicy < Lux::Policy
   # before-hook: truthy short-circuits to allow
@@ -46,18 +31,18 @@ class BlogPolicy < Lux::Policy
   end
 end
 
-# 2. Use on a model (auto-resolves <Model>Policy) -------------------------
+# --- 2. Use on a model (auto-resolves <Model>Policy) -------------------
 
 class Blog < ApplicationModel
   include Lux::Policy::Model
 end
 
-@blog.can.read?                  # uses Lux::Policy.current_user
-@blog.can(@another_user).read?   # explicit user
-@blog.can.write!                 # returns @blog, raises on fail
+@blog.can.read?                       # true / false (swallows errors)
+@blog.can(@another_user).read?        # explicit user (instead of current)
+@blog.can.write!                      # returns @blog, raises Lux::Policy::Error on fail
 @blog.can.write! { |msg| flash.error msg }   # block runs on fail, no raise
 
-# 3. Use in a controller -------------------------------------------------
+# --- 3. Use in a controller --------------------------------------------
 
 class BlogsController < ApplicationController
   before { @blog = Blog.find(nav.ref) }
@@ -68,12 +53,12 @@ class BlogsController < ApplicationController
   end
 
   def update
-    authorize @blog.can.write?    # marks request authorized or raises
+    authorize @blog.can.write?        # marks request authorized or raises
     @blog.update(current.params.to_h)
   end
 end
 
-# 4. Headless policy (no model) -----------------------------------------
+# --- 4. Headless policy (no model) -------------------------------------
 
 class DashboardPolicy < Lux::Policy
   def access?
@@ -84,15 +69,15 @@ end
 DashboardPolicy.can.access?
 authorize DashboardPolicy.can.access?
 
-# 5. Explicit invocation ------------------------------------------------
+# --- 5. Explicit invocation --------------------------------------------
 
-Lux::Policy.can(model: @blog, user: @user).read?
+Lux.policy.can(model: @blog, user: @user).read?     # shim for Lux::Policy
 BlogPolicy.can(model: @blog, user: @user).write!
 ```
 
 ## Current-user resolution
 
-`Lux::Policy.current_user` resolves in order:
+`Lux.policy.current_user` (alias `Lux::Policy.current_user`) resolves in order:
 
 1. `Thread.current[:current_user]`
 2. `User.current` (if `User` is defined and responds to `current`)
@@ -108,10 +93,10 @@ resolver.
 
 | Method | Returns | On failure |
 |--------|---------|------------|
-| `proxy.read?`      | `true` / `false` | swallows `Lux::Policy::Error` |
-| `proxy.read!`      | the `model`      | raises `Lux::Policy::Error` |
-| `proxy.read?` w/ block | `true` / `false` | calls block with error message |
-| `proxy.read!` w/ block | `true` / `false` | calls block, no raise |
+| `proxy.read?`          | `true` / `false`     | swallows `Lux::Policy::Error` |
+| `proxy.read!`          | the `model`          | raises `Lux::Policy::Error` |
+| `proxy.read?` w/ block | `true` / `false`     | calls block with error message |
+| `proxy.read!` w/ block | `true` / `false`     | calls block, no raise |
 
 ## Controller mixin
 
@@ -125,5 +110,5 @@ is_authorized!                  # 403 if not authorized
 
 ## See also
 
-* [`Lux::Error` README](../error/README.md) - HTTP 403 / `unauthorized!`
+* [`../error/README.md`](../error/README.md) - HTTP 403 / `unauthorized!`
 * [`AGENTS.md`](./AGENTS.md) - LLM guide
