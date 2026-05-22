@@ -14,6 +14,10 @@ require_relative '../lib/overload/thread_simple'
 require_relative '../lib/overload/string'
 require_relative '../lib/overload/dir'
 require_relative '../lib/lux/lux'
+# CLI deliberately skips boot.rb for fast startup; pull in just the config
+# adapter so Lux.dotenv / Lux.init_env are available.
+require_relative '../lib/lux/config/config'
+require_relative '../lib/lux/config/lux_adapter'
 
 Lux.dotenv
 
