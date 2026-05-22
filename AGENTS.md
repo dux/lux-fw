@@ -82,7 +82,7 @@ keys, validates required, coerces types.
 ```
 lib/lux/<module>/         # core modules; each has README + AGENTS
 lib/overload/             # Ruby core class extensions (don't touch lightly)
-lib/common/               # Crypt, StringBase, StructOpts, TimeDifference
+lib/common/               # Lux::Crypt, Lux::StringBase, Lux::TimeDifference
 plugins/<name>/           # optional plugins, canonical layout (see plugin AGENTS)
 spec/lux_tests/           # RSpec for framework features
 spec/lib_tests/           # RSpec for pure-ruby utilities
