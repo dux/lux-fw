@@ -49,19 +49,26 @@ a deliberate record so the same idea doesn't get re-pitched.
   flip the response content type. No opt-in.
 * **Job retry + exponential backoff** - `plugins/job_runner` has
   `RETRY_BASE_WAIT` and `MAX_RETRIES`, 1.6x backoff per attempt.
+* **CORS.** `Lux::Response::Cors` (`lib/lux/response/lib/cors.rb`).
+  `response.cors :all` shortcut, or explicit `origins`/`methods`/
+  `headers`/`credentials`/`max_age`. Preflight auto-handled: the
+  application's OPTIONS short-circuit was gated to non-preflight so
+  `response.cors` in a before/action answers it.
+* **CSRF protection.** `lux.csrf` / `lux.csrf_valid?` /
+  `lux.csrf_required?` on `Lux::Current` (`lib/lux/current/lib/csrf.rb`).
+  6-char token in `session[:_csrf]`, auto-checked in `render_base` for
+  non-GET non-Bearer requests, opt out via `Lux.config.csrf = false`.
+  `HtmlForm` auto-injects the hidden field; `HtmlInput.csrf` for raw
+  `<form>` markup. Reads `_csrf` body param then `X-CSRF-Token` header.
+* **Shell API rewrite.** `Lux::Shell.exec` returns stripped stdout,
+  raises on failure (or yields `(err, out)` to a block). `Lux::Shell.capture`
+  is merged stdout+stderr, never raises. `Lux.shell(*argv)` shortcut
+  for `exec`. `Result` / `run` removed.
 
 ## Critical
 
 Every framework gets burned here. lux-fw still missing or thin.
 
-* **CSRF protection.** Grep finds nothing. Roda and Sinatra both
-  criticized for opt-in CSRF. Needs first-class default-on for HTML
-  form submissions (skip for JSON + Bearer). Helper should reuse the
-  session + `Lux::Utils::Crypt` already in the framework.
-* **CORS.** No plugin, no controller helper. Required the moment the
-  API serves a browser SPA, and per-route policy means it can't fully
-  live at the proxy. A thin `Lux.cors do origins ... end` fits the
-  framework idiom better than dragging in `rack-cors`.
 * **WebSocket / SSE / streaming primitive.** `Lux::Response` exposes
   `early_hints`, `etag`, `send_file` but no `stream` / `sse` / hijack.
   Sinatra and Roda need plugins, Rails has ActionCable.
@@ -181,16 +188,24 @@ re-pitched.
 * **Per-mount DI container (Hanami slices).** Plugin layout already
   scopes ownership; another container layer is more complexity than
   payoff.
+* **Zeitwerk-style lazy autoloader.** Considered as a replacement for
+  the boot-time `Dir.require_all` sweep over `lib/lux/`. Doable in
+  ~2-3 days but doesn't earn its keep: cold-boot is already fast, the
+  framework has a custom reloader plus a `const_missing` autoloader
+  for `./app/**`, and `lux_adapter.rb` files (which reopen the `Lux`
+  module to add `Lux.shell`/`Lux.cache`/...) define no new constants
+  and can't be lazy-loaded anyway. The savings would be marginal and
+  the risk to the reloader interaction is real.
 
 ## Top three if forced to pick
 
-Original list was 2/3 shipped (routes, opt DSL). Refreshed:
+Refreshed - the earlier top 3 are shipped (routes, opt DSL, CSRF, CORS):
 
-1. **CSRF default-on** - still the loudest security gap; trivial to
-   add, embarrassing to lack.
-2. **WebSocket / SSE / streaming** - `response.stream { }` +
-   `response.sse` on the existing Rack-clean response API. Real
-   differentiator vs Sinatra/Roda.
-3. **CORS + request ID + dev error page context** as one "production
-   readiness" patch - all three are blockers for putting a lux app
-   behind a real domain or debugging it in dev.
+1. **WebSocket / SSE / streaming** - `response.stream { }` +
+   `response.sse` on the existing Rack-clean response API. Last
+   Critical item; real differentiator vs Sinatra/Roda.
+2. **Dev error page context** - `Lux::Error.render` is currently
+   status + message + backtrace. Add request body, params, source
+   snippet around the failing line. You'd feel this every debug.
+3. **Request ID propagation** - foundation for structured logging
+   and any future observability story; ~20 LOC.

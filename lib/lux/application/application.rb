@@ -114,6 +114,15 @@ module Lux
         }, ['']]
       end
 
+      # /lux/* - framework-served client assets (composed JS bundles). Always
+      # GET; csrf is skipped because the response carries the current token,
+      # not consumes one. See Lux::Browser::Mount.
+      if request_method == 'GET' && lux.request.path_info.start_with?('/lux/')
+        if result = Lux::Browser::Mount.handle(lux)
+          return result
+        end
+      end
+
       # CSRF: enforce for non-safe verbs that aren't Bearer-authenticated.
       # Opt-out per-app via Lux.config.csrf = false. See Lux::Current#csrf.
       if Lux.config[:csrf] != false && lux.csrf_required? && !lux.csrf_valid?

@@ -190,6 +190,24 @@ module Lux
       Lux::Response::Cors.apply self, *args, **opts
     end
 
+    # Subscribe to one or more Lux::Channel names and stream messages as SSE.
+    # See Lux::Response::Sse and Lux::Channel.
+    def sse *channels
+      Lux::Response::Sse.apply self, *channels
+    end
+
+    # Set a streaming body. Body must respond to .each(yields strings); render
+    # skips content-length, etag, and content-type defaulting so SSE / chunked
+    # writers work. Returns the body.
+    def stream body
+      @streaming = true
+      @body      = body
+    end
+
+    def streaming?
+      !!@streaming
+    end
+
     def send_file file, opts = {}
       ::Lux::Response::File.new(opts.merge(file: file)).send
     end
@@ -290,6 +308,8 @@ module Lux
         @body = ''
       end
 
+      return [@status || 200, @headers.to_h, @body] if streaming?
+
       [@status, @headers.to_h, [@body]]
     end
 
@@ -324,6 +344,10 @@ module Lux
     end
 
     def write_response_body
+      # streaming responses have their content-type set by the writer (e.g. SSE);
+      # don't try to text-classify or JSON-serialise their body object.
+      return if streaming?
+
       # default: empty body + 204
       unless @body
         @status ||= 204
@@ -368,19 +392,24 @@ module Lux
         @headers['set-cookie'] = cookie if cookie
       end
 
-      # Auto-etag only for cacheable 2xx GETs. Redirects (3xx), errors (4xx/5xx)
-      # and no-store responses don't benefit from a conditional-GET round-trip,
-      # so skipping saves a full-body SHA1 on the response path.
-      if current.request.request_method == 'GET' && !@cache.no_store? && @status.to_i < 300
+      # Auto-etag only for cacheable 2xx GETs. Redirects (3xx), errors (4xx/5xx),
+      # no-store and streaming responses don't benefit from a conditional-GET
+      # round-trip, so skipping saves a full-body SHA1 on the response path.
+      if current.request.request_method == 'GET' && !@cache.no_store? && @status.to_i < 300 && !streaming?
         etag(@body)
       end
 
       @headers['x-lux-speed']     = "#{((Time.monotonic - @render_start)*1000).round(1)}ms"
 
-      # 304 must not carry content-type / content-length per RFC 7232
+      # 304 must not carry content-type / content-length per RFC 7232.
+      # Streaming bodies set their own content-type and never carry a length.
       unless @status.to_i == 304
-        @headers['content-type'] ||= "#{@content_type}; charset=utf-8"
-        @headers['content-length'] = @body.bytesize.to_s
+        if streaming?
+          # content-type was set by the streaming writer (text/event-stream etc.)
+        else
+          @headers['content-type']   ||= "#{@content_type}; charset=utf-8"
+          @headers['content-length']   = @body.bytesize.to_s
+        end
       end
     end
   end
