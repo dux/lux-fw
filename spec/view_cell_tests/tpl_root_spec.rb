@@ -3,7 +3,7 @@ require 'spec_helper'
 ###
 
 class TplCell < Lux::ViewCell
-  template_root './assets/view_cell/spec/views/%s'
+  template_root './spec/view_cell_tests/views/%s'
 
   css 'foo.scss'
 
@@ -17,7 +17,7 @@ end
 
 describe 'Lux::ViewCell tpl' do
   before do
-    TplCell.template_root './assets/view_cell/spec/views'
+    TplCell.template_root './spec/view_cell_tests/views'
   end
 
   it 'compiles css defined in custom template root' do

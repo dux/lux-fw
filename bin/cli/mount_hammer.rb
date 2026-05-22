@@ -1,6 +1,9 @@
+# Mount only needs Lux.config[:plugins] + plugin folders; no app boot.
+require_relative '../../lib/lux/plugin/plugin'
+require_relative '../../lib/lux/plugin/mount'
+
 task :mount do
-  desc 'Symlink files from each loaded plugin\'s mount/ into the app root'
-  needs :app
+  desc 'Symlink files from each configured plugin\'s mount/ into the app root'
 
   proc do |opts|
     Lux::Plugin::Mount.apply opts[:args].first
@@ -10,7 +13,6 @@ end
 namespace :mount do
   task :list do
     desc 'List all plugin mount entries and their status'
-    needs :app
 
     proc do |opts|
       entries = Lux::Plugin::Mount.list opts[:args].first
@@ -25,7 +27,6 @@ namespace :mount do
   task :doctor do
     desc 'Diagnose plugin mounts; exits non-zero if unhealthy'
     opt :fix, type: :boolean, default: false, desc: 'Repair unhealthy entries via mount apply'
-    needs :app
 
     proc do |opts|
       entries = Lux::Plugin::Mount.doctor fix: opts[:fix]
@@ -35,7 +36,6 @@ namespace :mount do
 
   task :remove do
     desc 'Unlink files mounted by PLUGIN'
-    needs :app
 
     proc do |opts|
       name = opts[:args].first

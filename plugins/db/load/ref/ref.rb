@@ -57,35 +57,3 @@ module Ref
     end
   end
 end
-
-# Lux::Type::RefType - 16-char opaque ID stored as varchar(20)
-class Lux::Type::RefType < Lux::Type
-  def coerce
-    value { |data| data.to_s }
-    error_for(:unallowed_characters_error) unless value =~ /^\w+$/
-    error_for(:max_length_error, 16, value.length) unless value.length == 16
-  end
-
-  def db_schema
-    [:string, { limit: 20 }]
-  end
-end
-
-# Typero::RefType - same contract for apps still on the Typero schema system.
-# Defined only when Typero is loaded so the db plugin remains usable without it.
-if defined?(Typero)
-  class Typero::RefType < Typero::Type
-    def set
-      @value = @value.to_s
-    end
-
-    def validate
-      raise TypeError, error_for(:unallowed_characters_error) unless @value =~ /^\w+$/
-      raise TypeError, error_for(:max_length_error) unless @value.length == 16
-    end
-
-    def db_schema
-      [:string, { limit: 20 }]
-    end
-  end
-end

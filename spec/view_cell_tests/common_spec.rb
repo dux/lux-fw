@@ -21,7 +21,7 @@ end
 class VcUserCell < AppCell
   delegate :email
 
-  template_root './assets/view_cell/spec/misc'
+  template_root './spec/view_cell_tests/misc'
 
   css 'css/user.scss'
 

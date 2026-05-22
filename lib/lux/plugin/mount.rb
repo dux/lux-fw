@@ -17,6 +17,7 @@ module Lux
       extend self
 
       Entry = Struct.new(:plugin, :src, :dst, :rel, :status, keyword_init: true)
+      PluginRef = Struct.new(:name, :folder)
 
       # status:
       #   :ok       - symlink points to this plugin's source and target exists
@@ -24,18 +25,21 @@ module Lux
       #   :stale    - symlink points to same plugin/same rel path but a different
       #               filesystem location (gem path drift) -> silent rewrite
       #   :broken   - symlink points to correct source but source vanished
-      #   :conflict - real file in the way, or symlink owned by another plugin,
-      #               or symlink to an unrelated location -> skip + warn
+      #   :local    - real file in the way, or symlink owned by another plugin,
+      #               or symlink to an unrelated location -> leave alone
 
       def apply plugin_name = nil
         results = list(plugin_name).map do |e|
           case e.status
-          when :ok       then e
+          when :ok
+            puts 'linked   %s %s' % [display(e.dst).ljust(60).colorize(:green), ('(plugin: %s)' % e.plugin).colorize(:light_black)]
+            e.status = :linked
+            e
           when :missing, :stale, :broken
             create_link(e)
             e.status = :linked
             e
-          when :conflict then warn_conflict(e); e
+          when :local then warn_local(e); e
           end
         end
 
@@ -75,7 +79,7 @@ module Lux
       end
 
       def remove plugin_name
-        plugin = Lux::Plugin.get(plugin_name)
+        plugin = resolve_plugin(plugin_name)
         mount_root = Pathname.new(plugin.folder).join('mount')
         return puts("Plugin #{plugin_name} has no mount/ folder") unless mount_root.directory?
 
@@ -96,16 +100,26 @@ module Lux
       private
 
       def sources plugin_name
-        plugins = plugin_name ? [Lux::Plugin.get(plugin_name)] : Lux::Plugin.loaded
-        plugins.map do |p|
+        names = plugin_name ? [plugin_name.to_s] : Lux::Plugin.normalize_names(Lux.config[:plugins])
+        names.map do |name|
+          p = resolve_plugin(name)
           root = Pathname.new(p.folder).join('mount')
           [p, root] if root.directory?
         end.compact
       end
 
+      # Resolve a plugin name to a PluginRef using the same lookup as Lux.plugin
+      # (Lux.root/plugins/<name>, then Lux.fw_root/plugins/<name>) without loading.
+      def resolve_plugin name
+        name = name.to_s
+        folder = [Lux.root, Lux.fw_root].map { |r| Pathname.new(r).join('plugins', name) }.find(&:directory?)
+        die(%{Plugin "#{name}" not found}) unless folder
+        PluginRef.new(name, folder.to_s)
+      end
+
       def status_of plugin, src, dst, rel
         return :missing unless File.symlink?(dst) || dst.exist?
-        return :conflict unless File.symlink?(dst)
+        return :local unless File.symlink?(dst)
 
         target = resolve_symlink(dst)
         expected = src.cleanpath
@@ -115,7 +129,7 @@ module Lux
         elsif target.to_s =~ %r{/plugins/#{Regexp.escape(plugin.name)}/mount/#{Regexp.escape(rel.to_s)}\z}
           :stale
         else
-          :conflict
+          :local
         end
       end
 
@@ -136,18 +150,18 @@ module Lux
         File.unlink(entry.dst) if File.symlink?(entry.dst) || entry.dst.exist?
         rel_src = entry.src.relative_path_from(entry.dst.dirname)
         File.symlink(rel_src, entry.dst)
-        puts 'linked   %s -> %s' % [display(entry.dst), rel_src]
+        puts 'linked   %s -> %s %s' % [display(entry.dst).ljust(60), rel_src, ('(plugin: %s)' % entry.plugin).colorize(:light_black)]
       end
 
-      def warn_conflict entry
-        puts 'skipped  %s (conflict; owned by foreign file or different plugin)' % display(entry.dst).colorize(:yellow)
+      def warn_local entry
+        puts 'local    %s %s' % [display(entry.dst).ljust(60).colorize(:yellow), ('(plugin: %s)' % entry.plugin).colorize(:light_black)]
       end
 
       def format_entry e
         color =
           case e.status
           when :ok then :green
-          when :conflict then :red
+          when :local then :yellow
           else :yellow
           end
         '  %-9s %-12s %s' % [e.status.to_s.colorize(color), e.plugin, display(e.dst)]
@@ -156,11 +170,13 @@ module Lux
       def report_summary results
         by_status = results.group_by(&:status).transform_values(&:size)
         return if results.empty?
-        puts by_status.map { |k, v| '%s=%d' % [k, v] }.join(' ')
+        puts by_status.map { |k, v| '%s=%d' % [k, v] }.join(' ').colorize(:light_black)
       end
 
       def display path
-        path.to_s.sub(Lux.root.to_s + '/', '')
+        str = path.to_s.sub(Lux.root.to_s + '/', '')
+        idx = str.rindex('plugins/')
+        idx ? str[(idx + 'plugins/'.size)..] : str
       end
     end
   end

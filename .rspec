@@ -1,2 +1,2 @@
---pattern {spec,plugins,assets/*/spec}/**/*_spec.rb
---exclude-pattern {plugins/job_runner,assets/api/spec}/**/*_spec.rb
+--pattern {spec,plugins}/**/*_spec.rb
+--exclude-pattern {plugins/job_runner,spec/api_tests}/**/*_spec.rb

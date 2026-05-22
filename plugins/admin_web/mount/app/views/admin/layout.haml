@@ -1,0 +1,55 @@
+!!!
+%html{ lang: :en }
+  %head
+    = lux.header.render do |page|
+      = CdnAsset.url 'auto-shared.css'
+      = CdnAsset.url 'auto-shared.js'
+      = CdnAsset.url 'auto-admin.css'
+      = CdnAsset.url 'https://dux.github.io/fez/demo/log.js'
+      = CdnAsset.url 'auto-fez.js'
+      = CdnAsset.url 'auto-admin.js'
+      :css
+        .container {
+          max-width: 2000px;
+        }
+
+        body.not-mobile .container {
+          margin: 0 50px;
+        }
+  %body
+    .pjax#admin.typo-system
+      = base_js
+      - unless @error
+        %admin-menu
+          %a{ href: '/admin' } /
+          %a{ href: '/admin/users', id: 'a_users', icon: :users } Users
+          %a{ href: '/admin/spaces' } Orgs
+          %a{ href: '/admin/admin_messages' } Messages
+          %a{ href: '/admin/errors' } Errors
+          %a{ href: '/admin/sys_logs' } Logs
+          %a{ href: '/admin/lux_loggers' } Logger
+          %a{ href: '/admin/emails' } Email
+          - if user.email == 'rejotl@gmail.com'
+            %a{ href: '/admin/run' } Run
+
+      - if @important_info
+        .flash.flash-warn.center{ style: 'margin-bottom: 0; border-top: none; font-size: 120%; padding-bottom: 11px;' }
+          = @important_info
+
+      %div{ style: 'margin-top:30px;' }
+      .container
+        = yield
+
+      - if !request.xhr?
+        - if @_footer.class == FalseClass
+          %div{ style: 'padding: 20px;' }
+            .center{ style: 'border-top: 1px solid #ddd; padding-top: 25px; margin-bottom: 30px;' }
+              %a{ href: '/' }
+                %img{ src: '/s-logo.png' }
+
+    %footer
+      .center{ style: 'max-width: 800px; margin: auto; border-top: 1px solid #ddd; padding: 50px;' }
+        #{App.name(true)} Admin &sdot; #{Time.now.year}
+
+    %s-dialog
+    %s-image-zoom
