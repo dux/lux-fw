@@ -1,3 +1,5 @@
+module Lux
+module Utils
 module TimeOptions
   def short use_default = false
     # lang = Lux.current.request.env['HTTP_ACCEPT_LANGUAGE'] rescue 'en'
@@ -27,9 +29,11 @@ module TimeOptions
     end
   end
 end
+end
+end
 
 class Time
-  include TimeOptions
+  include Lux::Utils::TimeOptions
 
   class << self
     # prints proc speed of execution
@@ -89,11 +93,11 @@ class Time
 end
 
 class DateTime
-  include TimeOptions
+  include Lux::Utils::TimeOptions
 end
 
 class Date
-  include TimeOptions
+  include Lux::Utils::TimeOptions
 
   def to_i
     Time.parse(to_s).to_i
