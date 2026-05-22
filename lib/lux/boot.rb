@@ -1,12 +1,34 @@
 Encoding.default_internal = Encoding.default_external = 'utf-8'
 
-# load basic lux libs (defines Lux, Lux.env, Lux.config)
-require_relative './overload/dir'
-require_relative './lux/lux'
-require_relative './lux/hash/hash'
+# External runtime deps. Kept here (not in lib/lux-fw.rb) so the gem entry
+# stays trivial and boot order lives in one file.
+require 'amazing_print'
+require 'as-duration'
+require 'json'
+require 'jwt'
+require 'haml'
+require 'rack'
+require 'sequel'
+require 'pry'
+require 'reline'
+require 'class-cattr'
+require 'class-callbacks'
+require 'html-tag'
 
-# load .env files (.env.<env>.local, .env.local, .env.<env>, .env) before
-# env-driven config / Lux.env resolution
+Pry.config.input = Reline
+
+# Overloads required ahead of Lux core so const_missing autoloader (object.rb)
+# and core String/Dir helpers exist before lux/lux.rb runs.
+require_relative '../overload/object'
+require_relative '../overload/string'
+require_relative '../overload/dir'
+
+# Defines Lux module, Lux.env, Lux.config and friends.
+require_relative './lux'
+require_relative './hash/hash'
+
+# Load .env files (.env.<env>.local, .env.local, .env.<env>, .env) before
+# env-driven config / Lux.env resolution.
 Lux.dotenv
 
 Lux.init_env

@@ -1,18 +1,1 @@
-require 'amazing_print'
-require 'as-duration'
-require 'json'
-require 'jwt'
-require 'haml'
-require 'rack'
-require 'sequel'
-require 'pry'
-require 'reline'
-require 'class-cattr'
-require 'class-callbacks'
-require 'html-tag'
-
-require_relative './overload/object'
-require_relative './overload/string'
-require_relative './loader'
-
-Pry.config.input = Reline
+require_relative './lux/boot'
