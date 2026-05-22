@@ -1,0 +1,85 @@
+- # Job runner dashboard. URL: /admin/plugins/lux_jobs
+- # Reads LuxJob::JOBS + the lux_jobs table directly; no API roundtrip.
+
+- registered = LuxJob::JOBS.map do |name, opts|
+  - db_job = LuxJob.first(name: name.to_s)
+  - { name: name, every: opts[:every], timeout: opts[:timeout] || LuxJob::DEFAULT_TIMEOUT, db: db_job }
+- recent = LuxJob.tail_log(lines: 100)
+- last_id = LuxJob.last_log_id
+
+%h1 LuxJob Dashboard
+
+%h2 Registered Jobs
+%table
+  %tr
+    %th Name
+    %th Schedule
+    %th Timeout
+    %th Last Run
+    %th Next Run
+    %th Status
+    %th Response
+  - registered.each do |row|
+    %tr
+      %td
+        %a{ href: "/admin/plugins/lux_jobs/show?name=#{row[:name]}" }= row[:name]
+      %td
+        - if row[:every]
+          = "every #{row[:every].parts.map { |u, v| "#{v} #{u}" }.join(', ')}"
+        - else
+          on demand
+      %td #{row[:timeout]}s
+      %td
+        - if row[:db]&.updated_at
+          #{row[:db].updated_at.strftime('%Y-%m-%d %H:%M:%S')} (#{LuxJob.time_relative(row[:db].updated_at)})
+        - else
+          -
+      %td
+        - if row[:db]&.run_at
+          #{row[:db].run_at.strftime('%Y-%m-%d %H:%M:%S')} (#{LuxJob.time_relative(row[:db].run_at)})
+        - else
+          -
+      %td{ class: LuxJob.status_css(row[:db]&.status) }= row[:db]&.status || '-'
+      %td= row[:db]&.response.to_s[0, 50].presence || '-'
+
+%h2 Recent Log (last 100 entries)
+.log-box#log-box{ data: { last_id: last_id, job: '' } }
+  - if recent.empty?
+    .line No log entries yet
+  - else
+    - recent.each do |line|
+      - parsed = LuxJob.parse_log_line(line)
+      .line{ class: ('error' if line.include?('ERROR')) }
+        %span.time= LuxJob.time_ago(parsed[:time])
+        = parsed[:message]
+
+:javascript
+  (function() {
+    var box = document.getElementById('log-box');
+    if (!box) return;
+    var lastId = box.dataset.lastId || '';
+    var job    = box.dataset.job || '';
+
+    setInterval(async function() {
+      try {
+        var body = { name: job || null };
+        var resp = await fetch('/api/lux_jobs/poll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(body)
+        });
+        var data = await resp.json();
+        var newId = data && data.data && data.data.last_id;
+        if (newId && newId !== lastId) {
+          var pageResp = await fetch(window.location.href, { credentials: 'same-origin' });
+          var html = await pageResp.text();
+          var doc  = new DOMParser().parseFromString(html, 'text/html');
+          var src  = doc.querySelector('.container') || doc.body;
+          var dst  = document.querySelector('.container') || document.body;
+          if (window.Idiomorph) { window.Idiomorph.morph(dst, src); }
+          lastId = newId;
+        }
+      } catch (e) { console.error('poll error:', e); }
+    }, 3000);
+  })();

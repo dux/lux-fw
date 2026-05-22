@@ -19,8 +19,11 @@
 #
 #   # Start the runner (blocks)
 #   LuxJob.run
-
-ENV['PORT_JOB'] ||= '3001'
+#
+# Admin dashboard ships as haml templates + an API class under mount/.
+# After `Lux.plugin :job_runner`, run `lux mount job_runner` once to
+# symlink them into the host app. The dashboard then lives at
+# /admin/plugins/lux_jobs (requires the admin_web plugin).
 
 require_relative 'lib/lux_job'
 require_relative 'lib/lux_job_lock'

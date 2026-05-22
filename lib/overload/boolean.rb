@@ -27,3 +27,8 @@ class Object
     !!Lux::Utils::Boolean.parse(self)
   end
 end
+
+# Top-level alias so apps can write `value.is_a?(Boolean)` instead of the
+# longer `Lux::Utils::Boolean`. Works because both TrueClass and FalseClass
+# `include Lux::Utils::Boolean` above.
+Boolean = Lux::Utils::Boolean unless defined?(Boolean)

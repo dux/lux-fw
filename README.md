@@ -33,6 +33,38 @@ end
 `rackup` it and you're up. Lux scales down to one file and up to a full
 enterprise backend through the same DSL.
 
+### Standard app shape
+
+`require 'lux-fw'` loads the framework only - no `.env`, no
+`config.yaml`, no plugin loaders, no DB connect. App boot is one
+explicit call: `Lux.boot!`. It resolves `LUX_ENV` / `RACK_ENV`, loads
+`.env*`, runs `Bundler.require`, reads `config/config.yaml`, and fires
+every configured plugin's loader (DB connect, exception logger, etc).
+Idempotent.
+
+```ruby
+# config/env.rb - the canonical bootstrap
+require 'bundler/setup'
+require 'lux-fw'
+Lux.boot!
+
+# host-specific tweaks (config is loaded, plugins active)
+Lux.config.localize = false
+Dir.require_all './config/initializers'
+```
+
+```ruby
+# config.ru
+require_relative './config/env'
+run Lux
+```
+
+CLI tasks declare `needs :app` and the `:app` task in `bin/lux` runs
+`Lux.boot!` for you. Light commands like `lux mount` or `lux --help`
+never call it, so they stay fast. `Lux::Application#call` also calls
+`Lux.boot!` defensively on the first request, so hosts that skip
+`config/env.rb` in `config.ru` still work.
+
 ## Why Lux
 
 Enterprise backends need the same set of things: schemas, type coercion,

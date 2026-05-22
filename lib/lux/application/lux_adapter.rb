@@ -8,6 +8,11 @@ module Lux
 
   # main rack response
   def call env = nil
+    # Defensive boot: if the host's config.ru forgot to require config/env
+    # (or there is no config/env), bring the app up on first request. The
+    # call is idempotent so once-per-process is the only real cost.
+    Lux.boot! unless booted?
+
     Timeout::timeout Lux::Config.app_timeout do
       app  = Lux::Application.new env
       app.render_base || raise('No RACK response given')

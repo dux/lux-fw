@@ -90,6 +90,52 @@ spec/lib_tests/           # RSpec for pure-ruby utilities
 bin/cli/<name>_hammer.rb  # CLI subcommands
 ```
 
+## Boot model
+
+Lux is a Rack app with a Rails-style two-phase boot.
+
+* **Framework load** - `require 'lux-fw'` runs `lib/lux/boot.rb`. Loads
+  external gems, overloads, every `Lux::*` subsystem, configures Sequel
+  + Haml. NO side effects on the host: no DB connect, no `.env` load,
+  no plugin loaders, no `config.yaml` read. Light CLI commands
+  (`lux mount`, `lux --help`) stop here.
+
+* **App boot** - `Lux.boot!` runs `init_env` (resolves `LUX_ENV` /
+  `RACK_ENV`), `dotenv` (loads `.env*`), `bundler_require!` (the
+  Gemfile's `Bundler.require :default, <env>`), `config` (reads
+  `config.yaml`), `Config.set_defaults`, then `Lux.plugin(*plugins)` -
+  which fires every configured plugin's loader (DB connects, exception
+  logger wiring, etc). Idempotent.
+
+Entry points and how app boot fires:
+
+| Entry        | How `Lux.boot!` runs                                       |
+|--------------|------------------------------------------------------------|
+| `config.ru`  | `require_relative 'config/env'`; that file calls `Lux.boot!`. Also a defensive `Lux.boot!` lives in `Lux::Application#call` for hosts that skip it. |
+| Hammer/CLI   | tasks declare `needs :app` (or `needs :env`) - the `:app` task in `bin/lux` calls `Lux.boot!` then `require './config/app'`. |
+| One-off script / rake / custom binary | `require 'lux-fw'; Lux.boot!` manually. |
+
+Canonical host `config/env.rb`:
+
+```ruby
+require 'bundler/setup'
+require 'lux-fw'
+Lux.boot!
+
+# host-specific tweaks (run after app boot - config is loaded, plugins active)
+Lux.config.localize = false
+Stripe.api_key = Lux.config.stripe.key
+Dir.require_all './config/initializers'
+```
+
+Notes:
+* `bundler/setup` MUST run before `require 'lux-fw'` (it's what sets the
+  load path that finds the gem). Can't be hoisted.
+* `Bundler.require` is hoisted into `Lux.boot!`. Set
+  `LUX_SKIP_BUNDLER_REQUIRE=1` to opt out.
+* `Dotenv.load` is hoisted into `Lux.boot!`. Host doesn't need to call
+  it.
+
 ## Documentation conventions
 
 Every sub-module under `lib/lux/<name>/` ships **two** docs side-by-side:

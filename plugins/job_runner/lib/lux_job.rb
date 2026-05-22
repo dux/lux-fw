@@ -235,6 +235,79 @@ class LuxJob < ApplicationModel
         run_job job, verbose: verbose
       end
     end
+
+    # --- View helpers (used by the admin dashboard templates) ------------
+    # Kept on the model so templates don't need helper-module wiring; these
+    # only format LuxJob fields and never grow into general utilities.
+
+    def time_ago(time)
+      return '' unless time
+      diff = Time.now - time
+      case diff
+      when 0..59       then "#{diff.to_i}s ago"
+      when 60..3599    then "#{(diff / 60).to_i}m ago"
+      when 3600..86399 then "#{(diff / 3600).to_i}h ago"
+      else                  "#{(diff / 86400).to_i}d ago"
+      end
+    end
+
+    def time_relative(time)
+      return '' unless time
+      diff = time - Time.now
+      past = diff < 0
+      diff = diff.abs
+      val = case diff
+            when 0..59       then "#{diff.to_i}s"
+            when 60..3599    then "#{(diff / 60).to_i}m"
+            when 3600..86399 then "#{(diff / 3600).to_i}h"
+            else                  "#{(diff / 86400).to_i}d"
+            end
+      past ? "#{val} ago" : "in #{val}"
+    end
+
+    def status_css(status)
+      return '' unless status
+      "status-#{status.downcase.gsub(/\s+/, '-')}"
+    end
+
+    # Matches the standard Logger format: "[YYYY-MM-DDTHH:MM:SS.sss #pid] LEVEL -- : message"
+    LOG_LINE_RE ||= /\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.\d+ \#\d+\]\s+\w+ -- : (.+)/
+
+    def parse_log_line(line)
+      if line =~ LOG_LINE_RE
+        time = Time.parse($1) rescue nil
+        { time: time, message: $2 }
+      else
+        { time: nil, message: line }
+      end
+    end
+
+    def safe_job_name(name)
+      name.to_s.gsub(/[^a-zA-Z0-9_\-]/, '')
+    end
+
+    # Read N most-recent log lines for a job (or all jobs if name is nil).
+    # Returns lines newest-first.
+    def tail_log(name: nil, lines: 100)
+      cmd = if name
+        "grep -i '\\[#{safe_job_name(name)}\\]' ./log/lux_job.log 2>/dev/null | tail -n #{lines.to_i}"
+      else
+        "tail -n #{lines.to_i} ./log/lux_job.log 2>/dev/null"
+      end
+      Lux.shell.capture(cmd, shell: true).split("\n").reverse
+    end
+
+    # Last log timestamp ("id") for the auto-refresh poller. Returns nil
+    # if no log entries yet.
+    def last_log_id(name: nil)
+      cmd = if name
+        "grep -i '\\[#{safe_job_name(name)}\\]' ./log/lux_job.log 2>/dev/null | tail -n 1"
+      else
+        "tail -n 1 ./log/lux_job.log 2>/dev/null"
+      end
+      line = Lux.shell.capture(cmd, shell: true).strip
+      line =~ /\[(\d{4}-\d{2}-\d{2}T[\d:\.]+)/ ? $1 : nil
+    end
   end
 
   enums :statuses, field: :status_sid, method: :status do |t|

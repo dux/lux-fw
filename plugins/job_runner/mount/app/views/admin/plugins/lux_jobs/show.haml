@@ -1,0 +1,142 @@
+- # Per-job detail. URL: /admin/plugins/lux_jobs/show?name=<job_name>
+- # `name` is the JOBS[] key (not a DB ref), so query param is used.
+
+- name = lux.params[:name].to_s
+- job_info = LuxJob::JOBS[name.to_sym]
+- if !job_info
+  %h1 Job not found: #{name}
+  %p
+    %a{ href: '/admin/plugins/lux_jobs' } &larr; Back to Dashboard
+- else
+  - db_job  = LuxJob.first(name: name)
+  - lines   = LuxJob.tail_log(name: name, lines: 1000)
+  - last_id = LuxJob.last_log_id(name: name)
+
+  %p
+    %a.back{ href: '/admin/plugins/lux_jobs' } &larr; Back to Dashboard
+  %h1 Job: #{name}
+
+  %table
+    %tr
+      %th Schedule
+      %td
+        - if job_info[:every]
+          = "every #{job_info[:every].parts.map { |u, v| "#{v} #{u}" }.join(', ')}"
+        - else
+          on demand
+    %tr
+      %th Timeout
+      %td #{job_info[:timeout] || LuxJob::DEFAULT_TIMEOUT}s
+    - if db_job
+      %tr
+        %th Status
+        %td{ class: LuxJob.status_css(db_job.status) }= db_job.status
+      %tr
+        %th Last Run
+        %td
+          - if db_job.updated_at
+            #{db_job.updated_at.strftime('%Y-%m-%d %H:%M:%S')} (#{LuxJob.time_relative(db_job.updated_at)})
+          - else
+            -
+      %tr
+        %th Next Run
+        %td
+          - if db_job.run_at
+            #{db_job.run_at.strftime('%Y-%m-%d %H:%M:%S')} (#{LuxJob.time_relative(db_job.run_at)})
+          - else
+            -
+      %tr
+        %th Response
+        %td= db_job.response
+      %tr
+        %th Retry Count
+        %td= db_job.retry_count
+    - else
+      %tr
+        %td{ colspan: 2 } No database record (job not yet initialized)
+
+  .add-job
+    %h3 Add Job to Queue
+    %textarea#payload{ placeholder: '{"key": "value"} or leave empty' }
+    %button#trigger-btn Add Job
+    #trigger-result
+
+  %h2
+    %a{ href: "/api/lux_jobs/log?name=#{name}&format=text", target: '_blank', style: 'color: inherit;' }
+      Log (last 1000 entries)
+  .log-box#log-box{ data: { last_id: last_id, job: name } }
+    - if lines.empty?
+      .line No log entries for this job
+    - else
+      - lines.each do |line|
+        - parsed = LuxJob.parse_log_line(line)
+        .line{ class: ('error' if line.include?('ERROR')) }
+          %span.time= LuxJob.time_ago(parsed[:time])
+          = parsed[:message]
+
+  :javascript
+    (function() {
+      var jobName = #{name.to_json};
+      var btn     = document.getElementById('trigger-btn');
+      var input   = document.getElementById('payload');
+      var result  = document.getElementById('trigger-result');
+
+      btn.addEventListener('click', async function() {
+        var raw = input.value.trim();
+        var opts = {};
+        if (raw) {
+          try { opts = JSON.parse(raw); }
+          catch (e) {
+            result.className = 'result error';
+            result.textContent = 'Invalid JSON: ' + e.message;
+            return;
+          }
+        }
+        try {
+          var resp = await fetch('/api/lux_jobs/trigger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ name: jobName, opts: opts })
+          });
+          var data = await resp.json();
+          if (resp.ok && data && (data.ok || (data.data && data.data.ok))) {
+            var ref = (data.data && data.data.ref) || data.ref;
+            result.className = 'result success';
+            result.textContent = 'Job added: ' + ref;
+          } else {
+            result.className = 'result error';
+            result.textContent = 'Error: ' + ((data && (data.error || (data.data && data.data.error))) || 'Unknown error');
+          }
+        } catch (e) {
+          result.className = 'result error';
+          result.textContent = 'Request failed: ' + e.message;
+        }
+      });
+
+      // Live log tail
+      var box = document.getElementById('log-box');
+      if (!box) return;
+      var lastId = box.dataset.lastId || '';
+      setInterval(async function() {
+        try {
+          var resp = await fetch('/api/lux_jobs/poll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ name: jobName })
+          });
+          var data = await resp.json();
+          var newId = data && data.data && data.data.last_id;
+          if (newId && newId !== lastId) {
+            var pageResp = await fetch(window.location.href, { credentials: 'same-origin' });
+            var html = await pageResp.text();
+            var doc  = new DOMParser().parseFromString(html, 'text/html');
+            var src  = doc.querySelector('.container') || doc.body;
+            var dst  = document.querySelector('.container') || document.body;
+            if (window.Idiomorph) { window.Idiomorph.morph(dst, src); }
+            lastId = newId;
+          }
+        } catch (e) { console.error('poll error:', e); }
+      }, 3000);
+    })();

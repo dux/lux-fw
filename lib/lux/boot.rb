@@ -44,14 +44,7 @@ require_relative './logger/lux_adapter'
 require_relative './config/config'
 require_relative './config/lux_adapter'
 
-# Load .env files (.env.<env>.local, .env.local, .env.<env>, .env) before
-# env-driven config / Lux.env resolution.
-Lux.dotenv
-
-Lux.init_env
-
-# eager-load config.yaml so values are available to the rest of boot
-Lux.config
+require_relative './boot_adapter'
 
 Sequel.extension     :inflector
 Sequel::Model.plugin :after_initialize
@@ -59,8 +52,6 @@ Sequel::Model.plugin :def_dataset_method
 
 Sequel.database_timezone = :utc
 # Sequel.default_timezone  = +2
-
-Lux::Config.set_defaults
 
 # ensure we are not loading lux in lux folder
 if Lux.root != Lux.fw_root
@@ -97,11 +88,13 @@ Haml::Template.options[:escape_html] = false
 # Tilt.register Tilt::ERBTemplate, 'erb'
 # Tilt.register Haml::Template, 'haml'
 
-# auto-load configured plugins (from Lux.config[:plugins])
-plugins = Lux::Plugin.normalize_names(Lux.config[:plugins])
-if plugins.any?
-  Lux.plugin(*plugins)
-  Lux.shell.info "Lux plugins: #{plugins.join(', ')}"
-else
-  Lux.shell.info 'Lux: no plugins'
-end
+# App-side boot (env, dotenv, Bundler.require, config.yaml, plugin
+# loaders) is driven by Lux.boot!. The host's config/env.rb must call
+# it - optionally with a block for pre-plugin config overrides:
+#
+#   Lux.boot! do
+#     Lux.config.localize = false
+#   end
+#
+# `bin/lux` invokes Lux.boot! from its :env / :app tasks; light CLI
+# commands (`lux mount`, `lux --help`) skip it and stay fast.

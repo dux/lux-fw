@@ -9,17 +9,8 @@ if File.exist?('lux-fw.gemspec')
   exit
 end
 
-require 'yaml'
 require_relative '../lib/overload/thread_simple'
-require_relative '../lib/overload/string'
-require_relative '../lib/overload/dir'
-require_relative '../lib/lux/lux'
-# CLI deliberately skips boot.rb for fast startup; pull in just the config
-# adapter so Lux.dotenv / Lux.init_env are available.
-require_relative '../lib/lux/config/config'
-require_relative '../lib/lux/config/lux_adapter'
-
-Lux.dotenv
+require_relative '../lib/lux/boot'
 
 LUX_ROOT ||= File.expand_path '../..', __FILE__
 
@@ -27,25 +18,11 @@ puts 'Lux v%s (%s)' % [File.read('%s/.version' % LUX_ROOT).strip, LUX_ROOT] unle
 
 require 'lux-hammer'
 
-# Read configured plugins from ./config/config.yaml so the CLI only
-# surfaces hammer tasks for plugins the app actually uses.
-def lux_configured_plugins
-  cfg = File.join(Dir.pwd, 'config', 'config.yaml')
-  return [] unless File.exist?(cfg)
-  data = YAML.safe_load(File.read(cfg), aliases: true) || {}
-  env  = ENV['RACK_ENV'] || 'development'
-  base = (data['default'] || data['base'] || {}).dup
-  base.merge!(data[env]) if data[env].is_a?(Hash)
-  Array(base['plugins']).map(&:to_s)
-end
-
-PLUGINS ||= lux_configured_plugins
+PLUGINS ||= Lux::Plugin.normalize_names(Lux.config[:plugins])
 
 Hammer.run ARGV do
-  # Framework CLI tasks (bin/cli/*_hammer.rb)
   load File.join(LUX_ROOT, 'bin/cli')
 
-  # Per-plugin Hammerfile and hammer/ - scoped to configured plugins only
   [LUX_ROOT, Dir.pwd].uniq.each do |root|
     PLUGINS.each do |name|
       hf = File.join(root, 'plugins', name, 'Hammerfile')
@@ -55,21 +32,17 @@ Hammer.run ARGV do
     end
   end
 
-  # Project hammer tasks under ./lib/tasks (*_hammer.rb auto-discovered)
   app_tasks = File.join(Dir.pwd, 'lib/tasks')
   load app_tasks if File.directory?(app_tasks) && Dir.pwd != LUX_ROOT
 
-  # Project Hammerfile (ad-hoc app tasks)
   app_hf = File.join(Dir.pwd, 'Hammerfile')
   load app_hf if File.file?(app_hf) && Dir.pwd != LUX_ROOT
 
-  # Hidden helpers - plugins use `needs :env` (rake-style) so config/env
-  # loads once per top-level invocation regardless of how many defines pull it in.
   task :env do
-    proc { require './config/env' }
+    proc { Lux.boot! }
   end
 
   task :app do
-    proc { require './config/app' }
+    proc { Lux.boot!; require './config/app' if File.exist?('./config/app.rb') }
   end
 end

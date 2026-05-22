@@ -8,7 +8,8 @@
 #     mount/        # OPTIONAL. Mirrors app root. `lux mount` symlinks
 #                   # every leaf file into the app at the matching path.
 #
-# A plugin must have at least config.yaml, loader.rb or load/, otherwise it is empty.
+# Any combination is valid; a plugin with only mount/ (or even just a
+# README) is registered and silently does nothing on Lux.plugin :name.
 
 require 'yaml'
 require 'deep_merge'
@@ -34,13 +35,8 @@ module Lux
 
       die(%{Plugin "#{opts.name}" not found in "#{root}"}) unless root.directory?
 
-      config   = root.join('config.yaml')
       loader   = root.join('loader.rb')
       load_dir = root.join('load')
-
-      unless config.exist? || loader.exist? || load_dir.directory?
-        die(%{Plugin "#{opts.name}" has neither config.yaml, loader.rb nor load/ in "#{root}"})
-      end
 
       PLUGIN[opts.name] ||= opts
 
