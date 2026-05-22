@@ -23,9 +23,26 @@ require_relative '../overload/object'
 require_relative '../overload/string'
 require_relative '../overload/dir'
 
-# Defines Lux module, Lux.env, Lux.config and friends.
+# Defines Lux module (root, fw_root, VERSION, UNSET, speed, app_caller).
 require_relative './lux'
 require_relative './hash/hash'
+
+# Subsystems required ahead of the Dir.require_all sweep below because boot
+# code (Lux.dotenv, Lux.config, Lux.shell.info) calls them directly.
+require_relative './shell/error'
+require_relative './shell/result'
+require_relative './shell/shell'
+require_relative './shell/lux_adapter'
+
+require_relative './environment/environment'
+require_relative './environment/mode'
+require_relative './environment/runtime'
+require_relative './environment/lux_adapter'
+
+require_relative './logger/lux_adapter'
+
+require_relative './config/config'
+require_relative './config/lux_adapter'
 
 # Load .env files (.env.<env>.local, .env.local, .env.<env>, .env) before
 # env-driven config / Lux.env resolution.
