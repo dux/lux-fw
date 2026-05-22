@@ -1,28 +1,28 @@
 require 'spec_helper'
 
-describe Lux::StringBase do
+describe Lux::Utils::StringBase do
   describe '.encode / .decode (short keys)' do
     it 'encodes and decodes integers' do
-      encoded = Lux::StringBase.encode(12345)
+      encoded = Lux::Utils::StringBase.encode(12345)
       expect(encoded).to be_a(String)
-      expect(Lux::StringBase.decode(encoded)).to eq(12345)
+      expect(Lux::Utils::StringBase.decode(encoded)).to eq(12345)
     end
 
     it 'encodes and decodes zero' do
-      expect(Lux::StringBase.encode(0)).to eq('')
+      expect(Lux::Utils::StringBase.encode(0)).to eq('')
       # decode of empty string should return 0
-      expect(Lux::StringBase.decode('')).to eq(0)
+      expect(Lux::Utils::StringBase.decode('')).to eq(0)
     end
 
     it 'handles large integers' do
       large = 999_999_999
-      encoded = Lux::StringBase.encode(large)
-      expect(Lux::StringBase.decode(encoded)).to eq(large)
+      encoded = Lux::Utils::StringBase.encode(large)
+      expect(Lux::Utils::StringBase.decode(encoded)).to eq(large)
     end
   end
 
   describe '.short' do
-    let(:encoder) { Lux::StringBase.short }
+    let(:encoder) { Lux::Utils::StringBase.short }
 
     it 'uses SHORT_KEYS and multiplier 99' do
       encoded = encoder.encode(100)
@@ -36,7 +36,7 @@ describe Lux::StringBase do
   end
 
   describe '.medium' do
-    let(:encoder) { Lux::StringBase.medium }
+    let(:encoder) { Lux::Utils::StringBase.medium }
 
     it 'encodes and decodes with medium keys' do
       encoded = encoder.encode(42)
@@ -45,7 +45,7 @@ describe Lux::StringBase do
   end
 
   describe '.long' do
-    let(:encoder) { Lux::StringBase.long }
+    let(:encoder) { Lux::Utils::StringBase.long }
 
     it 'encodes and decodes with long keys (case-sensitive)' do
       encoded = encoder.encode(1000)
@@ -54,28 +54,28 @@ describe Lux::StringBase do
 
     it 'produces shorter strings than medium for same value' do
       value = 100_000
-      long_str = Lux::StringBase.long.encode(value)
-      medium_str = Lux::StringBase.medium.encode(value)
+      long_str = Lux::Utils::StringBase.long.encode(value)
+      medium_str = Lux::Utils::StringBase.medium.encode(value)
       expect(long_str.length).to be <= medium_str.length
     end
   end
 
   describe '.uid' do
     it 'returns a 16-char string' do
-      uid = Lux::StringBase.uid
+      uid = Lux::Utils::StringBase.uid
       expect(uid).to be_a(String)
       expect(uid.length).to eq(16)
     end
 
     it 'generates unique values' do
-      uids = 10.times.map { Lux::StringBase.uid; sleep(0.001); Lux::StringBase.uid }
+      uids = 10.times.map { Lux::Utils::StringBase.uid; sleep(0.001); Lux::Utils::StringBase.uid }
       expect(uids.uniq.length).to be > 1
     end
   end
 
   describe '#rand' do
     it 'returns a random string of given length from key chars' do
-      result = Lux::StringBase.medium.rand(10)
+      result = Lux::Utils::StringBase.medium.rand(10)
       expect(result.length).to eq(10)
       expect(result.chars).to all(match(/[a-z0-9]/))
     end
@@ -84,13 +84,13 @@ describe Lux::StringBase do
   describe '#extract' do
     it 'extracts ID from a URL-style slug' do
       id = 42
-      slug = "some-title-#{Lux::StringBase.encode(id)}"
-      extracted = Lux::StringBase.short.extract(slug)
+      slug = "some-title-#{Lux::Utils::StringBase.encode(id)}"
+      extracted = Lux::Utils::StringBase.short.extract(slug)
       expect(extracted).to eq(id)
     end
 
     it 'returns nil for invalid slugs' do
-      expect(Lux::StringBase.short.extract('')).to be_nil
+      expect(Lux::Utils::StringBase.short.extract('')).to be_nil
     end
   end
 

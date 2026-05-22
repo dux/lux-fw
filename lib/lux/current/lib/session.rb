@@ -22,11 +22,11 @@ module Lux
         # name of the session cookie, encodes Accept-Language and CF country for immediate invalidation
         base = Lux.config[:session_cookie_name] || 'lux'
         identity = request.env['HTTP_ACCEPT_LANGUAGE'].to_s + request.env['HTTP_CF_IPCOUNTRY'].to_s
-        @cookie_name = base + '_' + Crypt.sha1(Lux.config.secret + identity)[0,6].downcase
+        @cookie_name = base + '_' + Lux::Utils::Crypt.sha1(Lux.config.secret + identity)[0,6].downcase
         @cookie_name += "_#{request.port}" # we do not want http and https cookie name conflicts
         @request     = request
         @raw_cookie  = request.cookies[@cookie_name]
-        @hash        = JSON.parse(Crypt.decrypt(@raw_cookie || '{}')) rescue {}
+        @hash        = JSON.parse(Lux::Utils::Crypt.decrypt(@raw_cookie || '{}')) rescue {}
 
         security_check
 
@@ -63,7 +63,7 @@ module Lux
       def generate_cookie
         return nil unless dirty?
 
-        encrypted     = Crypt.encrypt(@hash.to_json)
+        encrypted     = Lux::Utils::Crypt.encrypt(@hash.to_json)
         return nil if encrypted == @raw_cookie
 
         cookie_domain = Lux.current.var[:lux_cookie_domain] || Lux.current.nav.domain
@@ -109,7 +109,7 @@ module Lux
 
       def security_check
         key   = '_c'
-        check = Crypt.sha1(security_string)[0, 5]
+        check = Lux::Utils::Crypt.sha1(security_string)[0, 5]
 
         # force type array
         @hash.delete(key) unless @hash[key].class == Array

@@ -131,7 +131,7 @@ module Lux
     end
 
     def is_available?
-      k = Crypt.sha1('__lux_cache_health__')
+      k = Lux::Utils::Crypt.sha1('__lux_cache_health__')
       @server.set(k, 9)
       @server.get(k) == 9
     end
@@ -154,7 +154,7 @@ module Lux
         end
       end
 
-      Crypt.sha1(keys.join('-'))
+      Lux::Utils::Crypt.sha1(keys.join('-'))
     end
 
     def []= key, value

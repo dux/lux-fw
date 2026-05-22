@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 module Lux
+module Utils
 class StringBase
   SHORT_KEYS   ||= 'bcdghjklmnpqrstvwxyz'
   MEDIUM_KEYS  ||= 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -77,17 +78,18 @@ class StringBase
   end
 end
 end
+end
 
 class Integer
   def string_id
-    Lux::StringBase.encode self
+    Lux::Utils::StringBase.encode self
   end
 end
 
 class String
   def string_id
     begin
-      Lux::StringBase.decode self.split('-').last
+      Lux::Utils::StringBase.decode self.split('-').last
     rescue
       raise ArgumentError.new('Bad ID for string_id')
     end

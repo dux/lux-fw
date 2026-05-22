@@ -71,13 +71,13 @@ module Lux
         end
 
         if @opt.content
-          etag Crypt.sha1 @opt.content
+          etag Lux::Utils::Crypt.sha1 @opt.content
         else
           Lux.error 404, Lux.mode.errors?('404 Not Found') { 'File not found: %s' % @opt.file } unless @opt.file.exist?
           file_mtime = @opt.file.mtime.utc.to_s
           @opt.content = @opt.file.read
           response.headers['last-modified'] = file_mtime
-          etag Crypt.sha1(@opt.path + (@opt.content || file_mtime.to_s))
+          etag Lux::Utils::Crypt.sha1(@opt.path + (@opt.content || file_mtime.to_s))
         end
 
         response.headers['access-control-allow-origin'] ||= '*'

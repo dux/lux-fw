@@ -69,7 +69,7 @@ if Lux.root != Lux.fw_root
 end
 
 # load all lux libs
-[:overload, :common, :lux].each do |f|
+[:overload, :utils, :lux].each do |f|
   Dir.require_all Lux.fw_root.join('./lib/%s' % f)
 end
 

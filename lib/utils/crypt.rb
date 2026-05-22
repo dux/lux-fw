@@ -10,6 +10,7 @@ require 'digest/md5'
 require 'securerandom'
 
 module Lux
+module Utils
 module Crypt
   extend self
 
@@ -115,5 +116,6 @@ module Crypt
   def simple_encode str
     Base64.encode64(str).gsub('_', '/').tr('A-Za-z', 'N-ZA-Mn-za-m').gsub(/=+$/, '').gsub(/\s/, '')
   end
+end
 end
 end

@@ -11,7 +11,7 @@ module Lux
         base = name.include?('[') ? name.split(/[\[\]]/).first(2).join('::') : name
         base += '#%s' % value
 
-        OpenStruct.new(name: "_data_#{Lux.current.uid}", value: Crypt.encrypt(base))
+        OpenStruct.new(name: "_data_#{Lux.current.uid}", value: Lux::Utils::Crypt.encrypt(base))
       end
 
       def hidden_input name, value
@@ -24,7 +24,7 @@ module Lux
       def decrypt hash
         for key in hash.keys
           next unless key.start_with?('_data_')
-          data = Crypt.decrypt(hash.delete(key))
+          data = Lux::Utils::Crypt.decrypt(hash.delete(key))
           data, value = data.split('#', 2)
           data = data.split('::')
 

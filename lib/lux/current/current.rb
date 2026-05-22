@@ -106,7 +106,7 @@ module Lux
 
     # Get or check current session secure token
     def secure_token token = nil
-      generated = Crypt.sha1(self.ip)
+      generated = Lux::Utils::Crypt.sha1(self.ip)
       token ? (generated == token) : generated
     end
 
@@ -168,12 +168,12 @@ module Lux
     def encrypt data, opts={}
       opts[:password] ||= self.ip
       opts[:ttl]      ||= 10.minutes
-      Crypt.encrypt(data, opts)
+      Lux::Utils::Crypt.encrypt(data, opts)
     end
 
     def decrypt token, opts={}
       opts[:password] ||= self.ip
-      Crypt.decrypt(token, opts)
+      Lux::Utils::Crypt.decrypt(token, opts)
     end
 
     def session_sid
@@ -184,7 +184,7 @@ module Lux
       User.current
     end
 
-    # Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
+    # Lux::Utils::Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
     private
 
     def prepare_params
