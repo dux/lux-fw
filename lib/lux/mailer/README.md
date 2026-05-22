@@ -51,7 +51,7 @@ class Mailer < Lux::Mailer
   def lost_password user
     mail.subject = "#{App.name} – reset link"
     mail.to      = user.email
-    @link        = "#{App.http_host}/reset?token=#{Crypt.encrypt(user.id)}"
+    @link        = "#{App.http_host}/reset?token=#{Lux.crypt.encrypt(user.id)}"
   end
 end
 

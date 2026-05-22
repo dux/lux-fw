@@ -73,6 +73,7 @@ keys, validates required, coerces types.
 | Logger                      | [`lib/lux/logger/AGENTS.md`](./lib/lux/logger/AGENTS.md) |
 | Shell / process / CLI output | [`lib/lux/shell/AGENTS.md`](./lib/lux/shell/AGENTS.md) |
 | Hash / overloads            | [`lib/lux/hash/AGENTS.md`](./lib/lux/hash/AGENTS.md) |
+| Crypto / util helpers       | [`lib/lux/utils/AGENTS.md`](./lib/lux/utils/AGENTS.md) |
 | JSON export                 | [`lib/lux/json_exporter/AGENTS.md`](./lib/lux/json_exporter/AGENTS.md) |
 | Templates engine            | [`lib/lux/template/AGENTS.md`](./lib/lux/template/AGENTS.md) |
 | Reusable view component     | [`lib/lux/view_cell/AGENTS.md`](./lib/lux/view_cell/AGENTS.md) |
@@ -82,7 +83,7 @@ keys, validates required, coerces types.
 ```
 lib/lux/<module>/         # core modules; each has README + AGENTS
 lib/overload/             # Ruby core class extensions (don't touch lightly)
-lib/utils/                # Lux::Utils::Crypt, Lux::Utils::StringBase, Lux::Utils::TimeDifference
+lib/lux/utils/            # Lux::Utils::* (Crypt, StringBase, TimeDifference, Boolean, Json, TimeOptions)
 plugins/<name>/           # optional plugins, canonical layout (see plugin AGENTS)
 spec/lux_tests/           # RSpec for framework features
 spec/lib_tests/           # RSpec for pure-ruby utilities

@@ -13,7 +13,7 @@ All models use ULID `:ref` as primary key (no `:id` column).
 | `hooks.rb` | `before`/`after` DSL for `:create`, `:update`, `:destroy` (shorthand `:cu`, `:cud`) |
 | `link_objects.rb` | `link`/`ref` DSL for associations. ClassMethods: `where_ref` |
 | `find_precache.rb` | `Model.find(ref)` with request-scoped + optional global cache. `Model.take(ref)` returns nil on miss |
-| `paginate.rb` | `PaginatedArray`, `Paginate()` function, dataset `.page`/`.paginate` |
+| `paginate.rb` | `Lux::Utils::PaginatedArray`, `Paginate()` function, dataset `.page`/`.paginate` |
 | `_parent_model.rb` | Polymorphic parent via `parent_key` (single "Class/ref" string) or `parent_model + parent_ref` (two columns) |
 | `enums_plugin.rb` | String enum DSL (`_sid` fields). `enums :steps, values: {...}` |
 | `create_limit.rb` | Rate limiting: `create_limit 30, 1.day` |
