@@ -48,7 +48,7 @@ module Lux
           # * nil/false     -> segment left as-is
           # * already a Symbol (idempotency) -> skipped entirely
           #
-          # nav.path(:ref) {|el| el.split('-').last.then { |p| Ulid.is?(p) ? p : nil } }
+          # nav.path(:ref) {|el| el.split('-').last.then { |p| Ref.is?(p) ? p : nil } }
           # /foo/title-cw7r/bar -> ['foo', :ref, 'bar'] -> nav.ref == 'cw7r'
           unless ref
             raise ArgumentError.new('Default path not given as argument')

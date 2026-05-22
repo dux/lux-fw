@@ -70,7 +70,7 @@ class StringBase
     StringBase.decode(id_str) rescue nil
   end
 
-  # StringBase.medium.rand(16) -> ulid 16 chars
+  # StringBase.medium.rand(16) -> ref 16 chars
   def rand num
     @keys.chars.sample(num).join
   end

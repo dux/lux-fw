@@ -34,7 +34,7 @@ module Lux
     #     @note_section = true
     #   end
     #
-    #   # matches /notes/ref (where ref is ULID placeholder)
+    #   # matches /notes/ref (where ref is a Ref placeholder)
     #   filter :notes do
     #     filter :ref do
     #       @note.can.read!
