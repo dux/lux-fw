@@ -1,13 +1,17 @@
 # Plugin layout (canonical):
 #   plugins/<name>/
-#     loader.rb     # OPTIONAL. Boot logic, required first.
+#     config.yaml   # OPTIONAL. Config defaults, merged first.
+#     loader.rb     # OPTIONAL. Boot logic, required before load/.
 #     load/         # OPTIONAL. All *.rb auto-required after loader.rb.
 #     Hammerfile    # OPTIONAL. Single-file CLI tasks.
 #     hammer/       # OPTIONAL. *_hammer.rb CLI tasks.
 #     mount/        # OPTIONAL. Mirrors app root. `lux mount` symlinks
 #                   # every leaf file into the app at the matching path.
 #
-# A plugin must have at least loader.rb or load/, otherwise it is empty.
+# A plugin must have at least config.yaml, loader.rb or load/, otherwise it is empty.
+
+require 'yaml'
+require 'deep_merge'
 
 module Lux
   module Plugin
@@ -30,19 +34,30 @@ module Lux
 
       die(%{Plugin "#{opts.name}" not found in "#{root}"}) unless root.directory?
 
+      config   = root.join('config.yaml')
       loader   = root.join('loader.rb')
       load_dir = root.join('load')
 
-      unless loader.exist? || load_dir.directory?
-        die(%{Plugin "#{opts.name}" has neither loader.rb nor load/ in "#{root}"})
+      unless config.exist? || loader.exist? || load_dir.directory?
+        die(%{Plugin "#{opts.name}" has neither config.yaml, loader.rb nor load/ in "#{root}"})
       end
 
       PLUGIN[opts.name] ||= opts
 
+      # Config is data, loaded before boot code so loader.rb can read defaults.
+      load_config root
       require loader.to_s            if loader.exist?
       Dir.require_all load_dir.to_s  if load_dir.directory?
 
       PLUGIN[opts.name]
+    end
+
+    def normalize_names *values
+      values = values.first if values.length == 1
+
+      Array(values).flatten.compact
+        .reject { |it| it == false || it.to_s.empty? }
+        .map(&:to_s)
     end
 
     def get name
@@ -68,6 +83,53 @@ module Lux
     # get all folders in a namespace
     def folders namespace=:main
       PLUGIN.values.map { |it| it.folder }
+    end
+
+    private
+
+    def load_config root
+      source = root.join('config.yaml')
+      return unless source.exist?
+
+      data = YAML.safe_load(source.read, aliases: true) || {}
+      die(%{Plugin config "#{source}" must be a hash}) unless data.is_a?(::Hash)
+
+      merge_config config_for_env(data)
+    end
+
+    def config_for_env data
+      base_key = data.key?('default') ? 'default' : ('base' if data.key?('base'))
+      base = data[base_key]
+      return data unless base
+
+      base = base.dup
+      base.deep_merge!(data[Lux.env.to_s] || {})
+      base['production'] = data['production'] if data.key?('production')
+      base['plugins'] = normalize_names(base['plugins'], data['plugins']) if data.key?('plugins')
+      base['plugins'] = normalize_names(base['plugins'], data[:plugins]) if data.key?(:plugins)
+      base
+    end
+
+    def merge_config data
+      has_plugins = data.key?('plugins') || data.key?(:plugins)
+      plugin_names = data.delete('plugins')
+      plugin_names = data.delete(:plugins) if plugin_names.nil? && data.key?(:plugins)
+
+      merge_hash! Lux.config, data
+
+      if has_plugins
+        Lux.config[:plugins] = normalize_names(Lux.config[:plugins], plugin_names)
+      end
+    end
+
+    def merge_hash! target, source
+      source.each do |key, value|
+        if value.is_a?(::Hash) && target[key].is_a?(::Hash)
+          merge_hash! target[key], value
+        else
+          target[key] = value
+        end
+      end
     end
   end
 end

@@ -53,11 +53,6 @@ module ::Lux
     Lux::Shell
   end
 
-  # Namespaced translation lookup. See lib/lux/locale/.
-  def locale
-    Lux::Locale
-  end
-
   def app_caller
     app_line   = caller.find { |line| !line.include?('/lux-') && !line.include?('/.') && !line.include?('(eval)') }
     app_line ? app_line.split(':in ').first.sub(Lux.root.to_s, '.') : nil

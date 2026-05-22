@@ -46,9 +46,13 @@ welcome: Hi %{name}
   Namespace = first dotted segment; everything after is the storage key.
 * **Files are flat.** No YAML nesting. One `key: value` per line, sorted
   alphabetically on every `set`. Keys never contain spaces or colons.
-* **Lookup chain**: `before_get` -> namespace handler -> file -> same in
-  default locale -> `fallback:` arg -> `"[full.key]"`. The bracket form
-  is a visible-but-non-fatal marker, not an error.
+* **Lookup chain**: `before_get` -> namespace handler -> `store` -> file
+  -> same in default locale -> `fallback:` arg -> `"[full.key]"`. The
+  bracket form is a visible-but-non-fatal marker, not an error.
+* **`store` swaps the backend.** Any object with `.get(locale, ns, subkey)`
+  and `.set(locale, ns, subkey, value)` is a valid store. When set, writes
+  go through it and reads hit it before the flat file. The plugin auto-wires
+  `LuxTranslation` (PG-backed) when `ApplicationModel` is defined.
 * **Hooks short-circuit on non-nil.** `before_get` returning non-nil
   wins; nil falls through. `before_set` returning non-nil replaces the
   value being stored; nil leaves it untouched.
@@ -75,6 +79,6 @@ welcome: Hi %{name}
 ## See also
 
 * [`README.md`](./README.md) - human reference
-* [`../current/AGENTS.md`](../current/AGENTS.md) - `Lux.current.locale`
-* [`../application/AGENTS.md`](../application/AGENTS.md) - `Nav#locale`
-* [`../type/AGENTS.md`](../type/AGENTS.md) - `Lux::Type::LocaleType`
+* [`../../lib/lux/current/AGENTS.md`](../../lib/lux/current/AGENTS.md) - `Lux.current.locale`
+* [`../../lib/lux/application/AGENTS.md`](../../lib/lux/application/AGENTS.md) - `Nav#locale`
+* [`../../lib/lux/type/AGENTS.md`](../../lib/lux/type/AGENTS.md) - `Lux::Type::LocaleType`

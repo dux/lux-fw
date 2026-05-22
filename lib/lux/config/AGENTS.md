@@ -8,6 +8,7 @@ YAML config + `.env` + lifecycle hooks.
 # Read
 Lux.config.host                  # string/symbol both work
 Lux.config[:db]                  # may be string or hash (multi-db)
+Lux.config.production.db         # production deploy config, in any env
 
 # Write at runtime
 Lux.config.app_timeout = 30
@@ -25,9 +26,16 @@ end
 ## Rules
 
 * **`Lux.config`** is the global YAML config (indifferent access). Loaded
-  from `config/config.yaml`, merged: `default` → `<env>`.
+  from `config/config.yaml`, merged: `default` -> `<env>`.
+* **Keep production deploy config reachable.** `Lux.config.production`
+  exists even when `Lux.env` is development or test so tooling can read
+  deploy-only settings without changing the process environment.
 * **`Lux.secrets`** is an alias - use whichever feels right semantically
   (`Lux.secrets[:stripe_key]` vs `Lux.config[:host]`).
+* **Plugin config merges during plugin load.** A plugin's
+  `plugins/<name>/config.yaml` is merged into `Lux.config` before that
+  plugin's `loader.rb` and `load/` files run. A top-level `plugins:` list
+  appends to the configured plugin list instead of replacing it.
 * **`.env` loads automatically** via `Lux.dotenv` during boot. Order:
   `.env.<env>.local`, `.env.local`, `.env.<env>`, `.env`. Don't `require
   'dotenv'` yourself.
@@ -51,3 +59,4 @@ end
 
 * [`Lux::Environment` AGENTS](../environment/AGENTS.md)
 * [`Lux::Logger` AGENTS](../logger/AGENTS.md)
+* [`Lux::Plugin` AGENTS](../plugin/AGENTS.md)

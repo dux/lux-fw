@@ -37,7 +37,8 @@ module Lux
 
     # --- registry --------------------------------------------------------
 
-    attr_writer :default, :available, :dir
+    attr_writer :default, :available, :dir, :store
+    attr_reader :store
 
     def default
       @default ||= :en
@@ -117,7 +118,11 @@ module Lux
         value = replaced unless replaced.nil?
       end
 
-      file_set(ns, lc, subkey, value)
+      if @store
+        @store.set(lc, ns, subkey, value)
+      else
+        file_set(ns, lc, subkey, value)
+      end
       value
     end
 
@@ -133,10 +138,14 @@ module Lux
     private
 
     # Per-locale resolution chain inside a single namespace:
-    # registered handler first, then the flat-file lookup.
+    # registered handler -> external store -> flat-file lookup.
     def resolve(ns, subkey, lc)
       if @namespaces && (handler = @namespaces[ns])
         out = handler.call(subkey, lc)
+        return out unless out.nil?
+      end
+      if @store
+        out = @store.get(lc, ns, subkey)
         return out unless out.nil?
       end
       file_get(ns, lc, subkey)

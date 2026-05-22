@@ -86,19 +86,39 @@ module Lux
     # production:
     #   foo:
     def load
+      Lux.init_env if Lux.respond_to?(:init_env)
+
       source = Pathname.new './config/config.yaml'
 
       if source.exist?
         data = YAML.safe_load source.read, aliases: true
-        base = data['default'] || data['base']
+        raise "Config root must be a Hash in %s" % source unless data.is_a?(::Hash)
 
-        if base
-          base.deep_merge!(data[Lux.env.to_s] || {})
-          base['production'] = data['production']
-          base
-        else
-          raise "Secrets :default root not defined in %s" % source
+        base_key = if data['default']
+          'default'
+        elsif data.key?('base')
+          'base'
+        elsif data.key?('default')
+          'default'
         end
+        base = data[base_key]
+        raise "Config :default/:base root not defined in %s" % source unless base_key
+        raise "Config :%s root must be a Hash in %s" % [base_key, source] unless base.is_a?(::Hash)
+
+        env_name = Lux.env.to_s
+        env_data = data[env_name]
+        if data.key?(env_name) && !env_data.is_a?(::Hash)
+          raise "Config :%s section must be a Hash in %s" % [env_name, source]
+        end
+
+        production_data = data['production']
+        if data.key?('production') && !production_data.is_a?(::Hash)
+          raise "Config :production section must be a Hash in %s" % source
+        end
+
+        base.deep_merge!(env_data || {})
+        base['production'] = production_data
+        base
       else
         Lux.shell.info '%s not found' % source
         {}

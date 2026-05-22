@@ -8,6 +8,7 @@ YAML config + `.env` loader + lifecycle hooks. Indifferent access.
 Lux.config.host                  # 'myapp.com'  (read from config.yaml)
 Lux.config.host = 'other.com'    # write at runtime
 Lux.config[:host]                # same; symbol or string both work
+Lux.config.production.host       # production deploy values, in any env
 ```
 
 ## Full example
@@ -30,6 +31,10 @@ production:
 Lux.config.host          # 'myapp.com' in prod, 'localhost:3000' in default
 Lux.config.all           # full merged hash
 Lux.secrets              # alias for Lux.config
+
+# The production section is kept under Lux.config.production in every env.
+# Tooling can read deploy-only values without booting with LUX_ENV=production.
+Lux.config.production.db.main
 
 # defaults you usually want to set in config/initializers/lux.rb:
 Lux.config.app_timeout         = 30
@@ -78,8 +83,29 @@ specific wins, since `Dotenv.load` is non-destructive):
 Env name resolves from `LUX_ENV`, then `RACK_ENV`, defaulting to
 `development`. Returns the list of files actually loaded.
 
+## Production section
+
+`config/config.yaml` merges `default` with the current environment for
+top-level reads, and always keeps the `production:` section available at
+`Lux.config.production`. This is intentional: deploy tools, asset tasks,
+and other non-production processes can read production deploy settings
+without changing `LUX_ENV`.
+
+## Plugin config
+
+Plugins may ship `plugins/<name>/config.yaml`. During `Lux.plugin :name`,
+the plugin config is merged into `Lux.config` before the plugin loader and
+`load/` files run. It follows the same `default` plus current-environment
+shape as app config.
+
+If a plugin config contains a top-level `plugins:` list, those plugin names
+append to the configured plugin list instead of replacing it. Use this for
+small dependency chains between plugins; keep ordering-sensitive boot logic
+in the plugin loader.
+
 ## See also
 
 * [`../environment/README.md`](../environment/README.md) - env / mode / runtime
 * [`../logger/README.md`](../logger/README.md) - logger config
+* [`../plugin/README.md`](../plugin/README.md) - plugin load and config order
 * [`AGENTS.md`](./AGENTS.md) - LLM guide

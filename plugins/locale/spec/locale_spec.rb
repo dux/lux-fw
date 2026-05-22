@@ -2,6 +2,8 @@ require 'spec_helper'
 require 'fileutils'
 require 'tmpdir'
 
+Lux.plugin Lux.fw_root.join('plugins/locale')
+
 describe Lux::Locale do
   let(:tmp) { Pathname.new(Dir.mktmpdir('lux-locale-')) }
 
@@ -13,6 +15,7 @@ describe Lux::Locale do
     Lux.locale.instance_variable_set(:@before_get, nil)
     Lux.locale.instance_variable_set(:@before_set, nil)
     Lux.locale.instance_variable_set(:@namespaces, nil)
+    Lux.locale.instance_variable_set(:@store, nil)
     Lux.locale.reload!
 
     Lux.locale.dir       = tmp
@@ -158,6 +161,34 @@ describe Lux::Locale do
       File.write tmp.join('users.en.txt'), "welcome: Yo %{name}\n"
       Lux.locale.reload!
       expect(Lux.locale.t('users.welcome', name: 'Joe')).to eq('Yo Joe')
+    end
+  end
+
+  describe '#store' do
+    # Minimal duck for Lux::Locale.store: responds to .get and .set
+    let(:store) do
+      Class.new do
+        def initialize; @rows = {}; end
+        def get(lc, ns, sub);        @rows[[lc, ns, sub]]; end
+        def set(lc, ns, sub, value); @rows[[lc, ns, sub]] = value.to_s; end
+      end.new
+    end
+
+    before { Lux.locale.store = store }
+
+    it 'reads from store before falling back to file' do
+      store.set(:en, :users, 'welcome', 'From DB %{name}')
+      expect(Lux.locale.t('users.welcome', name: 'Joe')).to eq('From DB Joe')
+    end
+
+    it 'falls through to file when store returns nil' do
+      expect(Lux.locale.t('users.welcome', name: 'Joe')).to eq('Hi Joe')
+    end
+
+    it 'writes through store instead of file' do
+      Lux.locale.set('users.farewell', 'Bye', locale: :en)
+      expect(store.get(:en, :users, 'farewell')).to eq('Bye')
+      expect(tmp.join('users.en.txt').read).not_to include('farewell:')
     end
   end
 end

@@ -7,7 +7,8 @@ when.
 
 ```
 plugins/<name>/
-  loader.rb       # OPTIONAL. boot logic, required first
+  config.yaml     # OPTIONAL. merged into Lux.config before loader.rb
+  loader.rb       # OPTIONAL. boot logic, required before load/
   load/           # OPTIONAL. *.rb auto-required after loader
   routes.rb       # OPTIONAL. routing DSL, evaluated via `plugin_route :name` or `plugin_routes`
   Hammerfile      # OPTIONAL. single-file CLI tasks
@@ -17,11 +18,15 @@ plugins/<name>/
 
 ## Rules
 
-* **At least `loader.rb` or `load/` is required.** Empty plugin =
-  `Lux.plugin :x` raises.
-* **`loader.rb` runs first.** Use for: registering hooks, ordering
-  control, requiring files outside `load/` (e.g. `lib/`), setting
-  config. Don't put plain class defs here that could go in `load/`.
+* **At least `config.yaml`, `loader.rb` or `load/` is required.** Empty
+  plugin = `Lux.plugin :x` raises.
+* **`config.yaml` merges first.** Plugin config is merged into
+  `Lux.config` before `loader.rb`; a top-level `plugins:` list appends to
+  the configured plugin list instead of replacing it.
+* **`loader.rb` runs after config and before `load/`.** Use for:
+  registering hooks, ordering control, requiring files outside `load/`
+  (e.g. `lib/`), setting config. Don't put plain class defs here that
+  could go in `load/`.
 * **`load/`** is auto-required depth-first, alphabetical. Files
   matching `*_spec.rb` / `*_hammer.rb` are skipped.
 * **`routes.rb`** is evaluated only when the host app calls
@@ -45,6 +50,7 @@ plugins/<name>/
 ## When adding a new plugin
 
 * Put boot logic in `loader.rb`.
+* Put plugin defaults and simple plugin dependencies in `config.yaml`.
 * Put always-on classes in `load/`.
 * Put CLI commands under `hammer/` (one file per command).
 * Put route bindings in `routes.rb`. For plugins that should auto-mount
@@ -63,8 +69,9 @@ plugins/<name>/
   `plugin_route` (single) or `plugin_routes` (all-with-routes.rb) so the
   host app controls when and where plugin routes get evaluated.
 * Bypass `Lux.plugin` with `require './plugins/foo/whatever'` - boot
-  order matters; `Lux.plugin` ensures `loader.rb` runs first.
+  order matters; `Lux.plugin` ensures config, `loader.rb`, then `load/`.
 
 ## See also
 
 * [`Lux::Application` AGENTS](../application/AGENTS.md) - `plugin_route`, `plugin_routes`
+* [`Lux::Config` AGENTS](../config/AGENTS.md) - config merge behavior

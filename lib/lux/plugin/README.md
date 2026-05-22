@@ -14,7 +14,8 @@ Lux.plugin :db, :authcog, :html      # several
 
 ```
 plugins/<name>/
-  loader.rb       # OPTIONAL. boot logic, required first
+  config.yaml     # OPTIONAL. merged into Lux.config before loader.rb
+  loader.rb       # OPTIONAL. boot logic, required before load/
   load/           # OPTIONAL. *.rb auto-required after loader
   routes.rb       # OPTIONAL. routing DSL evaluated by `plugin_route :name` or `plugin_routes`
   Hammerfile      # OPTIONAL. single-file CLI tasks
@@ -22,13 +23,15 @@ plugins/<name>/
   mount/          # OPTIONAL. files symlinked into the app by `lux mount`
 ```
 
-A plugin needs at least `loader.rb` or `load/`. Otherwise `Lux.plugin :x`
-raises.
+A plugin needs at least `config.yaml`, `loader.rb` or `load/`. Otherwise
+`Lux.plugin :x` raises.
 
 ## Load order
 
-1. `loader.rb` if present (use for hooks, config registration, ordering)
-2. `load/**/*.rb` via `Dir.require_all` - depth-first, alphabetical;
+1. `config.yaml` if present - merged into `Lux.config`; a top-level
+   `plugins:` list appends to the configured plugin list
+2. `loader.rb` if present (use for hooks, config registration, ordering)
+3. `load/**/*.rb` via `Dir.require_all` - depth-first, alphabetical;
    files matching `*_spec.rb` / `*_hammer.rb` are skipped
 
 `Hammerfile` and `hammer/` are NOT loaded at runtime - the `lux` CLI
@@ -36,6 +39,16 @@ discovers them at startup so commands are visible without loading the
 plugin.
 
 ## Full example
+
+```yaml
+# plugins/foo/config.yaml -- merged before loader.rb
+default:
+  foo:
+    enabled: true
+
+plugins:
+  - bar
+```
 
 ```ruby
 # plugins/foo/loader.rb -- explicit entry, runs before load/
@@ -79,13 +92,27 @@ end
 
 | Folder | Auto-loaded? | Purpose |
 |--------|--------------|---------|
-| `loader.rb`  | yes, first | boot logic; required-before-load |
+| `config.yaml` | merged first | plugin defaults; `plugins:` entries append to configured plugins |
+| `loader.rb`  | yes, after config | boot logic; required-before-load |
 | `load/`      | yes        | classes/modules that must be ready when the plugin is loaded |
 | `routes.rb`  | only via `plugin_route :name` or `plugin_routes` | routing DSL body |
 | `Hammerfile` | only by CLI | tasks for `lux <cmd>` |
 | `hammer/`    | only by CLI | multi-file CLI tasks |
 | `mount/`     | only by `lux mount` | files symlinked into the app |
 | anything else | no | convention; `loader.rb` can `require_relative` if needed |
+
+## Config semantics (`config.yaml`)
+
+Plugin config follows the same shape as app `config/config.yaml`: merge
+`default` with the current environment, then merge the result into
+`Lux.config`. The production section remains available as
+`Lux.config.production`, including production values contributed by
+plugins.
+
+A top-level `plugins:` list in plugin config appends to the existing
+`Lux.config[:plugins]` list instead of replacing it. Use it for simple
+plugin dependencies; keep ordering-sensitive setup in `loader.rb` so the
+boot sequence stays explicit.
 
 ## Mount semantics (`mount/`)
 

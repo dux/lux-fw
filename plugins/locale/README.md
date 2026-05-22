@@ -77,10 +77,11 @@ For `Lux.locale.t('users.welcome', name: 'Joe')` in current locale `:de`:
 
 1. `before_get.call(:de, 'users.welcome')` - non-nil wins.
 2. `namespace(:users)` handler called with `('welcome', :de)` - non-nil wins.
-3. File `./config/locales/users.de.txt`, line `welcome: ...`.
-4. Same chain in `default` locale (skipped if already default).
-5. `fallback:` arg.
-6. `"[users.welcome]"` as a visible-but-non-fatal marker.
+3. `store.get(:users, :de, 'welcome')` if a store is configured.
+4. File `./config/locales/users.de.txt`, line `welcome: ...`.
+5. Same chain in `default` locale (skipped if already default).
+6. `fallback:` arg.
+7. `"[users.welcome]"` as a visible-but-non-fatal marker.
 
 Interpolation (`%{name}`) runs on the resolved string at the end.
 
@@ -91,6 +92,7 @@ Interpolation (`%{name}`) runs on the resolved string at the end.
 | `default=`, `default` | symbol |
 | `available=`, `available` | array of symbols |
 | `dir=`, `dir` | Pathname |
+| `store=`, `store` | any object responding to `.get(locale, ns, sub)` / `.set(locale, ns, sub, value)`; replaces the file backend for reads (after namespace handler) and writes |
 | `current` | symbol (validated against `available`) |
 | `t(key, locale:, fallback:, **vars)` | string |
 | `set(key, value, locale:)` | the stored value |
@@ -98,6 +100,24 @@ Interpolation (`%{name}`) runs on the resolved string at the end.
 | `before_get { \|locale, key\| ... }` | registers hook |
 | `before_set { \|locale, key, value\| ... }` | registers hook |
 | `reload!` | drops the in-process file cache |
+
+## DB-backed store
+
+When `ApplicationModel` is defined, the plugin auto-loads `LuxTranslation`
+and sets it as the store. Each translation is one row keyed by
+`(locale, namespace, key)`. `Lux.locale.t` reads from the table, and
+`Lux.locale.set` upserts. Run `rake db:am` to materialise the table.
+
+Direct calls:
+
+```ruby
+LuxTranslation.get(:en, :users, 'welcome')   # explicit ns + key
+LuxTranslation.get(:en, 'users.welcome')     # full dotted key, split on first '.'
+LuxTranslation.set(:en, :users, 'welcome', 'Hi %{name}')
+```
+
+To keep the file backend in a DB-enabled app, set `Lux.locale.store = nil`
+after the plugin loads.
 
 `current` reads `Lux.current.locale` (typically set by `Nav` from the URL
 prefix). Falls back to `default`. Unknown locale -> `Lux::Locale::Unknown`.
@@ -114,6 +134,6 @@ prefix). Falls back to `default`. Unknown locale -> `Lux::Locale::Unknown`.
 ## See also
 
 * [`AGENTS.md`](./AGENTS.md) - LLM guide
-* [`../current/README.md`](../current/README.md) - `Lux.current.locale`
-* [`../application/README.md`](../application/README.md) - `Nav#locale` (URL prefix)
-* [`../type/README.md`](../type/README.md) - `Lux::Type::LocaleType`
+* [`../../lib/lux/current/README.md`](../../lib/lux/current/README.md) - `Lux.current.locale`
+* [`../../lib/lux/application/README.md`](../../lib/lux/application/README.md) - `Nav#locale` (URL prefix)
+* [`../../lib/lux/type/README.md`](../../lib/lux/type/README.md) - `Lux::Type::LocaleType`

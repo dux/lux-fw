@@ -1,6 +1,13 @@
 module Lux
+  def init_env
+    rack_env = ENV['RACK_ENV'].to_s
+    ENV['LUX_ENV'] = rack_env if ENV['LUX_ENV'].to_s.empty? && !rack_env.empty?
+    ENV['LUX_ENV'].to_s
+  end
+
   # get config hash pointer or die if key provided and not found
   def config
+    init_env
     @lux_config ||= Lux::Config.load.to_lux_hash
   end
   alias :secrets :config
@@ -18,8 +25,7 @@ module Lux
   def dotenv
     require 'dotenv' unless defined?(Dotenv)
 
-    env_name = ENV['LUX_ENV'].to_s
-    env_name = ENV['RACK_ENV'].to_s if env_name.empty?
+    env_name = init_env
     env_name = 'development'        if env_name.empty?
 
     files = [

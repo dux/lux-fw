@@ -27,9 +27,6 @@ module Lux
       define_method(:session) { lux.session }
       define_method(:user)    { lux.user }
 
-      # shortcut for Lux.locale.t in templates
-      def t(key, **opts) = Lux.locale.t(key, **opts)
-
       def no_white_space
         yield.gsub(/>\s+</,'><')
       end

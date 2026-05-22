@@ -9,6 +9,8 @@ require_relative './lux/hash/hash'
 # env-driven config / Lux.env resolution
 Lux.dotenv
 
+Lux.init_env
+
 # eager-load config.yaml so values are available to the rest of boot
 Lux.config
 
@@ -21,18 +23,15 @@ Sequel.database_timezone = :utc
 
 Lux::Config.set_defaults
 
+# ensure we are not loading lux in lux folder
+if Lux.root != Lux.fw_root
+  # create folders if needed
+  ['./log', './tmp'].each { |d| Dir.mkdir(d) unless Dir.exist?(d) }
+end
+
 # load all lux libs
 [:overload, :common, :lux].each do |f|
   Dir.require_all Lux.fw_root.join('./lib/%s' % f)
-end
-
-# auto-load configured plugins (from Lux.config[:plugins])
-plugins = Lux.config[:plugins] || []
-if plugins.any?
-  Lux.plugin(*plugins)
-  Lux.shell.info "Lux plugins: #{plugins.join(', ')}"
-else
-  Lux.shell.info 'Lux: no plugins'
 end
 
 Sequel.inflections do |inflect|
@@ -59,8 +58,11 @@ Haml::Template.options[:escape_html] = false
 # Tilt.register Tilt::ERBTemplate, 'erb'
 # Tilt.register Haml::Template, 'haml'
 
-# ensure we are not loading lux in lux folder
-if Lux.root != Lux.fw_root
-  # create folders if needed
-  ['./log', './tmp'].each { |d| Dir.mkdir(d) unless Dir.exist?(d) }
+# auto-load configured plugins (from Lux.config[:plugins])
+plugins = Lux::Plugin.normalize_names(Lux.config[:plugins])
+if plugins.any?
+  Lux.plugin(*plugins)
+  Lux.shell.info "Lux plugins: #{plugins.join(', ')}"
+else
+  Lux.shell.info 'Lux: no plugins'
 end
