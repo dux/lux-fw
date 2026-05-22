@@ -6,7 +6,7 @@ module Lux
     extend self
 
     def ram
-      Lux.shell.capture('ps', '-o', 'rss', '-p', $$.to_s).split("\n").last.to_i / 1000
+      Lux.shell.exec('ps', '-o', 'rss', '-p', $$.to_s).split("\n").last.to_i / 1000
     end
 
     def start_info

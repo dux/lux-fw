@@ -1,23 +1,19 @@
 module Lux
   module Shell
-    # Raised by Lux.shell.exec(..., raise: true) or Result#out! on failure.
-    # Carries the full Result via .result so callers can inspect stdout/stderr.
+    # Raised by Lux.shell.exec when the command fails and no block is given.
+    # Carries the failed argv plus captured streams so callers / handlers can
+    # inspect them.
     class Error < StandardError
-      attr_reader :result
+      attr_reader :command, :err, :out
 
-      def initialize result
-        @result = result
-        super build_message(result)
-      end
-
-      private
-
-      def build_message r
-        msg = 'shell failed: %s (exit %s)' % [r.command.inspect, r.exitstatus.inspect]
-        msg << ' [TIMED OUT]' if r.timed_out?
-        tail = r.err.to_s.strip
+      def initialize command, err, out = ''
+        @command = Array(command)
+        @err     = err.to_s
+        @out     = out.to_s
+        tail = @err.strip
+        msg  = 'shell failed: %s' % @command.inspect
         msg << "\n" << tail unless tail.empty?
-        msg
+        super msg
       end
     end
   end

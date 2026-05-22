@@ -3,7 +3,7 @@ module CdnAsset
 
   def get_time_stamp
     # static pipeline, no user input - shell mode for the command substitution
-    Lux.shell.capture('date -r "$(ls -t $(find ./app/assets -type f) 2>/dev/null | head -1)" +%s', shell: true).to_i
+    Lux.shell.exec('date -r "$(ls -t $(find ./app/assets -type f) 2>/dev/null | head -1)" +%s', shell: true).to_i
   end
 
   TIME_STAMP ||= get_time_stamp

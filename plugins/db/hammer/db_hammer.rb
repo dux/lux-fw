@@ -17,9 +17,8 @@ module LuxDb
   # output parsing and never interpolate name into the SQL text. Casting
   # the bound parameter keeps libpq happy when datname is unset.
   def db_exists? name
-    result = Lux.shell.capture('psql', '-tAc',
-      "SELECT 1 FROM pg_database WHERE datname = '#{name.to_s.gsub("'", "''")}'")
-    result.strip == '1'
+    Lux.shell.exec('psql', '-tAc',
+      "SELECT 1 FROM pg_database WHERE datname = '#{name.to_s.gsub("'", "''")}'") == '1'
   end
 
   def dev_check!
@@ -42,7 +41,7 @@ module LuxDb
       Lux.shell.info info
     elsif external
       Lux.shell.info info
-      Lux.shell.run('bundle', 'exec', 'lux', 'e', file, env: { 'DB_MIGRATE' => 'false' })
+      Lux.shell('bundle', 'exec', 'lux', 'e', file, env: { 'DB_MIGRATE' => 'false' })
     else
       Lux.shell.info info
       load file
@@ -75,7 +74,7 @@ namespace :db do
         if LuxDb.db_exists?(db_name)
           puts "Database '#{db_name}' already exists".colorize(:yellow)
         else
-          Lux.shell.run 'createdb', db_name
+          Lux.shell 'createdb', db_name
           puts "Database '#{db_name}' created".colorize(:green)
         end
       end
@@ -95,7 +94,7 @@ namespace :db do
 
         for db in [db_name + '_test', db_name]
           if LuxDb.db_exists?(db)
-            Lux.shell.run 'dropdb', db
+            Lux.shell 'dropdb', db
             puts "Database '#{db}' dropped".colorize(:green)
           else
             puts "Database '#{db}' does not exist, skipping".colorize(:yellow)
@@ -126,9 +125,9 @@ namespace :db do
         sql_file = LuxDb.db_backup_file_location(db_name)
         # shell mode needed for stdout redirect (>); interpolated values are
         # shellescaped to keep injection-prone characters from leaking through.
-        Lux.shell.run "pg_dump --no-privileges --no-owner #{url.shellescape} > #{sql_file.shellescape}", shell: true
+        Lux.shell "pg_dump --no-privileges --no-owner #{url.shellescape} > #{sql_file.shellescape}", shell: true
         puts "Backed up '#{db_name}' to #{sql_file}".colorize(:green)
-        Lux.shell.run 'ls', '-lh', sql_file
+        Lux.shell 'ls', '-lh', sql_file
       end
     end
   end
@@ -151,10 +150,10 @@ namespace :db do
           next
         end
 
-        Lux.shell.run 'dropdb', '--if-exists', db_name
-        Lux.shell.run 'createdb', db_name
+        Lux.shell 'dropdb', '--if-exists', db_name
+        Lux.shell 'createdb', db_name
         # shell mode for stdin redirect (<); both values are shellescaped.
-        Lux.shell.run 'psql -q %s < %s' % [db_name.shellescape, sql_file.shellescape], shell: true
+        Lux.shell 'psql -q %s < %s' % [db_name.shellescape, sql_file.shellescape], shell: true
         puts "Database '#{db_name}' restored from #{sql_file}".colorize(:green)
       end
     end
@@ -171,19 +170,19 @@ namespace :db do
           test_db = source_db + '_test'
 
           if LuxDb.db_exists?(test_db)
-            Lux.shell.run 'dropdb', test_db
+            Lux.shell 'dropdb', test_db
             puts "Test database '#{test_db}' dropped".colorize(:yellow)
           end
 
           unless LuxDb.db_exists?(source_db)
             puts "Main database '#{source_db}' missing, creating and running db:am".colorize(:yellow)
-            Lux.shell.run 'createdb', source_db
+            Lux.shell 'createdb', source_db
             hammer 'db:am'
           end
 
-          Lux.shell.run 'createdb', test_db
+          Lux.shell 'createdb', test_db
           # shell mode for pipe + redirect; values are shellescaped.
-          Lux.shell.run 'pg_dump --schema-only --no-owner --no-privileges %s | psql -q %s > /dev/null 2>&1' %
+          Lux.shell 'pg_dump --schema-only --no-owner --no-privileges %s | psql -q %s > /dev/null 2>&1' %
             [source_db.shellescape, test_db.shellescape], shell: true
           puts "Test database '#{test_db}' created (schema from #{source_db})".colorize(:green)
         end
@@ -199,7 +198,7 @@ namespace :db do
           test_db = LuxDb.db_name_from_url(url) + '_test'
 
           if LuxDb.db_exists?(test_db)
-            Lux.shell.run 'dropdb', test_db
+            Lux.shell 'dropdb', test_db
             puts "Test database '#{test_db}' dropped".colorize(:green)
           else
             puts "Test database '#{test_db}' does not exist".colorize(:yellow)

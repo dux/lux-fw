@@ -91,6 +91,14 @@ class HtmlInput
     render name, as: :hidden, value: value
   end
 
+  # Emit the hidden CSRF input matching Lux.current.csrf. Use in raw <form>
+  # markup where HtmlForm's auto-injection doesn't apply:
+  #
+  #   = HtmlInput.csrf
+  def self.csrf
+    %[<input type="hidden" name="_csrf" value="#{Lux.current.csrf}">]
+  end
+
   private
 
   def detect_type_from_schema

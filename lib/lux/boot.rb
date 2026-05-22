@@ -30,7 +30,6 @@ require_relative './hash/hash'
 # Subsystems required ahead of the Dir.require_all sweep below because boot
 # code (Lux.dotenv, Lux.config, Lux.shell.info) calls them directly.
 require_relative './shell/error'
-require_relative './shell/result'
 require_relative './shell/shell'
 require_relative './shell/lux_adapter'
 

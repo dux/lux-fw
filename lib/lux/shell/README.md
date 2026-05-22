@@ -9,10 +9,10 @@ POSIX-only. Windows is not supported.
 ## Small example
 
 ```ruby
-Lux.shell.exec('git', 'status')                       # Result
-Lux.shell.capture('git', 'rev-parse', 'HEAD')         # stripped stdout
-Lux.shell.run('bundle', 'exec', 'rspec')              # boolean
-Lux.shell.exec('git', 'push', raise: true)            # raise on failure
+Lux.shell.exec('git', 'rev-parse', 'HEAD')         # stripped stdout, raises on failure
+Lux.shell('createdb', 'mydb')                      # Lux.shell(*argv) is shorthand for .exec
+Lux.shell.capture('bundle', 'install')             # merged stdout+stderr, never raises
+Lux.shell.exec('rspec') { |err, _| log err }       # block handles failure -> returns nil
 Lux.shell.info "deploy starting"
 ```
 
@@ -20,32 +20,30 @@ Lux.shell.info "deploy starting"
 
 ```ruby
 # argv mode (default) - no shell interpretation
-r = Lux.shell.exec('curl', '-fsSL', user_supplied_url, timeout: 10)
-r.success?         # boolean
-r.exitstatus       # 0
-r.out              # stdout string
-r.err              # stderr string
-r.duration         # seconds (Float)
-r.lines            # stdout split on \n
-r.timed_out?       # true if killed by timeout
-r.json             # parse stdout as JSON (nil on parse error)
+out = Lux.shell.exec('curl', '-fsSL', user_supplied_url, timeout: 10)
+# out is the stripped stdout; a failure (non-zero, timeout, ENOENT) raises
+# Lux::Shell::Error unless you provide a block.
 
-# block form - yielded on failure by default
-Lux.shell.exec('aws', 's3', 'sync', src, dst) do |result|
-  Lux.logger.error result.err
+# block on failure - receives (stderr, stdout); return value of exec is nil
+Lux.shell.exec('aws', 's3', 'sync', src, dst) do |err, out|
+  Lux.logger.error err
 end
 
-# on: :success / :always
-Lux.shell.exec('rake', 'deploy', on: :always) { |r| audit(r) }
+# silent failure - empty block swallows everything
+Lux.shell.exec('maybe-missing') {}
 
-# raise instead of returning Result
-Lux.shell.exec('git', 'push', raise: true)  # Lux::Shell::Error on non-zero
-
-# env, chdir, stdin
+# env / chdir / stdin / timeout
 Lux.shell.exec('bundle', 'install',
   env:   { 'BUNDLE_GEMFILE' => 'Gemfile.local' },
   chdir: './subapp')
 Lux.shell.exec('mailx', '-s', 'hi', recipient, stdin_data: body)
+Lux.shell.exec('sleep', '5', timeout: 0.5)         # raises with /timed out/
+
+# shell mode - opt-in, single string only
+Lux.shell.exec("pg_dump #{url.shellescape} > #{path.shellescape}", shell: true)
+
+# capture - merged streams, never raises; for "give me whatever happened"
+buffer = Lux.shell.capture("grep -i foo ./log/app.log 2>/dev/null | tail -100", shell: true)
 
 # streaming lines (merged stdout+stderr)
 Lux.shell.stream('tail', '-f', './log/app.log') { |line| puts line }
@@ -54,7 +52,7 @@ Lux.shell.stream('tail', '-f', './log/app.log') { |line| puts line }
 Lux.shell.which('ffmpeg')      # "/opt/homebrew/bin/ffmpeg" or nil
 Lux.shell.exists?('ffmpeg')    # boolean
 
-# status output to STDERR
+# status output to STDERR (STDOUT stays clean for piping)
 Lux.shell.info  'deploy starting'
 Lux.shell.error 'deploy failed'
 Lux.shell.die   'config missing'   # logger.fatal + exit 1
@@ -71,7 +69,7 @@ Lux.shell.die   'config missing'   # logger.fatal + exit 1
 * **Escape interpolated values in shell mode** using `String#shellescape`:
 
   ```ruby
-  Lux.shell.run "pg_dump #{url.shellescape} > #{path.shellescape}", shell: true
+  Lux.shell "pg_dump #{url.shellescape} > #{path.shellescape}", shell: true
   ```
 
 * **Never interpolate user input into a shell-mode command.** If the value
@@ -80,52 +78,37 @@ Lux.shell.die   'config missing'   # logger.fatal + exit 1
 
 ## API
 
-| call | returns | notes |
-|------|---------|-------|
-| `exec(*argv, **opts, &block)` | `Result` | core primitive |
-| `capture(*argv, **opts)` | `String` | stripped stdout, raises on failure unless block |
-| `run(*argv, **opts)` | `Boolean` | success? |
-| `stream(*argv, **opts) { \|line\| ... }` | `Result` | merged stdout+stderr line callback |
+| call | returns | failure behaviour |
+|------|---------|-------------------|
+| `exec(*argv, **opts, &block)` | stripped stdout | raises `Lux::Shell::Error`; or calls `block.(err, out)` and returns nil |
+| `capture(*argv, **opts)` | merged stdout+stderr (unstripped) | never raises |
+| `stream(*argv, **opts) { \|line\| ... }` | merged output | never raises |
+| `Lux.shell(*argv, **opts, &block)` | same as `exec` | shorthand on the `Lux` module |
 | `which(name)` | `String?` | absolute path or nil |
 | `exists?(name)` | `Boolean` | `!which.nil?` |
 | `info(text)` | nil | magenta status to STDERR; accepts an Array |
 | `error(text)` | nil | red status to STDERR; accepts an Array |
 | `die(text)` | (no return) | `logger.fatal` + `exit 1` |
 
-### Options accepted by `exec`/`capture`/`run`/`stream`
+### Options
 
-| key | default | notes |
-|-----|---------|-------|
-| `env:` | `{}` | merged into child env |
-| `chdir:` | nil | working directory |
-| `stdin_data:` | nil | string piped into child stdin |
-| `timeout:` | nil | seconds; child is `SIGKILL`-ed on expiry |
-| `shell:` | false | route through `/bin/sh -c`; requires a single string argv |
-| `raise:` | false | raise `Lux::Shell::Error` on non-zero exit (`exec` only) |
-| `on:` | `:failure` | block trigger - `:failure`, `:success`, or `:always` |
-
-### `Result`
-
-| reader | notes |
-|--------|-------|
-| `command` | argv that was run |
-| `out` / `err` | captured streams |
-| `status` | `Process::Status` (or stand-in if command not found) |
-| `exitstatus` | integer or nil |
-| `success?` | `!timed_out? && status.success?` |
-| `timed_out?` | true if the timeout fired |
-| `duration` | seconds (Float) |
-| `lines` | `out.lines.map(&:chomp)` |
-| `strip` | `out.strip` |
-| `out!` | `out.strip` or raise `Lux::Shell::Error` |
-| `err?` | non-empty stderr |
-| `json` / `json!` | parse stdout as JSON (nil vs raise) |
-| `to_h` / `inspect` | structured / human display |
+| key | default | applies to | notes |
+|-----|---------|------------|-------|
+| `env:` | `{}` | exec, capture, stream | merged into child env |
+| `chdir:` | nil | exec, capture, stream | working directory |
+| `stdin_data:` | nil | exec, capture | string piped into child stdin |
+| `timeout:` | nil | exec | seconds; child is `SIGKILL`-ed on expiry, counts as failure |
+| `shell:` | false | exec, capture, stream | route through `/bin/sh -c`; requires a single string argv |
 
 ### `Lux::Shell::Error`
 
-Raised by `exec(raise: true)` and `Result#out!`. Carries the full `Result`
-via `.result`, so callers can inspect stdout/stderr/exit/duration.
+Raised by `exec` when the command fails and no block was given. Carries:
+
+| reader | notes |
+|--------|-------|
+| `command` | the argv that was run |
+| `err` | stderr (or `"timed out after Ns"` on timeout, or the ENOENT message) |
+| `out` | stdout at the point of failure |
 
 ## See also
 

@@ -2,19 +2,23 @@ require 'open3'
 require 'shellwords'
 
 module Lux
-  # Lux::Shell - secure, ergonomic shell/process execution.
+  # Lux::Shell - secure shell/process execution.
   #
   # argv mode is the default; the shell is never invoked unless `shell: true`
   # is passed explicitly. This makes injection-prone code visually obvious.
   #
-  #   Lux.shell.exec('git', 'status')
-  #   Lux.shell.capture('git', 'rev-parse', 'HEAD')           # stdout string
-  #   Lux.shell.run('bundle', 'exec', 'rspec')                # boolean
-  #   Lux.shell.exec('curl', '-fsSL', url, timeout: 10)
-  #   Lux.shell.exec('git', 'push', raise: true)
+  # Three entry points:
   #
-  #   Lux.shell.exec('bad') { |r| Lux.logger.error r.err }    # block on failure
-  #   Lux.shell.exec(cmd, on: :always) { |r| audit(r) }
+  #   Lux.shell.exec('git', 'rev-parse', 'HEAD')          # stripped stdout
+  #   Lux.shell.exec('bad') { |err, out| log err }        # block on failure -> nil
+  #   Lux.shell.exec('bad') {}                            # silent on failure -> nil
+  #   Lux.shell.exec('bad')                               # raises Lux::Shell::Error
+  #
+  #   Lux.shell.capture('bundle', 'install')              # merged stdout+stderr, never raises
+  #
+  #   Lux.shell.stream('rspec') { |line| puts line }      # yields lines, returns merged output
+  #
+  # Shortcut: Lux.shell(*argv, **opts, &block) delegates straight to exec.
   #
   # POSIX-only. Windows is not supported.
   module Shell
@@ -22,102 +26,82 @@ module Lux
 
     SHELL_UNSAFE ||= /[\s\$\`\\\;\|\&\>\<\*\?\!\(\)\[\]\{\}\'\"#~]/
 
-    # Run a command. Returns a Lux::Shell::Result.
+    # Run a command. Returns stripped stdout on success.
+    # On failure (non-zero exit, timeout, or ENOENT):
+    #   * with a block: calls block.(stderr, stdout); returns nil
+    #   * no block: raises Lux::Shell::Error
     #
     # opts:
     #   env:        Hash of env vars to merge into child env
-    #   chdir:      directory to run in
-    #   stdin_data: string written to child stdin
-    #   timeout:    seconds (nil = no timeout)
+    #   chdir:      working directory
+    #   stdin_data: string piped into child stdin
+    #   timeout:    seconds (nil = no timeout); timeout counts as failure
     #   shell:      pass through /bin/sh -c (single-string argv only)
-    #   raise:      raise Lux::Shell::Error on non-zero exit
-    #   on:         block trigger - :failure (default), :success, :always
     def exec *argv, env: {}, chdir: nil, stdin_data: nil, timeout: nil,
-             shell: false, raise: false, on: :failure, &block
+             shell: false, &block
       argv = argv.flatten.map(&:to_s)
       ::Kernel.raise ArgumentError, 'no command given' if argv.empty?
+      spawn_argv = normalize_argv(argv, shell: shell)
 
-      if shell
-        # shell mode joins everything into one string for /bin/sh -c.
-        # If the caller passed multiple args, that almost always means
-        # they meant argv mode - reject to avoid surprise quoting.
-        ::Kernel.raise ArgumentError, 'shell:true takes one string argv' if argv.length != 1
-        spawn_argv = [argv.first]
-      else
-        spawn_argv = argv
-      end
-
-      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       out, err, status, timed_out = capture3(env, spawn_argv,
         chdir: chdir, stdin_data: stdin_data, timeout: timeout)
-      duration = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
 
-      result = Result.new(
-        command:   argv,
-        out:       out,
-        err:       err,
-        status:    status,
-        duration:  duration,
-        timed_out: timed_out
-      )
-
-      if block
-        case on
-        when :failure then block.call(result) unless result.success?
-        when :success then block.call(result) if result.success?
-        when :always  then block.call(result)
-        else ::Kernel.raise ArgumentError, "Unknown on: #{on.inspect} (use :failure, :success, :always)"
-        end
+      if !timed_out && status&.success?
+        return out.strip
       end
 
-      ::Kernel.raise Lux::Shell::Error.new(result) if raise && !result.success?
-
-      result
+      err = "timed out after #{timeout}s" if timed_out
+      if block
+        block.call(err, out)
+        nil
+      else
+        ::Kernel.raise Lux::Shell::Error.new(argv, err, out)
+      end
     end
 
-    # Run and return stdout (stripped). Raises on failure unless a block is
-    # passed (in which case the block decides whether to swallow).
-    def capture *argv, **opts, &block
-      opts = { raise: true }.merge(opts)
-      opts[:raise] = false if block
-      result = exec(*argv, **opts, &block)
-      result.out.strip
+    # Run a command and return the merged stdout+stderr output. Never raises;
+    # exit status is discarded. Use when you want "everything that happened"
+    # and intend to inspect / grep the buffer yourself.
+    def capture *argv, env: {}, chdir: nil, stdin_data: nil, shell: false
+      argv = argv.flatten.map(&:to_s)
+      ::Kernel.raise ArgumentError, 'no command given' if argv.empty?
+      spawn_argv = normalize_argv(argv, shell: shell)
+
+      spawn_opts = {}
+      spawn_opts[:chdir] = chdir if chdir
+      collected = String.new
+      Open3.popen2e(env, *spawn_argv, spawn_opts) do |stdin, io, wait_thr|
+        stdin.write(stdin_data) if stdin_data
+        stdin.close
+        io.each { |chunk| collected << chunk }
+        wait_thr.value
+      end
+      collected
+    rescue Errno::ENOENT => e
+      e.message
     end
 
-    # Run and return a boolean.
-    def run *argv, **opts
-      exec(*argv, **opts).success?
-    end
-
-    # Stream merged stdout+stderr line-by-line to the block.
-    # Returns a Result with full collected output in .out.
+    # Stream merged stdout+stderr line-by-line to the block. Returns the
+    # collected merged output as a single string. Never raises on exit code.
     def stream *argv, env: {}, chdir: nil, shell: false, &block
       ::Kernel.raise ArgumentError, 'block required for stream' unless block
       argv = argv.flatten.map(&:to_s)
       ::Kernel.raise ArgumentError, 'no command given' if argv.empty?
-      if shell
-        ::Kernel.raise ArgumentError, 'shell:true takes one string argv' if argv.length != 1
-        spawn_argv = [argv.first]
-      else
-        spawn_argv = argv
-      end
+      spawn_argv = normalize_argv(argv, shell: shell)
 
-      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      collected = String.new
-      status = nil
+      collected  = String.new
       spawn_opts = {}
       spawn_opts[:chdir] = chdir if chdir
+
       Open3.popen2e(env, *spawn_argv, spawn_opts) do |stdin, io, wait_thr|
         stdin.close
         io.each_line do |line|
           collected << line
           block.call(line.chomp)
         end
-        status = wait_thr.value
+        wait_thr.value
       end
-      duration = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-      Result.new(command: argv, out: collected, err: '', status: status,
-                 duration: duration, timed_out: false)
+      collected
     end
 
     # Absolute path to an executable on PATH, or nil.
@@ -136,9 +120,9 @@ module Lux
     end
 
     # Status output to STDERR (magenta). STDOUT stays clean for piping.
-    # Accepts a string or array of strings.
+    # Accepts a string or an array of strings.
     def info text
-      if text.class == Array
+      if text.is_a?(Array)
         text.each { |line| info line }
       else
         $stderr.puts '* %s' % text.to_s.colorize(:magenta)
@@ -147,7 +131,7 @@ module Lux
 
     # Error output to STDERR (red).
     def error text
-      if text.class == Array
+      if text.is_a?(Array)
         text.each { |line| error line }
       else
         $stderr.puts '! %s' % text.to_s.colorize(:red)
@@ -162,6 +146,14 @@ module Lux
 
     private
 
+    # shell:true wants a single string for /bin/sh -c. Reject multi-arg to
+    # avoid silent surprise quoting.
+    def normalize_argv argv, shell:
+      return argv unless shell
+      ::Kernel.raise ArgumentError, 'shell:true takes one string argv' if argv.length != 1
+      [argv.first]
+    end
+
     # Open3.capture3 with optional timeout. Returns [out, err, status, timed_out].
     def capture3 env, argv, chdir:, stdin_data:, timeout:
       spawn_opts = {}
@@ -172,16 +164,13 @@ module Lux
         return [out, err, status, false]
       end
 
-      # timeout path: drive stdout/stderr via IO.select and SIGKILL on expiry.
       out = String.new
       err = String.new
       status = nil
       timed_out = false
 
       Open3.popen3(env, *argv, spawn_opts) do |stdin, stdout, stderr, wait_thr|
-        if stdin_data
-          stdin.write stdin_data
-        end
+        stdin.write(stdin_data) if stdin_data
         stdin.close
 
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
@@ -215,19 +204,7 @@ module Lux
 
       [out, err, status, timed_out]
     rescue Errno::ENOENT => e
-      [String.new, e.message, FakeStatus.new(127), false]
-    end
-
-    # Synthesized status for ENOENT (command not found). Matches the
-    # public surface of Process::Status that callers actually use.
-    class FakeStatus
-      attr_reader :exitstatus
-      def initialize(code) = @exitstatus = code
-      def success?         = @exitstatus == 0
-      def signaled?        = false
-      def termsig          = nil
-      def to_s             = "exit #{@exitstatus}"
-      def inspect          = "#<FakeStatus exit=#{@exitstatus}>"
+      [String.new, e.message, nil, false]
     end
   end
 end

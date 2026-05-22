@@ -127,13 +127,13 @@ module Lux
       test_db = db_name_from_url(test_url)
       source_db = test_db.sub(/_test$/, '')
 
-      return if Lux.shell.capture('psql', '-tAc',
-        "SELECT 1 FROM pg_database WHERE datname = '#{test_db.gsub("'", "''")}'").strip == '1'
+      return if Lux.shell.exec('psql', '-tAc',
+        "SELECT 1 FROM pg_database WHERE datname = '#{test_db.gsub("'", "''")}'") == '1'
 
       Lux.shell.info "DB create: %s (schema from %s)" % [test_db, source_db]
-      Lux.shell.run 'createdb', test_db
+      Lux.shell 'createdb', test_db
       # shell mode for pipe + redirect; values are shellescaped.
-      Lux.shell.run 'pg_dump --schema-only --no-owner --no-privileges %s | psql -q %s > /dev/null 2>&1' %
+      Lux.shell 'pg_dump --schema-only --no-owner --no-privileges %s | psql -q %s > /dev/null 2>&1' %
         [source_db.shellescape, test_db.shellescape], shell: true
     end
   end

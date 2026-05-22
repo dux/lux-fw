@@ -5,7 +5,7 @@ Lux.plugin Lux.fw_root.join('plugins/html')
 describe HtmlForm do
   let(:mock_params) { {} }
   let(:mock_request) { double('request', params: mock_params) }
-  let(:mock_current) { double('current', uid: 'test123', request: mock_request, locale: 'en') }
+  let(:mock_current) { double('current', uid: 'test123', request: mock_request, locale: 'en', csrf: 'test-csrf-token') }
 
   before do
     allow(Lux).to receive(:current).and_return(mock_current)

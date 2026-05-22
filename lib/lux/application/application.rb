@@ -104,11 +104,20 @@ module Lux
         Lux.log { lux.request.params.to_h.to_jsonp }
       end
 
-      if request_method == 'OPTIONS'
+      # Vanilla OPTIONS (no preflight) gets the canned allow+cache reply.
+      # Preflight (OPTIONS + Access-Control-Request-Method) flows through so
+      # `response.cors` in a before/action can answer it. See Lux::Response::Cors.
+      if request_method == 'OPTIONS' && !lux.request.env['HTTP_ACCESS_CONTROL_REQUEST_METHOD']
         return [204, {
           'allow' => Lux.config[:request_options] || 'OPTIONS, GET, HEAD, POST',
           'cache-control' => 'max-age=604800',
         }, ['']]
+      end
+
+      # CSRF: enforce for non-safe verbs that aren't Bearer-authenticated.
+      # Opt-out per-app via Lux.config.csrf = false. See Lux::Current#csrf.
+      if Lux.config[:csrf] != false && lux.csrf_required? && !lux.csrf_valid?
+        Lux.error.forbidden 'CSRF token missing or invalid'
       end
 
       if Lux.config.serve_static_files

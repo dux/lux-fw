@@ -76,6 +76,12 @@ class HtmlForm
       end
     end
 
+    # Auto-inject CSRF token for state-changing forms; harmless on Bearer-auth
+    # endpoints (server skips the check) but essential for cookie-session POSTs.
+    if @opts[:method].to_s.downcase != 'get'
+      data.push HtmlInput.csrf
+    end
+
     data.push yielded
     data = data.join($/)
 

@@ -180,6 +180,16 @@ module Lux
       message ? @flash.error(message) : @flash
     end
 
+    # response.cors :all
+    # response.cors origins: %w[https://app.example.com], methods: %i[get post],
+    #               headers: %w[Authorization], credentials: true, max_age: 600
+    # Sets CORS response headers. On a preflight (OPTIONS + ACRM), also sets
+    # status 204 + empty body so the response is complete without an action.
+    # Call from a controller action or - more commonly - a `before` callback.
+    def cors *args, **opts
+      Lux::Response::Cors.apply self, *args, **opts
+    end
+
     def send_file file, opts = {}
       ::Lux::Response::File.new(opts.merge(file: file)).send
     end
