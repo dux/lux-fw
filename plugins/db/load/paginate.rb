@@ -1,3 +1,5 @@
+module Lux
+module Utils
 class PaginatedArray < Array
   attr_reader :paginate_param, :paginate_page, :paginate_next
 
@@ -24,6 +26,8 @@ class PaginatedArray < Array
     self
   end
 end
+end
+end
 
 def Paginate set, size: 20, param: :page, page: nil, count: nil, klass: nil
   page = Lux.current.params[param] if Lux.current.params[param].to_s =~ /\A\d+\z/
@@ -39,7 +43,7 @@ def Paginate set, size: 20, param: :page, page: nil, count: nil, klass: nil
     ret = ret.map { klass.new _1 }
   end
 
-  PaginatedArray.new(ret, param: param, page: page, has_next: has_next)
+  Lux::Utils::PaginatedArray.new(ret, param: param, page: page, has_next: has_next)
 end
 
 ###
