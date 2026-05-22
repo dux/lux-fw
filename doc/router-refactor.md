@@ -473,7 +473,7 @@ Net framework reduction: ~50-60 lines, plus elimination of two parallel implemen
 ## Verification
 
 * Existing spec suite passes with no changes (Part A is internal-only). Specs covering the old `rescue_from` macro need updating for Part B — replace with a spec that defines `MainController#error` and asserts it is invoked on raise.
-* Manual smoke on `misc/demo/`: boot via `config.ru`, hit root, hit a nested route, trigger a 404, trigger a 500 in a controller (verify it routes to that controller's `error`), trigger a 500 in a router-level `before` (verify fallback to `Lux::Controller#error`).
+* Manual smoke on `examples/demo/`: boot via `config.ru`, hit root, hit a nested route, trigger a 404, trigger a 500 in a controller (verify it routes to that controller's `error`), trigger a 500 in a router-level `before` (verify fallback to `Lux::Controller#error`).
 * Confirm `Lux.app do before { ... }; map ...; end` still wires the `:before` callback.
 * Confirm user-defined `ApplicationController < Lux::Controller` with its own `before_action` still fires per action, in the right order relative to the Application-level `:before`.
 * Confirm an API controller defining `def error; render json: {...}; end` produces JSON errors when an action raises, and an HTML controller produces HTML errors — without any framework branching.
