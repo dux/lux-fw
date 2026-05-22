@@ -62,6 +62,7 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.add_dependency 'pry'
 
   # best ORM mapper for ruby/postgres
+  gem.add_dependency 'sequel'
   gem.add_dependency 'sequel_pg'
 
   # because it is awesome

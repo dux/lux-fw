@@ -1,5 +1,3 @@
-require 'bundler/setup'
-
 require 'amazing_print'
 require 'as-duration'
 require 'json'
