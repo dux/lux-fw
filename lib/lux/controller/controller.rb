@@ -2,7 +2,7 @@
 # if action is missing capture it via def action_missing name
 
 require 'erb'
-require_relative '../lifecycle'
+require_relative '../current/lifecycle'
 require_relative './params_dsl'
 
 module Lux

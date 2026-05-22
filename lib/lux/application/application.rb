@@ -1,6 +1,6 @@
 # Main application router
 
-require_relative '../lifecycle'
+require_relative '../current/lifecycle'
 require_relative './lib/routes'
 require_relative './lib/routes_dumper'
 
