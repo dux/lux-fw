@@ -1,3 +1,4 @@
+module Lux
 class TimeDifference
   TIMES ||= [
     [:year,   60 * 60 * 24 * 365],
@@ -75,4 +76,5 @@ class TimeDifference
   def locale name
     LOCALE[name][:en]
   end
+end
 end

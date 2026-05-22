@@ -209,7 +209,7 @@ Task.class_eval { link :comments }
 # ---------------------------------------------------------------------------
 
 def new_ref
-  Crypt.uid(12)
+  Lux::Crypt.uid(12)
 end
 
 # Helper to create a record via model (with ref and timestamps handled)
