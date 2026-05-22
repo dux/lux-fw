@@ -4,11 +4,13 @@
 # `Ref.load("ast-abc...")`. Apps may also reopen Ref to override `klass` or
 # `public_link` if they need richer behaviour.
 
-LOWERCASE_KEYS ||= 'abcdefghijklmnopqrstuvwxyz0123456789'
-MIXEDCASE_KEYS ||= 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-
+module Lux
+module Utils
 module Ref
   extend self
+
+  LOWERCASE_KEYS ||= 'abcdefghijklmnopqrstuvwxyz0123456789'
+  MIXEDCASE_KEYS ||= 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 
   REGISTRY ||= {}
 
@@ -56,4 +58,6 @@ module Ref
       %[<span class="gray">#{key_link}</span>]
     end
   end
+end
+end
 end
