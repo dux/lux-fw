@@ -6,13 +6,41 @@ module Lux
   end
   alias :application :app
 
-  # main rack response
+  # main rack response - delegates through the cached rack chain so
+  # `run Lux` in config.ru gets the same middleware as Lux().
   def call env = nil
-    # Defensive boot: if the host's config.ru forgot to require config/env
-    # (or there is no config/env), bring the app up on first request. The
-    # call is idempotent so once-per-process is the only real cost.
     Lux.boot! unless booted?
+    rack_app.call(env)
+  end
 
+  # Rack chain wrapped around the real dispatch. Built once after boot
+  # so Lux.config[:serve_static_files] is resolved.
+  #
+  # Static layout: /assets/* -> ./public/, long cache for css/js, cascade
+  # falls through to Lux on a miss. Hosts that want a different layout
+  # set Lux.config.serve_static_files = false and mount their own
+  # Rack::Static via Lux() or a custom config.ru.
+  def rack_app
+    @rack_app ||= begin
+      dispatch = method(:rack_dispatch)
+      if Lux.config[:serve_static_files] == false
+        dispatch
+      else
+        Rack::Builder.new do
+          use Rack::Static,
+            urls: ['/assets'],
+            root: 'public',
+            cascade: true,
+            header_rules: [
+              [/\.(css|js)$/, { 'cache-control' => 'public, max-age=86400' }]
+            ]
+          run dispatch
+        end.to_app
+      end
+    end
+  end
+
+  def rack_dispatch env
     Timeout::timeout Lux::Config.app_timeout do
       app  = Lux::Application.new env
       app.render_base || raise('No RACK response given')
@@ -28,12 +56,11 @@ module Lux
   end
 end
 
-# Rack builder DSL: `run Lux` in config.ru with optional block forwarded to
-# Lux::Application. Defined at top level so it is callable inside Rack::Builder.
+# Rack builder DSL: `Lux` in config.ru. Optional block is forwarded to
+# Lux::Application (class_eval). Defined at top level so it is callable
+# inside Rack::Builder's instance_eval, where `self` is the builder.
 def Lux &block
   raise 'Lux error: Rack not found' unless self.class == Rack::Builder
-  $rack_handler = self
   Lux::Application.class_eval(&block) if block
   run Lux
-  puts Lux::Config.start_info
 end

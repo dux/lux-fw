@@ -33,6 +33,8 @@ module Lux
     else
       Lux.shell.info 'Lux: no plugins'
     end
+
+    puts Lux::Config.start_info
   end
 
   def booted?
