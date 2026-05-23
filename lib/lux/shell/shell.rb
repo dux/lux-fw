@@ -143,6 +143,9 @@ module Lux
     # the title and the rest are rendered as indented detail lines.
     def die text
       lines = Array(text).map(&:to_s)
+      if app_line = Lux.app_caller
+        lines << "at #{app_line}"
+      end
       Lux.logger.fatal "Lux FATAL: #{lines.join(' | ')}"
       $stderr.puts '! %s' % lines.first.colorize(:red)
       lines[1..].to_a.each { |line| $stderr.puts '  %s' % line.colorize(:red) }
