@@ -3,9 +3,9 @@ module Lux
     # Handles requests under /lux/*. Called from Application#render_base
     # before route resolution.
     #
-    #   /lux/client.js             -> Lux::Browser.client (all modules)
-    #   /lux/client.js?modules=sse,api -> Lux::Browser.client(:sse, :api)
-    #   /lux/<module>.js           -> Lux::Browser.client(:<module>)  (just that one + core)
+    #   /lux/client.js             -> Lux::Browser.client_js (all modules)
+    #   /lux/client.js?modules=sse,api -> Lux::Browser.client_js(:sse, :api)
+    #   /lux/<module>.js           -> Lux::Browser.client_js(:<module>)  (just that one + core)
     module Mount
       JS_PATH ||= %r{\A/lux/(?<name>[a-z0-9_]+)\.js\z}
 
@@ -16,13 +16,13 @@ module Lux
 
         if path == '/lux/client.js'
           mods = lux.request.params['modules'].to_s.split(',').map(&:to_sym).reject(&:empty?)
-          return serve(Lux::Browser.client(*mods))
+          return serve(Lux::Browser.client_js(*mods))
         end
 
         if m = JS_PATH.match(path)
           name = m[:name].to_sym
           return [404, headers_html, ['unknown lux module']] unless Lux::Browser.registered?(name)
-          return serve(Lux::Browser.client(name))
+          return serve(Lux::Browser.client_js(name))
         end
 
         nil

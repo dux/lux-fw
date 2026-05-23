@@ -5,7 +5,7 @@ module Lux
   # Lux::Browser - two roles in one class:
   #
   # 1) Class-level: server-side composer for the window.Lux client surface.
-  #    Subsystems register JS modules; Lux::Browser.client(...) returns the
+  #    Subsystems register JS modules; Lux::Browser.client_js(...) returns the
   #    composed bundle served at /lux/*.js. This is the framework client lib
   #    (csrf, fetch, sse, ...).
   #
@@ -19,7 +19,7 @@ module Lux
   #
   #   # bundling (boot time, in any subsystem)
   #   Lux::Browser.register :sse, file: 'assets/lux/sse.js'
-  #   Lux::Browser.client(:sse)        # -> JS string
+  #   Lux::Browser.client_js(:sse)     # -> JS string
   #
   #   # per-request state (in a controller / before-filter)
   #   lux.browser.app.config.host  = Lux.config.host
@@ -50,7 +50,7 @@ module Lux
         @modules.key?(name.to_sym)
       end
 
-      def client *names
+      def client_js *names
         selected =
           if names.empty? || names == [:all]
             @modules.keys

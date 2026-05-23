@@ -30,16 +30,16 @@ describe Lux::Browser do
     end
   end
 
-  describe '.client' do
+  describe '.client_js' do
     it 'returns just core when only core is requested' do
-      bundle = Lux::Browser.client(:core)
+      bundle = Lux::Browser.client_js(:core)
       expect(bundle).to include('window.Lux')
       expect(bundle).to include('Lux.fetch')
     end
 
     it 'prepends core when a module is requested' do
       with_tmp_module :probe, 'window.Lux.probe = "ok";' do
-        bundle = Lux::Browser.client(:probe)
+        bundle = Lux::Browser.client_js(:probe)
         expect(bundle).to include('Lux.fetch')
         expect(bundle).to include('Lux.probe = "ok"')
         expect(bundle.index('Lux.fetch')).to be < bundle.index('Lux.probe = "ok"')
@@ -48,19 +48,19 @@ describe Lux::Browser do
 
     it 'includes every registered module on no-arg / :all' do
       with_tmp_module :probe, 'window.Lux.probe = "yes";' do
-        expect(Lux::Browser.client).to include('Lux.probe = "yes"')
+        expect(Lux::Browser.client_js).to include('Lux.probe = "yes"')
       end
     end
 
     it 'raises on unknown module names' do
-      expect { Lux::Browser.client(:nope_does_not_exist) }
+      expect { Lux::Browser.client_js(:nope_does_not_exist) }
         .to raise_error(ArgumentError, /unknown module/)
     end
 
     it 'core interpolates per-request state' do
       env = Rack::MockRequest.env_for('/')
       Lux::Current.new env
-      bundle = Lux::Browser.client(:core)
+      bundle = Lux::Browser.client_js(:core)
       expect(bundle).to include('http://test')
       expect(bundle).to match(/Lux\.csrf\s*=\s*"[a-z0-9]+"/)
     end
