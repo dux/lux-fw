@@ -10,6 +10,7 @@ require_relative '../lib/lux-fw.rb'
 Lux.config.secret         = ENV['SECRET']
 Lux.config.host           = 'http://test'
 Lux.config.compile_assets = false
+Lux.config[:log_level]    = :error unless Lux.config.key?(:log_level)
 
 class Object
   def rr data

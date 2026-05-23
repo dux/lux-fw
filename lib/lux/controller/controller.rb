@@ -105,12 +105,27 @@ module Lux
             # newly defined inside the block - rename to _ref
             remove_method(n)
             define_method(:"#{n}_ref", after_impl)
+            remap_action_metadata(n, :"#{n}_ref")
           elsif before_impl != after_impl
             # redefined - inner impl is the _ref version, restore outer
             remove_method(n)
             define_method(n, before_impl)
             define_method(:"#{n}_ref", after_impl)
+            remap_action_metadata(n, :"#{n}_ref")
           end
+        end
+      end
+
+      # Move per-action metadata (opts + verb allows snapshotted by
+      # method_added when the inner def fired) from the pre-rename key to the
+      # `_ref` key, so params validation and verb enforcement see the entry
+      # under the dispatched name.
+      def remap_action_metadata from, to
+        if (store = instance_variable_get(:@_action_opts)) && store.key?(from)
+          store[to] = store.delete(from)
+        end
+        if (store = instance_variable_get(:@_action_allows)) && store.key?(from)
+          store[to] = store.delete(from)
         end
       end
 
@@ -165,6 +180,10 @@ module Lux
       # Lux.log { ' %s' % self.class.source_location }
 
       @lux.action = method_name.to_sym
+
+      # fail-fast verb check before any callbacks run. Default is GET + HEAD;
+      # add other verbs per-action via `allow :post, :patch` above the def.
+      enforce_allowed_verbs!
 
       run_callback :before, @lux.action
 

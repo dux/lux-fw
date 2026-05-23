@@ -4,6 +4,10 @@ HTTP controllers. Rails-shaped (`before`, `before_action`, `render`,
 `action`), but params are declared with the shared `opt` / `params do`
 DSL - identical to `Lux::Api` and `Lux::Schema`.
 
+Actions default to `GET` (plus `HEAD`). To accept other verbs, declare
+the full verb set with `allow` above the `def` - `allow` is not additive,
+it replaces the default. See [Allowed HTTP verbs](#allowed-http-verbs) below.
+
 `Lux::Controller` is the base class for subclassing; per-action helpers
 hang off `current` / `lux` / `params` / `nav` etc. inside the action.
 
@@ -33,6 +37,7 @@ class BoardsController < ApplicationController
   # Strict mode: undeclared keys dropped, required keys validated, types coerced.
   opt :name,  String, max: 30
   opt :tags?, [String]
+  allow :post                                  # POST only - replaces the GET default
   def create
     board = @user.boards.create!(current.params.to_h)
     redirect_to "/boards/#{board.ref}"
@@ -104,6 +109,34 @@ render template: 'main/custom'
 render :action_name, status: 201
 render html: '...', cache: 'key/v1'
 ```
+
+## Allowed HTTP verbs
+
+Every action accepts `GET` and `HEAD` by default. An `allow` line REPLACES
+that default with the verbs it lists - it is not additive. Anything not in
+the set returns `405 Method Not Allowed` (with a developer hint in dev mode).
+
+```ruby
+allow :post              # POST only (no GET)
+def create; end
+
+allow :get, :post        # GET + HEAD + POST (declare both explicitly)
+def upsert; end
+
+allow :post, :patch      # POST + PATCH only
+def update; end
+
+allow :any               # any verb (also: allow :all)
+def webhook; end
+```
+
+`allow` placement mirrors `opt` / `desc`: above the `def` it applies to.
+HEAD piggybacks on GET only when GET is in the declared set. The `:error`
+action is implicitly `:any` so error rendering never 405s.
+
+The same `allow` word exists in `Lux::Api`, with the inverse default: API
+endpoints default to `POST`, and `allow :get` adds GET on top. Same word,
+same shape, the framework-appropriate default per system.
 
 ## Routing primer
 

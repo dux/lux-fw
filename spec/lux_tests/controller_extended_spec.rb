@@ -28,6 +28,7 @@ class ExtendedTestController < Lux::Controller
     action(:action) rescue render(text: 'caught')
   end
 
+  allow :get, :post
   def get_only
     if lux.request.get?
       render text: 'get response'
