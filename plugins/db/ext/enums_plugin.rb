@@ -1,18 +1,24 @@
 class Sequel::Model
   module ClassMethods
-    # enums :priorities, default: 2 do |f|
+    # enum :priority, default: 2 do |f|
     #   f[3] = 'High'
     #   f[2] = { name: 'Normal', desc: '...' }.h
     # end
-    # enums :kinds, ['string', 'boolean', 'textarea']
+    # enum :kind, ['string', 'boolean', 'textarea']
+    #
+    # Generates:
+    #   ClassName.priorities          -> values hash
+    #   ClassName.priorities(2)       -> single value
+    #   ClassName.priorities.for_select -> [[key, label], ...]
+    #   instance#priority             -> label for stored key
     #
     # opts:
     #   field:    backing column (default: "#{method}_sid")
-    #   method:   instance label method (default: name.singularize)
+    #   method:   instance label method (default: name)
     #   default:  default key
     #   helpers:  :both (default), :class, :instance, false
     #   validate: false to skip save-time validation
-    def enums name, opts={}, &block
+    def enum name, opts={}, &block
       if opts.is_a?(Array)
         opts = { values: opts, helpers: :class }
       end
@@ -21,9 +27,11 @@ class Sequel::Model
 
       raw_values = opts[:values] || {}.to_lux_hash.tap { |_| block.call(_) }
 
-      opts[:method]  ||= name.to_s.singularize
+      opts[:method]  ||= name.to_s
       opts[:helpers]   = :both unless opts.key?(:helpers)
       opts[:field]   ||= opts[:method].to_s + '_sid'
+
+      class_method_name = name.to_s.pluralize.to_sym
 
       field_sym = opts[:field].to_sym
       col_type  = db_schema.dig(field_sym, :type)
@@ -46,7 +54,7 @@ class Sequel::Model
 
       if do_instance
         unless db_schema[field_sym]
-          Lux.shell.die 'enums: field "%s" not found for "%s" on %s' % [opts[:field], name, self.name]
+          Lux.shell.die 'enum: field "%s" not found for "%s" on %s' % [opts[:field], name, self.name]
         end
 
         define_method(opts[:method]) do
@@ -59,7 +67,7 @@ class Sequel::Model
       end
 
       if do_class
-        define_singleton_method(name) do |id=nil|
+        define_singleton_method(class_method_name) do |id=nil|
           id ? values[caster.call(id)] : values
         end
       end

@@ -8,6 +8,24 @@ module Sequel::Plugins::LuxSchema
       name = name.to_s.underscore.singularize
       value = Lux.schema name, type: :model, &block
 
+      # Replay enum declarations captured by the `enum` DSL keyword onto
+      # this Sequel model. The collection_ref hash lets the meta[:collection]
+      # proc resolve Klass.<plural> at render time without us hard-coding
+      # the class name at schema-define time.
+      klass = self
+      value.enums.each do |e|
+        e[:collection_ref][:klass] = klass if e[:collection_ref]
+        klass.enum(
+          e[:name],
+          field:    e[:field],
+          method:   e[:method],
+          default:  e[:default],
+          values:   e[:values],
+          helpers:  e[:helpers],
+          validate: e[:validate]
+        )
+      end
+
       if ENV['DB_MIGRATE'] == 'true' && defined?(AutoMigrate)
         AutoMigrate.apply_schema self
       end

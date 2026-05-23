@@ -80,6 +80,12 @@ module Lux
       @schema.db_rules
     end
 
+    # enum definitions captured by the db plugin's `enum` DSL keyword
+    # ([] when the db plugin isn't loaded or no enums were declared)
+    def enums
+      @schema.respond_to?(:enums_list) ? @schema.enums_list : []
+    end
+
     # returns field, db_type, db_opts
     def db_schema
       @schema.rules.map do |field, opts|

@@ -37,6 +37,7 @@ Sequel::Model.plugin :lux_create_limit
 # Schema – create test tables fresh every run
 # ---------------------------------------------------------------------------
 
+DB.drop_table?(:enum_widgets)
 DB.drop_table?(:notes)
 DB.drop_table?(:projects)
 DB.drop_table?(:tree_nodes)
@@ -118,6 +119,15 @@ DB.create_table :notes do
   DateTime :updated_at
 end
 
+DB.create_table :enum_widgets do
+  String   :ref, primary_key: true
+  String   :status_sid, default: 'a'
+  Integer  :level_id
+  String   :mood_sid
+  DateTime :created_at
+  DateTime :updated_at
+end
+
 # ---------------------------------------------------------------------------
 # Minimal User stub so before_save_filters (which guard on `defined?(User)`)
 # and find_precache work.
@@ -131,7 +141,7 @@ class User < Sequel::Model
     attr_accessor :current
   end
 
-  enums :steps, values: { 'a' => 'Active', 'i' => 'Inactive', 'd' => 'Disabled' }
+  enum :step, values: { 'a' => 'Active', 'i' => 'Inactive', 'd' => 'Disabled' }
 end
 
 class Task < Sequel::Model
@@ -183,6 +193,32 @@ class Note < Sequel::Model
   scope(:my) { |user = nil| where(creator_ref: (user || User.current).ref) }
 
   create_limit 3, 1.hour
+end
+
+class EnumWidget < Sequel::Model(:enum_widgets)
+  set_primary_key :ref
+  unrestrict_primary_key
+
+  plugin :lux_schema
+
+  schema do
+    enum :status, default: 'a' do |f|
+      f[:a] = 'Active'
+      f[:i] = 'Inactive'
+      f[:d] = 'Disabled'
+    end
+
+    enum :level do |f|
+      f[1] = 'Low'
+      f[2] = 'Normal'
+      f[3] = 'High'
+    end
+
+    enum :mood?, meta: { label: 'Mood' } do |f|
+      f[:h] = 'Happy'
+      f[:s] = 'Sad'
+    end
+  end
 end
 
 # Add plural reverse-lookup link after both classes exist
@@ -904,9 +940,9 @@ end
 describe 'plugins/db/enums_plugin.rb', :db_plugin do
   before(:each) { DB[:users].delete }
 
-  # User already has: enums :steps, values: { 'a'=>'Active', 'i'=>'Inactive', 'd'=>'Disabled' }
+  # User already has: enum :step, values: { 'a'=>'Active', 'i'=>'Inactive', 'd'=>'Disabled' }
 
-  describe '.enums class method' do
+  describe '.enum class method' do
     it 'defines a class method returning all values' do
       expect(User.steps).to eq({ 'a' => 'Active', 'i' => 'Inactive', 'd' => 'Disabled' }.to_lux_hash)
     end
@@ -941,7 +977,7 @@ describe 'plugins/db/enums_plugin.rb', :db_plugin do
 
   describe 'array-based enums' do
     before do
-      User.enums :priorities, ['low', 'medium', 'high']
+      User.enum :priority, ['low', 'medium', 'high']
     end
 
     it 'creates the class method with all keys' do
@@ -2009,6 +2045,126 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
           f.date :flag
         end
       }.to output(/Cannot auto-convert/).to_stdout
+    end
+  end
+end
+
+# =========================================================================
+#  schema_define.rb – `enum` DSL inside `schema do ... end`
+# =========================================================================
+
+describe 'plugins/db/schema_define.rb – enum DSL', :db_plugin do
+  describe 'column synthesis' do
+    it 'derives _sid column + max from longest string key' do
+      rule = Lux.schema(:enum_widget).rules[:status_sid]
+      expect(rule[:type]).to eq(:string)
+      expect(rule[:max]).to eq(1)
+      expect(rule[:default]).to eq('a')
+      expect(rule[:required]).to be true
+      expect(rule[:allowed]).to eq([:a, :i, :d])
+    end
+
+    it 'derives _id column with integer type for numeric keys' do
+      rule = Lux.schema(:enum_widget).rules[:level_id]
+      expect(rule[:type]).to eq(:integer)
+      expect(rule[:allowed]).to eq([1, 2, 3])
+      expect(rule).not_to have_key(:max)
+    end
+
+    it 'marks ? suffix fields as optional' do
+      rule = Lux.schema(:enum_widget).rules[:mood_sid]
+      expect(rule[:required]).to be false
+    end
+
+    it 'merges user-supplied meta and auto-wires :collection' do
+      rule = Lux.schema(:enum_widget).rules[:mood_sid]
+      expect(rule[:meta][:label]).to eq('Mood')
+      expect(rule[:meta][:collection]).to be_a(Proc)
+    end
+  end
+
+  describe 'plugin replay (class + instance helpers)' do
+    it 'defines pluralized class accessor returning values hash' do
+      expect(EnumWidget.statuses).to be_a(Hash)
+      expect(EnumWidget.statuses).to eq({ 'a' => 'Active', 'i' => 'Inactive', 'd' => 'Disabled' }.to_lux_hash)
+      expect(EnumWidget.statuses('i')).to eq('Inactive')
+    end
+
+    it 'defines class accessor for integer-keyed enums' do
+      # lux_hash stringifies keys but indifferent-lookup keeps integer access working
+      expect(EnumWidget.levels.keys).to eq(['1', '2', '3'])
+      expect(EnumWidget.levels(2)).to eq('Normal')
+    end
+
+    it 'defines instance label method' do
+      DB[:enum_widgets].delete
+      DB[:enum_widgets].insert(ref: new_ref, status_sid: 'i', level_id: 3, mood_sid: 'h')
+      w = EnumWidget.first
+      expect(w.status).to eq('Inactive')
+      expect(w.level).to eq('High')
+      expect(w.mood).to eq('Happy')
+    end
+
+    it 'auto-wires meta[:collection] to Klass.<plural>' do
+      rule  = Lux.schema(:enum_widget).rules[:status_sid]
+      proc_ = rule[:meta][:collection]
+      result = EnumWidget.new.instance_exec(&proc_)
+      expect(result).to eq(EnumWidget.statuses)
+    end
+  end
+
+  describe 'schema-level rejection of unknown values' do
+    it 'rejects via :allowed before enums_plugin save validation' do
+      DB[:enum_widgets].delete
+      w = EnumWidget.new
+      w[:ref] = new_ref
+      w[:status_sid] = 'zz'
+      w[:level_id] = 1
+      expect(w.valid?).to be false
+      expect(w.errors[:status_sid].join).to match(/not allowed/)
+    end
+  end
+
+  describe 'die-early checks' do
+    before do
+      # die normally exits the process; raise instead so we can assert on it
+      allow(Lux.shell).to receive(:die) { |msg| raise(msg) }
+    end
+
+    it 'dies when neither block nor values: is given' do
+      expect { Lux.schema { enum :foo } }.to raise_error(/no values given/)
+    end
+
+    it 'dies when default is not in keys' do
+      expect {
+        Lux.schema do
+          enum :foo, default: 'x' do |f|
+            f[:a] = 'A'
+          end
+        end
+      }.to raise_error(/default "x" not in keys/)
+    end
+
+    it 'dies on mixed key types' do
+      expect {
+        Lux.schema do
+          enum :foo do |f|
+            f[1] = 'A'
+            f[:b] = 'B'
+          end
+        end
+      }.to raise_error(/mixed key types/)
+    end
+
+    it 'dies on duplicate column declaration' do
+      expect {
+        Lux.schema do
+          status_sid max: 1
+          enum :status do |f|
+            f[:a] = 'A'
+          end
+        end
+      }.to raise_error(/column :status_sid already declared/)
     end
   end
 end

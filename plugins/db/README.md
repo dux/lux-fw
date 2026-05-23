@@ -53,6 +53,54 @@ note.parent                 # reads back the parent
 The old `for_parent` / `where_parent` / `where_for` methods were removed
 in favour of `for` / `where_ref`.
 
+## Enums
+
+Map a short "code" column (e.g. `status_sid = 's'`) to a human label, with
+a class accessor + instance label method + save-time validation.
+
+```ruby
+class Task < ApplicationModel
+  enum :status do |f|              # column: status_sid (string, max from longest key)
+    f[:s] = 'Scheduled'
+    f[:r] = 'Running'
+    f[:d] = { name: 'Done', icon: :check }
+  end
+
+  enum :priority, default: 2 do |f| # column: priority_id (integer)
+    f[1] = 'Low'
+    f[2] = 'Normal'
+    f[3] = 'High'
+  end
+end
+
+Task.statuses                # values hash (pluralized accessor)
+Task.statuses(:s)            # => 'Scheduled'
+Task.statuses.for_select     # [[key, label], ...] for <select>
+task.status                  # => 'Scheduled' (instance label)
+```
+
+Column suffix is derived from the first key's type: `Integer` → `_id` /
+`:integer`; anything else → `_sid` / `:string` (with `max` from the longest
+key). Array shorthand: `enum :priority, ['low','medium','high']`.
+
+Inside `schema do ... end` (see `lib/schema_define.rb`) the same keyword
+also synthesizes the column rule, so the schema and enum live in one place:
+
+```ruby
+schema do
+  enum :status, default: 'a', meta: { as: :buttons } do |f|
+    f[:a] = 'Active'
+    f[:i] = 'Inactive'
+  end
+  timestamps
+end
+```
+
+`meta[:collection]` auto-resolves to `Klass.<plural>`. `:allowed` is wired
+so unknown values are rejected at schema-validate time, before the save-time
+enum check. Errors at declaration time (missing values, default not in
+keys, mixed key types, duplicate column) raise via `Lux.shell.die`.
+
 ## Layout
 
 ```
@@ -61,7 +109,7 @@ plugins/db/
   lib/                       # pure-Ruby utilities (no Sequel)
     ref.rb                   # Lux::Utils::Ref (16-char ID generator)
     ref_type.rb              # Lux::Type::RefType
-    schema_define.rb         # Lux::Schema::Define#timestamps DSL helper
+    schema_define.rb         # Lux::Schema::Define DSL helpers: #timestamps, #enum
   ext/                       # direct Sequel::Model extensions
     core.rb
     dataset_methods.rb       # x* query-builder primitives

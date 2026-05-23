@@ -310,7 +310,7 @@ class LuxJob < ApplicationModel
     end
   end
 
-  enums :statuses, field: :status_sid, method: :status do |t|
+  enum :status do |t|
     t[:s] = 'Scheduled'
     t[:r] = 'Running'
     t[:f] = 'Failed'

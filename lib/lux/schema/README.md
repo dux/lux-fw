@@ -28,7 +28,7 @@ Lux.schema :user do
   name     String, max: 30
   email    type: :email, index: true
   bio?     String                                  # `?` suffix = optional
-  role     %w[admin user guest]                    # enum (allowed values)
+  role     %w[admin user guest]                    # allowed-values shorthand
   tags?    [String]                                # array of strings
   age      Integer, min: 13, max: 130
   country  type: :country, default: 'HR'
@@ -53,6 +53,22 @@ name? String, max: 30                 # optional
 
 # above a controller / API def:
 opt :name, String, max: 30            # same parser, method-level form
+
+# --- enums (db plugin only) -------------------------------------------
+
+# `enum` keyword is added by `Lux.plugin :db` (plugins/db/lib/schema_define.rb).
+# It synthesizes the backing column rule AND registers a Sequel enum on the
+# model (class accessor `Klass.<plural>`, instance label method, save-time
+# validation). Column suffix: Integer keys -> _id/integer, else _sid/string.
+
+schema do
+  enum :status, default: 'a', meta: { as: :buttons } do |f|
+    f[:a] = 'Active'
+    f[:i] = 'Inactive'
+  end
+end
+
+# See plugins/db/README.md for the full surface.
 
 # --- lookup / introspect ----------------------------------------------
 
