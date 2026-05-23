@@ -3,10 +3,15 @@ require_relative '../../lib/lux/plugin/plugin'
 require_relative '../../lib/lux/plugin/mount'
 
 task :mount do
-  desc 'Symlink files from each configured plugin\'s mount/ into the app root'
+  desc 'Symlink missing entries from each plugin\'s mount/ into the app root'
+  opt :unlink, alias: :u, type: :boolean, default: false, desc: 'Unlink plugin-owned symlinks, then list user-added symlinks in the app'
 
   proc do |opts|
-    Lux::Plugin::Mount.apply opts[:args].first
+    if opts[:unlink]
+      Lux::Plugin::Mount.unlink opts[:args].first
+    else
+      Lux::Plugin::Mount.apply opts[:args].first
+    end
   end
 end
 
@@ -35,12 +40,11 @@ namespace :mount do
   end
 
   task :remove do
-    desc 'Unlink files mounted by PLUGIN'
+    desc '(removed) use `lux mount -u PLUGIN`'
 
     proc do |opts|
-      name = opts[:args].first
-      raise Hammer::Error, 'usage: lux mount:remove PLUGIN' unless name
-      Lux::Plugin::Mount.remove name
+      hint = 'lux mount -u %s' % (opts[:args].first || 'PLUGIN')
+      raise Hammer::Error, 'mount:remove was removed - use: %s' % hint
     end
   end
 end

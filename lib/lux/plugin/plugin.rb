@@ -20,6 +20,24 @@ module Lux
 
     PLUGIN ||= {}
 
+    # Subsystems append their own instance-method mixin here, and every
+    # descriptor returned by Lux.plugin(:name) gets `extend`ed with each
+    # registered mixin during `load`. Convention for a subsystem file:
+    #
+    #   require_relative './plugin'   # ensure this constant exists
+    #
+    #   module Lux::Plugin::Foo
+    #     module Descriptor
+    #       def foo!; ...; end
+    #     end
+    #   end
+    #
+    #   Lux::Plugin::DESCRIPTOR_MIXINS << Lux::Plugin::Foo::Descriptor \
+    #     unless Lux::Plugin::DESCRIPTOR_MIXINS.include?(Lux::Plugin::Foo::Descriptor)
+    #
+    # Mount uses this for `.mounts` / `.mount!` / `.unmount!`.
+    DESCRIPTOR_MIXINS ||= []
+
     # Lux.plugin :foo
     # Lux.plugin 'foo/bar'
     # Lux.plugin.folders
@@ -38,6 +56,7 @@ module Lux
       loader   = root.join('loader.rb')
       load_dir = root.join('load')
 
+      DESCRIPTOR_MIXINS.each { |m| opts.extend(m) }
       PLUGIN[opts.name] ||= opts
 
       # Config is data, loaded before boot code so loader.rb can read defaults.

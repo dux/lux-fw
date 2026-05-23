@@ -23,7 +23,23 @@ Lux.plugin.keys                     # names
 Lux.plugin.folders                  # filesystem folders
 ```
 
-Each descriptor exposes `.name` and `.folder`.
+Each descriptor exposes `.name`, `.folder`, plus mount accessors:
+
+```ruby
+Lux.plugin(:foo).mounts do |src, dst|
+  # src = Pathname inside plugins/foo/mount
+  # dst = matching Pathname under Lux.root
+end
+
+Lux.plugin(:foo).mounts.to_a       # no block -> Enumerator
+Lux.plugin(:foo).mount!            # symlink missing/stale/broken entries; silent on :ok
+Lux.plugin(:foo).unmount!          # unlink only this plugin's owned symlinks
+```
+
+`lux mount` / `lux mount -u` (the CLI) iterate plugin descriptors and call
+`mount!` / `unmount!`. Subsystems that want to attach their own per-plugin
+behavior can push a module into `Lux::Plugin::DESCRIPTOR_MIXINS`; every
+loaded descriptor is `extend`ed with each registered mixin.
 
 ## Canonical layout
 
