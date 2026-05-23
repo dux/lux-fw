@@ -8,9 +8,13 @@ module Lux
     # Consumed by `response.sse(*channels)` in a controller action; one
     # EventSource on the client multiplexes events tagged by channel name.
     #
-    # v1 is in-process only. Publish from worker A reaches subscribers in
-    # worker A; cross-worker fan-out (PG LISTEN/NOTIFY broker, mirroring
-    # plugins/job_runner) is a future addition.
+    # In-process by default. For cross-worker fan-out (PG LISTEN/NOTIFY):
+    #
+    #   # config/puma.rb (publish + receive)
+    #   on_worker_boot { Lux::Browser::Channel.pg_listen! }
+    #
+    #   # in job / rake / one-off processes (publish only)
+    #   Lux::Browser::Channel.pg_publish!
     module Channel
       extend self
 
@@ -35,8 +39,21 @@ module Lux
       end
 
       # Broadcast `data` (any JSON-serialisable value, or String) to every queue
-      # currently subscribed to `name`.
+      # currently subscribed to `name`. When PG publish is enabled (pg_publish!
+      # or pg_listen!), this is routed through NOTIFY so every process listening
+      # on the same DB receives it via its own LISTEN connection.
       def publish name, data
+        if PgBroker.publish_enabled?
+          PgBroker.publish(name.to_s, data)
+        else
+          local_publish(name, data)
+        end
+      end
+
+      # Direct in-process fan-out, bypassing the broker. Used by PgBroker to
+      # deliver an inbound NOTIFY without bouncing it back through NOTIFY again,
+      # and by tests that exercise the queue path without a DB.
+      def local_publish name, data
         name = name.to_s
         message = { channel: name, data: data }
         queues = @lock.synchronize { (@subs[name] || []).dup }
@@ -76,9 +93,34 @@ module Lux
       def reset!
         @lock.synchronize { @subs = {} }
       end
+
+      # PG LISTEN/NOTIFY shortcuts. See PgBroker for details and caveats.
+      # `pg_publish!` routes Channel.publish through NOTIFY (use in jobs).
+      # `pg_listen!` also starts the LISTEN thread (use in Puma workers).
+      def pg_publish! db_name: :main
+        PgBroker.enable_publish!(db_name: db_name)
+      end
+
+      def pg_listen! db_name: :main
+        PgBroker.enable_listen!(db_name: db_name)
+      end
+
+      def pg_stop!
+        PgBroker.stop!
+      end
+
+      def pg_publishing?
+        PgBroker.publish_enabled?
+      end
+
+      def pg_listening?
+        PgBroker.listening?
+      end
     end
   end
 end
+
+require_relative 'pg_broker'
 
 # Register the SSE client module so /lux/sse.js works.
 Lux::Browser.register :sse, file: 'assets/lux/sse.js'

@@ -88,6 +88,7 @@ lives under `window.Lux`, not `window.app`.
 | `Lux.browser.client(*names)` | composed JS string; no args = all modules |
 | `Lux.browser.modules` | `[Symbol]` |
 | `Lux.browser.registered?(name)` | Boolean |
+| `Lux.browser.publish(channel, data)` | broadcast to SSE subscribers (`Lux.subscribe` on client) |
 | `Lux.browser` | the class itself (lets you say `Lux.browser.register ...`) |
 
 ### Instance-level (per-request)

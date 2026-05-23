@@ -50,6 +50,16 @@ module Lux
         @modules.key?(name.to_sym)
       end
 
+      # Broadcast `data` on logical channel `name` to all SSE subscribers.
+      # Delegates to Lux::Browser::Channel - when the PG broker is running
+      # this fans out across every Puma worker; otherwise it's in-process.
+      #
+      #   Lux.browser.publish :notifications, message: 'Hello'
+      #   Lux.browser.publish "user:#{u.id}", type: :inbox, count: 3
+      def publish name, data
+        Lux::Browser::Channel[name].push(data)
+      end
+
       def client_js *names
         selected =
           if names.empty? || names == [:all]
