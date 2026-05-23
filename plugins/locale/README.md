@@ -133,7 +133,6 @@ prefix). Falls back to `default`. Unknown locale -> `Lux::Locale::Unknown`.
 
 ## See also
 
-* [`AGENTS.md`](./AGENTS.md) - LLM guide
 * [`../../lib/lux/current/README.md`](../../lib/lux/current/README.md) - `Lux.current.locale`
 * [`../../lib/lux/application/README.md`](../../lib/lux/application/README.md) - `Nav#locale` (URL prefix)
 * [`../../lib/lux/type/README.md`](../../lib/lux/type/README.md) - `Lux::Type::LocaleType`

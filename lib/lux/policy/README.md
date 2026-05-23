@@ -111,4 +111,3 @@ is_authorized!                  # 403 if not authorized
 ## See also
 
 * [`../error/README.md`](../error/README.md) - HTTP 403 / `unauthorized!`
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

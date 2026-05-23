@@ -100,5 +100,4 @@ Same applies to any other `Lux::<CoreClass>` alias (currently only
 
 ## See also
 
-* [`AGENTS.md`](./AGENTS.md) - LLM guide
 * [`lib/overload/object.rb`](../../overload/object.rb) - `is_hash?` + siblings

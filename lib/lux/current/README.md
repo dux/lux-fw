@@ -142,4 +142,3 @@ nav.pathname(has: 'edit')         # /foo/edit/x => true
 * [`../application/README.md`](../application/README.md) - routing
 * [`../response/README.md`](../response/README.md) - response object
 * [`../browser/README.md`](../browser/README.md) - `current.browser`
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

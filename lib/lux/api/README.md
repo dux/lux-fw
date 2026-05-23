@@ -151,4 +151,3 @@ To opt out class-wide (legacy code): `def_registration_strict false`.
 * [`../controller/README.md`](../controller/README.md) - same DSL, HTML-shaped
 * [`../schema/README.md`](../schema/README.md) - the underlying schema DSL
 * [`../type/README.md`](../type/README.md) - named types used in `params do`
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

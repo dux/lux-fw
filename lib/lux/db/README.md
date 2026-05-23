@@ -63,4 +63,3 @@ Lux::Db.disconnect_all              # tear down all pools
 
 * [`../../../plugins/db/README.md`](../../../plugins/db/README.md) - Sequel model extensions, `link` associations, auto-migrate
 * [`../schema/README.md`](../schema/README.md) - the schema DSL used by `model.schema do`
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

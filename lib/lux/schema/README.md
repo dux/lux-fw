@@ -120,4 +120,3 @@ on a custom type via `Lux::Type.opts :key, 'desc'`.
 * [`../type/README.md`](../type/README.md) - the named-type vocabulary
 * [`../controller/README.md`](../controller/README.md) - `opt` / `params do`
 * [`../api/README.md`](../api/README.md) - same DSL for API endpoints
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

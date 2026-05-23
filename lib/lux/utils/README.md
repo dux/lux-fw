@@ -149,7 +149,6 @@ Time.now.short(true) # force default format, ignore config
 
 ## See also
 
-* [`AGENTS.md`](./AGENTS.md) - LLM guide
 * [`../current/README.md`](../current/README.md) - `Lux.current.encrypt/decrypt` (per-request variants)
 * [`../../../plugins/db/load/ref/ref.rb`](../../../plugins/db/load/ref/ref.rb) - `Lux::Utils::Ref`
 * [`../../../plugins/db/load/paginate.rb`](../../../plugins/db/load/paginate.rb) - `Lux::Utils::PaginatedArray`

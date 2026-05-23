@@ -109,4 +109,3 @@ boot logic in the plugin loader.
 * [`../environment/README.md`](../environment/README.md) - env / mode / runtime
 * [`../logger/README.md`](../logger/README.md) - logger config
 * [`../plugin/README.md`](../plugin/README.md) - plugin load and config order
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

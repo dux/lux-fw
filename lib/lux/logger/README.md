@@ -63,4 +63,3 @@ end
 
 * [`../environment/README.md`](../environment/README.md) - dev / prod / test
 * [`../config/README.md`](../config/README.md) - logger config hooks
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

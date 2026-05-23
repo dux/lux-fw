@@ -91,5 +91,4 @@ Raised by `exec` on failure when no block was given. Carries:
 
 ## See also
 
-* [`AGENTS.md`](./AGENTS.md) - LLM guide
 * [`../logger/README.md`](../logger/README.md) - `Lux.logger` (used by `die`)

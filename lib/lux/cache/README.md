@@ -78,4 +78,3 @@ Lux.var                              # the underlying Hash if you need direct ac
 ## See also
 
 * [`../current/README.md`](../current/README.md) - `current.cache` for request-scoped caching
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

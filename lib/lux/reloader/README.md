@@ -62,4 +62,3 @@ existing references valid.
 
 * [`../environment/README.md`](../environment/README.md) - `Lux.mode.reload?`
 * [`../config/README.md`](../config/README.md) - `on_reload_code` hook
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

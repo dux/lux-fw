@@ -163,4 +163,3 @@ lux routes -v       # add source location per entry
 * [`../controller/README.md`](../controller/README.md) - actions
 * [`../current/README.md`](../current/README.md) - `nav`, `route`, request state
 * [`../response/README.md`](../response/README.md) - response builder
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

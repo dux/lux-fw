@@ -133,4 +133,3 @@ or config templates a plugin needs to drop into the host app.
 ## See also
 
 * [`../application/README.md`](../application/README.md) - `plugin_route :name`, `plugin_routes`
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

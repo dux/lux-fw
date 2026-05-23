@@ -105,4 +105,3 @@ streaming body. The render path:
 * [`./lib/sse.rb`](./lib/sse.rb) - the `response.sse` SSE writer
 * [`../browser/channel/README.md`](../browser/channel/README.md) - pub/sub channels feeding SSE
 * [`../current/README.md`](../current/README.md) - request context
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

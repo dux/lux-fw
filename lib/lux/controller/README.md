@@ -145,4 +145,3 @@ tries `<name>_ref.haml` then falls back to `<name>.haml`.
 * [`../schema/README.md`](../schema/README.md) - the `opt` line parser
 * [`../api/README.md`](../api/README.md) - same DSL for JSON APIs
 * [`../application/README.md`](../application/README.md) - routing
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

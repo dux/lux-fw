@@ -88,7 +88,6 @@ inside the SSE writer; the subscription is closed in an `ensure` block.
 
 ## See also
 
-* [`AGENTS.md`](./AGENTS.md) - LLM guide
 * [`../../response/lib/sse.rb`](../../response/lib/sse.rb) - the SSE writer (`response.sse`)
 * [`../README.md`](../README.md) - parent `Lux::Browser` (serves the `Lux.sse` client)
 * [`../../../../plugins/job_runner/README.md`](../../../../plugins/job_runner/README.md) - PG LISTEN/NOTIFY pattern

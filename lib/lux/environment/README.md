@@ -58,4 +58,3 @@ Lux.runtime.rake?        # run via rake
 ## See also
 
 * [`../config/README.md`](../config/README.md) - app config + `.env`
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

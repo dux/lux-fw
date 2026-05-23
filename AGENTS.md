@@ -1,37 +1,30 @@
-# Lux framework - LLM index
+# Lux framework - agent index
 
-Ruby web framework. Rack + Sequel + PostgreSQL. Sinatra speed, Rails-shaped
-controllers, Hanami-style schemas, **one shared DSL across controllers,
-APIs, models, and schemas**.
+Ruby web framework. Rack + Sequel + PostgreSQL. Sinatra speed,
+Rails-shaped controllers, Hanami-style schemas, **one shared DSL across
+controllers, APIs, models, and schemas**.
 
-This file is the agent index. Each subsystem has its own `AGENTS.md` next
-to its README with one full example and module-specific rules. Read those
-when working on the relevant code.
+This is the only `AGENTS.md` in the repo. Every subsystem ships a
+`README.md` next to its code with the canonical example, full API, and
+module-specific rules. **Before editing code in a subsystem, read that
+module's `README.md`.** Links are in the tables below.
 
-## Cross-cutting conventions (apply everywhere)
+## Cross-cutting conventions
 
-* **Inside `module Lux`**, `Hash` lexically resolves to `Lux::Hash`. Use
+* Inside `module Lux`, `Hash` lexically resolves to `Lux::Hash`. Use
   `obj.is_hash?` (from `lib/overload/object.rb`) or fully-qualified
   `::Hash`. Same for any `Lux::<CoreClass>` alias.
 * Use `FOO ||=` for module-level constants, not `FOO =`.
 * End files with newline. No trailing spaces on blank lines.
-* ASCII-only by default - prefer `-` over unicode dashes, `*` over `•`.
-* No emojis in code or generated docs unless explicitly requested.
+* ASCII only - `-` not `—`, `*` not `•`. No emojis unless asked.
 * Models use `ref` (string ULID) as primary key. Sequel-based ORM.
 * `Lux.current` (alias `lux`) is the thread-local request context.
 
 ## The unified DSL
 
-`Lux::Schema::Define` (`lib/lux/schema/define.rb`) is the shared line parser
-used by:
-
-* `Lux::Controller#opt` and `Lux::Controller.params`
-* `Lux::Api.params`
-* `Lux::Schema do ... end` standalone
-* model `schema do ... end` blocks (via `plugins/db`)
-* DB migration definitions
-
-Line syntax (all equivalent):
+`Lux::Schema::Define` (`lib/lux/schema/define.rb`) is the shared line
+parser used by `Lux::Controller#opt` / `params do`, `Lux::Api.params`,
+standalone `Lux::Schema`, model `schema do` blocks, and DB migrations.
 
 ```ruby
 opt :name, String, max: 30                 # method-level (above def)
@@ -39,52 +32,66 @@ name String, max: 30                       # in-block shortcut
 set :name, type: String, max: 30           # explicit
 ```
 
-Field name suffix `?` marks the field optional. Default required.
-Type vocabulary - any built-in (`String`, `Integer`, `Boolean`, ...) or a
-named `Lux::Type` (`:email`, `:url`, `:uuid`, `:slug`, `:locale`, ...).
+Field-name suffix `?` marks optional. Type vocabulary is any built-in
+(`String`, `Integer`, `Boolean`, ...) or a named `Lux::Type` (`:email`,
+`:url`, `:uuid`, `:slug`, `:locale`, ...). **When generating params code
+anywhere, use this DSL.** Don't invent per-controller validators.
 
-**When generating params code in any subsystem, use this DSL.** Do not
-invent per-controller validators - the framework already wires the schema
-through `Lux::Schema#validate(params, strict: true)` which drops undeclared
-keys, validates required, coerces types.
+## Core modules - `lib/lux/<name>/`
 
-## Where to look for each subsystem
+| Module | What it is | Read |
+|--------|------------|------|
+| `Lux::Application`     | Router + request lifecycle; routing DSL inside `routes do` | [README](./lib/lux/application/README.md) |
+| `Lux::Controller`      | Rails-shaped HTTP controllers with `opt` / `params do`     | [README](./lib/lux/controller/README.md) |
+| `Lux::Api`             | JSON API classes; same params DSL as controllers           | [README](./lib/lux/api/README.md) |
+| `Lux::Schema`          | The shared schema DSL parser at the heart of the framework | [README](./lib/lux/schema/README.md) |
+| `Lux::Type`            | Named type vocabulary (`:email`, `:uuid`, `:slug`, ...)    | [README](./lib/lux/type/README.md) |
+| `Lux::Policy`          | Framework- and ORM-agnostic access policy                  | [README](./lib/lux/policy/README.md) |
+| `Lux::Current`         | Thread-local per-request context (`Lux.current` / `lux`)   | [README](./lib/lux/current/README.md) |
+| `Lux::Response`        | HTTP response builder (`response` inside controllers)      | [README](./lib/lux/response/README.md) |
+| `Lux::Render`          | Render pages, controllers, templates, cells from anywhere  | [README](./lib/lux/render/README.md) |
+| `Lux::Template`        | Template rendering via Tilt (HAML, ERB, ...)               | [README](./lib/lux/template/README.md) |
+| `Lux::ViewCell`        | Reusable view components with their own templates          | [README](./lib/lux/view_cell/README.md) |
+| `Lux::Mailer`          | Mail composition + template rendering (over `mail`)        | [README](./lib/lux/mailer/README.md) |
+| `Lux::Cache`           | Uniform cache API across memory/memcached/sqlite/null      | [README](./lib/lux/cache/README.md) |
+| `Lux::Db`              | Sequel multi-DB connection management                      | [README](./lib/lux/db/README.md) |
+| `Lux::Browser`         | Server-side composer for `window.Lux` client + per-request state | [README](./lib/lux/browser/README.md) |
+| `Lux::Browser::Channel`| In-process pub/sub backing `response.sse` streams          | [README](./lib/lux/browser/channel/README.md) |
+| `Lux::Error`           | Thin exception class + `Lux.error.not_found` style helpers | [README](./lib/lux/error/README.md) |
+| `Lux::Environment`     | `Lux.env` / `Lux.mode` / `Lux.runtime` facets              | [README](./lib/lux/environment/README.md) |
+| `Lux::Config`          | YAML config + `.env` loader + lifecycle hooks              | [README](./lib/lux/config/README.md) |
+| `Lux::Plugin`          | Plugin loader (`Lux.root/plugins` then `Lux.fw_root/plugins`) | [README](./lib/lux/plugin/README.md) |
+| `Lux::Reloader`        | Fast code reloader; skips installed gems via `Gem.path`    | [README](./lib/lux/reloader/README.md) |
+| `Lux::Logger`          | Default + named loggers with rotation                      | [README](./lib/lux/logger/README.md) |
+| `Lux::Shell`           | Secure shell/process exec + `info`/`error`/`die` helpers   | [README](./lib/lux/shell/README.md) |
+| `Lux::Hash`            | Hash with indifferent string/symbol/method access          | [README](./lib/lux/hash/README.md) |
+| `Lux::JsonExporter`    | Structured JSON export with named exporters per model      | [README](./lib/lux/json_exporter/README.md) |
+| `Lux::Utils`           | Pure helpers (`Crypt`, `StringBase`, `Json`, ...)          | [README](./lib/lux/utils/README.md) |
 
-| If user is touching... | Read first |
-|------------------------|------------|
-| HTTP routing / mount points | [`lib/lux/application/AGENTS.md`](./lib/lux/application/AGENTS.md) |
-| Controller action / params  | [`lib/lux/controller/AGENTS.md`](./lib/lux/controller/AGENTS.md) |
-| JSON API endpoint           | [`lib/lux/api/AGENTS.md`](./lib/lux/api/AGENTS.md) |
-| Schema or model definition  | [`lib/lux/schema/AGENTS.md`](./lib/lux/schema/AGENTS.md) |
-| Custom type / coercion      | [`lib/lux/type/AGENTS.md`](./lib/lux/type/AGENTS.md) |
-| Access control              | [`lib/lux/policy/AGENTS.md`](./lib/lux/policy/AGENTS.md) |
-| Request-scoped state        | [`lib/lux/current/AGENTS.md`](./lib/lux/current/AGENTS.md) |
-| Response / headers / files  | [`lib/lux/response/AGENTS.md`](./lib/lux/response/AGENTS.md) |
-| Rendering templates / cells | [`lib/lux/render/AGENTS.md`](./lib/lux/render/AGENTS.md) |
-| Sending email               | [`lib/lux/mailer/AGENTS.md`](./lib/lux/mailer/AGENTS.md) |
-| Caching                     | [`lib/lux/cache/AGENTS.md`](./lib/lux/cache/AGENTS.md) |
-| Database / Sequel           | [`lib/lux/db/AGENTS.md`](./lib/lux/db/AGENTS.md) + [`plugins/db/AGENTS.md`](./plugins/db/AGENTS.md) |
-| Errors / 4xx / 5xx          | [`lib/lux/error/AGENTS.md`](./lib/lux/error/AGENTS.md) |
-| Localization / translations | [`plugins/locale/AGENTS.md`](./plugins/locale/AGENTS.md) |
-| Env / mode / runtime        | [`lib/lux/environment/AGENTS.md`](./lib/lux/environment/AGENTS.md) |
-| Config / `.env`             | [`lib/lux/config/AGENTS.md`](./lib/lux/config/AGENTS.md) |
-| Plugin layout               | [`lib/lux/plugin/AGENTS.md`](./lib/lux/plugin/AGENTS.md) |
-| Reloading                   | [`lib/lux/reloader/AGENTS.md`](./lib/lux/reloader/AGENTS.md) |
-| Logger                      | [`lib/lux/logger/AGENTS.md`](./lib/lux/logger/AGENTS.md) |
-| Shell / process / CLI output | [`lib/lux/shell/AGENTS.md`](./lib/lux/shell/AGENTS.md) |
-| Hash / overloads            | [`lib/lux/hash/AGENTS.md`](./lib/lux/hash/AGENTS.md) |
-| Crypto / util helpers       | [`lib/lux/utils/AGENTS.md`](./lib/lux/utils/AGENTS.md) |
-| JSON export                 | [`lib/lux/json_exporter/AGENTS.md`](./lib/lux/json_exporter/AGENTS.md) |
-| Templates engine            | [`lib/lux/template/AGENTS.md`](./lib/lux/template/AGENTS.md) |
-| Reusable view component     | [`lib/lux/view_cell/AGENTS.md`](./lib/lux/view_cell/AGENTS.md) |
+## Plugins - `plugins/<name>/`
+
+| Plugin            | What it is | Read |
+|-------------------|------------|------|
+| `db`              | Boots `Lux::Db` + Sequel extensions (hooks, links, paginate, enums) | [README](./plugins/db/README.md) |
+| `html`            | HTML builders (form, input, table, menu, paginate, filter) + `PageMeta` | [README](./plugins/html/README.md) |
+| `header`          | Per-request `<head>` builder, exposed as `lux.header`              | [README](./plugins/header/README.md) |
+| `assets`          | Asset generation and template helpers                              | [README](./plugins/assets/README.md) |
+| `favicon`         | Serves a single SVG favicon                                        | [README](./plugins/favicon/README.md) |
+| `locale`          | Small, namespaced translation lookup with dotted keys              | [README](./plugins/locale/README.md) |
+| `oauth`           | Oauth interface (facebook, github, google, linkedin, slack, ...)   | [README](./plugins/oauth/README.md) |
+| `authcog`         | Central-auth landing controller (hash-callback exchange)           | [README](./plugins/authcog/README.md) |
+| `auto_controller` | Convention-based routing + template auto-finding                   | [README](./plugins/auto_controller/README.md) |
+| `admin_web`       | Skeleton admin section mounted at `/admin`                         | [README](./plugins/admin_web/README.md) |
+| `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks)         | [README](./plugins/job_runner/README.md) |
+| `exception_logger`| Postgres-backed exception logger, grouped by fingerprint           | [README](./plugins/exception_logger/README.md) |
+| `lux_logger`      | Database-backed structured logger                                  | [README](./plugins/lux_logger/README.md) |
 
 ## Repo layout
 
 ```
-lib/lux/<module>/         # core modules; each has README + AGENTS
+lib/lux/<module>/         # core modules; each ships a README.md
 lib/overload/             # Ruby core class extensions (don't touch lightly)
-lib/lux/utils/            # Lux::Utils::* (Crypt, StringBase, TimeDifference, Boolean, Json, TimeOptions)
-plugins/<name>/           # optional plugins, canonical layout (see plugin AGENTS)
+plugins/<name>/           # optional plugins, canonical layout
 spec/lux_tests/           # RSpec for framework features
 spec/lib_tests/           # RSpec for pure-ruby utilities
 bin/cli/<name>_hammer.rb  # CLI subcommands
@@ -92,28 +99,11 @@ bin/cli/<name>_hammer.rb  # CLI subcommands
 
 ## Boot model
 
-Lux is a Rack app with a Rails-style two-phase boot.
-
-* **Framework load** - `require 'lux-fw'` runs `lib/lux/boot.rb`. Loads
-  external gems, overloads, every `Lux::*` subsystem, configures Sequel
-  + Haml. NO side effects on the host: no DB connect, no `.env` load,
-  no plugin loaders, no `config.yaml` read. Light CLI commands
-  (`lux mount`, `lux --help`) stop here.
-
-* **App boot** - `Lux.boot!` runs `init_env` (resolves `LUX_ENV` /
-  `RACK_ENV`), `dotenv` (loads `.env*`), `bundler_require!` (the
-  Gemfile's `Bundler.require :default, <env>`), `config` (reads
-  `config.yaml`), `Config.set_defaults`, then `Lux.plugin(*plugins)` -
-  which fires every configured plugin's loader (DB connects, exception
-  logger wiring, etc). Idempotent.
-
-Entry points and how app boot fires:
-
-| Entry        | How `Lux.boot!` runs                                       |
-|--------------|------------------------------------------------------------|
-| `config.ru`  | `require_relative 'config/env'`; that file calls `Lux.boot!`. Also a defensive `Lux.boot!` lives in `Lux::Application#call` for hosts that skip it. |
-| Hammer/CLI   | tasks declare `needs :app` (or `needs :env`) - the `:app` task in `bin/lux` calls `Lux.boot!` then `require './config/app'`. |
-| One-off script / rake / custom binary | `require 'lux-fw'; Lux.boot!` manually. |
+Two-phase. `require 'lux-fw'` runs framework load (gems, overloads,
+`Lux::*` subsystems, Sequel + Haml) - no side effects on the host: no
+DB connect, no `.env`, no plugin loaders. `Lux.boot!` then runs app
+boot: `init_env`, `dotenv`, `bundler_require!`, `config`,
+`Config.set_defaults`, then plugin loaders. Idempotent.
 
 Canonical host `config/env.rb`:
 
@@ -121,133 +111,18 @@ Canonical host `config/env.rb`:
 require 'bundler/setup'
 require 'lux-fw'
 Lux.boot!
-
-# host-specific tweaks (run after app boot - config is loaded, plugins active)
-Lux.config.localize = false
-Stripe.api_key = Lux.config.stripe.key
-Dir.require_all './config/initializers'
 ```
 
-Notes:
-* `bundler/setup` MUST run before `require 'lux-fw'` (it's what sets the
-  load path that finds the gem). Can't be hoisted.
-* `Bundler.require` is hoisted into `Lux.boot!`. Set
-  `LUX_SKIP_BUNDLER_REQUIRE=1` to opt out.
-* `Dotenv.load` is hoisted into `Lux.boot!`. Host doesn't need to call
-  it.
-
-## Documentation conventions
-
-Every sub-module under `lib/lux/<name>/` ships **two** docs side-by-side:
-
-| File | Audience | Shape |
-|------|----------|-------|
-| `README.md` | humans browsing GitHub | What it is → small example → full example → see-also |
-| `AGENTS.md` | LLM agents | one canonical example → rules → don'ts → see-also |
-
-### README.md shape (human-focused)
-
-```markdown
-# Lux::Foo
-
-One- or two-sentence statement of what this module is and why it exists.
-End with the differentiator (what makes it Lux-specific).
-
-## Small example
-
-The shortest piece of code that demonstrates the core value.
-Three to five lines. No setup boilerplate.
-
-## Full example
-
-A realistic example showing every feature worth knowing. Comment groups
-of related calls. Use `# ---` separators to break sections.
-
-## (Optional sections in this order)
-
-- API reference tables (`| method | notes |`)
-- Configuration / options
-- Conventions (file layout, naming)
-- Limitations / known gaps
-
-## See also
-
-Relative links to sibling READMEs and this module's AGENTS.md, e.g.:
-* [`../schema/README.md`](../schema/README.md) - the DSL parser
-* [`AGENTS.md`](./AGENTS.md) - LLM guide
-```
-
-### AGENTS.md shape (LLM-focused)
-
-```markdown
-# Lux::Foo - agent guide
-
-One sentence on the module's role. **Bold one sentence on the
-prescriptive guidance** (e.g. "Reuse this everywhere a list of fields
-needs validation").
-
-## Canonical example
-
-ONE example, end-to-end, showing the full feature surface. No "small
-vs full" split - LLMs do better with one complete worked example than
-multiple partial ones. Comment groups; mention edge cases inline.
-
-## Rules
-
-Bullet list. Each bullet leads with the rule, then a brief why. Cover:
-* DSL forms / naming conventions
-* Lifecycle / dispatch behavior
-* What's automatic vs opt-in
-* Cross-cutting conventions specific to this module
-
-## Don't
-
-Anti-patterns. Each bullet is one short sentence stating the mistake.
-Include common mistakes you'd expect an LLM to make from
-pattern-matching other frameworks.
-
-## See also
-
-Relative links to other AGENTS.md files for related modules.
-```
-
-### Rules for writing docs
-
-* **GitHub-relative links.** Use `../foo/README.md`, `./AGENTS.md`,
-  `../../../plugins/x/README.md`. Don't use absolute paths or HTTP URLs
-  to the repo. Clicking the link in GitHub must navigate to the file.
-* **One canonical example in AGENTS.md.** Multiple partial examples
-  confuse LLMs more than they help. Make the single example complete.
-* **No emojis** unless explicitly requested.
-* **ASCII only.** Use `-` not `—`, `*` not `•`.
-* **End files with newline.** No trailing spaces on blank lines.
-* **Don't duplicate instructions** between README and AGENTS - README is
-  the human reference, AGENTS is prescriptive ("use this", "don't do
-  that"). README answers "how do I?", AGENTS answers "what's the right
-  way?".
-* **Cross-reference, don't repeat.** If `Lux::Controller` uses
-  `Lux::Schema::Define`, link to the schema docs rather than re-explain
-  the DSL.
-* **Code examples use `ruby` fences.** Comments inside examples should
-  read as a senior dev's notes, not LLM narration ("X does Y because Z",
-  not "First we call X, then we call Y...").
-* **Length:** READMEs 50-200 lines; AGENTS 30-100 lines. If longer,
-  consider splitting the module.
+See `lib/lux/application/README.md` and `lib/lux/config/README.md` for
+entry-point details.
 
 ## Adding code
 
-* Edit an existing file in preference to creating a new one.
+* Edit existing files in preference to creating new ones.
 * Comment only the non-obvious why - never the what.
-* When adding a feature, look for an existing primitive to reuse. The
-  framework's whole reason for being is that the same primitives compose
-  in every subsystem.
-* Specs go under `spec/lux_tests/` for framework code, `spec/lib_tests/`
-  for pure-ruby utilities. Run with `bundle exec rspec`.
+* Reuse existing primitives: check `Lux.schema(:name)` in `SCHEMA_STORE`,
+  `Lux::Type::*Type` under `lib/lux/type/types/`, and `Lux::Policy`
+  descendants. Don't invent new primitives that duplicate framework ones.
+* Specs go under `spec/lux_tests/` (framework) or `spec/lib_tests/`
+  (pure ruby). Run with `bundle exec rspec`.
 * Never commit or push without explicit user instruction.
-
-## When in doubt about a primitive
-
-Check `Lux.schema(:name)` in `SCHEMA_STORE` for existing schemas. Check
-`Lux::Type::*Type` under `lib/lux/type/types/` for existing types. Check
-`Lux::Policy` descendants for existing policies. **Do not invent new
-primitives that duplicate framework ones.**

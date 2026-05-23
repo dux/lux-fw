@@ -102,6 +102,5 @@ lives under `window.Lux`, not `window.app`.
 
 ## See also
 
-* [`AGENTS.md`](./AGENTS.md) - LLM guide
 * [`./channel/README.md`](./channel/README.md) - SSE channels, registers `:sse`
 * [`../../../assets/lux/`](../../../assets/lux/) - JS module sources

@@ -158,34 +158,34 @@ Same DSL. Same type vocabulary. Same option keys.
 
 ## Modules
 
-Every sub-module under `lib/lux/<name>/` ships a `README.md` (human
-docs) and an `AGENTS.md` (LLM docs).
+Every sub-module under `lib/lux/<name>/` ships a `README.md`. LLM-focused
+guidance is consolidated in the top-level [`AGENTS.md`](./AGENTS.md).
 
-| Module | Adapter / usage | LLM guide |
-|--------|-----------------|-----------|
-| [`Lux::Api`](./lib/lux/api/README.md)                   | `Lux::Api` (subclass `ApplicationApi`)     | [AGENTS](./lib/lux/api/AGENTS.md) |
-| [`Lux::Application`](./lib/lux/application/README.md)   | `Lux do ... end` / `Lux.app`               | [AGENTS](./lib/lux/application/AGENTS.md) |
-| [`Lux::Cache`](./lib/lux/cache/README.md)               | `Lux.cache`                                | [AGENTS](./lib/lux/cache/AGENTS.md) |
-| [`Lux::Config`](./lib/lux/config/README.md)             | `Lux.config`                               | [AGENTS](./lib/lux/config/AGENTS.md) |
-| [`Lux::Controller`](./lib/lux/controller/README.md)     | `class X < Lux::Controller`                | [AGENTS](./lib/lux/controller/AGENTS.md) |
-| [`Lux::Current`](./lib/lux/current/README.md)           | `Lux.current` / `current` / `lux`          | [AGENTS](./lib/lux/current/AGENTS.md) |
-| [`Lux::Db`](./lib/lux/db/README.md)                     | `Lux.db` / `Lux.db(:name)` / `DB`          | [AGENTS](./lib/lux/db/AGENTS.md) |
-| [`Lux::Environment`](./lib/lux/environment/README.md)   | `Lux.env` / `Lux.mode` / `Lux.runtime`     | [AGENTS](./lib/lux/environment/AGENTS.md) |
-| [`Lux::Error`](./lib/lux/error/README.md)               | `Lux.error` / `Lux.error.not_found`        | [AGENTS](./lib/lux/error/AGENTS.md) |
-| [`Lux::Hash`](./lib/lux/hash/README.md)                 | `{}.to_lux_hash` / `Lux::Hash.new`         | [AGENTS](./lib/lux/hash/AGENTS.md) |
-| [`Lux::JsonExporter`](./lib/lux/json_exporter/README.md)| `class X < Lux::JsonExporter`              | [AGENTS](./lib/lux/json_exporter/AGENTS.md) |
-| [`Lux::Logger`](./lib/lux/logger/README.md)             | `Lux.log` / `Lux.logger` / `Lux.logger(:n)`| [AGENTS](./lib/lux/logger/AGENTS.md) |
-| [`Lux::Mailer`](./lib/lux/mailer/README.md)             | `class Mailer < Lux::Mailer`               | [AGENTS](./lib/lux/mailer/AGENTS.md) |
-| [`Lux::Plugin`](./lib/lux/plugin/README.md)             | `Lux.plugin :name`                         | [AGENTS](./lib/lux/plugin/AGENTS.md) |
-| [`Lux::Policy`](./lib/lux/policy/README.md)             | `class XPolicy < Lux::Policy`              | [AGENTS](./lib/lux/policy/AGENTS.md) |
-| [`Lux::Reloader`](./lib/lux/reloader/README.md)         | `Lux::Reloader.run` / `reload!`            | [AGENTS](./lib/lux/reloader/AGENTS.md) |
-| [`Lux::Render`](./lib/lux/render/README.md)             | `Lux.render` / `Lux.render.get(...)`       | [AGENTS](./lib/lux/render/AGENTS.md) |
-| [`Lux::Response`](./lib/lux/response/README.md)         | `response` / `Lux.current.response`        | [AGENTS](./lib/lux/response/AGENTS.md) |
-| [`Lux::Schema`](./lib/lux/schema/README.md)             | `Lux.schema(:name) { ... }`                | [AGENTS](./lib/lux/schema/AGENTS.md) |
-| [`Lux::Shell`](./lib/lux/shell/README.md)               | `Lux.shell.exec` / `.info` / `.error`      | [AGENTS](./lib/lux/shell/AGENTS.md) |
-| [`Lux::Template`](./lib/lux/template/README.md)         | `Lux::Template.render`                     | [AGENTS](./lib/lux/template/AGENTS.md) |
-| [`Lux::Type`](./lib/lux/type/README.md)                 | `Lux::Type.load(:email)` / type symbols    | [AGENTS](./lib/lux/type/AGENTS.md) |
-| [`Lux::ViewCell`](./lib/lux/view_cell/README.md)        | `class X < Lux::ViewCell`                  | [AGENTS](./lib/lux/view_cell/AGENTS.md) |
+| Module | Adapter / usage |
+|--------|-----------------|
+| [`Lux::Api`](./lib/lux/api/README.md)                   | `Lux::Api` (subclass `ApplicationApi`)     |
+| [`Lux::Application`](./lib/lux/application/README.md)   | `Lux do ... end` / `Lux.app`               |
+| [`Lux::Cache`](./lib/lux/cache/README.md)               | `Lux.cache`                                |
+| [`Lux::Config`](./lib/lux/config/README.md)             | `Lux.config`                               |
+| [`Lux::Controller`](./lib/lux/controller/README.md)     | `class X < Lux::Controller`                |
+| [`Lux::Current`](./lib/lux/current/README.md)           | `Lux.current` / `current` / `lux`          |
+| [`Lux::Db`](./lib/lux/db/README.md)                     | `Lux.db` / `Lux.db(:name)` / `DB`          |
+| [`Lux::Environment`](./lib/lux/environment/README.md)   | `Lux.env` / `Lux.mode` / `Lux.runtime`     |
+| [`Lux::Error`](./lib/lux/error/README.md)               | `Lux.error` / `Lux.error.not_found`        |
+| [`Lux::Hash`](./lib/lux/hash/README.md)                 | `{}.to_lux_hash` / `Lux::Hash.new`         |
+| [`Lux::JsonExporter`](./lib/lux/json_exporter/README.md)| `class X < Lux::JsonExporter`              |
+| [`Lux::Logger`](./lib/lux/logger/README.md)             | `Lux.log` / `Lux.logger` / `Lux.logger(:n)`|
+| [`Lux::Mailer`](./lib/lux/mailer/README.md)             | `class Mailer < Lux::Mailer`               |
+| [`Lux::Plugin`](./lib/lux/plugin/README.md)             | `Lux.plugin :name`                         |
+| [`Lux::Policy`](./lib/lux/policy/README.md)             | `class XPolicy < Lux::Policy`              |
+| [`Lux::Reloader`](./lib/lux/reloader/README.md)         | `Lux::Reloader.run` / `reload!`            |
+| [`Lux::Render`](./lib/lux/render/README.md)             | `Lux.render` / `Lux.render.get(...)`       |
+| [`Lux::Response`](./lib/lux/response/README.md)         | `response` / `Lux.current.response`        |
+| [`Lux::Schema`](./lib/lux/schema/README.md)             | `Lux.schema(:name) { ... }`                |
+| [`Lux::Shell`](./lib/lux/shell/README.md)               | `Lux.shell.exec` / `.info` / `.error`      |
+| [`Lux::Template`](./lib/lux/template/README.md)         | `Lux::Template.render`                     |
+| [`Lux::Type`](./lib/lux/type/README.md)                 | `Lux::Type.load(:email)` / type symbols    |
+| [`Lux::ViewCell`](./lib/lux/view_cell/README.md)        | `class X < Lux::ViewCell`                  |
 
 ### Lux::Api
 
@@ -491,7 +491,7 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 
 | Plugin | What | Docs |
 |--------|------|------|
-| `db`               | Sequel model extensions, auto-migrate, `link` associations | [README](./plugins/db/README.md) · [AGENTS](./plugins/db/AGENTS.md) |
+| `db`               | Sequel model extensions, auto-migrate, `link` associations | [README](./plugins/db/README.md) |
 | `html`             | HTML builders: form, input, table, menu, paginate, filter | [README](./plugins/html/README.md) |
 | `assets`           | CDN asset pipeline | [README](./plugins/assets/README.md) |
 | `job_runner`       | Background job queue (LuxJob) | [README](./plugins/job_runner/README.md) |

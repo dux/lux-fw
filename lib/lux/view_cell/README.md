@@ -66,4 +66,3 @@ app/cells/<name>/_partial.haml      # private partial (underscore-prefixed)
 
 * [`../render/README.md`](../render/README.md) - `Lux.render.cell`
 * [`../template/README.md`](../template/README.md) - templating internals
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

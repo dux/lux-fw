@@ -59,4 +59,3 @@ end
 * [`../render/README.md`](../render/README.md) - `Lux.render.template`
 * [`../controller/README.md`](../controller/README.md) - `render`, `helper`
 * [`../view_cell/README.md`](../view_cell/README.md) - reusable components
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

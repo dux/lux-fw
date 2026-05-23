@@ -81,4 +81,3 @@ json                           # the hash being built
 ## See also
 
 * [`../api/README.md`](../api/README.md) - APIs often return exported objects
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

@@ -73,4 +73,3 @@ lux render /admin -s user_id=1 -i            # session + full info hash
 * [`../template/README.md`](../template/README.md) - the template engine
 * [`../view_cell/README.md`](../view_cell/README.md) - reusable view components
 * [`../controller/README.md`](../controller/README.md) - controllers
-* [`AGENTS.md`](./AGENTS.md) - LLM guide

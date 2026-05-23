@@ -112,4 +112,3 @@ opt :name, String, max: 30, meta: { hr: { max_length_error: 'predugo' } }
 ## See also
 
 * [`../schema/README.md`](../schema/README.md) - the DSL that consumes types
-* [`AGENTS.md`](./AGENTS.md) - LLM guide for adding new types

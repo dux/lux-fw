@@ -72,4 +72,3 @@ and `@status` (resolved HTTP code) as instance variables.
 
 * [`../application/README.md`](../application/README.md) - `rescue_from`
 * [`../controller/README.md`](../controller/README.md) - default `:error` action + `rescue_from` macro
-* [`AGENTS.md`](./AGENTS.md) - LLM guide
