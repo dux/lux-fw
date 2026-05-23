@@ -101,10 +101,14 @@ class Sequel::Model
       args.inject({}) { |t, el| t[el] = self.send(el); t }
     end
 
-    # @deal.init(:task) -> Task.new(deal_ref: 'abc')
-    def init name, fields={}
-      fields['%s_ref' % self.class.to_s.tableize.singularize] = self[:ref]
-      name.to_s.classify.constantize.new(fields)
+    # Build a new record of `name` already linked back to self via the
+    # caller's *_ref column (whichever shape RefLinker detects).
+    #   @deal.init(:task) -> Task.new(deal_ref: @deal.ref)
+    def init name, fields = {}
+      target = name.to_s.classify.constantize
+      shape  = Sequel::Plugins::RefLinker.detect(target, self.class)
+      fields[shape[:columns][0]] = self[:ref] if shape && shape[:kind] == :scalar
+      target.new(fields)
     end
 
     def merge hash

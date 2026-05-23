@@ -20,24 +20,12 @@ Sequel::Model.plugin :dirty
 # Load all DB plugins under test
 # ---------------------------------------------------------------------------
 
-plugin_dir = File.expand_path('../../plugins/db/load', __dir__)
+# The plugin owns its own load order via loader.rb; just require it.
+require File.expand_path('../../plugins/db/loader.rb', __dir__)
 
-# core + dataset_methods first (others may rely on them)
-load File.join(plugin_dir, 'core.rb')
-load File.join(plugin_dir, 'dataset_methods.rb')
-load File.join(plugin_dir, 'find_precache.rb')
-load File.join(plugin_dir, 'before_save_filters.rb')
-load File.join(plugin_dir, 'enums_plugin.rb')
-load File.join(plugin_dir, 'hooks.rb')
-load File.join(plugin_dir, '_parent_model.rb')
-load File.join(plugin_dir, 'link_objects.rb')
-load File.join(plugin_dir, 'composite_primary_keys.rb')
-load File.join(plugin_dir, 'array_search.rb')
-load File.join(plugin_dir, 'paginate.rb')
-load File.join(plugin_dir, 'model_tree.rb')
-load File.join(plugin_dir, 'create_limit.rb')
-
-# Register Sequel plugins so models can use `plugin :name`
+# Register Sequel plugins so models can use `plugin :name`.
+# :lux_links and :parent_model are aliases of :ref_linker (kept for compat).
+Sequel::Model.plugin :ref_linker
 Sequel::Model.plugin :parent_model
 Sequel::Model.plugin :lux_links
 Sequel::Model.plugin :primary_keys
@@ -750,30 +738,6 @@ describe 'plugins/db/dataset_methods.rb', :db_plugin do
     end
   end
 
-  describe '.ids' do
-    it 'returns array of refs by default' do
-      r1, r2 = new_ref, new_ref
-      DB[:users].insert(ref: r1, name: 'A')
-      DB[:users].insert(ref: r2, name: 'B')
-      result = User.dataset.ids
-      expect(result).to include(r1, r2)
-    end
-
-    it 'returns distinct values for a given field' do
-      DB[:users].insert(ref: new_ref, name: 'A', age: 10)
-      DB[:users].insert(ref: new_ref, name: 'B', age: 10)
-      DB[:users].insert(ref: new_ref, name: 'C', age: 20)
-      ages = User.dataset.ids(:age)
-      expect(ages.uniq.sort).to eq([10, 20])
-    end
-
-    it 'provides a fallback element when empty' do
-      result = User.dataset.ids
-      # should have at least one element (fallback)
-      expect(result.length).to be >= 1
-    end
-  end
-
   describe '.last' do
     before do
       DB[:users].insert(ref: new_ref, name: 'A', created_at: Time.now.utc - 200)
@@ -1201,23 +1165,27 @@ describe 'plugins/db/_parent_model.rb', :db_plugin do
     end
   end
 
-  describe '.for_parent' do
-    it 'scopes records to given parent' do
-      DB[:tasks].insert(ref: new_ref, name: 'T1', parent_key: "User/#{user_ref}")
-      DB[:tasks].insert(ref: new_ref, name: 'T2', parent_key: 'User/other')
+  describe '.where_ref (parent_key fallback)' do
+    # Comment has parent_key but no user_ref, so where_ref falls through
+    # the scalar/array shapes and lands on parent_key.
+    it 'scopes records to given parent via parent_key' do
+      DB[:comments].delete
+      DB[:comments].insert(ref: new_ref, body: 'C1', parent_key: "User/#{user_ref}")
+      DB[:comments].insert(ref: new_ref, body: 'C2', parent_key: 'User/other')
 
-      tasks = Task.for_parent(user)
-      expect(tasks.count).to eq(1)
-      expect(tasks.first.name).to eq('T1')
+      comments = Comment.where_ref(user)
+      expect(comments.count).to eq(1)
+      expect(comments.first.body).to eq('C1')
     end
   end
 
-  describe 'DatasetMethods#where_parent' do
-    it 'filters dataset by parent' do
-      DB[:tasks].insert(ref: new_ref, name: 'T1', parent_key: "User/#{user_ref}")
-      DB[:tasks].insert(ref: new_ref, name: 'T2', parent_key: 'User/other')
+  describe 'DatasetMethods#for (parent_key fallback)' do
+    it 'filters dataset by parent_key' do
+      DB[:comments].delete
+      DB[:comments].insert(ref: new_ref, body: 'C1', parent_key: "User/#{user_ref}")
+      DB[:comments].insert(ref: new_ref, body: 'C2', parent_key: 'User/other')
 
-      expect(Task.dataset.where_parent(user).count).to eq(1)
+      expect(Comment.dataset.for(user).count).to eq(1)
     end
   end
 end
@@ -1692,24 +1660,24 @@ describe 'plugins/db/_parent_model.rb – parent_type/parent_ref style', :db_plu
     end
   end
 
-  describe '.for_parent (parent_type/parent_ref)' do
+  describe '.where_ref (parent_type/parent_ref)' do
     it 'scopes records to given parent' do
       DB[:notes].insert(ref: new_ref, body: 'N1', parent_type: 'User', parent_ref: user_ref)
       DB[:notes].insert(ref: new_ref, body: 'N2', parent_type: 'User', parent_ref: 'other')
       DB[:notes].insert(ref: new_ref, body: 'N3', parent_type: 'Task', parent_ref: user_ref)
 
-      notes = Note.for_parent(user)
+      notes = Note.where_ref(user)
       expect(notes.count).to eq(1)
       expect(notes.first.body).to eq('N1')
     end
   end
 
-  describe 'DatasetMethods#where_parent (parent_type/parent_ref)' do
+  describe 'DatasetMethods#for (parent_type/parent_ref)' do
     it 'filters dataset by parent_type and parent_ref' do
       DB[:notes].insert(ref: new_ref, body: 'N1', parent_type: 'User', parent_ref: user_ref)
       DB[:notes].insert(ref: new_ref, body: 'N2', parent_type: 'Task', parent_ref: user_ref)
 
-      result = Note.dataset.where_parent(user)
+      result = Note.dataset.for(user)
       expect(result.count).to eq(1)
       expect(result.first.body).to eq('N1')
     end
@@ -1804,7 +1772,7 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
     let(:table_name) { :am_type_test }
 
     before(:all) do
-      load File.expand_path('../../plugins/db/load/auto_migrate.rb', __dir__)
+      load File.expand_path('../../plugins/db/migrate/auto_migrate.rb', __dir__)
       AutoMigrate.auto_confirm = true
     end
 

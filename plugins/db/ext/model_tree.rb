@@ -20,7 +20,7 @@ module ModelTree
   end
 
   def children_refs
-    [self[:ref]] + self.class.xwhere('?=any(parent_refs)', self[:ref]).ids
+    [self[:ref]] + self.class.xwhere('?=any(parent_refs)', self[:ref]).refs
   end
 
   # sets full path

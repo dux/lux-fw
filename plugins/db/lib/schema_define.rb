@@ -8,7 +8,7 @@ module Lux
     class Define
       # `timestamps` inside `schema do ... end` adds the canonical audit
       # quartet: created_at, updated_at, creator_ref, updater_ref.
-      # Lux::Type::RefType is provided by plugins/db/load/ref.rb.
+      # Lux::Type::RefType is provided by plugins/db/lib/ref_type.rb.
       def timestamps
         created_at Time
         updated_at Time

@@ -22,8 +22,8 @@ Two more live in the db plugin (same namespace, plugin-coupled location):
 
 | Constant | File |
 |----------|------|
-| `Lux::Utils::Ref`            | `plugins/db/load/ref/ref.rb` |
-| `Lux::Utils::PaginatedArray` | `plugins/db/load/paginate.rb` |
+| `Lux::Utils::Ref`            | `plugins/db/lib/ref.rb` |
+| `Lux::Utils::PaginatedArray` | `plugins/db/ext/paginate.rb` |
 
 ## Full example
 
@@ -150,5 +150,5 @@ Time.now.short(true) # force default format, ignore config
 ## See also
 
 * [`../current/README.md`](../current/README.md) - `Lux.current.encrypt/decrypt` (per-request variants)
-* [`../../../plugins/db/load/ref/ref.rb`](../../../plugins/db/load/ref/ref.rb) - `Lux::Utils::Ref`
-* [`../../../plugins/db/load/paginate.rb`](../../../plugins/db/load/paginate.rb) - `Lux::Utils::PaginatedArray`
+* [`../../../plugins/db/lib/ref.rb`](../../../plugins/db/lib/ref.rb) - `Lux::Utils::Ref`
+* [`../../../plugins/db/ext/paginate.rb`](../../../plugins/db/ext/paginate.rb) - `Lux::Utils::PaginatedArray`

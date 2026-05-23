@@ -249,7 +249,7 @@ namespace :db do
     proc do |opts|
       ENV['DB_MIGRATE'] = 'true' unless ENV['DB_MIGRATE'] == 'true'
 
-      # AutoMigrate is auto-loaded by `Lux.plugin :db` (see plugins/db/load/auto_migrate.rb).
+      # AutoMigrate is auto-loaded by `Lux.plugin :db` (see plugins/db/migrate/auto_migrate.rb).
       AutoMigrate.auto_confirm = opts[:args].first == 'y'
 
       DB.run %[DROP TABLE IF EXISTS lux_tests;]
