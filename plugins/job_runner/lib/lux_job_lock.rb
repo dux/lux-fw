@@ -29,7 +29,10 @@ class LuxJobLock
     def acquire!(conn)
       got = conn.exec("SELECT pg_try_advisory_lock(#{LOCK_CLASSID}, #{LOCK_OBJID})").getvalue(0, 0)
       unless got == 't' || got == true
-        raise "Job runner already running (advisory lock held by pid #{holder_pid.inspect})"
+        Lux.shell.die [
+          'Job runner already running',
+          "pid: #{holder_pid.inspect}"
+        ]
       end
       Lux.shell.info "LuxJobLock: acquired advisory lock (backend pid #{backend_pid(conn)})"
     end

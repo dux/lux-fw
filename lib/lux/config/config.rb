@@ -92,7 +92,9 @@ module Lux
 
       if source.exist?
         data = YAML.safe_load source.read, aliases: true
-        raise "Config root must be a Hash in %s" % source unless data.is_a?(::Hash)
+        bad  = ->(reason) { Lux.shell.die ["Bad config.yaml: #{source}", "reason: #{reason}"] }
+
+        bad.('root must be a Hash') unless data.is_a?(::Hash)
 
         base_key = if data['default']
           'default'
@@ -102,18 +104,18 @@ module Lux
           'default'
         end
         base = data[base_key]
-        raise "Config :default/:base root not defined in %s" % source unless base_key
-        raise "Config :%s root must be a Hash in %s" % [base_key, source] unless base.is_a?(::Hash)
+        bad.(':default / :base root not defined') unless base_key
+        bad.(":#{base_key} root must be a Hash") unless base.is_a?(::Hash)
 
         env_name = Lux.env.to_s
         env_data = data[env_name]
         if data.key?(env_name) && !env_data.is_a?(::Hash)
-          raise "Config :%s section must be a Hash in %s" % [env_name, source]
+          bad.(":#{env_name} section must be a Hash")
         end
 
         production_data = data['production']
         if data.key?('production') && !production_data.is_a?(::Hash)
-          raise "Config :production section must be a Hash in %s" % source
+          bad.(':production section must be a Hash')
         end
 
         base.deep_merge!(env_data || {})

@@ -31,12 +31,21 @@ module Lux
       name = name.to_sym
       CONNECTIONS[name] ||= begin
         url = url_for(name)
-        raise "Database :#{name} not configured.\n  Set ENV['DB_#{name.to_s.upcase}'] or add to config.yaml:\n  db:\n    #{name}: postgres://localhost/dbname" unless url
+        unless url
+          Lux.shell.die [
+            "DB :#{name} not configured",
+            "env: set DB_#{name.to_s.upcase}=postgres://localhost/dbname",
+            "yaml: db.#{name}: postgres://localhost/dbname"
+          ]
+        end
         begin
           connect(url)
-        rescue Sequel::DatabaseConnectionError
-          raise unless Lux.runtime.rake?
-          connect(url.sub(/\/[^\/]+$/, '/postgres'))
+        rescue Sequel::DatabaseConnectionError => e
+          if Lux.runtime.rake?
+            connect(url.sub(/\/[^\/]+$/, '/postgres'))
+          else
+            die_connect_error(name, url, e)
+          end
         end
       end
     end
@@ -86,13 +95,27 @@ module Lux
           CONNECTIONS[name] = connect(url)
           Lux.shell.info "DB :#{name} connected (#{CONNECTIONS[name].opts[:database]})"
         rescue Sequel::DatabaseConnectionError => e
-          Lux.shell.info "DB :#{name} connection failed - #{e.message}"
-          raise unless Lux.runtime.rake?
+          next if Lux.runtime.rake?
+          die_connect_error(name, url, e)
         end
       end
     end
 
     private
+
+    # print clean DB connection failure and exit 1, no stack dump
+    def die_connect_error(name, url, error)
+      msg = error.message.to_s.lines.first.to_s.strip
+      Lux.shell.die [
+        "DB_#{name.to_s.upcase} connection failed",
+        "url: #{redact_url(url)}",
+        ("err: #{msg}" unless msg.empty?)
+      ].compact
+    end
+
+    def redact_url(url)
+      url.to_s.sub(%r{://([^:/@]+):([^@]+)@}, '://\1:***@')
+    end
 
     def dbs_config
       val = Lux.config[:db]

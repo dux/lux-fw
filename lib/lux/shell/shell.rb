@@ -138,9 +138,14 @@ module Lux
       end
     end
 
-    # Log fatal and exit (1).
+    # Log fatal, render to stderr and exit (1).
+    # Accepts a string or an array. With an array the first entry is
+    # the title and the rest are rendered as indented detail lines.
     def die text
-      Lux.logger.fatal "Lux FATAL: #{text}"
+      lines = Array(text).map(&:to_s)
+      Lux.logger.fatal "Lux FATAL: #{lines.join(' | ')}"
+      $stderr.puts '! %s' % lines.first.colorize(:red)
+      lines[1..].to_a.each { |line| $stderr.puts '  %s' % line.colorize(:red) }
       exit 1
     end
 

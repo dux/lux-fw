@@ -27,8 +27,10 @@ module Lux
         added = after.reject { |name| before.include?(name) }
         added.each { |name| queue << name unless seen[name] || queue.include?(name) }
       else
-        src = folders.map { _1.to_s }.join(', ')
-        raise "Lux plugin #{plugin_name} not found in #{src}"
+        Lux.shell.die [
+          "Lux plugin '#{plugin_name}' not found",
+          "searched: #{folders.map { _1.to_s }.join(', ')}"
+        ]
       end
     end
 
