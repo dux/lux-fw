@@ -2,8 +2,8 @@ require 'json'
 
 module Lux
   class Response
-    # Server-Sent Events writer. Subscribes to one or more Lux::Channel names
-    # and streams messages to the client until disconnect.
+    # Server-Sent Events writer. Subscribes to one or more Lux::Browser::Channel
+    # names and streams messages to the client until disconnect.
     #
     #   response.sse :notifications, "user:#{u.id}"
     #
@@ -32,7 +32,7 @@ module Lux
 
         def each
           queue = Queue.new
-          subs  = @channels.map { |c| Lux::Channel.subscribe(c, queue) }
+          subs  = @channels.map { |c| Lux::Browser::Channel.subscribe(c, queue) }
 
           yield ": connected\n\n"
 

@@ -1,4 +1,4 @@
-# Lux::Channel - agent guide
+# Lux::Browser::Channel - agent guide
 
 In-process pub/sub channels backing the SSE streams served by
 `response.sse`. **Publish anywhere, subscribe inside a controller
@@ -53,16 +53,16 @@ end
 ## Don't
 
 * Don't pass user-supplied channel names into `response.sse`.
-* Don't use `Lux::Channel` as a job queue - there's no persistence,
+* Don't use `Lux::Browser::Channel` as a job queue - there's no persistence,
   retries, or delivery guarantees. Use `plugins/job_runner` for that.
 * Don't push large payloads (megabytes). SSE is for small frequent
   events; for big things send a notification + a fetch URL.
 * Don't subscribe from outside a controller action (no `response.sse`
-  caller) unless you're writing a test - use the `Lux::Channel.subscribe`
+  caller) unless you're writing a test - use the `Lux::Browser::Channel.subscribe`
   primitive only when you have a clear lifetime to close the subscription.
 
 ## See also
 
 * [`README.md`](./README.md) - human-facing API reference
-* [`../response/lib/sse.rb`](../response/lib/sse.rb) - the SSE writer
-* [`../browser/AGENTS.md`](../browser/AGENTS.md) - serves the `Lux.sse` client module
+* [`../../response/lib/sse.rb`](../../response/lib/sse.rb) - the SSE writer
+* [`../AGENTS.md`](../AGENTS.md) - parent `Lux::Browser` (serves the `Lux.sse` client module)

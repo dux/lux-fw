@@ -1,8 +1,12 @@
-# Lux::Channel
+# Lux::Browser::Channel
 
 In-process pub/sub channels by name. Backbone for the SSE streams
 served by `response.sse`. Publish from anywhere; subscribe via a
 controller action; react on the client.
+
+Nested under `Lux::Browser` because the only consumer today is the
+SSE writer (`response/lib/sse.rb`) which fans messages out to the
+`window.Lux.sse` client module served by `Lux::Browser`.
 
 ## Full example
 
@@ -36,20 +40,20 @@ end
 
 # --- diagnostics ---
 
-Lux::Channel.channels                       # ["notifications", "user:42"]
-Lux::Channel.subscriber_count(:notifications)  # int
+Lux::Browser::Channel.channels                       # ["notifications", "user:42"]
+Lux::Browser::Channel.subscriber_count(:notifications)  # int
 
-Lux::Channel.reset!                         # drop every subscriber (tests only)
+Lux::Browser::Channel.reset!                         # drop every subscriber (tests only)
 ```
 
-`Lux::Channel.subscribe(name, queue)` / `Lux::Channel.unsubscribe(name, queue)`
+`Lux::Browser::Channel.subscribe(name, queue)` / `Lux::Browser::Channel.unsubscribe(name, queue)`
 are internal - used by `response.sse` to attach and detach a queue per
 client. Do not call from app code; subscribe by mounting an SSE endpoint
 and letting the framework drive the lifecycle.
 
 ## How it works
 
-* `Lux::Channel` keeps a `name -> [Queue, ...]` registry guarded by a Mutex.
+* `Lux::Browser::Channel` keeps a `name -> [Queue, ...]` registry guarded by a Mutex.
 * `Lux.channel(name).push(data)` fans `data` out to every queue currently
   subscribed to `name`.
 * `response.sse(*channels)` opens a `text/event-stream` response, attaches
@@ -77,14 +81,14 @@ inside the SSE writer; the subscription is closed in an `ensure` block.
 | call | returns | notes |
 |------|---------|-------|
 | `Lux.channel(name).push(data)` | nil | broadcast to all subscribers of `name` |
-| `Lux::Channel.channels` | `[String]` | active channel names |
-| `Lux::Channel.subscriber_count(name)` | Integer | |
-| `Lux::Channel.reset!` | nil | drop every subscriber (tests only) |
-| `Lux::Channel.subscribe / .unsubscribe` | | **internal** - driven by `response.sse` |
+| `Lux::Browser::Channel.channels` | `[String]` | active channel names |
+| `Lux::Browser::Channel.subscriber_count(name)` | Integer | |
+| `Lux::Browser::Channel.reset!` | nil | drop every subscriber (tests only) |
+| `Lux::Browser::Channel.subscribe / .unsubscribe` | | **internal** - driven by `response.sse` |
 
 ## See also
 
 * [`AGENTS.md`](./AGENTS.md) - LLM guide
-* [`../response/lib/sse.rb`](../response/lib/sse.rb) - the SSE writer (`response.sse`)
-* [`../browser/README.md`](../browser/README.md) - serves the `Lux.sse` client
-* [`../../../plugins/job_runner/README.md`](../../../plugins/job_runner/README.md) - PG LISTEN/NOTIFY pattern
+* [`../../response/lib/sse.rb`](../../response/lib/sse.rb) - the SSE writer (`response.sse`)
+* [`../README.md`](../README.md) - parent `Lux::Browser` (serves the `Lux.sse` client)
+* [`../../../../plugins/job_runner/README.md`](../../../../plugins/job_runner/README.md) - PG LISTEN/NOTIFY pattern

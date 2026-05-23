@@ -1,14 +1,14 @@
 require 'spec_helper'
 
-describe Lux::Channel do
-  before { Lux::Channel.reset! }
-  after  { Lux::Channel.reset! }
+describe Lux::Browser::Channel do
+  before { Lux::Browser::Channel.reset! }
+  after  { Lux::Browser::Channel.reset! }
 
   describe 'publish / subscribe' do
     it 'delivers messages to subscribers of the same channel' do
       q = Queue.new
-      Lux::Channel.subscribe(:foo, q)
-      Lux::Channel[:foo].push(value: 1)
+      Lux::Browser::Channel.subscribe(:foo, q)
+      Lux::Browser::Channel[:foo].push(value: 1)
       msg = q.pop
       expect(msg[:channel]).to eq('foo')
       expect(msg[:data]).to eq(value: 1)
@@ -17,24 +17,24 @@ describe Lux::Channel do
     it 'fans out to every queue on a channel' do
       a = Queue.new
       b = Queue.new
-      Lux::Channel.subscribe(:foo, a)
-      Lux::Channel.subscribe(:foo, b)
-      Lux::Channel[:foo].push(:hello)
+      Lux::Browser::Channel.subscribe(:foo, a)
+      Lux::Browser::Channel.subscribe(:foo, b)
+      Lux::Browser::Channel[:foo].push(:hello)
       expect(a.pop[:data]).to eq(:hello)
       expect(b.pop[:data]).to eq(:hello)
     end
 
     it 'does not deliver to other channels' do
       q = Queue.new
-      Lux::Channel.subscribe(:foo, q)
-      Lux::Channel[:bar].push(:nope)
+      Lux::Browser::Channel.subscribe(:foo, q)
+      Lux::Browser::Channel[:bar].push(:nope)
       expect(q.empty?).to be true
     end
 
     it 'normalises channel names to strings' do
       q = Queue.new
-      Lux::Channel.subscribe(:foo, q)
-      Lux::Channel['foo'].push(:ok)
+      Lux::Browser::Channel.subscribe(:foo, q)
+      Lux::Browser::Channel['foo'].push(:ok)
       expect(q.pop[:data]).to eq(:ok)
     end
   end
@@ -42,18 +42,18 @@ describe Lux::Channel do
   describe 'unsubscribe' do
     it 'stops further delivery and cleans empty channels' do
       q   = Queue.new
-      sub = Lux::Channel.subscribe(:foo, q)
+      sub = Lux::Browser::Channel.subscribe(:foo, q)
       sub.close
-      Lux::Channel[:foo].push(:nope)
+      Lux::Browser::Channel[:foo].push(:nope)
       expect(q.empty?).to be true
-      expect(Lux::Channel.channels).not_to include('foo')
+      expect(Lux::Browser::Channel.channels).not_to include('foo')
     end
   end
 
   describe 'Lux.channel shortcut' do
     it 'returns a Publisher that pushes to the named channel' do
       q = Queue.new
-      Lux::Channel.subscribe('alerts', q)
+      Lux::Browser::Channel.subscribe('alerts', q)
       Lux.channel('alerts').push(level: :error)
       expect(q.pop[:data]).to eq(level: :error)
     end
@@ -63,9 +63,9 @@ describe Lux::Channel do
     it 'reports the active subscriber count per channel' do
       q1 = Queue.new
       q2 = Queue.new
-      Lux::Channel.subscribe(:x, q1)
-      Lux::Channel.subscribe(:x, q2)
-      expect(Lux::Channel.subscriber_count(:x)).to eq(2)
+      Lux::Browser::Channel.subscribe(:x, q1)
+      Lux::Browser::Channel.subscribe(:x, q2)
+      expect(Lux::Browser::Channel.subscriber_count(:x)).to eq(2)
     end
   end
 end

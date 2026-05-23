@@ -190,8 +190,8 @@ module Lux
       Lux::Response::Cors.apply self, *args, **opts
     end
 
-    # Subscribe to one or more Lux::Channel names and stream messages as SSE.
-    # See Lux::Response::Sse and Lux::Channel.
+    # Subscribe to one or more Lux::Browser::Channel names and stream messages as SSE.
+    # See Lux::Response::Sse and Lux::Browser::Channel.
     def sse *channels
       Lux::Response::Sse.apply self, *channels
     end

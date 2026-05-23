@@ -64,7 +64,7 @@ class FilesController < ApplicationController
                   credentials: true,
                   max_age: 600
 
-    # --- SSE stream (see Lux::Response::Sse + Lux::Channel) -----------
+    # --- SSE stream (see Lux::Response::Sse + Lux::Browser::Channel) --
     response.sse :notifications, "user:#{current_user.id}"
 
     # --- generic streaming body ---------------------------------------
@@ -103,6 +103,6 @@ streaming body. The render path:
 
 * [`./lib/cors.rb`](./lib/cors.rb) - the `response.cors` implementation
 * [`./lib/sse.rb`](./lib/sse.rb) - the `response.sse` SSE writer
-* [`../channel/README.md`](../channel/README.md) - pub/sub channels feeding SSE
+* [`../browser/channel/README.md`](../browser/channel/README.md) - pub/sub channels feeding SSE
 * [`../current/README.md`](../current/README.md) - request context
 * [`AGENTS.md`](./AGENTS.md) - LLM guide

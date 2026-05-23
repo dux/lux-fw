@@ -67,5 +67,5 @@ lux.browser.app.config[:foo]   = 123
 ## See also
 
 * [`README.md`](./README.md) - human-facing API reference
-* [`../channel/AGENTS.md`](../channel/AGENTS.md) - the SSE module registers via `Lux::Browser`
+* [`./channel/AGENTS.md`](./channel/AGENTS.md) - the SSE module registers via `Lux::Browser`
 * [`../response/AGENTS.md`](../response/AGENTS.md) - `response.sse` consumes channels
