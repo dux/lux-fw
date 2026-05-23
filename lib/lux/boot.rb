@@ -80,6 +80,14 @@ end
 String.inflections do |inflect|
   inflect.singular /(status)$/i, '\1'
   inflect.singular /(bonus)$/i, '\1'
+
+  inflect.irregular 'bonus', 'bonuses'
+  inflect.uncountable 'data'
+  inflect.uncountable 'media'
+  inflect.irregular 'criterion', 'criteria'
+  inflect.irregular 'axis', 'axes'
+  inflect.irregular 'leaf', 'leaves'
+  inflect.irregular 'focus', 'focuses'
 end
 
 # load Tilt parsers
