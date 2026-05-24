@@ -34,11 +34,12 @@ module ::Lux
     app_line   = caller.find { |line| !line.include?('/lux-') && !line.include?('/.') && !line.include?('(eval)') }
     app_line ? app_line.split(':in ').first.sub(Lux.root.to_s, '.') : nil
   end
-end
 
-if $lux_start_time
-  # for better start stats add $lux_start_time ||= Time.now to begginging of Gemfile
-  $lux_start_time = [$lux_start_time, Time.now]
-else
-  $lux_start_time = Time.now
+  # Set in lib/lux-fw.rb before boot. Fallback here covers direct
+  # `require 'lux/lux'` paths (tests, tooling) that skip the gem entry.
+  STARTED_AT ||= Time.now
+
+  def started_at
+    STARTED_AT
+  end
 end

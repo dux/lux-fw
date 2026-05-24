@@ -152,7 +152,7 @@ module Lux
       if app_line = Lux.app_caller
         lines << "at #{app_line}"
       end
-      Lux.logger.fatal "Lux FATAL: #{lines.join(' | ')}"
+      Lux.logger.fatal "Lux FATAL: #{lines.join(' | ')}" if Lux.mode.debug?
 
       if Lux.env.test?
         raise Lux::Shell::Die, lines.join(' | ')

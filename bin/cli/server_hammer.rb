@@ -13,14 +13,15 @@ task :server do
     # t -> true, f -> false; otherwise pass-through (true/false accepted as-is).
     expand_mode = ->(v) { { 't' => 'true', 'f' => 'false' }[v.to_s.downcase] || v.to_s }
 
-    ENV['RACK_ENV']    = opts[:env] if opts[:env]
-    ENV['LUX_DEBUG']   = expand_mode.(opts[:debug])  if opts[:debug]
-    ENV['LUX_RELOAD']  = expand_mode.(opts[:reload]) if opts[:reload]
-    ENV['LUX_DEBUG']  ||= 'true'
-    ENV['LUX_RELOAD'] ||= 'true'
+    ENV['RACK_ENV']   = opts[:env] if opts[:env]
+    ENV['LUX_DEBUG']  = expand_mode.(opts[:debug])  if opts[:debug]
+    ENV['LUX_RELOAD'] = expand_mode.(opts[:reload]) if opts[:reload]
 
     port = opts[:port] || ENV.fetch('PORT', '3000')
     ENV['PORT'] = port.to_s
+
+    require 'socket'
+    TCPServer.new('0.0.0.0', port.to_i).close
 
     flags = %w(LUX_DEBUG LUX_RELOAD).map { |k| "#{k}=#{ENV[k]}" }.join(' ')
     base  = "RACK_ENV=#{ENV['RACK_ENV']} #{flags} bundle exec puma"
@@ -30,5 +31,7 @@ task :server do
     else
       sh "#{base} -p #{port}"
     end
+  rescue Errno::EADDRINUSE
+    Lux.shell.die 'Port %s is already in use' % port
   end
 end
