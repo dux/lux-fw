@@ -18,6 +18,7 @@ via their full namespace, or through monkey-patches on stdlib classes
 | `Lux::Utils::Json`          | `json.rb`            | `to_jsons` / `to_jsonp` / `to_jsonc`, mixed into Hash/Array |
 | `Lux::Utils::TimeOptions`   | `time_options.rb`    | `short` / `long` date formatters, mixed into Time/Date/DateTime |
 | `Lux::Utils::HtmlTag`       | `html_tag/`          | tag-based HTML builder DSL (vendored, rewritten); top-level `HtmlTag` kept as alias |
+| `Lux::Utils::Url`           | `url.rb`             | URL parser/builder with path attrs, locale, qs, pqs (vendored from `lux-url` gem); top-level `Url` kept as alias |
 
 Two more live in the db plugin (same namespace, plugin-coupled location):
 
@@ -184,6 +185,34 @@ tag(name, inner = nil, **attrs, &block)
 * `attrs` are always kwargs - the old `div 123, class: :foo` arg-order swap is gone.
 * Inside a `&block`, unknown methods flow to the host (cell/controller), and host
   `@ivars` are visible. Use `this` / `context` / `parent` for an explicit host handle.
+
+### Url
+
+```ruby
+# Build from a string
+u = Lux.url('https://sub.lvh.me:3000/:a:b-2/some/path/menu:demo?foo=bar')
+u[:foo]        # 'bar'  (qs shortcut)
+u[:menu]       # 'demo' (falls back to path qs)
+u.path         # '/:a:b-2/some/path/menu:demo'
+u.path_qs      # { 'menu' => 'demo' }
+u.qs           # { 'foo' => 'bar' }
+u.path_prefix  # ['a', 'b-2']
+
+# Mutate (chainable)
+u.qs(:foo, 'baz').delete(:menu).hash('top')
+u.to_s         # 'https://sub.lvh.me:3000/:a:b-2/some/path?foo=baz#top'
+
+# Current request handles
+Lux.current.url            # Lux::Utils::Url of the current request
+Lux.url                    # same (no-arg form delegates to Lux.current.request.url)
+Lux.url.qs(:page, 2).to_s  # rewrite current url
+
+# Class methods still operate on the current request
+Url.escape('a/b')          # 'a%2Fb'  (CGI escape, nil-safe)
+Url.unescape('a%2Fb')      # 'a/b'
+Url.locale('fr')           # swap locale prefix on current url, return relative
+Url.toggle(:sort, 'asc')   # set qs unless equal, else clear (for filter UIs)
+```
 
 ### TimeOptions
 

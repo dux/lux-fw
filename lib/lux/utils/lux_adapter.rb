@@ -5,4 +5,10 @@ module Lux
   def crypt
     Lux::Utils::Crypt
   end
+
+  # Lux.url('https://...') -> new Lux::Utils::Url
+  # Lux.url                -> Url of current request (requires Lux.current)
+  def url str = nil
+    Lux::Utils::Url.new(str || Lux.current.request.url)
+  end
 end

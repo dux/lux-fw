@@ -58,6 +58,11 @@ module Lux
       "#{request.env['rack.url_scheme']}://#{request.host}:#{request.port}".sub(':80','')# rescue 'http://locahost:3000'
     end
 
+    # Lux::Utils::Url wrapper around the current request URL.
+    def url
+      Lux::Utils::Url.new(@request.url)
+    end
+
     # Cache data in scope of current request
     def cache key
       root = @var[:cache] ||= {}
