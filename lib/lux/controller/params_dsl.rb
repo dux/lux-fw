@@ -58,6 +58,27 @@ module Lux
           @_pending_opts << [name, args]
         end
 
+        # Declare an absolute URL that dispatches to the next def. Multiple
+        # `route` lines stack - each URL aliases the same action.
+        #
+        #   route '/users'
+        #   def index; end
+        #
+        #   route '/u/:slug'
+        #   route '/users/:slug'
+        #   def by_slug; end                # both URLs hit :by_slug
+        #
+        # Captures land in `nav.params`; a `:ref` capture also binds
+        # `nav.ref`. Inside `ref do ... end` the method (and its routes)
+        # get the standard `_ref` rename.
+        def route path, **opts
+          unless path.is_a?(String) && path.start_with?('/')
+            raise ArgumentError, 'route path must be a String starting with / (got %s)' % path.inspect
+          end
+          @_pending_routes ||= []
+          @_pending_routes << [path, opts]
+        end
+
         # Declare the exact HTTP verb set the next def accepts. This REPLACES
         # the GET + HEAD default - it is not additive. For dual-verb actions,
         # declare both verbs explicitly. HEAD piggybacks on GET only when GET
@@ -86,8 +107,12 @@ module Lux
           end
         end
 
-        # method_added snapshots pending opts + verb-allows onto the action so
-        # they survive subsequent def lines without bleeding across methods.
+        # method_added snapshots pending opts + verb-allows + routes onto the
+        # action so they survive subsequent def lines without bleeding across
+        # methods. Route declarations are also pushed into the global registry
+        # at Lux::Controller.action_routes; the entry's :action key is the
+        # current method name (pre-`ref do` rename, if applicable - the rename
+        # step in `ref` remaps the entry afterwards).
         def method_added name
           super
           if @_pending_opts && @_pending_opts.any?
@@ -99,6 +124,22 @@ module Lux
             @_action_allows ||= {}
             @_action_allows[name] = @_pending_allows
             @_pending_allows = nil
+          end
+          if @_pending_routes && @_pending_routes.any?
+            @_action_routes ||= {}
+            @_action_routes[name] = @_pending_routes
+
+            registry = Lux::Controller.action_routes
+            # drop any prior registry entries for (this class, this action) so
+            # reloads don't pile up. Reload replaces the class object, so we
+            # match on class-name string to catch the stale entries too.
+            class_name = to_s
+            registry.reject! { |e| e[:controller].to_s == class_name && e[:action] == name }
+            @_pending_routes.each do |path, opts|
+              registry << { controller: self, action: name, path: path, opts: opts }
+            end
+
+            @_pending_routes = nil
           end
         end
 
@@ -176,7 +217,7 @@ module Lux
         allowed = self.class.allowed_verbs_for(@lux.action)
         return if allowed == :any || allowed.include?(verb)
 
-        Lux.error.method_not_allowed Lux.mode.errors?('405 Method Not Allowed') {
+        Lux.error.method_not_allowed Lux.mode.debug?('405 Method Not Allowed') {
           allowed_label = allowed.to_a.map { |v| v.to_s.upcase }.join(', ')
           'Action %s#%s does not allow %s. Allowed: %s. Add `allow :%s` above the def to enable it.' %
             [self.class, @lux.action, verb.upcase, allowed_label, verb]

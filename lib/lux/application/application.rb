@@ -220,15 +220,31 @@ module Lux
         if icon.exist?
           lux.response.send_file(icon, inline: true)
         else
-          Lux.error.not_found Lux.mode.errors?('404 Not Found') { '%s not found' % path }
+          Lux.error.not_found Lux.mode.debug?('404 Not Found') { '%s not found' % path }
         end
       end
     end
 
-    # internall call to resolve the routes
+    # internall call to resolve the routes. Per-action `route` annotations
+    # are tried first (first match wins, source/load order), then the
+    # `routes do` callbacks. Both halt via the :done catch when a handler
+    # writes the response body.
     def resolve_routes
       catch :done do
-        run_callback :routes, lux.nav.path
+        resolve_action_routes
+        run_callback :routes, lux.nav.path unless lux.response.body?
+      end
+    end
+
+    # Walk Lux::Controller.action_routes and dispatch the first matching
+    # entry. No-op when the registry is empty or nothing matches. Runs after
+    # `before` filters have executed, so a before-filter that loads the
+    # current user has already populated ivars before route resolution.
+    def resolve_action_routes
+      Lux::Controller.action_routes.each do |entry|
+        next unless action_route_match?(entry[:path])
+        call [entry[:controller], entry[:action]]
+        return
       end
     end
   end

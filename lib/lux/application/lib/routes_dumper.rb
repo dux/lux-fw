@@ -37,9 +37,10 @@ module Lux
 
       def dump
         store = @app_class.instance_variable_get(:@class_callbacks_routes) || {}
-        return @entries if store.empty?
 
         with_stub_current do
+          dump_action_routes
+
           # iterate a snapshot - some wrapped procs would otherwise re-enter
           # the singleton DSL and mutate the hash mid-walk
           store.to_a.each do |source, value|
@@ -55,6 +56,25 @@ module Lux
         end
 
         @entries
+      end
+
+      # Append per-action `route` annotations from the global registry. Verb
+      # column is the joined `allowed_verbs_for` set so the dump reflects what
+      # the action will actually accept.
+      #
+      # Per-action routes are global (controller-level), not app-scoped, so
+      # only emit them when dumping the main Lux::Application. Test-app
+      # subclasses (e.g. RoutesDumper specs) stay isolated.
+      def dump_action_routes
+        return unless @app_class.equal?(Lux::Application)
+
+        Lux::Controller.action_routes.each do |entry|
+          verbs   = entry[:controller].allowed_verbs_for(entry[:action])
+          verb    = verbs == :any ? '*' : verbs.to_a.map { |v| v.to_s.upcase }.join('|')
+          target  = '%s#%s [action-route]' % [entry[:controller], entry[:action]]
+          @source = (entry[:controller].instance_method(entry[:action]).source_location || [entry[:controller].to_s]).first
+          record verb: verb, path: entry[:path], target: target
+        end
       end
 
       # --- routing DSL stubs ---

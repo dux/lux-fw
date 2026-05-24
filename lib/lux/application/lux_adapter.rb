@@ -48,7 +48,7 @@ module Lux
   rescue => err
     Lux.logger.error Lux::Error.format(err, message: true)
 
-    if Lux.mode.log?
+    if Lux.mode.debug?
       raise
     else
       [500, {}, ['Server error: %s' % err.message]]

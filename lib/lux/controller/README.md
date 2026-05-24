@@ -138,6 +138,53 @@ The same `allow` word exists in `Lux::Api`, with the inverse default: API
 endpoints default to `POST`, and `allow :get` adds GET on top. Same word,
 same shape, the framework-appropriate default per system.
 
+## Per-action routes
+
+Actions can declare their own absolute URLs with `route`. The annotation
+sits above the `def` (same opt-the-next-def-in shape as `opt` / `allow`),
+multiple lines stack as URL aliases for the same handler, and resolution
+happens after the application's `before` filters run - so any user-loading
+filter has already populated ivars by the time the action dispatches.
+
+```ruby
+class UsersController < Lux::Controller
+  route '/users'
+  def index; end                       # GET /users
+
+  route '/u/:slug'
+  allow :get, :post
+  def by_slug; end                     # GET or POST /u/anything
+
+  route '/users/new'
+  route '/users/create'                # two URLs, one handler
+  allow :get, :post
+  def create; end
+
+  ref do
+    route '/users/:ref/dashboard'
+    def dashboard; end                 # method becomes :dashboard_ref;
+                                       # nav.ref bound from the :ref capture
+  end
+end
+```
+
+Rules:
+
+* Paths must be absolute (start with `/`). They are not scoped under any
+  `routes do` mount point.
+* Captures (`:name`) land in `nav.params[:name]`. A `:ref` capture also
+  binds `nav.ref` for the resourceful convenience.
+* `allow` still governs verb enforcement - `route` is path-only. No `allow`
+  means GET + HEAD only.
+* `ref do` placement is what triggers the `_ref` method rename. A `route`
+  above a `def` inside `ref do` follows the method to the `_ref` key.
+* Per-action routes take priority over `routes do` resourceful dispatch.
+  Within the per-action registry, source/load order is match order; first
+  match wins.
+
+Subdomain routing and wildcards/regex paths are not supported here -
+keep using `routes do` for those.
+
 ## Routing primer
 
 URLs map to actions resourcefully when `nav.path(:ref) { ... }` is set in

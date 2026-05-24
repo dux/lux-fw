@@ -52,11 +52,38 @@ module Lux
         call target
       end
 
+      # Strict, length-exact path match for per-action `route` annotations.
+      # Returns true (and binds captures) on success, false otherwise. No
+      # dispatch - the caller decides what to do with a match.
+      #
+      # `:ref` captures bind both `nav.params[:ref]` and `nav.ref` so the
+      # controller's existing ref convenience works unchanged.
+      def action_route_match? pattern
+        pattern_parts = pattern.split('/').reject(&:empty?)
+        nav_parts     = lux.nav.path.compact
+        return false unless pattern_parts.length == nav_parts.length
+
+        captures = {}
+        pattern_parts.each_with_index do |el, i|
+          if el.start_with?(':')
+            captures[el[1..].to_sym] = nav_parts[i]
+          else
+            return false unless el == nav_parts[i]
+          end
+        end
+
+        captures.each do |name, value|
+          lux.params[name] = value
+          lux.nav.ref      = value if name == :ref && lux.nav.respond_to?(:ref=)
+        end
+        true
+      end
+
       # Matches given subdomain name
       def subdomain name
         return unless lux.nav.subdomain == name.to_s
         yield
-        Lux.error.not_found Lux.mode.errors?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
+        Lux.error.not_found Lux.mode.debug?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
       end
 
       # Main routing DSL. All forms match against the current route cursor first,
@@ -167,7 +194,7 @@ module Lux
       # ```
       def call object=nil, action=nil, opts=nil, &block
         # log original app caller (skipped in production - caller() is expensive)
-        if Lux.mode.log?
+        if Lux.mode.debug?
           root    = Lux.root.join('app/').to_s
           sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
           Lux.log { ' Routed from: %s' % sources.join(' ') } if sources.first
@@ -232,11 +259,11 @@ module Lux
         action ||= resourceful_action(lux.route.path)
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
-          Lux.error.not_found Lux.mode.errors?('404 Not Found') { "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" }
+          Lux.error.not_found Lux.mode.debug?('404 Not Found') { "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" }
         end
 
         if opts[:except] && opts[:except].include?(action.to_sym)
-          Lux.error.not_found Lux.mode.errors?('404 Not Found') { "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" }
+          Lux.error.not_found Lux.mode.debug?('404 Not Found') { "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" }
         end
 
         if object.respond_to?(:action)

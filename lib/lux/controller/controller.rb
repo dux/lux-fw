@@ -29,6 +29,17 @@ module Lux
     define_callback :before_render
     define_callback :after
 
+    # Global ordered list of action-route entries. Populated by the `route`
+    # class macro (see params_dsl.rb#method_added). Each entry is a hash:
+    #   { controller: ClassObject, action: :name, path: '/users/:ref', opts: {} }
+    # Application#resolve_action_routes walks this list at request time; first
+    # match wins. Source/load order is match order.
+    ACTION_ROUTES ||= []
+
+    def self.action_routes
+      ACTION_ROUTES
+    end
+
     class << self
       # simple shortcut allows direct call to action, bypasing call
       def action *args, **kwargs
@@ -116,16 +127,27 @@ module Lux
         end
       end
 
-      # Move per-action metadata (opts + verb allows snapshotted by
+      # Move per-action metadata (opts + verb allows + routes snapshotted by
       # method_added when the inner def fired) from the pre-rename key to the
-      # `_ref` key, so params validation and verb enforcement see the entry
-      # under the dispatched name.
+      # `_ref` key, so params validation, verb enforcement and the global
+      # route registry see the entry under the dispatched name.
       def remap_action_metadata from, to
         if (store = instance_variable_get(:@_action_opts)) && store.key?(from)
           store[to] = store.delete(from)
         end
         if (store = instance_variable_get(:@_action_allows)) && store.key?(from)
           store[to] = store.delete(from)
+        end
+        if (store = instance_variable_get(:@_action_routes)) && store.key?(from)
+          store[to] = store.delete(from)
+        end
+        # update entries in the global route registry as well, otherwise the
+        # dispatcher would call :foo (which has been renamed away) instead of
+        # :foo_ref.
+        Lux::Controller.action_routes.each do |entry|
+          if entry[:controller].equal?(self) && entry[:action] == from
+            entry[:action] = to
+          end
         end
       end
 
@@ -135,7 +157,7 @@ module Lux
       def default_error_page status, error
         name      = ::Rack::Utils::HTTP_STATUS_CODES[status] || 'Error'
         message   = error.message.to_s.gsub('<', '&lt;').gsub('>', '&gt;')
-        show_dev  = Lux.mode.errors?
+        show_dev  = Lux.mode.debug?
         backtrace = (show_dev && error.respond_to?(:backtrace) && error.backtrace) ?
                     error.backtrace.first(40).join("\n").gsub('<', '&lt;').gsub('>', '&gt;') : nil
         color     = status >= 500 ? '#dc2626' : status >= 400 ? '#d97706' : '#374151'
@@ -391,7 +413,7 @@ module Lux
           yield if block_given?
           true
         elsif lux.nav.format
-          Lux.error.not_found Lux.mode.errors?('404 Not Found') { '%s document Not Found' % lux.nav.format.to_s.upcase }
+          Lux.error.not_found Lux.mode.debug?('404 Not Found') { '%s document Not Found' % lux.nav.format.to_s.upcase }
         end
       else
         yield lux.nav.format
@@ -453,7 +475,7 @@ module Lux
         return false if caller[0].include?("`action_missing'")
       end
 
-      message = Lux.mode.errors? '404 Method Not Found' do
+      message = Lux.mode.debug? '404 Method Not Found' do
         base = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, lux.nav]
         defined_methods = (methods - Lux::Controller.instance_methods).map(&:to_s)
         defined = '<br /><br />Defined methods %s' % defined_methods.sort.to_ul
