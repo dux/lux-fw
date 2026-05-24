@@ -1,70 +1,71 @@
+require 'test_helper'
 require_relative '../loader'
 
 describe 'params validation' do
-  context 'existing param tests from GenericApi' do
+  describe 'existing param tests from GenericApi' do
     it 'passes required params' do
       response = GenericApi.render :param_test_2, params: { foo: 'test' }
-      expect(response[:success]).to eq(true)
-      expect(response[:data][:foo]).to eq('test')
+      _(response[:success]).must_equal true
+      _(response[:data]['foo']).must_equal 'test'
     end
 
     it 'applies defaults for optional params' do
       response = GenericApi.render :param_test_2, params: { foo: 'test' }
-      expect(response[:data][:abc]).to eq('baz')  # default value (coerced to string)
+      _(response[:data]['abc']).must_equal 'baz'  # default value (coerced to string)
     end
 
     it 'allows overriding defaults' do
       response = GenericApi.render :param_test_2, params: { foo: 'test', abc: 'custom' }
-      expect(response[:data][:abc]).to eq('custom')
+      _(response[:data]['abc']).must_equal 'custom'
     end
 
     it 'fails when required param missing' do
       response = GenericApi.render :param_test_2, params: { abc: 'value' }
-      expect(response[:success]).to eq(false)
-      expect(response[:error][:details][:foo]).to be_truthy
+      _(response[:success]).must_equal false
+      assert response[:error][:details][:foo]
     end
   end
 
-  context 'CompanyApi params' do
+  describe 'CompanyApi params' do
     it 'validates integer type' do
       opts = CompanyApi.opts
-      expect(opts[:collection][:index][:params][:country_id][:type]).to eq(:integer)
+      _(opts[:collection][:index][:params][:country_id][:type]).must_equal :integer
     end
 
     it 'validates boolean type' do
       opts = CompanyApi.opts
-      expect(opts[:collection][:index][:params][:is_active][:type]).to eq(:boolean)
+      _(opts[:collection][:index][:params][:is_active][:type]).must_equal :boolean
     end
 
     it 'handles boolean false default in member params' do
       opts = CompanyApi.opts
-      expect(opts[:member][:index][:params][:is_active][:default]).to eq(false)
+      _(opts[:member][:index][:params][:is_active][:default]).must_equal false
     end
   end
 
-  context 'UserApi email validation' do
+  describe 'UserApi email validation' do
     it 'rejects bad email in model' do
       response = UserApi.render.update(1, user: { name: 'Test', email: 'bad email' })
-      expect(response[:success]).to eq(false)
+      _(response[:success]).must_equal false
     end
 
     it 'accepts good email in model' do
       response = UserApi.render.update(1, user: { name: 'Test', email: 'good@email.com' })
-      expect(response[:success]).to eq(true)
+      _(response[:success]).must_equal true
     end
   end
 
-  context 'array params' do
+  describe 'array params' do
     it 'accepts Array type param' do
       opts = GenericApi.opts
-      expect(opts[:collection][:list_labels][:params][:labels_dup][:type]).to eq(:label)
-      expect(opts[:collection][:list_labels][:params][:labels_dup][:array]).to eq(true)
+      _(opts[:collection][:list_labels][:params][:labels_dup][:type]).must_equal :label
+      _(opts[:collection][:list_labels][:params][:labels_dup][:array]).must_equal true
     end
 
     it 'accepts Set type param stored as array' do
       opts = GenericApi.opts
-      expect(opts[:collection][:list_labels][:params][:labels_nodup][:type]).to eq(:label)
-      expect(opts[:collection][:list_labels][:params][:labels_nodup][:array]).to eq(true)
+      _(opts[:collection][:list_labels][:params][:labels_nodup][:type]).must_equal :label
+      _(opts[:collection][:list_labels][:params][:labels_nodup][:array]).must_equal true
     end
   end
 end

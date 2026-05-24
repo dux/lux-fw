@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 NestedSchema1 ||= Lux.schema do
   foo
@@ -20,8 +20,8 @@ end
 
 describe Lux do
   describe NestedSchema1 do
-    let(:data) do
-      {
+    def data
+      @data ||= {
         foo: 'exists',
         bar: {
           'name' => 'Dux',
@@ -40,14 +40,14 @@ describe Lux do
       }
 
       errors = NestedSchema1.validate data
-      expect(errors).to eq({})
-      expect(data).to eq(valid)
+      _(errors).must_equal({})
+      _(data).must_equal(valid)
     end
   end
 
   describe NestedSchema2 do
-    let(:data) do
-      {
+    def data
+      @data ||= {
         foo: 'exists',
         bar: {
           name: 'Dux',
@@ -66,8 +66,8 @@ describe Lux do
       }
 
       errors = NestedSchema2.validate data
-      expect(errors).to eq({})
-      expect(data).to eq(valid)
+      _(errors).must_equal({})
+      _(data).must_equal(valid)
     end
   end
 end

@@ -1,39 +1,47 @@
-require 'spec_helper'
-require_relative './mocks'
+require 'test_helper'
+require_relative './factories'
 require_relative './policies'
 
 describe Lux::Policy do
-  let!(:post)       { mock.create :pol_post }
-  let!(:user)       { mock.create :pol_user }
-  let!(:admin_user) { mock.create :pol_user, is_admin: true }
+  def user
+    @user ||= factory.create :pol_user
+  end
+
+  def admin_user
+    @admin_user ||= factory.create :pol_user, is_admin: true
+  end
+
+  def post
+    @post ||= factory.create :pol_post, created_by: 999
+  end
 
   before do
     Thread.current[:current_user] = nil
   end
 
-  context 'accessed via proxy' do
+  describe 'accessed via proxy' do
     it 'raises custom error' do
-      expect { PolApplicationPolicy.can(user: user).custom_error! }.to raise_error Lux::Policy::Error
+      _{ PolApplicationPolicy.can(user: user).custom_error! }.must_raise Lux::Policy::Error
     end
 
     it 'can write as admin' do
       Thread.current[:current_user] = admin_user
-      expect(post.can.write?).to be_truthy
+      assert post.can.write?
     end
 
     it 'cant write as user' do
       Thread.current[:current_user] = user
-      expect(post.can.write?).to be_falsy
+      _(post.can.write?).must_equal false
     end
 
     it 'does not break on truthy bang method' do
       Thread.current[:current_user] = admin_user
-      expect(post.can.write!).to be_truthy
+      assert post.can.write!
     end
 
     it 'raises error on bang method' do
       Thread.current[:current_user] = user
-      expect { post.can.write! }.to raise_error Lux::Policy::Error
+      _{ post.can.write! }.must_raise Lux::Policy::Error
     end
   end
 end

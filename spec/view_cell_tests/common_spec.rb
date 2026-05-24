@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 ###
 
@@ -64,36 +64,38 @@ end
 ###
 
 describe 'Lux::ViewCell common' do
-  let!(:user) { VcUser.new 'Dux', 'dux@net.net' }
+  def user
+    @user_obj ||= VcUser.new 'Dux', 'dux@net.net'
+  end
 
   it 'can call plain function' do
     num = VcUserCell.new.sq 4
-    expect(num).to eq 16
+    _(num).must_equal 16
   end
 
   it 'resoves before filters well' do
     num = VcUserCell.new.numbers
-    expect(num).to eq '123-456'
+    _(num).must_equal '123-456'
   end
 
   it 'raises render error' do
-    expect { VcUserCell.new.not_found }.to raise_error ArgumentError
+    _{ VcUserCell.new.not_found }.must_raise ArgumentError
   end
 
   it 'renders template with parent instance variables' do
     @user = user
     data  = VcUserCell.new(self).profile
-    expect(data).to eq 'foo Dux bar'
+    _(data).must_equal 'foo Dux bar'
   end
 
   it 'renders template with variable lists' do
     data  = VcUserCell.new.profiles
-    expect(data).to eq 'x >dux<>foo< x >dux< x'
+    _(data).must_equal 'x >dux<>foo< x >dux< x'
   end
 
   it 'can deleate functions to parent scope' do
     # user object is parent scope!
     data = VcUserCell.new(user).uemail
-    expect(data).to eq 'dux@net.net'
+    _(data).must_equal 'dux@net.net'
   end
 end

@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 # A controller with no params declarations - loose, current.params passes through.
 class LooseParamsController < Lux::Controller
@@ -71,7 +71,7 @@ describe 'Lux::Controller opt / params DSL' do
       Lux::Current.new('http://test/show', query_string: { foo: 'bar', baz: 'qux' })
       LooseParamsController.action(:show)
       body = JSON.parse(Lux.current.response.body)
-      expect(body).to eq('foo' => 'bar', 'baz' => 'qux')
+      _(body).must_equal('foo' => 'bar', 'baz' => 'qux')
     end
   end
 
@@ -80,22 +80,22 @@ describe 'Lux::Controller opt / params DSL' do
       Lux::Current.new('http://test/create', query_string: { 'name' => 'Dux', 'age' => '42', 'extra' => 'drop' })
       MethodOptController.action(:create)
       body = JSON.parse(Lux.current.response.body)
-      expect(body).to eq('name' => 'Dux', 'age' => 42)
+      _(body).must_equal('name' => 'Dux', 'age' => 42)
     end
 
     it 'lets undeclared actions remain loose' do
       Lux::Current.new('http://test/index', query_string: { whatever: 'goes' })
       MethodOptController.action(:index)
       body = JSON.parse(Lux.current.response.body)
-      expect(body).to eq('whatever' => 'goes')
+      _(body).must_equal('whatever' => 'goes')
     end
 
     it 'returns 422 on missing required keys for JSON requests' do
       Lux::Current.new('http://test/create.json', query_string: { 'age' => '42' })
       MethodOptController.action(:create)
-      expect(Lux.current.response.status).to eq(422)
+      _(Lux.current.response.status).must_equal 422
       body = JSON.parse(Lux.current.response.body)
-      expect(body['errors']).to have_key('name')
+      _(body['errors']).must_include 'name'
     end
   end
 
@@ -104,7 +104,7 @@ describe 'Lux::Controller opt / params DSL' do
       Lux::Current.new('http://test/show', query_string: { 'org_id' => 'abc', 'api_key' => 'xyz', 'extra' => 'drop' })
       ClassParamsController.action(:show)
       body = JSON.parse(Lux.current.response.body)
-      expect(body).to eq('org_id' => 'abc', 'api_key' => 'xyz')
+      _(body).must_equal('org_id' => 'abc', 'api_key' => 'xyz')
     end
   end
 
@@ -113,9 +113,9 @@ describe 'Lux::Controller opt / params DSL' do
       # org_id is required at class-level but optional at method-level; method should win
       Lux::Current.new('http://test/update.json', query_string: { 'name' => 'Dux', 'extra' => 'drop' })
       CombinedParamsController.action(:update)
-      expect(Lux.current.response.status).not_to eq(422)
+      _(Lux.current.response.status).wont_equal 422
       body = JSON.parse(Lux.current.response.body)
-      expect(body).to eq('name' => 'Dux', 'org_id' => nil, 'api_key' => nil)
+      _(body).must_equal('name' => 'Dux', 'org_id' => nil, 'api_key' => nil)
     end
   end
 
@@ -124,7 +124,7 @@ describe 'Lux::Controller opt / params DSL' do
       Lux::Current.new('http://test/show', query_string: { 'age' => '15', 'tag' => 'hi', 'extra' => 'drop' })
       ShortcutFormController.action(:show)
       body = JSON.parse(Lux.current.response.body)
-      expect(body).to eq('age' => 15, 'tag' => 'hi')
+      _(body).must_equal('age' => 15, 'tag' => 'hi')
     end
   end
 end

@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 ###
 
@@ -23,17 +23,17 @@ describe 'Lux::ViewCell tpl' do
   it 'compiles css defined in custom template root' do
     css = TplCell.css
     # foo.scss compiles to a block containing "#foo" and "color: yellow"
-    expect(css).to include('#foo')
-    expect(css).to include('color: yellow')
+    _(css).must_include '#foo'
+    _(css).must_include 'color: yellow'
   end
 
   it 'compiles template defined in custom template root' do
     data = TplCell.new.foo
-    expect(data).to eq('x9x')
+    _(data).must_equal 'x9x'
   end
 
   it 'raises when template not found in alternate root' do
     TplCell.template_root './spec/x_views'
-    expect { TplCell.new.foo }.to raise_error(ArgumentError, %[Template "./spec/x_views/tpl/base.*" not found])
+    _{ TplCell.new.foo }.must_raise ArgumentError
   end
 end

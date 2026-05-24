@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe Lux::Browser::Channel do
   before { Lux::Browser::Channel.reset! }
@@ -10,8 +10,8 @@ describe Lux::Browser::Channel do
       Lux::Browser::Channel.subscribe(:foo, q)
       Lux::Browser::Channel[:foo].push(value: 1)
       msg = q.pop
-      expect(msg[:channel]).to eq('foo')
-      expect(msg[:data]).to eq(value: 1)
+      _(msg[:channel]).must_equal 'foo'
+      _(msg[:data]).must_equal({ value: 1 })
     end
 
     it 'fans out to every queue on a channel' do
@@ -20,22 +20,22 @@ describe Lux::Browser::Channel do
       Lux::Browser::Channel.subscribe(:foo, a)
       Lux::Browser::Channel.subscribe(:foo, b)
       Lux::Browser::Channel[:foo].push(:hello)
-      expect(a.pop[:data]).to eq(:hello)
-      expect(b.pop[:data]).to eq(:hello)
+      _(a.pop[:data]).must_equal :hello
+      _(b.pop[:data]).must_equal :hello
     end
 
     it 'does not deliver to other channels' do
       q = Queue.new
       Lux::Browser::Channel.subscribe(:foo, q)
       Lux::Browser::Channel[:bar].push(:nope)
-      expect(q.empty?).to be true
+      _(q.empty?).must_equal true
     end
 
     it 'normalises channel names to strings' do
       q = Queue.new
       Lux::Browser::Channel.subscribe(:foo, q)
       Lux::Browser::Channel['foo'].push(:ok)
-      expect(q.pop[:data]).to eq(:ok)
+      _(q.pop[:data]).must_equal :ok
     end
   end
 
@@ -45,8 +45,8 @@ describe Lux::Browser::Channel do
       sub = Lux::Browser::Channel.subscribe(:foo, q)
       sub.close
       Lux::Browser::Channel[:foo].push(:nope)
-      expect(q.empty?).to be true
-      expect(Lux::Browser::Channel.channels).not_to include('foo')
+      _(q.empty?).must_equal true
+      refute_includes Lux::Browser::Channel.channels, 'foo'
     end
   end
 
@@ -55,7 +55,7 @@ describe Lux::Browser::Channel do
       q = Queue.new
       Lux::Browser::Channel.subscribe('alerts', q)
       Lux.channel('alerts').push(level: :error)
-      expect(q.pop[:data]).to eq(level: :error)
+      _(q.pop[:data]).must_equal({ level: :error })
     end
   end
 
@@ -65,7 +65,7 @@ describe Lux::Browser::Channel do
       q2 = Queue.new
       Lux::Browser::Channel.subscribe(:x, q1)
       Lux::Browser::Channel.subscribe(:x, q2)
-      expect(Lux::Browser::Channel.subscriber_count(:x)).to eq(2)
+      _(Lux::Browser::Channel.subscriber_count(:x)).must_equal 2
     end
   end
 end

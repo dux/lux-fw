@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 ###
 
@@ -124,63 +124,63 @@ describe Lux::JsonExporter do
     company = JxCompany.new(name, address)
     result  = SimpleExporter.export(company)
 
-    expect(result[:name]).to eq(name)
-    expect(result[:address]).to eq(address)
+    _(result[:name]).must_equal name
+    _(result[:address]).must_equal address
   end
 
   it 'exports complex object' do
     some_user = JxUser.new 'dux', 'dux@net.hr'
     response  = SimpleExporter.export some_user, user: some_user
-    expect(response[:is_admin]).to eq(true)
+    _(response[:is_admin]).must_equal true
 
     user     = JxUser.new 'dino', 'dux@net.hr'
     response = SimpleExporter.export user, user: user
-    expect(response[:is_admin]).to eq(false)
+    _(response[:is_admin]).must_equal false
   end
 
   it 'exports naked object' do
     company = JxCompany.new 'ACME 1', 'Nowhere 123'
     data = SimpleExporter.export company, exporter: :generic_name
-    expect(data[:address]).to be(nil)
-    expect(data[:foo]).to be(:bar)
+    _(data[:address]).must_be_nil
+    _(data[:foo]).must_equal :bar
   end
 
   it 'exports deep if needed' do
     user     = JxUser.new 'dux', 'dux@net.hr'
     response = SimpleExporter.export user, user: user, export_depth: 3
 
-    expect(response[:company][:creator][:company][:name]).to eq('ACME')
+    _(response[:company][:creator][:company][:name]).must_equal 'ACME'
   end
 
   it 'uses after filter' do
     user     = JxUser.new 'dux', 'dux@net.hr'
     response = SimpleExporter.export user, user: user, export_depth: 3
-    expect(response[:foo]).to eq(:bar)
-    expect(response[:meta][:class]).to eq('JxUser')
+    _(response[:foo]).must_equal :bar
+    _(response[:meta][:class]).must_equal 'JxUser'
   end
 
   it 'uses right versions' do
     user     = JxUser.new 'dux', 'dux@net.hr'
     response = SimpleExporter.export user, version: 3
-    expect(response[:company][:v_check]).to eq(:version_three)
-    expect(response[:company][:extra]).to eq(nil)
+    _(response[:company][:v_check]).must_equal :version_three
+    _(response[:company][:extra]).must_be_nil
 
     response = SimpleExporter.export user, version: 4
-    expect(response[:company][:v_check]).to eq(:version_three)
-    expect(response[:company][:extra]).to eq(:spicy)
+    _(response[:company][:v_check]).must_equal :version_three
+    _(response[:company][:extra]).must_equal :spicy
   end
 
   it 'exports via generic exporter' do
     data   = Lux::Hash.new({ name: 'foo', surname: 'bar', num: 5 })
     result = GenericExporter.export data
-    expect(result[:calc]).to eq(15)
+    _(result[:calc]).must_equal 15
   end
 
   it 'applies filters as it should' do
     data   = Lux::Hash.new({ name: 'dux', num: 1 })
     result = GenericExporterChild.export data
 
-    expect(result[:bhistory].join('-')).to eq('first-second-third')
-    expect(result[:ahistory].join('-')).to eq('start-parent-child')
+    _(result[:bhistory].join('-')).must_equal 'first-second-third'
+    _(result[:ahistory].join('-')).must_equal 'start-parent-child'
   end
 end

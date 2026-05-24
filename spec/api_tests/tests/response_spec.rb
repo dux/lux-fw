@@ -1,47 +1,50 @@
+require 'test_helper'
 require_relative '../loader'
 
 describe Lux::Api::Response do
   it 'creates success response with data' do
     response = GenericApi.render :all_ok
-    expect(response[:success]).to eq(true)
-    expect(response[:data]).to eq('ok')
-    expect(response[:status]).to eq(200)
+    _(response[:success]).must_equal true
+    _(response[:data]).must_equal 'ok'
+    _(response[:status]).must_equal 200
   end
 
   it 'adds meta data via response[]=' do
     response = CompanyApi.render :index, id: 1, params: { name: 'Test' }
-    expect(response[:meta][:ip]).to eq('1.2.3.4')
+    _(response[:meta][:ip]).must_equal '1.2.3.4'
   end
 
   it 'adds message to response' do
     response = CompanyApi.render :index, id: 1, params: { name: 'Test' }
-    expect(response[:message]).to eq('all ok')
+    _(response[:message]).must_equal 'all ok'
   end
 
   it 'returns nil data when method returns nil' do
     class NilDataApi < ApplicationApi
-      def return_nil
-        nil
+      define :return_nil do
+        proc { nil }
       end
     end
     response = NilDataApi.render :return_nil
-    expect(response[:success]).to eq(true)
-    expect(response.key?(:data)).to eq(false)
+    _(response[:success]).must_equal true
+    _(response.key?(:data)).must_equal false
   end
 
   it 'returns hash data correctly' do
     response = GenericApi.render :param_test_1, params: { foo: 'bar' }
-    expect(response[:data]).to eq({ foo: 'bar' })
+    _(response[:data]).must_equal({ 'foo' => 'bar' })
   end
 
   it 'handles response.data= assignment' do
     class DataAssignApi < ApplicationApi
-      def assign_data
-        response.data = { custom: 'value' }
-        'ignored'
+      define :assign_data do
+        proc do
+          response.data = { custom: 'value' }
+          'ignored'
+        end
       end
     end
     response = DataAssignApi.render :assign_data
-    expect(response[:data]).to eq({ custom: 'value' })
+    _(response[:data]).must_equal({ custom: 'value' })
   end
 end

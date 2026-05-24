@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 class TestController < Lux::Controller
   before do
@@ -49,30 +49,28 @@ describe Lux::Controller do
   it 'renders text' do
     TestController.action(:render_text)
 
-    expect(Lux.current.response.body).to eq('foo')
+    _(Lux.current.response.body).must_equal 'foo'
   end
 
   it 'renders json' do
     TestController.action(:render_json)
 
-    expect(Lux.current.response.body).to eq('{"foo":"bar"}')
+    _(Lux.current.response.body).must_equal '{"foo":"bar"}'
   end
 
   it 'raises on invalid render options' do
-    expect { TestController.action(:render_fail) }.to raise_error(ArgumentError)
+    _{ TestController.action(:render_fail) }.must_raise ArgumentError
   end
 
   it 'executes before and before_action filters' do
     TestController.action(:test_before)
 
-    expect(Lux.current.response.body).to eq('beforebefore_action')
+    _(Lux.current.response.body).must_equal 'beforebefore_action'
   end
 
   it 'executes before_render callback when invoked' do
     TestController.action(:test_before_render_value)
 
-    expect(Lux.current.response.body).to eq('before_render')
+    _(Lux.current.response.body).must_equal 'before_render'
   end
 end
-
-

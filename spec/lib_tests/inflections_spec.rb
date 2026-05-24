@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 # Guards for the custom inflections registered in lib/lux/boot.rb.
 # These overrides matter for the enums plugin and any caller of
@@ -6,28 +6,28 @@ require 'spec_helper'
 describe 'String inflections (lux-fw overrides)' do
   describe 'pre-existing overrides' do
     it 'singularizes "statuses" to "status"' do
-      expect('statuses'.singularize).to eq('status')
+      _('statuses'.singularize).must_equal 'status'
     end
 
     it 'singularizes "bonuses" to "bonus"' do
-      expect('bonuses'.singularize).to eq('bonus')
+      _('bonuses'.singularize).must_equal 'bonus'
     end
 
     it 'pluralizes "bonus" to "bonuses"' do
-      expect('bonus'.pluralize).to eq('bonuses')
+      _('bonus'.pluralize).must_equal 'bonuses'
     end
 
     it 'leaves "news" as uncountable' do
-      expect('news'.singularize).to eq('news')
-      expect('news'.pluralize).to eq('news')
+      _('news'.singularize).must_equal 'news'
+      _('news'.pluralize).must_equal 'news'
     end
   end
 
   describe 'uncountable: data, media' do
     %w[data media].each do |word|
       it %(treats "#{word}" as uncountable) do
-        expect(word.singularize).to eq(word)
-        expect(word.pluralize).to eq(word)
+        _(word.singularize).must_equal word
+        _(word.pluralize).must_equal word
       end
     end
   end
@@ -40,11 +40,11 @@ describe 'String inflections (lux-fw overrides)' do
       'focus'     => 'focuses'
     }.each do |singular, plural|
       it %(singularizes "#{plural}" to "#{singular}") do
-        expect(plural.singularize).to eq(singular)
+        _(plural.singularize).must_equal singular
       end
 
       it %(pluralizes "#{singular}" to "#{plural}") do
-        expect(singular.pluralize).to eq(plural)
+        _(singular.pluralize).must_equal plural
       end
     end
   end
@@ -67,7 +67,7 @@ describe 'String inflections (lux-fw overrides)' do
       'people'      => 'person'
     }.each do |plural, singular|
       it %("#{plural}".singularize == "#{singular}") do
-        expect(plural.singularize).to eq(singular)
+        _(plural.singularize).must_equal singular
       end
     end
   end

@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 class FooCell < Lux::ViewCell
   css %[
@@ -28,8 +28,8 @@ describe 'Lux::ViewCell css' do
   it 'compiles' do
     css = Lux::ViewCell.css
     # DATA[:css] is shared across all cells; assert per-cell contributions are present.
-    expect(css).to include('.foo1 .bar')
-    expect(css).to include('.bold')
-    expect(css).to include('.baz1 .baz2')
+    _(css).must_include '.foo1 .bar'
+    _(css).must_include '.bold'
+    _(css).must_include '.baz1 .baz2'
   end
 end

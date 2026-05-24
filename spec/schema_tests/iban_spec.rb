@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe Lux::Type::IbanType do
   def validate(input)
@@ -12,43 +12,43 @@ describe Lux::Type::IbanType do
 
   it 'should accept valid IBAN' do
     value, error = validate('GB29 NWBK 6016 1331 9268 19')
-    expect(error).to be_nil
-    expect(value).to eq('GB29NWBK60161331926819')
+    _(error).must_be_nil
+    _(value).must_equal 'GB29NWBK60161331926819'
   end
 
   it 'should accept valid Croatian IBAN' do
     value, error = validate('HR1210010051863000160')
-    expect(error).to be_nil
-    expect(value).to eq('HR1210010051863000160')
+    _(error).must_be_nil
+    _(value).must_equal 'HR1210010051863000160'
   end
 
   it 'should accept valid German IBAN' do
-    value, error = validate('DE89370400440532013000')
-    expect(error).to be_nil
+    _value, error = validate('DE89370400440532013000')
+    _(error).must_be_nil
   end
 
   it 'should strip spaces and upcase' do
     value, error = validate('  gb29 nwbk 6016 1331 9268 19  ')
-    expect(error).to be_nil
-    expect(value).to eq('GB29NWBK60161331926819')
+    _(error).must_be_nil
+    _(value).must_equal 'GB29NWBK60161331926819'
   end
 
   it 'should reject invalid checksum' do
     _value, error = validate('GB00NWBK60161331926819')
-    expect(error).to include('IBAN')
+    _(error).must_include 'IBAN'
   end
 
   it 'should reject too short input' do
     _value, error = validate('GB29')
-    expect(error).to include('IBAN')
+    _(error).must_include 'IBAN'
   end
 
   it 'should reject special characters' do
     _value, error = validate('GB29-NWBK-6016-1331')
-    expect(error).to include('IBAN')
+    _(error).must_include 'IBAN'
   end
 
   it 'should have correct db_schema' do
-    expect(Lux::Type::IbanType.db_schema).to eq([:string, { limit: 34 }])
+    _(Lux::Type::IbanType.db_schema).must_equal [:string, { limit: 34 }]
   end
 end

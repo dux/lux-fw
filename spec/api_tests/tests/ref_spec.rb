@@ -1,3 +1,4 @@
+require 'test_helper'
 require_relative '../loader'
 
 # Tests the new lux-fw-style ref DSL: methods defined inside `ref do` are
@@ -5,6 +6,8 @@ require_relative '../loader'
 # and @ref / @bearer_token are exposed to action bodies and callbacks.
 
 class RefSpecBaseApi < Lux::Api
+  def_registration_strict false
+
   before do
     @root_callback_seen = (@root_callback_seen || 0) + 1
   end
@@ -50,79 +53,81 @@ end
 
 describe 'ref DSL' do
   it 'renames methods inside ref do to *_ref' do
-    expect(RefSpecBaseApi.instance_method(:member_action_ref)).to be_a(UnboundMethod)
-    expect(RefSpecBaseApi.private_instance_methods(false)).to include(:secret_helper_ref)
+    _(RefSpecBaseApi.instance_method(:member_action_ref)).must_be_kind_of UnboundMethod
+    _(RefSpecBaseApi.private_instance_methods(false)).must_include :secret_helper_ref
   end
 
   it 'registers ref methods under :member' do
-    expect(RefSpecBaseApi.opts[:member]).to have_key(:member_action)
-    expect(RefSpecBaseApi.opts[:member]).to have_key(:defined_in_ref)
+    _(RefSpecBaseApi.opts[:member].key?(:member_action)).must_equal true
+    _(RefSpecBaseApi.opts[:member].key?(:defined_in_ref)).must_equal true
   end
 
   it 'registers root public methods under :collection' do
-    expect(RefSpecBaseApi.opts[:collection]).to have_key(:root_collection_action)
-    expect(RefSpecBaseApi.opts[:collection]).to have_key(:see_ref_in_collection)
+    _(RefSpecBaseApi.opts[:collection].key?(:root_collection_action)).must_equal true
+    _(RefSpecBaseApi.opts[:collection].key?(:see_ref_in_collection)).must_equal true
   end
 
   it 'does NOT register private helpers as endpoints (root)' do
-    expect(RefSpecBaseApi.opts[:collection] || {}).not_to have_key(:root_helper)
+    _((RefSpecBaseApi.opts[:collection] || {}).key?(:root_helper)).must_equal false
     response = RefSpecBaseApi.render :root_helper
-    expect(response[:success]).to eq(false)
-    expect(response[:error][:messages].first).to include('Api method')
+    _(response[:success]).must_equal false
+    _(response[:error][:messages].first).must_include 'Api method'
   end
 
   it 'does NOT register private helpers as endpoints (inside ref do)' do
-    expect(RefSpecBaseApi.opts[:member] || {}).not_to have_key(:secret_helper)
+    _((RefSpecBaseApi.opts[:member] || {}).key?(:secret_helper)).must_equal false
     # both the un-suffixed name AND _ref name should be rejected
-    expect(RefSpecBaseApi.render(:secret_helper, id: 1)[:success]).to eq(false)
+    _(RefSpecBaseApi.render(:secret_helper, id: 1)[:success]).must_equal false
   end
 
   it 'sets @ref to the resource id for member actions' do
     response = RefSpecBaseApi.render :member_action, id: 'abc123'
-    expect(response[:success]).to eq(true)
-    expect(response[:data].first).to eq('abc123')
+    _(response[:success]).must_equal true
+    _(response[:data].first).must_equal 'abc123'
   end
 
   it 'leaves @ref nil for collection actions' do
     response = RefSpecBaseApi.render :see_ref_in_collection
-    expect(response[:success]).to eq(true)
-    expect(response[:data]).to be_nil
+    _(response[:success]).must_equal true
+    _(response[:data]).must_be_nil
   end
 
   it 'exposes @bearer_token before any callback' do
     response = RefSpecBaseApi.render :see_bearer_at_root, bearer: 'tok-xyz'
-    expect(response[:data]).to eq('tok-xyz')
+    _(response[:data]).must_equal 'tok-xyz'
   end
 
   it 'fires root before for both collection and ref' do
     response = RefSpecBaseApi.render :root_collection_action
-    expect(response[:data]).to eq(1)
+    _(response[:data]).must_equal 1
 
     response = RefSpecBaseApi.render :member_action, id: 1
     # third element is @root_callback_seen, set by root before
-    expect(response[:data][2]).to eq(1)
+    _(response[:data][2]).must_equal 1
   end
 
   it 'fires ref-scoped before only for ref actions' do
     response = RefSpecBaseApi.render :member_action, id: 1
-    expect(response[:data][3]).to eq(1)
+    _(response[:data][3]).must_equal 1
 
     response = RefSpecBaseApi.render :root_collection_action
-    expect(response[:data]).to eq(1)
+    _(response[:data]).must_equal 1
     # @ref_callback_seen would be nil for collection action
   end
 
   it 'define :foo inside ref do becomes :foo_ref' do
-    expect(RefSpecBaseApi.instance_method(:defined_in_ref_ref)).to be_a(UnboundMethod)
+    _(RefSpecBaseApi.instance_method(:defined_in_ref_ref)).must_be_kind_of UnboundMethod
 
     response = RefSpecBaseApi.render :defined_in_ref, id: 42
-    expect(response[:data]).to eq('defined_ref_42')
+    _(response[:data]).must_equal 'defined_ref_42'
   end
 end
 
 # super / super! across inheritance lines
 
 class RefSpecParentApi < Lux::Api
+  def_registration_strict false
+
   def parent_collection
     'parent-c'
   end
@@ -156,14 +161,14 @@ end
 
 describe 'super and super! across ref/collection' do
   it 'plain super works in collection methods' do
-    expect(RefSpecChildApi.render(:parent_collection)[:data]).to eq('parent-c-overridden')
+    _(RefSpecChildApi.render(:parent_collection)[:data]).must_equal 'parent-c-overridden'
   end
 
   it 'super! works inside ref methods (no-arg)' do
-    expect(RefSpecChildApi.render(:parent_member, id: 1)[:data]).to eq('parent-m-overridden')
+    _(RefSpecChildApi.render(:parent_member, id: 1)[:data]).must_equal 'parent-m-overridden'
   end
 
   it 'super! with explicit name resolves member methods on superclass' do
-    expect(RefSpecChildApi.render(:with_explicit_super_bang, id: 1)[:data]).to eq('parent-m!shim')
+    _(RefSpecChildApi.render(:with_explicit_super_bang, id: 1)[:data]).must_equal 'parent-m!shim'
   end
 end

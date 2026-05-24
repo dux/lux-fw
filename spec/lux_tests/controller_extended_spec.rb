@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 # Extended controller for testing additional features
 class ExtendedTestController < Lux::Controller
@@ -71,49 +71,50 @@ describe 'Lux::Controller extended' do
   describe 'render options' do
     it 'renders text with custom status' do
       ExtendedTestController.action(:with_status)
-      expect(Lux.current.response.body).to eq('custom status')
-      expect(Lux.current.response.status).to eq(201)
+      _(Lux.current.response.body).must_equal 'custom status'
+      _(Lux.current.response.status).must_equal 201
     end
 
     it 'renders HTML' do
       ExtendedTestController.action(:render_html)
-      expect(Lux.current.response.body).to eq('<h1>hello</h1>')
+      _(Lux.current.response.body).must_equal '<h1>hello</h1>'
     end
 
     it 'renders XML' do
       ExtendedTestController.action(:render_xml)
-      expect(Lux.current.response.body).to eq('<root><item>1</item></root>')
+      _(Lux.current.response.body).must_equal '<root><item>1</item></root>'
     end
   end
 
   describe '.mock' do
     it 'creates empty methods that return true' do
-      expect(MockableController.new).to respond_to(:landing)
-      expect(MockableController.new).to respond_to(:about)
+      _(MockableController.new.respond_to?(:landing)).must_equal true
+      _(MockableController.new.respond_to?(:about)).must_equal true
     end
 
     it 'mock methods return true' do
-      expect(MockableController.new.landing).to be true
-      expect(MockableController.new.about).to be true
+      _(MockableController.new.landing).must_equal true
+      _(MockableController.new.about).must_equal true
     end
 
     it 'does not override real methods' do
       MockableController.action(:real_action)
-      expect(Lux.current.response.body).to eq('real')
+      _(Lux.current.response.body).must_equal 'real'
     end
   end
 
   describe 'error propagation' do
     it 'propagates errors from controller actions (no controller-level rescue)' do
-      expect { RescueController.action(:explode) }.to raise_error(RuntimeError, 'boom')
+      err = _{ RescueController.action(:explode) }.must_raise RuntimeError
+      _(err.message).must_equal 'boom'
     end
   end
 
   describe '#flash' do
     it 'provides access to response flash' do
       ExtendedTestController.action(:with_flash)
-      expect(Lux.current.response.body).to eq('flashed')
-      expect(Lux.current.response.flash.to_h[:info]).to eq(['Hello!'])
+      _(Lux.current.response.body).must_equal 'flashed'
+      _(Lux.current.response.flash.to_h[:info]).must_equal ['Hello!']
     end
   end
 
@@ -121,13 +122,13 @@ describe 'Lux::Controller extended' do
     it 'detects GET requests' do
       Lux::Current.new('http://testing/get_only', method: :get)
       ExtendedTestController.action(:get_only)
-      expect(Lux.current.response.body).to eq('get response')
+      _(Lux.current.response.body).must_equal 'get response'
     end
 
     it 'detects POST requests' do
       Lux::Current.new('http://testing/get_only', method: :post)
       ExtendedTestController.action(:get_only)
-      expect(Lux.current.response.body).to eq('post response')
+      _(Lux.current.response.body).must_equal 'post response'
     end
   end
 
@@ -136,14 +137,14 @@ describe 'Lux::Controller extended' do
       # redirect_to depends on Url class from app layer, test response directly
       Lux.current.response.headers['location'] = '/target'
       Lux.current.response.status 302
-      expect(Lux.current.response.status).to eq(302)
-      expect(Lux.current.response.headers['location']).to eq('/target')
+      _(Lux.current.response.status).must_equal 302
+      _(Lux.current.response.headers['location']).must_equal '/target'
     end
   end
 
   describe 'forbidden action names' do
     it 'raises on :action as an action name' do
-      expect { ExtendedTestController.action(:action) }.to raise_error(Lux::Error)
+      _{ ExtendedTestController.action(:action) }.must_raise Lux::Error
     end
   end
 
@@ -151,43 +152,43 @@ describe 'Lux::Controller extended' do
     it 'renders a self-contained HTML page with status and message' do
       err = Lux::Error.new('missing thing')
       ExtendedTestController.action(:error, ivars: { '@error' => err, '@status' => 404 })
-      expect(Lux.current.response.status).to eq(404)
-      expect(Lux.current.response.body).to include('404')
-      expect(Lux.current.response.body).to include('Not Found')
-      expect(Lux.current.response.body).to include('missing thing')
-      expect(Lux.current.response.body).to include('<!DOCTYPE html>')
+      _(Lux.current.response.status).must_equal 404
+      _(Lux.current.response.body).must_include '404'
+      _(Lux.current.response.body).must_include 'Not Found'
+      _(Lux.current.response.body).must_include 'missing thing'
+      _(Lux.current.response.body).must_include '<!DOCTYPE html>'
     end
 
     it 'derives status from response.status when @status is not set' do
       Lux.current.response.status 422
       err = Lux::Error.new('unprocessable')
       ExtendedTestController.action(:error, ivars: { '@error' => err })
-      expect(Lux.current.response.status).to eq(422)
+      _(Lux.current.response.status).must_equal 422
     end
 
     it 'defaults to 500 when neither @status nor response.status is set' do
       err = Lux::Error.new('boom')
       ExtendedTestController.action(:error, ivars: { '@error' => err })
-      expect(Lux.current.response.status).to eq(500)
+      _(Lux.current.response.status).must_equal 500
     end
 
     it 'renders JSON when nav.format is json' do
       Lux::Current.new('http://testing/x.json')
       err = Lux::Error.new('boom')
       ExtendedTestController.action(:error, ivars: { '@error' => err, '@status' => 500 })
-      expect(Lux.current.response.body).to include('"error"')
-      expect(Lux.current.response.body).to include('boom')
-      expect(Lux.current.response.body).to include('500')
+      _(Lux.current.response.body).must_include '"error"'
+      _(Lux.current.response.body).must_include 'boom'
+      _(Lux.current.response.body).must_include '500'
     end
   end
 
   describe 'blank action name' do
     it 'raises on blank action' do
-      expect { ExtendedTestController.action('') }.to raise_error(ArgumentError)
+      _{ ExtendedTestController.action('') }.must_raise ArgumentError
     end
 
     it 'raises on nil action' do
-      expect { ExtendedTestController.action(nil) }.to raise_error(ArgumentError)
+      _{ ExtendedTestController.action(nil) }.must_raise ArgumentError
     end
   end
 
@@ -195,7 +196,7 @@ describe 'Lux::Controller extended' do
     it 'converts hyphens to underscores' do
       # 'show' with hyphens would become 'show'
       ExtendedTestController.action(:show)
-      expect(Lux.current.response.body).to eq('show')
+      _(Lux.current.response.body).must_equal 'show'
     end
   end
 
@@ -203,7 +204,7 @@ describe 'Lux::Controller extended' do
     it 'sets instance variables from ivars parameter' do
       ctrl = ExtendedTestController.new
       ctrl.action(:show, ivars: { '@custom' => 'value' })
-      expect(ctrl.instance_variable_get(:@custom)).to eq('value')
+      _(ctrl.instance_variable_get(:@custom)).must_equal 'value'
     end
   end
 

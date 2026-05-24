@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 Lux.schema :user1, type: :foo do
   name
@@ -20,8 +20,8 @@ end
 
 describe Lux::Type::ModelType do
   describe 'DB schema access' do
-    let(:opts) {
-      {
+    def opts
+      @opts ||= {
         foo: 123,
         bar: 456,
         user: {
@@ -29,25 +29,25 @@ describe Lux::Type::ModelType do
           is_admin: true
         }
       }
-    }
+    end
 
     it 'gets valid schema' do
       opts[:user][:email] = 'dux.net.hr'
       validated = Lux.schema(:api1).validate(opts)
-      expect(validated['user.email']).to include('missing')
+      _(validated['user.email']).must_include 'missing'
     end
 
     it 'gets valid schema' do
       opts[:user][:email] = 'dux@net.hr'
       validated = Lux.schema(:api1).validate(opts)
-      expect(validated.keys.length).to eq(0)
+      _(validated.keys.length).must_equal 0
     end
 
     it 'gets errors' do
       validated = Lux.schema(:api1).validate({ user: { foo: 1 } })
 
       for key in [:foo, 'user.name', 'user.email']
-        expect(validated[key]).to include('req')
+        _(validated[key]).must_include 'req'
       end
     end
 
@@ -56,7 +56,7 @@ describe Lux::Type::ModelType do
       validated = Lux.schema(:api_dyn).validate(params)
 
       for key in [:foo, 'dyn.name', 'dyn.email']
-        expect(validated[key]).to include('req')
+        _(validated[key]).must_include 'req'
       end
 
       params = {
@@ -67,7 +67,7 @@ describe Lux::Type::ModelType do
         }
       }
       validated = Lux.schema(:api_dyn).validate(params)
-      expect(validated['dyn.email']).to include('missing')
+      _(validated['dyn.email']).must_include 'missing'
 
       params = {
         foo: 'bar',
@@ -77,12 +77,12 @@ describe Lux::Type::ModelType do
         }
       }
       validated = Lux.schema(:api_dyn).validate(params)
-      expect(validated.keys.length).to eq(0)
+      _(validated.keys.length).must_equal 0
     end
 
     it 'gets types right' do
-      expect(Lux.schema(type: :foo).sort).to eq(['ApiDyn', 'User1'])
-      expect(Lux.schema(type: :baz)).to eq([])
+      _(Lux.schema(type: :foo).sort).must_equal ['ApiDyn', 'User1']
+      _(Lux.schema(type: :baz)).must_equal []
     end
   end
 end

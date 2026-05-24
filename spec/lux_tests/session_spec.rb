@@ -1,30 +1,32 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe Lux::Current::Session do
   before do
     Lux::Current.new('http://test.example.com/')
   end
 
-  let(:session) { Lux.current.session }
+  def session
+    @session ||= Lux.current.session
+  end
 
   describe '#[] and #[]=' do
     it 'stores and retrieves values' do
       session[:user_id] = 42
-      expect(session[:user_id]).to eq(42)
+      _(session[:user_id]).must_equal 42
     end
 
     it 'normalizes keys to lowercase strings' do
       session[:MyKey] = 'value'
-      expect(session['mykey']).to eq('value')
+      _(session['mykey']).must_equal 'value'
     end
 
     it 'supports string keys' do
       session['token'] = 'abc'
-      expect(session['token']).to eq('abc')
+      _(session['token']).must_equal 'abc'
     end
 
     it 'returns nil for missing keys' do
-      expect(session[:nonexistent]).to be_nil
+      _(session[:nonexistent]).must_be_nil
     end
   end
 
@@ -32,15 +34,15 @@ describe Lux::Current::Session do
     it 'removes a key from session' do
       session[:temp] = 'data'
       session.delete(:temp)
-      expect(session[:temp]).to be_nil
+      _(session[:temp]).must_be_nil
     end
   end
 
   describe '#merge!' do
     it 'merges a hash into session' do
       session.merge!(name: 'test', role: 'admin')
-      expect(session[:name]).to eq('test')
-      expect(session[:role]).to eq('admin')
+      _(session[:name]).must_equal 'test'
+      _(session[:role]).must_equal 'admin'
     end
   end
 
@@ -48,7 +50,8 @@ describe Lux::Current::Session do
     it 'returns all session keys' do
       session[:a] = 1
       session[:b] = 2
-      expect(session.keys).to include('a', 'b')
+      _(session.keys).must_include 'a'
+      _(session.keys).must_include 'b'
     end
   end
 
@@ -56,24 +59,24 @@ describe Lux::Current::Session do
     it 'returns the session hash' do
       session[:foo] = 'bar'
       h = session.to_h
-      expect(h).to be_a(Hash)
-      expect(h['foo']).to eq('bar')
+      _(h).must_be_kind_of Hash
+      _(h['foo']).must_equal 'bar'
     end
   end
 
   describe '#hash' do
     it 'returns the underlying hash' do
-      expect(session.hash).to be_a(Hash)
+      _(session.hash).must_be_kind_of Hash
     end
   end
 
   describe '#cookie_name' do
     it 'includes the lux prefix' do
-      expect(session.cookie_name).to start_with('lux_')
+      _(session.cookie_name).must_match(/\Alux_/)
     end
 
     it 'includes the port number' do
-      expect(session.cookie_name).to match(/_\d+$/)
+      _(session.cookie_name).must_match(/_\d+$/)
     end
   end
 
@@ -81,17 +84,17 @@ describe Lux::Current::Session do
     it 'generates an encrypted cookie string' do
       session[:test] = 'data'
       cookie = session.generate_cookie
-      expect(cookie).to be_a(String)
-      expect(cookie).to include(session.cookie_name)
-      expect(cookie).to include('Path=/')
-      expect(cookie).to include('HttpOnly')
-      expect(cookie).to include('SameSite=Lax')
+      _(cookie).must_be_kind_of String
+      _(cookie).must_include session.cookie_name
+      _(cookie).must_include 'Path=/'
+      _(cookie).must_include 'HttpOnly'
+      _(cookie).must_include 'SameSite=Lax'
     end
 
     it 'includes Max-Age' do
       session[:test] = 'data'
       cookie = session.generate_cookie
-      expect(cookie).to match(/Max-Age=\d+/)
+      _(cookie).must_match(/Max-Age=\d+/)
     end
 
     it 'returns nil when session unchanged' do
@@ -107,22 +110,22 @@ describe Lux::Current::Session do
 
       Lux::Current.new(env)
       cookie2 = Lux.current.session.generate_cookie
-      expect(cookie2).to be_nil
+      _(cookie2).must_be_nil
     end
   end
 
   describe '#security_string' do
     it 'returns a string based on IP and user agent' do
       result = session.security_string
-      expect(result).to be_a(String)
-      expect(result).not_to be_empty
+      _(result).must_be_kind_of String
+      _(result.empty?).must_equal false
     end
   end
 
   describe 'security_check' do
     it 'stores security check data in _c key' do
-      expect(session['_c']).to be_an(Array)
-      expect(session['_c'].length).to eq(2)
+      _(session['_c']).must_be_kind_of Array
+      _(session['_c'].length).must_equal 2
     end
   end
 end

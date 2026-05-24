@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 require 'fileutils'
 
 describe Lux::Plugin do
@@ -29,8 +29,8 @@ describe Lux::Plugin do
 
       plugin = Lux::Plugin.load(root)
 
-      expect(plugin.name).to eq(plugin_name)
-      expect(defined?(PluginLoaderSpecLoaded)).to eq('constant')
+      _(plugin.name).must_equal plugin_name
+      _(defined?(PluginLoaderSpecLoaded)).must_equal 'constant'
     ensure
       Lux::Plugin.plugins.delete(plugin_name) if plugin_name
       Object.send(:remove_const, :PluginLoaderSpecLoaded) if defined?(PluginLoaderSpecLoaded)
@@ -58,10 +58,10 @@ describe Lux::Plugin do
 
         Lux::Plugin.load(root)
 
-        expect(Lux.config[:plugin_config_spec][:existing]).to eq('host')
-        expect(Lux.config[:plugin_config_spec][:from_plugin]).to eq(true)
-        expect(Lux.config[:plugins]).to eq(['host_plugin', 'plugin_dependency'])
-        expect(PluginConfigSpecRuntimeValue).to eq(true)
+        _(Lux.config[:plugin_config_spec][:existing]).must_equal 'host'
+        _(Lux.config[:plugin_config_spec][:from_plugin]).must_equal true
+        _(Lux.config[:plugins]).must_equal ['host_plugin', 'plugin_dependency']
+        _(PluginConfigSpecRuntimeValue).must_equal true
       ensure
         Lux::Plugin.plugins.delete(plugin_name) if plugin_name
         Object.send(:remove_const, :PluginConfigSpecRuntimeValue) if defined?(PluginConfigSpecRuntimeValue)
@@ -83,7 +83,7 @@ describe Lux::Plugin do
 
         Lux::Plugin.load(root)
 
-        expect(Lux.config[:plugins]).to eq(['host_plugin', 'plugin_dependency'])
+        _(Lux.config[:plugins]).must_equal ['host_plugin', 'plugin_dependency']
       ensure
         Lux::Plugin.plugins.delete(plugin_name) if plugin_name
       end
@@ -105,7 +105,7 @@ describe Lux::Plugin do
 
       Lux::Plugin.load(root)
 
-      expect(Lux.config[:config_only_plugin][:enabled]).to eq(true)
+      _(Lux.config[:config_only_plugin][:enabled]).must_equal true
     ensure
       Lux::Plugin.plugins.delete(plugin_name) if plugin_name
       FileUtils.rm_rf(root) if root
@@ -134,9 +134,9 @@ describe Lux::Plugin do
 
         Lux::Plugin.load(root)
 
-        expect(Lux.config[:plugin_defaults][:enabled]).to eq(true)
-        expect(Lux.config[:production][:plugin_defaults][:cdn_root]).to eq('https://cdn.example.test')
-        expect(Lux.config[:plugins]).to eq(['host_plugin', 'plugin_dependency'])
+        _(Lux.config[:plugin_defaults][:enabled]).must_equal true
+        _(Lux.config[:production][:plugin_defaults][:cdn_root]).must_equal 'https://cdn.example.test'
+        _(Lux.config[:plugins]).must_equal ['host_plugin', 'plugin_dependency']
       ensure
         Lux::Plugin.plugins.delete(plugin_name) if plugin_name
       end
@@ -146,6 +146,6 @@ describe Lux::Plugin do
   it 'normalizes configured plugin names' do
     names = Lux::Plugin.normalize_names(nil, false, 'db', [:html, nil, false])
 
-    expect(names).to eq(['db', 'html'])
+    _(names).must_equal ['db', 'html']
   end
 end

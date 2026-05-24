@@ -24,6 +24,10 @@ module Lux
   module Shell
     extend self
 
+    # Raised by Lux.shell.die when running in the test env, so failures can
+    # be asserted on instead of exiting the suite.
+    class Die < StandardError; end
+
     SHELL_UNSAFE ||= /[\s\$\`\\\;\|\&\>\<\*\?\!\(\)\[\]\{\}\'\"#~]/
 
     # Run a command. Returns stripped stdout on success.
@@ -141,12 +145,19 @@ module Lux
     # Log fatal, render to stderr and exit (1).
     # Accepts a string or an array. With an array the first entry is
     # the title and the rest are rendered as indented detail lines.
+    # In test env, raises Lux::Shell::Die instead of exiting so callers
+    # can assert on the error path with `must_raise`.
     def die text
       lines = Array(text).map(&:to_s)
       if app_line = Lux.app_caller
         lines << "at #{app_line}"
       end
       Lux.logger.fatal "Lux FATAL: #{lines.join(' | ')}"
+
+      if Lux.env.test?
+        raise Lux::Shell::Die, lines.join(' | ')
+      end
+
       $stderr.puts '! %s' % lines.first.colorize(:red)
       lines[1..].to_a.each { |line| $stderr.puts '  %s' % line.colorize(:red) }
       exit 1

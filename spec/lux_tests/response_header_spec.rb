@@ -1,17 +1,19 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe Lux::Response::Header do
-  let(:header) { Lux::Response::Header.new }
+  def header
+    @header ||= Lux::Response::Header.new
+  end
 
   describe '#[] and #[]=' do
     it 'sets and gets values (case-insensitive)' do
       header['Content-Type'] = 'text/html'
-      expect(header['content-type']).to eq('text/html')
-      expect(header['Content-Type']).to eq('text/html')
+      _(header['content-type']).must_equal 'text/html'
+      _(header['Content-Type']).must_equal 'text/html'
     end
 
     it 'returns nil for missing keys' do
-      expect(header['x-missing']).to be_nil
+      _(header['x-missing']).must_be_nil
     end
   end
 
@@ -22,14 +24,14 @@ describe Lux::Response::Header do
         'X-Custom' => 'value'
       })
 
-      expect(header['content-type']).to eq('text/html')
-      expect(header['x-custom']).to eq('value')
+      _(header['content-type']).must_equal 'text/html'
+      _(header['x-custom']).must_equal 'value'
     end
 
     it 'returns the merged data' do
       result = header.merge({ 'X-Test' => '1' })
-      expect(result).to be_a(Hash)
-      expect(result['x-test']).to eq('1')
+      _(result).must_be_kind_of Hash
+      _(result['x-test']).must_equal '1'
     end
   end
 
@@ -37,7 +39,7 @@ describe Lux::Response::Header do
     it 'removes a header (case-insensitive)' do
       header['X-Remove'] = 'value'
       header.delete('x-remove')
-      expect(header['x-remove']).to be_nil
+      _(header['x-remove']).must_be_nil
     end
   end
 
@@ -47,11 +49,11 @@ describe Lux::Response::Header do
       header['x-baz'] = 'qux'
 
       h = header.to_h
-      expect(h).to eq({ 'x-foo' => 'bar', 'x-baz' => 'qux' })
+      _(h).must_equal({ 'x-foo' => 'bar', 'x-baz' => 'qux' })
     end
 
     it 'returns empty hash when no headers set' do
-      expect(header.to_h).to eq({})
+      _(header.to_h).must_equal({})
     end
   end
 end

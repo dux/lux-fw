@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 # Default action: GET + HEAD only.
 class GetDefaultController < Lux::Controller
@@ -93,26 +93,26 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
     it 'accepts GET' do
       Lux::Current.new('http://test/show')
       GetDefaultController.action(:show)
-      expect(Lux.current.response.body).to eq('show:GET')
+      _(Lux.current.response.body).must_equal 'show:GET'
     end
 
     it 'accepts HEAD (implicit alongside GET)' do
       Lux::Current.new('http://test/show', method: 'HEAD')
       GetDefaultController.action(:show)
-      expect(Lux.current.response.body).to eq('show:HEAD')
+      _(Lux.current.response.body).must_equal 'show:HEAD'
     end
 
     it 'rejects POST with 405' do
       Lux::Current.new('http://test/show', method: 'POST')
-      expect { GetDefaultController.action(:show) }.to raise_error(Lux::Error)
-      expect(Lux.current.response.status).to eq(405)
+      _{ GetDefaultController.action(:show) }.must_raise Lux::Error
+      _(Lux.current.response.status).must_equal 405
     end
 
     it 'rejects PUT, PATCH, DELETE with 405' do
       %w(PUT PATCH DELETE).each do |verb|
         Lux::Current.new('http://test/show', method: verb)
-        expect { GetDefaultController.action(:show) }.to raise_error(Lux::Error)
-        expect(Lux.current.response.status).to eq(405)
+        _{ GetDefaultController.action(:show) }.must_raise Lux::Error
+        _(Lux.current.response.status).must_equal 405
       end
     end
   end
@@ -121,25 +121,25 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
     it 'accepts POST' do
       Lux::Current.new('http://test/create', method: 'POST')
       AllowPostController.action(:create)
-      expect(Lux.current.response.body).to eq('create:POST')
+      _(Lux.current.response.body).must_equal 'create:POST'
     end
 
     it 'rejects GET with 405 (allow replaces default)' do
       Lux::Current.new('http://test/create')
-      expect { AllowPostController.action(:create) }.to raise_error(Lux::Error)
-      expect(Lux.current.response.status).to eq(405)
+      _{ AllowPostController.action(:create) }.must_raise Lux::Error
+      _(Lux.current.response.status).must_equal 405
     end
 
     it 'rejects HEAD with 405 (no implicit HEAD without :get)' do
       Lux::Current.new('http://test/create', method: 'HEAD')
-      expect { AllowPostController.action(:create) }.to raise_error(Lux::Error)
-      expect(Lux.current.response.status).to eq(405)
+      _{ AllowPostController.action(:create) }.must_raise Lux::Error
+      _(Lux.current.response.status).must_equal 405
     end
 
     it 'rejects PATCH with 405' do
       Lux::Current.new('http://test/create', method: 'PATCH')
-      expect { AllowPostController.action(:create) }.to raise_error(Lux::Error)
-      expect(Lux.current.response.status).to eq(405)
+      _{ AllowPostController.action(:create) }.must_raise Lux::Error
+      _(Lux.current.response.status).must_equal 405
     end
   end
 
@@ -147,25 +147,25 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
     it 'accepts POST' do
       Lux::Current.new('http://test/update', method: 'POST')
       AllowMultiController.action(:update)
-      expect(Lux.current.response.body).to eq('update:POST')
+      _(Lux.current.response.body).must_equal 'update:POST'
     end
 
     it 'accepts PATCH' do
       Lux::Current.new('http://test/update', method: 'PATCH')
       AllowMultiController.action(:update)
-      expect(Lux.current.response.body).to eq('update:PATCH')
+      _(Lux.current.response.body).must_equal 'update:PATCH'
     end
 
     it 'rejects GET' do
       Lux::Current.new('http://test/update')
-      expect { AllowMultiController.action(:update) }.to raise_error(Lux::Error)
-      expect(Lux.current.response.status).to eq(405)
+      _{ AllowMultiController.action(:update) }.must_raise Lux::Error
+      _(Lux.current.response.status).must_equal 405
     end
 
     it 'rejects DELETE' do
       Lux::Current.new('http://test/update', method: 'DELETE')
-      expect { AllowMultiController.action(:update) }.to raise_error(Lux::Error)
-      expect(Lux.current.response.status).to eq(405)
+      _{ AllowMultiController.action(:update) }.must_raise Lux::Error
+      _(Lux.current.response.status).must_equal 405
     end
   end
 
@@ -173,25 +173,25 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
     it 'accepts GET' do
       Lux::Current.new('http://test/upsert')
       AllowGetPostController.action(:upsert)
-      expect(Lux.current.response.body).to eq('upsert:GET')
+      _(Lux.current.response.body).must_equal 'upsert:GET'
     end
 
     it 'accepts HEAD (implicit because :get is declared)' do
       Lux::Current.new('http://test/upsert', method: 'HEAD')
       AllowGetPostController.action(:upsert)
-      expect(Lux.current.response.body).to eq('upsert:HEAD')
+      _(Lux.current.response.body).must_equal 'upsert:HEAD'
     end
 
     it 'accepts POST' do
       Lux::Current.new('http://test/upsert', method: 'POST')
       AllowGetPostController.action(:upsert)
-      expect(Lux.current.response.body).to eq('upsert:POST')
+      _(Lux.current.response.body).must_equal 'upsert:POST'
     end
 
     it 'rejects PATCH' do
       Lux::Current.new('http://test/upsert', method: 'PATCH')
-      expect { AllowGetPostController.action(:upsert) }.to raise_error(Lux::Error)
-      expect(Lux.current.response.status).to eq(405)
+      _{ AllowGetPostController.action(:upsert) }.must_raise Lux::Error
+      _(Lux.current.response.status).must_equal 405
     end
   end
 
@@ -199,13 +199,13 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
     it 'accepts PUT' do
       Lux::Current.new('http://test/replace', method: 'PUT')
       AllowSplatController.action(:replace)
-      expect(Lux.current.response.body).to eq('replace:PUT')
+      _(Lux.current.response.body).must_equal 'replace:PUT'
     end
 
     it 'accepts DELETE' do
       Lux::Current.new('http://test/replace', method: 'DELETE')
       AllowSplatController.action(:replace)
-      expect(Lux.current.response.body).to eq('replace:DELETE')
+      _(Lux.current.response.body).must_equal 'replace:DELETE'
     end
   end
 
@@ -214,7 +214,7 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
       %w(GET POST PUT PATCH DELETE TRACE).each do |verb|
         Lux::Current.new('http://test/webhook', method: verb)
         AllowAnyController.action(:webhook)
-        expect(Lux.current.response.body).to eq('webhook:%s' % verb)
+        _(Lux.current.response.body).must_equal 'webhook:%s' % verb
       end
     end
   end
@@ -224,7 +224,7 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
       %w(GET POST PUT DELETE).each do |verb|
         Lux::Current.new('http://test/hook', method: verb)
         AllowAllController.action(:hook)
-        expect(Lux.current.response.body).to eq('hook:%s' % verb)
+        _(Lux.current.response.body).must_equal 'hook:%s' % verb
       end
     end
   end
@@ -233,13 +233,13 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
     it 'applies allow :post only to the next def' do
       Lux::Current.new('http://test/create', method: 'POST')
       AllowIsolationController.action(:create)
-      expect(Lux.current.response.body).to eq('create:POST')
+      _(Lux.current.response.body).must_equal 'create:POST'
     end
 
     it 'leaves the following def at GET-default' do
       Lux::Current.new('http://test/show', method: 'POST')
-      expect { AllowIsolationController.action(:show) }.to raise_error(Lux::Error)
-      expect(Lux.current.response.status).to eq(405)
+      _{ AllowIsolationController.action(:show) }.must_raise Lux::Error
+      _(Lux.current.response.status).must_equal 405
     end
   end
 
@@ -248,14 +248,14 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
       Lux::Current.new('http://test/things/abc', method: 'DELETE')
       Lux.current.nav.path(:ref) { |el| el == 'abc' ? 'abc' : nil }
       AllowRefController.action(:destroy_ref)
-      expect(Lux.current.response.body).to eq('destroy:abc:DELETE')
+      _(Lux.current.response.body).must_equal 'destroy:abc:DELETE'
     end
 
     it 'still rejects undeclared verbs on *_ref' do
       Lux::Current.new('http://test/things/abc', method: 'POST')
       Lux.current.nav.path(:ref) { |el| el == 'abc' ? 'abc' : nil }
-      expect { AllowRefController.action(:destroy_ref) }.to raise_error(Lux::Error)
-      expect(Lux.current.response.status).to eq(405)
+      _{ AllowRefController.action(:destroy_ref) }.must_raise Lux::Error
+      _(Lux.current.response.status).must_equal 405
     end
   end
 
@@ -263,42 +263,41 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
     it 'is implicitly :any so POSTed errors render' do
       Lux::Current.new('http://test/anything', method: 'POST')
       AllowErrorController.action(:error)
-      expect(Lux.current.response.body).to match(/^error:/)
+      _(Lux.current.response.body).must_match(/^error:/)
     end
   end
 
   describe 'invalid declarations' do
     it 'raises ArgumentError at class load for unknown verbs' do
-      expect {
+      err = _{
         Class.new(Lux::Controller) do
           allow :bogus
         end
-      }.to raise_error(ArgumentError, /not a recognised HTTP verb/)
+      }.must_raise ArgumentError
+      _(err.message).must_match(/not a recognised HTTP verb/)
     end
   end
 
   describe 'dev-mode 405 hint' do
-    around do |ex|
-      prev = Lux.mode.errors?
-      Lux.mode.errors = true
-      ex.run
-    ensure
-      Lux.mode.errors = prev
-    end
-
     it 'includes the action name, attempted verb and allowed list' do
-      Lux::Current.new('http://test/show', method: 'PUT')
-      raised = nil
+      prev = Lux.mode.debug?
+      Lux.mode.debug = true
       begin
-        GetDefaultController.action(:show)
-      rescue Lux::Error => err
-        raised = err
+        Lux::Current.new('http://test/show', method: 'PUT')
+        raised = nil
+        begin
+          GetDefaultController.action(:show)
+        rescue Lux::Error => err
+          raised = err
+        end
+        refute_nil raised
+        _(raised.message).must_include 'GetDefaultController#show'
+        _(raised.message).must_include 'PUT'
+        _(raised.message).must_include 'GET, HEAD'
+        _(raised.message).must_include 'allow :put'
+      ensure
+        Lux.mode.debug = prev
       end
-      expect(raised).not_to be_nil
-      expect(raised.message).to include('GetDefaultController#show')
-      expect(raised.message).to include('PUT')
-      expect(raised.message).to include('GET, HEAD')
-      expect(raised.message).to include('allow :put')
     end
   end
 
@@ -311,8 +310,8 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
       rescue Lux::Error => err
         raised = err
       end
-      expect(raised).not_to be_nil
-      expect(raised.message).to eq('405 Method Not Allowed')
+      refute_nil raised
+      _(raised.message).must_equal '405 Method Not Allowed'
     end
   end
 end

@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 ###
 
@@ -20,6 +20,6 @@ end
 
 describe 'Lux::ViewCell tag' do
   it 'renders' do
-    expect(HtmlTagCell.new.foo).to eq('<ol><li><a href="#">123</a></li></ol>')
+    _(HtmlTagCell.new.foo).must_equal '<ol><li><a href="#">123</a></li></ol>'
   end
 end

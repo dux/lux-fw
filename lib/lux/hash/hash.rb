@@ -22,17 +22,20 @@ module Lux
         end
       end
 
+      # only Symbol keys get stringified - that's what makes :foo / 'foo'
+      # access indifferent. Integer / Class / other keys are preserved
+      # as-is so callers can use them verbatim (e.g. enum {3 => 'High'}).
       def [] key
-        super(key.to_s)
+        super(key.is_a?(Symbol) ? key.to_s : key)
       end
 
       def []= key, value
         value = Lux::Hash.new(value) if value.is_a?(::Hash) && !value.is_a?(Lux::Hash)
-        super key.to_s, value
+        super(key.is_a?(Symbol) ? key.to_s : key, value)
       end
 
       def delete key
-        super(key.to_s)
+        super(key.is_a?(Symbol) ? key.to_s : key)
       end
 
       # we never return array from hash, ruby internals
@@ -52,12 +55,12 @@ module Lux
 
       def merge hash
         dup.tap do |h|
-          hash.each { |k, v| h[k.to_s] = v }
+          hash.each { |k, v| h[k] = v }
         end
       end
 
       def merge! hash
-        hash.each { |k, v| self[k.to_s] = v }
+        hash.each { |k, v| self[k] = v }
       end
 
       def dig *args
@@ -72,12 +75,16 @@ module Lux
       def method_missing name, *args, &block
         strname = name.to_s
 
-        if strname.sub!(/\?$/, '')
+        # Ruby 4 returns a frozen string from Symbol#to_s; chomp/end_with?
+        # avoid in-place mutation (and the regex engine) on the hot path.
+        last = strname[-1]
+
+        if last == '?'
           # h.foo? - truthy unless value is nil, false, 'false' or 0
-          ![nil, false, 'false', 0].include?(self[strname])
-        elsif strname.sub!(/=$/, '')
+          ![nil, false, 'false', 0].include?(self[strname.chomp('?')])
+        elsif last == '='
           # h.foo = :bar
-          self[strname] = args.first
+          self[strname.chomp('=')] = args.first
         else
           value = self[strname]
 

@@ -1,17 +1,17 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe Lux::Runtime do
   describe '#web? / #cli?' do
     it 'cli? is the inverse of web?' do
       rt = Lux::Runtime.new
-      expect(rt.cli?).to eq(!rt.web?)
+      _(rt.cli?).must_equal(!rt.web?)
     end
 
     it 'honors LUX_WEB=true override' do
       previous = ENV['LUX_WEB']
       ENV['LUX_WEB'] = 'true'
       begin
-        expect(Lux::Runtime.new.web?).to be true
+        _(Lux::Runtime.new.web?).must_equal true
       ensure
         previous.nil? ? ENV.delete('LUX_WEB') : ENV['LUX_WEB'] = previous
       end
@@ -21,7 +21,7 @@ describe Lux::Runtime do
       previous = ENV['LUX_WEB']
       ENV['LUX_WEB'] = 'false'
       begin
-        expect(Lux::Runtime.new.web?).to be false
+        _(Lux::Runtime.new.web?).must_equal false
       ensure
         previous.nil? ? ENV.delete('LUX_WEB') : ENV['LUX_WEB'] = previous
       end
@@ -30,8 +30,8 @@ describe Lux::Runtime do
 
   describe '#rake?' do
     it 'returns false when not running under rake' do
-      # this spec suite runs under rspec, not rake
-      expect(Lux::Runtime.new.rake?).to be false
+      # this spec suite runs under minitest, not rake
+      _(Lux::Runtime.new.rake?).must_equal false
     end
   end
 end

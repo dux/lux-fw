@@ -127,6 +127,17 @@ module Lux
       @body   = msg if msg
     end
 
+    # true when the response status is 2xx
+    def ok?
+      s = @status.to_i
+      s >= 200 && s < 300
+    end
+
+    # parse body as JSON. Memoized. Returns symbol-keyed hash/array.
+    def json
+      @json ||= JSON.parse(@body.to_s, symbolize_names: true)
+    end
+
     # response.body                          # get
     # response.body = 'foo'                  # set
     # response.body 'foo'                    # set (back-compat)
@@ -214,7 +225,12 @@ module Lux
 
     # redirect_to '/foo'
     # redirect_to :back, info: 'bar ...'
-    def redirect_to where, opts = {}
+    # no-arg form returns the currently-set Location header (or nil),
+    # so callers / specs can read where a redirect points without
+    # rebuilding the redirect.
+    def redirect_to where = nil, opts = {}
+      return @headers['location'] if where.nil?
+
       Lux.log { ' Redirected to "%s" from: %s' % [where, Lux.app_caller] }
 
       opts = { info: opts } if opts.is_a?(String)
@@ -356,7 +372,7 @@ module Lux
 
       # respond as JSON if we recive hash
       if @body.kind_of?(Hash)
-        @body = Lux.mode.log? ? JSON.pretty_generate(@body) : JSON.generate(@body)
+        @body = Lux.mode.debug? ? JSON.pretty_generate(@body) : JSON.generate(@body)
 
         if current.request.params[:callback]
           @body = "#{current.request.params[:callback]}(#{@body})"

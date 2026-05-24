@@ -1,63 +1,66 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe Lux do
   describe '.root' do
     it 'returns a Pathname' do
-      expect(Lux.root).to be_a(Pathname)
+      _(Lux.root).must_be_kind_of Pathname
     end
 
     it 'is frozen' do
-      expect(Lux.root).to be_frozen
+      _(Lux.root.frozen?).must_equal true
     end
   end
 
   describe '.fw_root' do
     it 'returns a Pathname' do
-      expect(Lux.fw_root).to be_a(Pathname)
+      _(Lux.fw_root).must_be_kind_of Pathname
     end
 
     it 'is frozen' do
-      expect(Lux.fw_root).to be_frozen
+      _(Lux.fw_root.frozen?).must_equal true
     end
 
     it 'points to the framework directory' do
-      expect((Lux.fw_root + 'lib/lux-fw.rb')).to exist
+      _((Lux.fw_root + 'lib/lux-fw.rb').exist?).must_equal true
     end
   end
 
   describe 'VERSION' do
     it 'is defined and non-empty' do
-      expect(Lux::VERSION).to be_a(String)
-      expect(Lux::VERSION).not_to be_empty
+      _(Lux::VERSION).must_be_kind_of String
+      _(Lux::VERSION.empty?).must_equal false
     end
 
     it 'follows semver format' do
-      expect(Lux::VERSION).to match(/\A\d+\.\d+\.\d+/)
+      _(Lux::VERSION).must_match(/\A\d+\.\d+\.\d+/)
     end
   end
 
   describe '.speed' do
     it 'measures block execution time' do
       result = Lux.speed { sleep(0.001) }
-      expect(result).to be_a(String)
-      expect(result).to match(/\d+(\.\d+)?\s*(ms|sec)/)
+      _(result).must_be_kind_of String
+      _(result).must_match(/\d+(\.\d+)?\s*(ms|sec)/)
     end
 
     it 'returns ms for fast operations' do
       result = Lux.speed { 1 + 1 }
-      expect(result).to include('ms')
+      _(result).must_include 'ms'
     end
   end
 
   describe '.defer' do
+    before { Lux.config[:delay_timeout] ||= 30 }
+
     it 'returns a Thread' do
       thread = Lux.defer { true }
-      expect(thread).to be_a(Thread)
+      _(thread).must_be_kind_of Thread
       thread.join(1)
     end
 
     it 'raises ArgumentError without a block' do
-      expect { Lux.defer }.to raise_error(ArgumentError, /Block not given/)
+      err = _{ Lux.defer }.must_raise ArgumentError
+      _(err.message).must_match(/Block not given/)
     end
 
     it 'defaults context to Lux.current.dup' do
@@ -67,9 +70,9 @@ describe Lux do
       received = nil
       Lux.defer { |ctx| received = ctx }.join(1)
 
-      expect(received).to be_a(Lux::Current)
-      expect(received).not_to equal(parent)
-      expect(received[:marker]).to eq('from-parent')
+      _(received).must_be_kind_of Lux::Current
+      _(received.equal?(parent)).must_equal false
+      _(received[:marker]).must_equal 'from-parent'
     end
 
     it 'passes a custom context through untouched' do
@@ -77,7 +80,7 @@ describe Lux do
       received = nil
       Lux.defer(context: custom) { |ctx| received = ctx }.join(1)
 
-      expect(received).to equal(custom)
+      _(received.equal?(custom)).must_equal true
     end
 
     it 'starts with a clean Lux.current inside the thread' do
@@ -86,8 +89,8 @@ describe Lux do
       inside = nil
       Lux.defer { inside = Lux.current }.join(1)
 
-      expect(inside).to be_a(Lux::Current)
-      expect(inside).not_to equal(parent)
+      _(inside).must_be_kind_of Lux::Current
+      _(inside.equal?(parent)).must_equal false
     end
 
     it 'does not mutate the parent Lux.current binding' do
@@ -98,54 +101,59 @@ describe Lux do
         Lux.current[:bg_only] = true
       end.join(1)
 
-      expect(Thread.current[:lux]).to equal(parent)
-      expect(parent[:bg_only]).to be_nil
+      _(Thread.current[:lux].equal?(parent)).must_equal true
+      _(parent[:bg_only]).must_be_nil
     end
 
     it 'supports zero-arity blocks' do
       called = false
       Lux.defer { called = true }.join(1)
-      expect(called).to be true
+      _(called).must_equal true
     end
 
     it 'passes context to one-arity blocks' do
       custom = Object.new
       received = nil
       Lux.defer(context: custom) { |ctx| received = ctx }.join(1)
-      expect(received).to equal(custom)
+      _(received.equal?(custom)).must_equal true
     end
 
     it 'respects an explicit timeout' do
-      logged = nil
-      allow(Lux.logger).to receive(:error) { |msg| logged = msg }
+      buf = StringIO.new
+      prev = Lux.instance_variable_get(:@default_logger)
+      Lux.instance_variable_set(:@default_logger, Logger.new(buf))
 
-      Lux.defer(timeout: 0.05) { sleep 0.5 }.join(1)
+      begin
+        Lux.defer(timeout: 0.05) { sleep 0.5 }.join(1)
+      ensure
+        Lux.instance_variable_set(:@default_logger, prev)
+      end
 
-      expect(logged.to_s).to match(/execution expired|Lux\.defer error/)
+      _(buf.string).must_match(/execution expired|Lux\.defer error/)
     end
   end
 
   describe '.env' do
     it 'returns an Environment instance' do
-      expect(Lux.env).to be_a(Lux::Environment)
+      _(Lux.env).must_be_kind_of Lux::Environment
     end
 
     it 'responds to test?' do
-      expect(Lux.env.test?).to be true
+      _(Lux.env.test?).must_equal true
     end
   end
 
   describe '.config' do
     it 'returns a config object' do
-      expect(Lux.config).to respond_to(:[])
+      _(Lux.config.respond_to?(:[])).must_equal true
     end
 
     it 'has host configured' do
-      expect(Lux.config.host).to eq('http://test')
+      _(Lux.config.host).must_equal 'http://test'
     end
 
     it 'has secret configured' do
-      expect(Lux.config.secret).to eq('test-secret')
+      _(Lux.config.secret).must_equal 'test-secret'
     end
   end
 
@@ -153,7 +161,7 @@ describe Lux do
     before { Lux::Current.new('http://test') }
 
     it 'returns a Cache instance' do
-      expect(Lux.cache).to be_a(Lux::Cache)
+      _(Lux.cache).must_be_kind_of Lux::Cache
     end
   end
 end

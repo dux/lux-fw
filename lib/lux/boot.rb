@@ -65,9 +65,11 @@ if Lux.root != Lux.fw_root
   ['./log', './tmp'].each { |d| Dir.mkdir(d) unless Dir.exist?(d) }
 end
 
-# load all lux libs
+# load all lux libs (lib/lux/test/ stays out — test scaffolding is opt-in
+# via spec_helper so production apps don't pull in minitest)
 [:overload, :lux].each do |f|
-  Dir.require_all Lux.fw_root.join('./lib/%s' % f)
+  opts = f == :lux ? { skip: '/lux/test/' } : {}
+  Dir.require_all Lux.fw_root.join('./lib/%s' % f), opts
 end
 
 Sequel.inflections do |inflect|

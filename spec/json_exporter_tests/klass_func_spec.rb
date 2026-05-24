@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 ###
 
@@ -19,7 +19,7 @@ describe Lux::JsonExporter do
     company = Company2.new(name, address)
     result  = Lux::JsonExporter.export(company)
 
-    expect(result[:name]).to eq(name)
-    expect(result[:address]).to eq(address)
+    _(result[:name]).must_equal name
+    _(result[:address]).must_equal address
   end
 end

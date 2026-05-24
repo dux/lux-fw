@@ -1,7 +1,9 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe 'Template Helper#render' do
-  let(:views) { './spec/fixtures/views' }
+  def views
+    './spec/fixtures/views'
+  end
 
   # build a helper scope with the Helper module mixed in
   def build_helper(root_template_path = nil)
@@ -20,13 +22,13 @@ describe 'Template Helper#render' do
     it 'renders a template by absolute path' do
       helper = build_helper
       result = helper.render "#{views}/pages/index"
-      expect(result).to include('page:index')
+      _(result).must_include 'page:index'
     end
 
     it 'renders a symbol as a relative path' do
       helper = build_helper("#{views}/pages")
       result = helper.render :_local
-      expect(result).to include('pages:local')
+      _(result).must_include 'pages:local'
     end
   end
 
@@ -36,14 +38,14 @@ describe 'Template Helper#render' do
       # _with_nested.haml calls render :_local, which should resolve
       # to pages/_local.haml (same directory)
       result = helper.render :_with_nested
-      expect(result).to include('pages:local')
+      _(result).must_include 'pages:local'
     end
 
     it 'resolves cross-directory partials by path' do
       helper = build_helper("#{views}/pages")
       # _calls_shared.haml calls render 'shared/_widget'
       result = helper.render :_calls_shared
-      expect(result).to include('shared:widget')
+      _(result).must_include 'shared:widget'
     end
 
     it 'resolves nested cross-directory partials relative to their own directory' do
@@ -51,7 +53,7 @@ describe 'Template Helper#render' do
       # _calls_nested_shared.haml renders shared/_nested_widget
       # _nested_widget.haml renders :_widget (should resolve to shared/_widget, not pages/_widget)
       result = helper.render :_calls_nested_shared
-      expect(result).to include('shared:widget')
+      _(result).must_include 'shared:widget'
     end
   end
 
@@ -62,8 +64,8 @@ describe 'Template Helper#render' do
       # after the shared/ render, root should be restored to pages/
       # so :_local resolves to pages/_local
       result = helper.render :_sibling_test
-      expect(result).to include('shared:widget')
-      expect(result).to include('pages:local')
+      _(result).must_include 'shared:widget'
+      _(result).must_include 'pages:local'
     end
 
     it 'restores root_template_path even if rendering raises' do
@@ -75,7 +77,7 @@ describe 'Template Helper#render' do
       rescue
       end
 
-      expect(Lux.current.var.root_template_path).to eq(original_root)
+      _(Lux.current.var.root_template_path).must_equal original_root
     end
   end
 
@@ -83,7 +85,7 @@ describe 'Template Helper#render' do
     it 'passes locals to the rendered template' do
       helper = build_helper("#{views}/pages")
       result = helper.render :_show_local, item: 'world'
-      expect(result).to include('local:world')
+      _(result).must_include 'local:world'
     end
 
     it 'restores locals after render' do
@@ -92,7 +94,7 @@ describe 'Template Helper#render' do
 
       helper.render :_show_local, item: 'during'
 
-      expect(helper.instance_variable_get(:@_item)).to eq('before')
+      _(helper.instance_variable_get(:@_item)).must_equal 'before'
     end
   end
 end

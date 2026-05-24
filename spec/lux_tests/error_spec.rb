@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe Lux::Error do
   before { Lux::Current.new('http://testing') }
@@ -6,9 +6,9 @@ describe Lux::Error do
   describe 'as an exception class' do
     it 'is a StandardError with no HTTP knowledge' do
       err = Lux::Error.new('something broke')
-      expect(err).to be_a(StandardError)
-      expect(err.message).to eq('something broke')
-      expect(err.respond_to?(:code)).to be false
+      _(err).must_be_kind_of StandardError
+      _(err.message).must_equal 'something broke'
+      _(err.respond_to?(:code)).must_equal false
     end
   end
 
@@ -21,17 +21,17 @@ describe Lux::Error do
       ])
 
       result = Lux::Error.format(error, message: true)
-      expect(result).to be_a(String)
+      _(result).must_be_kind_of String
       lines = result.split("\n")
-      expect(lines[0]).to start_with('URL: ')   # request URL header
-      expect(lines[1]).to eq('[StandardError] test')
-      expect(lines[2]).to start_with('  ./')   # local app line
-      expect(lines[3]).to start_with('  /')    # gem line
+      _(lines[0].start_with?('URL: ')).must_equal true   # request URL header
+      _(lines[1]).must_equal '[StandardError] test'
+      _(lines[2].start_with?('  ./')).must_equal true   # local app line
+      _(lines[3].start_with?('  /')).must_equal true    # gem line
     end
 
     it 'returns array marker when no backtrace' do
       error = StandardError.new('test')
-      expect(Lux::Error.format(error)).to eq(['no backtrace present'])
+      _(Lux::Error.format(error)).must_equal ['no backtrace present']
     end
   end
 end
@@ -41,63 +41,63 @@ describe 'Lux.error' do
 
   describe 'with integer code' do
     it 'raises Lux::Error and sets response status to that code' do
-      expect { Lux.error 404 }.to raise_error(Lux::Error)
-      expect(Lux.current.response.status).to eq(404)
+      _{ Lux.error 404 }.must_raise Lux::Error
+      _(Lux.current.response.status).must_equal 404
     end
 
     it 'fills the message from Rack::Utils::HTTP_STATUS_CODES when none given' do
       err = (Lux.error 404 rescue $!)
-      expect(err.message).to eq('Not Found')
+      _(err.message).must_equal 'Not Found'
     end
 
     it 'uses the custom message when provided' do
       err = (Lux.error 404, 'missing thing' rescue $!)
-      expect(err.message).to eq('missing thing')
-      expect(Lux.current.response.status).to eq(404)
+      _(err.message).must_equal 'missing thing'
+      _(Lux.current.response.status).must_equal 404
     end
   end
 
   describe 'with message only (no code)' do
     it 'defaults to status 400 and uses the given message' do
       err = (Lux.error 'oops' rescue $!)
-      expect(err.message).to eq('oops')
-      expect(Lux.current.response.status).to eq(400)
+      _(err.message).must_equal 'oops'
+      _(Lux.current.response.status).must_equal 400
     end
   end
 
   describe 'with no args' do
     it 'returns the ErrorProxy for chained shortcuts' do
-      expect(Lux.error).to be(Lux::ErrorProxy)
+      _(Lux.error).must_equal Lux::ErrorProxy
     end
   end
 
   describe 'proxy shortcuts' do
     it '.not_found raises with status 404' do
       err = (Lux.error.not_found('missing') rescue $!)
-      expect(err.message).to eq('missing')
-      expect(Lux.current.response.status).to eq(404)
+      _(err.message).must_equal 'missing'
+      _(Lux.current.response.status).must_equal 404
     end
 
     it '.forbidden raises with status 403' do
       err = (Lux.error.forbidden('nope') rescue $!)
-      expect(err.message).to eq('nope')
-      expect(Lux.current.response.status).to eq(403)
+      _(err.message).must_equal 'nope'
+      _(Lux.current.response.status).must_equal 403
     end
 
     it '.bad_request raises with status 400' do
       err = (Lux.error.bad_request('bad') rescue $!)
-      expect(err.message).to eq('bad')
-      expect(Lux.current.response.status).to eq(400)
+      _(err.message).must_equal 'bad'
+      _(Lux.current.response.status).must_equal 400
     end
 
     it '.internal_server_error raises with status 500' do
       err = (Lux.error.internal_server_error('boom') rescue $!)
-      expect(Lux.current.response.status).to eq(500)
+      _(Lux.current.response.status).must_equal 500
     end
 
     it 'shortcut without message fills from Rack status name' do
       err = (Lux.error.not_found rescue $!)
-      expect(err.message).to eq('Not Found')
+      _(err.message).must_equal 'Not Found'
     end
   end
 end

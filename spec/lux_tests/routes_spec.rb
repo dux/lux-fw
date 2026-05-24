@@ -1,4 +1,15 @@
-require 'spec_helper'
+require 'test_helper'
+
+# Config defaults that Lux.boot! would normally set, needed because this spec
+# exercises Lux.render which walks the full request pipeline.
+%i(serve_static_files use_autoroutes asset_root deploy_timestamp csrf).each do |k|
+  Lux.config[k] = false unless Lux.config.key?(k)
+end
+Lux.config[:plugins] ||= []
+Lux.config[:logger_path_mask]     = './log/%s.log' unless Lux.config.key?(:logger_path_mask)
+Lux.config[:logger_files_to_keep] = 3              unless Lux.config.key?(:logger_files_to_keep)
+Lux.config[:logger_file_max_size] = 10_240_000     unless Lux.config.key?(:logger_file_max_size)
+Lux.config[:logger_formatter]     = nil            unless Lux.config.key?(:logger_formatter)
 
 class ExplodingController < Lux::Controller
   def boom
@@ -150,150 +161,150 @@ end
 
 ###
 
-describe Lux::Application do
+describe 'Lux::Application' do
   it 'should get right routes' do
-    expect(Lux.render.get('/').body).to  eq 'root'
-    expect(Lux.render.get('/plain').body).to eq 'plain'
-    expect(Lux.render.get('/@dux').body).to  eq 'user'
+    _(Lux.render.get('/').body).must_equal 'root'
+    _(Lux.render.get('/plain').body).must_equal 'plain'
+    _(Lux.render.get('/@dux').body).must_equal 'user'
     # The legacy /~ regex map dispatched to RoutesTestController's :index when
     # there was no further segment. With the new :root default, that's `def root`
     # which already returns 'root'. So /~dux now hits :root.
-    expect(Lux.render.get('/~dux').body).to  eq 'root'
+    _(Lux.render.get('/~dux').body).must_equal 'root'
   end
 
   it 'should get nested routes' do
-    expect(Lux.render.get('/test1/test2/bar').body).to eq 'bar'
-    expect(Lux.render.get('/routes_test/foo-nested').body).to eq 'nested'
+    _(Lux.render.get('/test1/test2/bar').body).must_equal 'bar'
+    _(Lux.render.get('/routes_test/foo-nested').body).must_equal 'nested'
   end
 
   it 'should get list routes' do
-    expect(Lux.render.get('/array1').body).to eq 'root'
-    expect(Lux.render.get('/array2').body).to eq 'root'
+    _(Lux.render.get('/array1').body).must_equal 'root'
+    _(Lux.render.get('/array2').body).must_equal 'root'
   end
 
   it 'should get namespace routes' do
-    expect(Lux.render.get('/zagreb').body).to eq 'zagreb'
-    expect(Lux.render.get('/city').body).to eq 'zagreb'
-    expect(Lux.render.get('/city/user').body).to eq 'user'
+    _(Lux.render.get('/zagreb').body).must_equal 'zagreb'
+    _(Lux.render.get('/city').body).must_equal 'zagreb'
+    _(Lux.render.get('/city/user').body).must_equal 'user'
   end
 
   it 'should get bad routes' do
-    expect(Lux.render.get('/not-found').status).to eq 404
-    expect(Lux.render.get('/x@dux').status).to eq 404
+    _(Lux.render.get('/not-found').status).must_equal 404
+    _(Lux.render.get('/x@dux').status).must_equal 404
   end
 
   describe 'Rack-class dispatch via map' do
     it 'routes an absolute root prefix to RackClass.call(env)' do
       res = Lux.render.get('/r1/hello')
-      expect(res.status).to eq 200
+      _(res.status).must_equal 200
       # SCRIPT_NAME is empty - the Rack app sees the full path verbatim
-      expect(res.body).to eq 'mounted::/r1/hello'
+      _(res.body).must_equal 'mounted::/r1/hello'
     end
 
     it 'routes a deep absolute prefix' do
       res = Lux.render.get('/foo/bar/baz/sub/page')
-      expect(res.status).to eq 200
-      expect(res.body).to eq 'mounted::/foo/bar/baz/sub/page'
+      _(res.status).must_equal 200
+      _(res.body).must_equal 'mounted::/foo/bar/baz/sub/page'
     end
 
     it 'routes via a symbol shortcut on a single segment' do
       res = Lux.render.get('/r3')
-      expect(res.status).to eq 200
-      expect(res.body).to eq 'mounted::/r3'
+      _(res.status).must_equal 200
+      _(res.body).must_equal 'mounted::/r3'
     end
 
     it 'leaves unmatched requests alone' do
-      expect(Lux.render.get('/totally-different').status).to eq 404
+      _(Lux.render.get('/totally-different').status).must_equal 404
     end
   end
 
   it 'should render js route' do
-    expect(Lux.render.get('/routes_test/foo-nested.js').body[:a]).to eq(1)
+    _(Lux.render.get('/routes_test/foo-nested.js').body[:a]).must_equal 1
   end
 
   it 'dispatches errors through Application rescue_from when defined (always wins)' do
     res = Lux.render.get('/exploding')
-    expect(res.status).to eq(500)
-    expect(res.body).to eq('APP-CATCH(500): BOOM!')
+    _(res.status).must_equal 500
+    _(res.body).must_equal 'APP-CATCH(500): BOOM!'
   end
 
   it 'rescue_from with `call` dispatches unconditionally' do
     res = Lux.render.get('/exploding-via-call')
-    expect(res.status).to eq(500)
-    expect(res.body).to eq('APP-CATCH(500): BOOM2')
+    _(res.status).must_equal 500
+    _(res.body).must_equal 'APP-CATCH(500): BOOM2'
   end
 
   it 'fires Application :after BEFORE headers, so content-length matches the mutated body' do
     res = Lux.render.get('/after-mutate')
-    expect(res.body).to eq('GREETINGS-FRIEND')
-    expect(res.headers['content-length']).to eq('GREETINGS-FRIEND'.bytesize.to_s)
+    _(res.body).must_equal 'GREETINGS-FRIEND'
+    _(res.headers['content-length']).must_equal 'GREETINGS-FRIEND'.bytesize.to_s
   end
 
   describe 'resourceful map (single segment controllers)' do
     it 'maps /boards (empty remaining) to :root' do
-      expect(Lux.render.get('/boards').body).to eq('boards:root')
+      _(Lux.render.get('/boards').body).must_equal 'boards:root'
     end
 
     it 'maps /boards/new to :new' do
-      expect(Lux.render.get('/boards/new').body).to eq('boards:new')
+      _(Lux.render.get('/boards/new').body).must_equal 'boards:new'
     end
 
     it 'maps /boards/123 (:ref only) to :show_ref' do
-      expect(Lux.render.get('/boards/123').body).to eq('boards:show_ref')
+      _(Lux.render.get('/boards/123').body).must_equal 'boards:show_ref'
     end
 
     it 'maps /boards/123/edit to :edit_ref' do
-      expect(Lux.render.get('/boards/123/edit').body).to eq('boards:edit_ref')
+      _(Lux.render.get('/boards/123/edit').body).must_equal 'boards:edit_ref'
     end
 
     it 'maps /boards/archive (single action segment) to that action' do
-      expect(Lux.render.get('/boards/archive').body).to eq('boards:archive')
+      _(Lux.render.get('/boards/archive').body).must_equal 'boards:archive'
     end
 
     it 'maps /profile (no further segment) to :root' do
-      expect(Lux.render.get('/profile').body).to eq('profile:root')
+      _(Lux.render.get('/profile').body).must_equal 'profile:root'
     end
 
     it 'maps /profile/edit to :edit' do
-      expect(Lux.render.get('/profile/edit').body).to eq('profile:edit')
+      _(Lux.render.get('/profile/edit').body).must_equal 'profile:edit'
     end
   end
 
   describe 'resourceful map action resolution' do
     it '/admin_test -> :root' do
-      expect(Lux.render.get('/admin_test').body).to eq('admin:root:')
+      _(Lux.render.get('/admin_test').body).must_equal 'admin:root:'
     end
 
     it '/admin_test/edit -> :edit' do
-      expect(Lux.render.get('/admin_test/edit').body).to eq('admin:edit:')
+      _(Lux.render.get('/admin_test/edit').body).must_equal 'admin:edit:'
     end
 
     it '/admin_test/123 -> :show_ref with nav.ref' do
-      expect(Lux.render.get('/admin_test/123').body).to eq('admin:show_ref:123')
+      _(Lux.render.get('/admin_test/123').body).must_equal 'admin:show_ref:123'
     end
 
     it '/admin_test/123/edit -> :edit_ref with nav.ref' do
-      expect(Lux.render.get('/admin_test/123/edit').body).to eq('admin:edit_ref:123')
+      _(Lux.render.get('/admin_test/123/edit').body).must_equal 'admin:edit_ref:123'
     end
 
     it '/admin_test/users -> :users (sub-resource as action)' do
-      expect(Lux.render.get('/admin_test/users').body).to eq('admin:users:')
+      _(Lux.render.get('/admin_test/users').body).must_equal 'admin:users:'
     end
 
     it '/admin_test/users/123 -> :show_ref with nav.ref' do
-      expect(Lux.render.get('/admin_test/users/123').body).to eq('admin:show_ref:123')
+      _(Lux.render.get('/admin_test/users/123').body).must_equal 'admin:show_ref:123'
     end
 
     it '/admin_test/users/123/edit -> :edit_ref with nav.ref' do
-      expect(Lux.render.get('/admin_test/users/123/edit').body).to eq('admin:edit_ref:123')
+      _(Lux.render.get('/admin_test/users/123/edit').body).must_equal 'admin:edit_ref:123'
     end
 
     it '/admin_test/users/foo/bar -> :foo (trailing segment ignored, no :ref)' do
-      expect(Lux.render.get('/admin_test/users/foo/bar').body).to eq('admin:foo:')
+      _(Lux.render.get('/admin_test/users/foo/bar').body).must_equal 'admin:foo:'
     end
 
     it '/admin_test/users/123/foo/bar -> :foo_ref (has :ref, suffix applied)' do
-      expect(Lux.render.get('/admin_test/users/123/foo/bar').body).to eq('admin:foo_ref:123')
+      _(Lux.render.get('/admin_test/users/123/foo/bar').body).must_equal 'admin:foo_ref:123'
     end
   end
 end

@@ -206,7 +206,7 @@ module Lux
 
     # inline error raise
     def error text, args={}
-      if @api.development
+      if @api.development && !Lux.env.test?
         puts 'Lux::Api Error: %s (%s)' % [text, caller[0]]
       end
 
@@ -218,7 +218,6 @@ module Lux
           response.error err, args
         end
       else
-        rr text if respond_to?(:rr)
         response.error text, args
       end
 

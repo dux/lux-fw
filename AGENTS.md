@@ -90,12 +90,23 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 
 ```
 lib/lux/<module>/         # core modules; each ships a README.md
+lib/lux/test/             # Lux::Test - test scaffolding (Minitest + Factory + helpers)
 lib/overload/             # Ruby core class extensions (don't touch lightly)
 plugins/<name>/           # optional plugins, canonical layout
-spec/lux_tests/           # RSpec for framework features
-spec/lib_tests/           # RSpec for pure-ruby utilities
+spec/<area>_tests/        # Minitest::Spec - per-area suites
 bin/cli/<name>_hammer.rb  # CLI subcommands
 ```
+
+## Testing
+
+* Framework: **Minitest::Spec**. RSpec is gone (kept in `:rspec_legacy` bundler group only until isolation cleanup lands).
+* Entry point: every spec starts with `require 'test_helper'`. The helper loads lux, `Lux::Test`, and `spec/factories.rb`.
+* Base class: `Lux::Test::Case` (transparently mixed into every `describe` block).
+* Factories: vendored clean-mock at `lib/lux/test/factory/`, exposed as `factory` in every spec.
+* Helpers available everywhere: `factory`, `capture_log`/`capture_stdout`/`capture_stderr`, `with_transaction`, plus `assert_status` / `assert_redirect` / `assert_body_includes` / `assert_json_includes`.
+* HTTP requests: use `Lux.render.get/post/...` - returns a `Lux::Response` with `.status`, `.body`, `.json`, `.headers`, `.redirect_to`, `.ok?`.
+* Rulebook for writing tests: **[`lib/lux/test/AGENTS.md`](./lib/lux/test/AGENTS.md)**. AI agents converting or writing specs must read it first - it lists the only allowed assertions and the banned RSpec syntax.
+* Run: `bundle exec hammer test` (folder-isolated). Single folder: `hammer test --folder lux_tests`. Per-spec processes: `hammer test --isolated`. Tasks are defined in `./Hammerfile` (powered by the `lux-hammer` gem - replaces Rake).
 
 ## Boot model
 
@@ -123,6 +134,9 @@ entry-point details.
 * Reuse existing primitives: check `Lux.schema(:name)` in `SCHEMA_STORE`,
   `Lux::Type::*Type` under `lib/lux/type/types/`, and `Lux::Policy`
   descendants. Don't invent new primitives that duplicate framework ones.
-* Specs go under `spec/lux_tests/` (framework) or `spec/lib_tests/`
-  (pure ruby). Run with `bundle exec rspec`.
+* Specs go under `spec/<area>_tests/` (e.g. `spec/lux_tests/`,
+  `spec/lib_tests/`, `spec/api_tests/`). Run with `bundle exec hammer test`.
+  See [`lib/lux/test/AGENTS.md`](./lib/lux/test/AGENTS.md) for test-writing
+  rules - only the documented Minitest assertions and `Lux::Test` helpers
+  are allowed.
 * Never commit or push without explicit user instruction.

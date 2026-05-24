@@ -19,11 +19,18 @@ class Sequel::Model
     #   helpers:  :both (default), :class, :instance, false
     #   validate: false to skip save-time validation
     def enum name, opts={}, &block
+      singular = name.to_s.singularize
+      if singular != name.to_s && singular != name.to_s.pluralize
+        Lux.shell.die 'enum :%s: name must be singular (did you mean :%s?)' % [name, singular]
+      end
+
+      # remember where the enum was declared so errors can point at the schema
+      decl_loc = caller_locations(1, 1).first
+      decl_at  = '%s:%d' % [decl_loc.path, decl_loc.lineno]
+
       if opts.is_a?(Array)
         opts = { values: opts, helpers: :class }
       end
-
-      opts[:default] ||= opts[:values].first if opts[:values].is_a?(Array)
 
       raw_values = opts[:values] || {}.to_lux_hash.tap { |_| block.call(_) }
 
@@ -43,7 +50,12 @@ class Sequel::Model
         end
 
       values = raw_values.inject({}.to_lux_hash) { |h, (k,v)| h[caster.call(k)] = v; h }
+
+      # Default falls back to the first declared key, so a blank column
+      # transparently reads as the first enum value (Array, Hash, and
+      # block-builder shapes all behave the same).
       opts[:default] = caster.call(opts[:default]) if opts[:default]
+      opts[:default] ||= values.keys.first
 
       values.define_singleton_method(:for_select) do
         map { |k, v| [k, v.is_a?(Hash) ? v[:name] : v] }
@@ -57,11 +69,24 @@ class Sequel::Model
           Lux.shell.die 'enum: field "%s" not found for "%s" on %s' % [opts[:field], name, self.name]
         end
 
+        # Override the column reader so a blank stored value transparently
+        # reads back as the default key (the first declared key, unless
+        # `default:` was passed explicitly).
+        default_key = opts[:default]
+        define_method(field_sym) do
+          val = self[field_sym]
+          val.present? ? val : default_key
+        end
+
+        klass_name = self.name
         define_method(opts[:method]) do
-          value = self[field_sym]
+          value = send(field_sym)
           return unless value.present?
           out = values[caster.call(value)]
-          raise('Key "%s" not found' % value) if !out && opts[:validate] != false
+          if !out && opts[:validate] != false
+            raise 'enum %s.%s: key %s not found in %s (declared at %s)' %
+              [klass_name, name, value.inspect, values.keys.inspect, decl_at]
+          end
           out || value
         end
       end

@@ -1,8 +1,8 @@
-require 'spec_helper'
+require 'test_helper'
 require_relative './fixtures'
 
 describe Lux::Schema do
-  before(:all) do
+  before do
     @test  = Test.new
     @rules = TestSchema
   end
@@ -14,27 +14,27 @@ describe Lux::Schema do
 
     data  = { data: '  aBc  ' }
     errors = schema.validate data
-    expect(data[:data]).to eq 'abc'
+    _(data[:data]).must_equal 'abc'
   end
 
   it 'speed should be Float' do
     @test.speed = '10'
     errors = @rules.validate(@test)
-    expect(@test.speed.class).to eq(Float)
-    expect(@test.speed).to eq(10.0)
+    _(@test.speed.class).must_equal Float
+    _(@test.speed).must_equal 10.0
   end
 
   it 'email to be valid' do
     @test.email = 'dux@dux.net'
     @rules.valid? @test
-    expect(@test.email).to eq('dux@dux.net')
-    expect(@test[:email]).to eq('dux@dux.net')
+    _(@test.email).must_equal 'dux@dux.net'
+    _(@test[:email]).must_equal 'dux@dux.net'
   end
 
   it 'email to fail' do
     @test.email = 'duxdux.net'
     errors = @rules.validate @test
-    expect(errors[:email].include?('@')).to be_truthy
+    _(errors[:email].include?('@')).must_equal true
   end
 
   it 'shout get right boolean values' do
@@ -47,14 +47,14 @@ describe Lux::Schema do
     data = {}
     errors = schema.validate data
 
-    expect(errors[:foo]).to be_nil
-    expect(errors[:bar]).to be_nil
-    expect(errors[:baz]).to be_nil
+    _(errors[:foo]).must_be_nil
+    _(errors[:bar]).must_be_nil
+    _(errors[:baz]).must_be_nil
 
     data = { foo: 'off', bar: '1', baz: 'false' }
     errors = schema.validate data
-    expect(data).to eq(foo: false, bar: true, baz: false)
-    expect(errors.keys.length).to eq(0)
+    _(data).must_equal(foo: false, bar: true, baz: false)
+    _(errors.keys.length).must_equal 0
   end
 
   it 'url shuld fail then pass' do
@@ -63,10 +63,10 @@ describe Lux::Schema do
     end
 
     errors = schema.validate url: 'slashdot.org'
-    expect(errors[:url]).to include('not starting')
+    _(errors[:url]).must_include 'not starting'
 
     errors = schema.validate url: 'https://slashdot.org'
-    expect(errors[:url]).to be_nil
+    _(errors[:url]).must_be_nil
   end
 
   it 'should convert empty strings to nil' do
@@ -75,21 +75,16 @@ describe Lux::Schema do
     end
     h = { foo: '', bar: '' }
     schema.validate h
-    expect(h[:foo]).to eq(nil)
-    expect(h[:bar]).to eq('')
+    _(h[:foo]).must_be_nil
+    _(h[:bar]).must_equal ''
   end
 
   it 'should break on bad paramter' do
-    expect do
-      Lux.schema { foo req: true, bad_arg: true }
-    end.to raise_error ArgumentError
-
-    expect do
-      Lux.schema { num :float, downcase: true }
-    end.to raise_error ArgumentError
+    _{ Lux.schema { foo req: true, bad_arg: true } }.must_raise ArgumentError
+    _{ Lux.schema { num :float, downcase: true } }.must_raise ArgumentError
   end
 
   it 'shoud load type class' do
-    expect(Lux.type(:string)).to eq(Lux::Type::StringType)
+    _(Lux.type(:string)).must_equal Lux::Type::StringType
   end
 end

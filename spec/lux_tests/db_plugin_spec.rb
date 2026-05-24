@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 # ---------------------------------------------------------------------------
 # Database bootstrap – standalone test DB so we never touch real data
@@ -38,6 +38,9 @@ Sequel::Model.plugin :lux_create_limit
 # ---------------------------------------------------------------------------
 
 DB.drop_table?(:enum_widgets)
+DB.drop_table?(:bare_models)
+DB.drop_table?(:both_polys)
+DB.drop_table?(:memos)
 DB.drop_table?(:notes)
 DB.drop_table?(:projects)
 DB.drop_table?(:tree_nodes)
@@ -119,6 +122,28 @@ DB.create_table :notes do
   DateTime :updated_at
 end
 
+# Polymorphic parent via `parent_model` (preferred name) instead of `parent_type`.
+DB.create_table :memos do
+  String  :ref, primary_key: true
+  String  :body
+  String  :parent_model
+  String  :parent_ref
+end
+
+# Both poly-pair columns present: parent_model should win over parent_type.
+DB.create_table :both_polys do
+  String :ref, primary_key: true
+  String :parent_model
+  String :parent_type
+  String :parent_ref
+end
+
+# No polymorphic columns at all: any parent write should `Lux.shell.die`.
+DB.create_table :bare_models do
+  String :ref, primary_key: true
+  String :name
+end
+
 DB.create_table :enum_widgets do
   String   :ref, primary_key: true
   String   :status_sid, default: 'a'
@@ -195,6 +220,24 @@ class Note < Sequel::Model
   create_limit 3, 1.hour
 end
 
+class Memo < Sequel::Model
+  set_primary_key :ref
+  unrestrict_primary_key
+  plugin :parent_model
+end
+
+class BothPoly < Sequel::Model(:both_polys)
+  set_primary_key :ref
+  unrestrict_primary_key
+  plugin :parent_model
+end
+
+class BareModel < Sequel::Model(:bare_models)
+  set_primary_key :ref
+  unrestrict_primary_key
+  plugin :parent_model
+end
+
 class EnumWidget < Sequel::Model(:enum_widgets)
   set_primary_key :ref
   unrestrict_primary_key
@@ -248,20 +291,25 @@ def create_task(attrs = {})
 end
 
 # Ensure a Lux::Current is always present (needed by find_precache & before_save).
-# Scoped via metadata so we don't pollute other spec files.
-RSpec.configure do |c|
-  c.before(:each, :db_plugin) do
-    Lux::Current.new('http://test')
-    User.current = nil
+# Each top-level describe in this file calls `db_plugin_setup` to install the
+# per-test hook (replacement for the original RSpec :db_plugin metadata tag).
+module DbPluginSetup
+  def db_plugin_setup
+    before do
+      Lux::Current.new('http://test')
+      User.current = nil
+    end
   end
 end
+Minitest::Spec.extend(DbPluginSetup)
 
 # =========================================================================
 #  core.rb
 # =========================================================================
 
-describe 'plugins/db/core.rb', :db_plugin do
-  before(:each) { DB[:users].delete }
+describe 'plugins/db/core.rb' do
+  db_plugin_setup
+  before { DB[:users].delete }
 
   # -- ClassMethods --------------------------------------------------------
 
@@ -271,12 +319,12 @@ describe 'plugins/db/core.rb', :db_plugin do
         ref = new_ref
         DB[:users].insert(ref: ref, name: 'Alice')
         user = User.find_by(name: 'Alice')
-        expect(user).to be_a(User)
-        expect(user.ref).to eq(ref)
+        _(user).must_be_kind_of User
+        _(user.ref).must_equal ref
       end
 
       it 'returns nil when nothing matches' do
-        expect(User.find_by(name: 'Ghost')).to be_nil
+        _(User.find_by(name: 'Ghost')).must_be_nil
       end
     end
 
@@ -288,7 +336,7 @@ describe 'plugins/db/core.rb', :db_plugin do
       it 'defines a dataset method usable as a chainable scope' do
         DB[:users].insert(ref: new_ref, name: 'Alice')
         DB[:users].insert(ref: new_ref, name: '')
-        expect(User.named.count).to eq(1)
+        _(User.named.count).must_equal 1
       end
     end
 
@@ -297,14 +345,14 @@ describe 'plugins/db/core.rb', :db_plugin do
         ref = new_ref
         DB[:users].insert(ref: ref, name: 'Bob')
         user = User.first_or_new(ref: ref)
-        expect(user.name).to eq('Bob')
-        expect(user.new?).to be false
+        _(user.name).must_equal 'Bob'
+        _(user.new?).must_equal false
       end
 
       it 'returns a new unsaved record if not found' do
         user = User.first_or_new(name: 'Charlie')
-        expect(user.new?).to be true
-        expect(user.name).to eq('Charlie')
+        _(user.new?).must_equal true
+        _(user.name).must_equal 'Charlie'
       end
 
       it 'yields block when object has no :id column value' do
@@ -312,22 +360,22 @@ describe 'plugins/db/core.rb', :db_plugin do
         # so the block is yielded for both new and existing records.
         yielded = false
         User.first_or_new(name: 'Charlie') { |u| yielded = true }
-        expect(yielded).to be true
+        _(yielded).must_equal true
       end
     end
 
     describe '.first_or_create' do
       it 'creates a new record if not found' do
         user = User.first_or_create(name: 'Dave') { |u| u.ref ||= new_ref }
-        expect(user.new?).to be false
-        expect(User.where(name: 'Dave').count).to eq(1)
+        _(user.new?).must_equal false
+        _(User.where(name: 'Dave').count).must_equal 1
       end
 
       it 'returns existing record if found' do
         ref = new_ref
         DB[:users].insert(ref: ref, name: 'Eve')
         user = User.first_or_create(name: 'Eve')
-        expect(user.ref).to eq(ref)
+        _(user.ref).must_equal ref
       end
     end
   end
@@ -335,86 +383,93 @@ describe 'plugins/db/core.rb', :db_plugin do
   # -- InstanceMethods -----------------------------------------------------
 
   describe 'Sequel::Model InstanceMethods' do
-    let(:ref) { new_ref }
-    let!(:user) do
-      DB[:users].insert(ref: ref, name: 'Alice', email: 'a@b.c', age: 30, updated_at: Time.now.utc)
-      User[ref]
+    def ref
+      @ref ||= new_ref
     end
+
+    def user
+      @user ||= begin
+        DB[:users].insert(ref: ref, name: 'Alice', email: 'a@b.c', age: 30, updated_at: Time.now.utc)
+        User[ref]
+      end
+    end
+
+    before { user }  # eager (was let!)
 
     describe '#key' do
       it 'returns Class/ref format' do
-        expect(user.key).to eq("User/#{ref}")
+        _(user.key).must_equal "User/#{ref}"
       end
 
       it 'appends namespace when given' do
-        expect(user.key(:notes)).to eq("User/#{ref}/notes")
+        _(user.key(:notes)).must_equal "User/#{ref}/notes"
       end
     end
 
     describe '#cache_key' do
       it 'includes id and updated_at timestamp when available' do
         ck = user.cache_key
-        expect(ck).to include("User/")
-        expect(ck).to include(user.id.to_s)
-        expect(ck).to match(/-[\d.]+$/)
+        _(ck).must_include 'User/'
+        _(ck).must_include user.id.to_s
+        _(ck).must_match(/-[\d.]+$/)
       end
 
       it 'appends namespace' do
-        expect(user.cache_key(:v2)).to match(%r{/v2$})
+        _(user.cache_key(:v2)).must_match(%r{/v2$})
       end
 
       it 'falls back to #key when no updated_at' do
         DB[:comments].insert(ref: 'c1', body: 'hi')
         comment = Comment['c1']
-        expect(comment.cache_key).to eq(comment.key)
+        _(comment.cache_key).must_equal comment.key
       end
     end
 
     describe '#attributes / #to_h' do
       it 'returns a hash of all column values as strings keys' do
         h = user.attributes
-        expect(h).to be_a(Hash)
-        expect(h['name']).to eq('Alice')
-        expect(h['ref']).to eq(ref)
+        _(h).must_be_kind_of Hash
+        _(h['name']).must_equal 'Alice'
+        _(h['ref']).must_equal ref
       end
 
       it 'is aliased as to_h' do
-        expect(user.to_h).to eq(user.attributes)
+        _(user.to_h).must_equal user.attributes
       end
     end
 
     describe '#has?' do
       it 'returns true when field is present' do
-        expect(user.has?(:name)).to be true
+        _(user.has?(:name)).must_equal true
       end
 
       it 'returns false when field is blank' do
         user[:name] = nil
-        expect(user.has?(:name)).to be false
+        _(user.has?(:name)).must_equal false
       end
 
       it 'adds error and returns false with message string' do
         user[:email] = nil
         result = user.has?(:email, 'Email is required')
-        expect(result).to be false
-        expect(user.errors[:email]).to include('Email is required')
+        _(result).must_equal false
+        _(user.errors[:email]).must_include 'Email is required'
       end
 
       it 'returns true and adds no error when present with message' do
         result = user.has?(:name, 'Name required')
-        expect(result).to be true
-        expect(user.errors).to be_empty
+        _(result).must_equal true
+        assert_empty user.errors
       end
     end
 
     describe '#unique?' do
       it 'returns true when no other record has same value' do
-        expect(user.unique?(:email)).to be true
+        _(user.unique?(:email)).must_equal true
       end
 
       it 'returns false when another record shares the value' do
         DB[:users].insert(ref: new_ref, name: 'Alice', email: 'a@b.c')
-        expect(user.unique?(:email)).to be false
+        _(user.unique?(:email)).must_equal false
       end
     end
 
@@ -423,27 +478,27 @@ describe 'plugins/db/core.rb', :db_plugin do
         u = User.new
         u[:ref] = new_ref
         u[:name] = 'NoVal'
-        expect { u.save! }.not_to raise_error
-        expect(User.where(name: 'NoVal').count).to eq(1)
+        u.save!
+        _(User.where(name: 'NoVal').count).must_equal 1
       end
     end
 
     describe '#slice' do
       it 'returns a hash of requested fields' do
         h = user.slice(:name, :email)
-        expect(h).to eq({ name: 'Alice', email: 'a@b.c' })
+        _(h).must_equal({ name: 'Alice', email: 'a@b.c' })
       end
     end
 
     describe '#merge' do
       it 'sets attributes from hash' do
         user.merge(name: 'Bob', email: 'b@c.d')
-        expect(user.name).to eq('Bob')
-        expect(user.email).to eq('b@c.d')
+        _(user.name).must_equal 'Bob'
+        _(user.email).must_equal 'b@c.d'
       end
 
       it 'ignores unknown keys' do
-        expect { user.merge(nonexistent_field: 'x') }.not_to raise_error
+        user.merge(nonexistent_field: 'x')  # should not raise
       end
     end
 
@@ -454,7 +509,7 @@ describe 'plugins/db/core.rb', :db_plugin do
         user.name = 'Zara'
         yielded = nil
         user.on_change(:name) { |prev, cur| yielded = [prev, cur] }
-        expect(yielded).to eq(['Alice', 'Zara'])
+        _(yielded).must_equal ['Alice', 'Zara']
       end
 
       it 'yields when value added (nil -> value)' do
@@ -466,34 +521,34 @@ describe 'plugins/db/core.rb', :db_plugin do
         u.email = 'new@test.com'
         yielded = nil
         u.on_change(:email) { |prev, cur| yielded = [prev, cur] }
-        expect(yielded).to eq([nil, 'new@test.com'])
+        _(yielded).must_equal [nil, 'new@test.com']
       end
 
       it 'yields when value removed (value -> nil)' do
         user.name = nil
         yielded = nil
         user.on_change(:name) { |prev, cur| yielded = [prev, cur] }
-        expect(yielded).to eq(['Alice', nil])
+        _(yielded).must_equal ['Alice', nil]
       end
 
       it 'yields when integer replaced' do
         user.age = 40
         yielded = nil
         user.on_change(:age) { |prev, cur| yielded = [prev, cur] }
-        expect(yielded).to eq([30, 40])
+        _(yielded).must_equal [30, 40]
       end
 
       it 'yields when boolean replaced' do
         user.is_active = false
         yielded = nil
         user.on_change(:is_active) { |prev, cur| yielded = [prev, cur] }
-        expect(yielded).to eq([true, false])
+        _(yielded).must_equal [true, false]
       end
 
       it 'does not yield when column unchanged' do
         yielded = false
         user.on_change(:name) { yielded = true }
-        expect(yielded).to be false
+        _(yielded).must_equal false
       end
 
       # -- Arrays: add, remove, replace, set, clear --------------------------
@@ -506,8 +561,8 @@ describe 'plugins/db/core.rb', :db_plugin do
         u.tags = Sequel.pg_array(['ruby', 'js'])
         yielded = nil
         u.on_change(:tags) { |prev, cur| yielded = [prev, cur] }
-        expect(yielded[0]).to eq(['ruby'])
-        expect(yielded[1]).to eq(['ruby', 'js'])
+        _(yielded[0]).must_equal ['ruby']
+        _(yielded[1]).must_equal ['ruby', 'js']
       end
 
       it 'yields when array element removed' do
@@ -518,8 +573,8 @@ describe 'plugins/db/core.rb', :db_plugin do
         u.tags = Sequel.pg_array(['ruby'])
         yielded = nil
         u.on_change(:tags) { |prev, cur| yielded = [prev, cur] }
-        expect(yielded[0]).to eq(['ruby', 'js'])
-        expect(yielded[1]).to eq(['ruby'])
+        _(yielded[0]).must_equal ['ruby', 'js']
+        _(yielded[1]).must_equal ['ruby']
       end
 
       it 'yields when array element replaced' do
@@ -530,8 +585,8 @@ describe 'plugins/db/core.rb', :db_plugin do
         u.tags = Sequel.pg_array(['go'])
         yielded = nil
         u.on_change(:tags) { |prev, cur| yielded = [prev, cur] }
-        expect(yielded[0]).to eq(['ruby'])
-        expect(yielded[1]).to eq(['go'])
+        _(yielded[0]).must_equal ['ruby']
+        _(yielded[1]).must_equal ['go']
       end
 
       it 'yields when array set from empty' do
@@ -542,8 +597,8 @@ describe 'plugins/db/core.rb', :db_plugin do
         u.tags = Sequel.pg_array(['ruby'])
         yielded = nil
         u.on_change(:tags) { |prev, cur| yielded = [prev, cur] }
-        expect(yielded[0]).to eq([])
-        expect(yielded[1]).to eq(['ruby'])
+        _(yielded[0]).must_equal []
+        _(yielded[1]).must_equal ['ruby']
       end
 
       it 'yields when array cleared' do
@@ -554,8 +609,8 @@ describe 'plugins/db/core.rb', :db_plugin do
         u.tags = Sequel.pg_array([], :text)
         yielded = nil
         u.on_change(:tags) { |prev, cur| yielded = [prev, cur] }
-        expect(yielded[0]).to eq(['ruby'])
-        expect(yielded[1]).to eq([])
+        _(yielded[0]).must_equal ['ruby']
+        _(yielded[1]).must_equal []
       end
 
       it 'does not yield when array unchanged' do
@@ -565,7 +620,7 @@ describe 'plugins/db/core.rb', :db_plugin do
 
         yielded = false
         u.on_change(:tags) { yielded = true }
-        expect(yielded).to be false
+        _(yielded).must_equal false
       end
 
       # -- Multiple fields ---------------------------------------------------
@@ -579,8 +634,8 @@ describe 'plugins/db/core.rb', :db_plugin do
         user.on_change(:name) { |prev, cur| name_change = [prev, cur] }
         user.on_change(:age) { |prev, cur| age_change = [prev, cur] }
 
-        expect(name_change).to eq(['Alice', 'Bob'])
-        expect(age_change).to eq([30, 99])
+        _(name_change).must_equal ['Alice', 'Bob']
+        _(age_change).must_equal [30, 99]
       end
 
       it 'does not yield for unchanged field when other fields changed' do
@@ -588,7 +643,7 @@ describe 'plugins/db/core.rb', :db_plugin do
 
         yielded = false
         user.on_change(:age) { yielded = true }
-        expect(yielded).to be false
+        _(yielded).must_equal false
       end
     end
   end
@@ -596,7 +651,7 @@ describe 'plugins/db/core.rb', :db_plugin do
   # -- DatasetMethods (in core.rb) -----------------------------------------
 
   describe 'Sequel::Model DatasetMethods (core)' do
-    before(:each) do
+    before do
       DB[:users].delete
       3.times { |i| DB[:users].insert(ref: new_ref, name: "U#{i}", updated_at: Time.now.utc - (i * 60)) }
     end
@@ -604,20 +659,20 @@ describe 'plugins/db/core.rb', :db_plugin do
     describe '.refs' do
       it 'returns array of ref strings' do
         result = User.dataset.refs
-        expect(result).to be_an(Array)
-        expect(result.length).to eq(3)
-        result.each { |r| expect(r).to be_a(String) }
+        _(result).must_be_kind_of Array
+        _(result.length).must_equal 3
+        result.each { |r| _(r).must_be_kind_of String }
       end
 
       it 'respects limit' do
-        expect(User.dataset.refs(2).length).to eq(2)
+        _(User.dataset.refs(2).length).must_equal 2
       end
     end
 
     describe '.latest' do
       it 'orders by updated_at descending' do
         times = User.dataset.latest.select_map(:updated_at)
-        times.each_cons(2) { |a, b| expect(a).to be >= b }
+        times.each_cons(2) { |a, b| assert a >= b }
       end
     end
   end
@@ -627,8 +682,9 @@ end
 #  dataset_methods.rb
 # =========================================================================
 
-describe 'plugins/db/dataset_methods.rb', :db_plugin do
-  before(:each) do
+describe 'plugins/db/dataset_methods.rb' do
+  db_plugin_setup
+  before do
     DB[:users].delete
     DB[:tasks].delete
   end
@@ -636,7 +692,7 @@ describe 'plugins/db/dataset_methods.rb', :db_plugin do
   describe '.random' do
     it 'returns records in non-deterministic order without error' do
       3.times { |i| DB[:users].insert(ref: new_ref, name: "R#{i}") }
-      expect(User.dataset.random.all.length).to eq(3)
+      _(User.dataset.random.all.length).must_equal 3
     end
   end
 
@@ -648,40 +704,40 @@ describe 'plugins/db/dataset_methods.rb', :db_plugin do
     end
 
     it 'returns self when given nil' do
-      expect(User.dataset.xwhere(nil).count).to eq(3)
+      _(User.dataset.xwhere(nil).count).must_equal 3
     end
 
     it 'handles symbol to check non-blank' do
       # coalesce(name,'')!=''
-      expect(User.dataset.xwhere(:name).count).to eq(2)
+      _(User.dataset.xwhere(:name).count).must_equal 2
     end
 
     it 'handles raw SQL string' do
-      expect(User.dataset.xwhere('age > ?', 26).count).to eq(1)
+      _(User.dataset.xwhere('age > ?', 26).count).must_equal 1
     end
 
     it 'handles hash conditions with present values' do
-      expect(User.dataset.xwhere(name: 'Alice').count).to eq(1)
+      _(User.dataset.xwhere(name: 'Alice').count).must_equal 1
     end
 
     it 'filters out blank hash values' do
       # blank values are removed from hash conditions
-      expect(User.dataset.xwhere(name: '').count).to eq(3)
+      _(User.dataset.xwhere(name: '').count).must_equal 3
     end
 
-    context 'with postgres arrays' do
+    describe 'with postgres arrays' do
       before do
         DB[:users].delete
         DB[:users].insert(ref: new_ref, name: 'Tagged', tags: Sequel.pg_array(['ruby', 'js']))
       end
 
       it 'searches for single element in array column' do
-        expect(User.dataset.xwhere(tags: 'ruby').count).to eq(1)
+        _(User.dataset.xwhere(tags: 'ruby').count).must_equal 1
       end
 
       it 'searches for multiple elements with join type' do
-        expect(User.dataset.xwhere({ tags: ['ruby', 'js'] }, 'and').count).to eq(1)
-        expect(User.dataset.xwhere({ tags: ['ruby', 'python'] }, 'or').count).to eq(1)
+        _(User.dataset.xwhere({ tags: ['ruby', 'js'] }, 'and').count).must_equal 1
+        _(User.dataset.xwhere({ tags: ['ruby', 'python'] }, 'or').count).must_equal 1
       end
     end
   end
@@ -693,26 +749,27 @@ describe 'plugins/db/dataset_methods.rb', :db_plugin do
     end
 
     it 'performs case-insensitive search' do
-      expect(User.dataset.xlike('alice', :name).count).to eq(1)
+      _(User.dataset.xlike('alice', :name).count).must_equal 1
     end
 
     it 'searches across multiple fields' do
       DB[:users].insert(ref: new_ref, name: 'Charlie', email: 'charlie@test.com')
-      expect(User.dataset.xlike('charlie', :name, :email).count).to eq(1)
+      _(User.dataset.xlike('charlie', :name, :email).count).must_equal 1
     end
 
     it 'handles multi-word search (AND logic between words)' do
-      expect(User.dataset.xlike('alice smith', :name).count).to eq(1)
-      expect(User.dataset.xlike('alice jones', :name).count).to eq(0)
+      _(User.dataset.xlike('alice smith', :name).count).must_equal 1
+      _(User.dataset.xlike('alice jones', :name).count).must_equal 0
     end
 
     it 'returns self for blank search' do
-      expect(User.dataset.xlike('', :name).count).to eq(2)
-      expect(User.dataset.xlike(nil, :name).count).to eq(2)
+      _(User.dataset.xlike('', :name).count).must_equal 2
+      _(User.dataset.xlike(nil, :name).count).must_equal 2
     end
 
     it 'raises for unknown fields' do
-      expect { User.dataset.xlike('x', :nonexistent_column).all }.to raise_error(ArgumentError, /not found/)
+      err = _ { User.dataset.xlike('x', :nonexistent_column).all }.must_raise ArgumentError
+      _(err.message).must_match(/not found/)
     end
   end
 
@@ -722,13 +779,13 @@ describe 'plugins/db/dataset_methods.rb', :db_plugin do
       new_r = new_ref
       DB[:users].insert(ref: old_ref, name: 'Old', updated_at: Time.now.utc - 3600)
       DB[:users].insert(ref: new_r, name: 'New', updated_at: Time.now.utc)
-      expect(User.dataset.last_updated.ref).to eq(new_r)
+      _(User.dataset.last_updated.ref).must_equal new_r
     end
 
     it 'applies optional filter' do
       DB[:users].insert(ref: new_ref, name: 'A', age: 1, updated_at: Time.now.utc)
       DB[:users].insert(ref: new_ref, name: 'B', age: 2, updated_at: Time.now.utc - 100)
-      expect(User.dataset.last_updated(age: 2).name).to eq('B')
+      _(User.dataset.last_updated(age: 2).name).must_equal 'B'
     end
   end
 
@@ -740,8 +797,8 @@ describe 'plugins/db/dataset_methods.rb', :db_plugin do
       DB[:tasks].insert(ref: new_ref, name: 'T2', user_ref: 'other')
 
       user = User[u_ref]
-      expect(Task.dataset.for(user).count).to eq(1)
-      expect(Task.dataset.for(user).first.name).to eq('T1')
+      _(Task.dataset.for(user).count).must_equal 1
+      _(Task.dataset.for(user).first.name).must_equal 'T1'
     end
   end
 
@@ -753,15 +810,15 @@ describe 'plugins/db/dataset_methods.rb', :db_plugin do
     end
 
     it '.desc orders newest first by default' do
-      expect(User.dataset.desc.first.name).to eq('C')
+      _(User.dataset.desc.first.name).must_equal 'C'
     end
 
     it '.desc accepts custom field' do
-      expect(User.dataset.desc(:name).first.name).to eq('C')
+      _(User.dataset.desc(:name).first.name).must_equal 'C'
     end
 
     it '.asc orders oldest first' do
-      expect(User.dataset.asc.first.name).to eq('A')
+      _(User.dataset.asc.first.name).must_equal 'A'
     end
   end
 
@@ -770,7 +827,7 @@ describe 'plugins/db/dataset_methods.rb', :db_plugin do
       DB[:users].insert(ref: new_ref, name: 'X')
       DB[:users].insert(ref: new_ref, name: 'Y')
       names = User.dataset.pluck(:name)
-      expect(names).to contain_exactly('X', 'Y')
+      _(names.sort).must_equal ['X', 'Y']
     end
   end
 
@@ -782,13 +839,13 @@ describe 'plugins/db/dataset_methods.rb', :db_plugin do
     end
 
     it 'returns single most recent record without argument' do
-      expect(User.dataset.last.name).to eq('C')
+      _(User.dataset.last.name).must_equal 'C'
     end
 
     it 'returns array of N records with argument' do
       result = User.dataset.last(2)
-      expect(result.length).to eq(2)
-      expect(result.first.name).to eq('C')
+      _(result.length).must_equal 2
+      _(result.first.name).must_equal 'C'
     end
   end
 end
@@ -797,10 +854,13 @@ end
 #  find_precache.rb
 # =========================================================================
 
-describe 'plugins/db/find_precache.rb', :db_plugin do
-  before(:each) { DB[:users].delete }
+describe 'plugins/db/find_precache.rb' do
+  db_plugin_setup
+  before { DB[:users].delete }
 
-  let(:ref) { new_ref }
+  def ref
+    @ref ||= new_ref
+  end
 
   before do
     DB[:users].insert(ref: ref, name: 'Cached')
@@ -809,33 +869,34 @@ describe 'plugins/db/find_precache.rb', :db_plugin do
   describe '.find' do
     it 'returns the record by ref' do
       user = User.find(ref)
-      expect(user).to be_a(User)
-      expect(user.name).to eq('Cached')
+      _(user).must_be_kind_of User
+      _(user.name).must_equal 'Cached'
     end
 
     it 'raises when not found' do
-      expect { User.find('nonexistent') }.to raise_error(Sequel::Error, /not found/)
+      err = _ { User.find('nonexistent') }.must_raise Sequel::Error
+      _(err.message).must_match(/not found/)
     end
 
     it 'returns nil for blank id' do
-      expect(User.find(nil)).to be_nil
-      expect(User.find('')).to be_nil
+      _(User.find(nil)).must_be_nil
+      _(User.find('')).must_be_nil
     end
 
     it 'caches within the same request scope' do
       user1 = User.find(ref)
       user2 = User.find(ref)
-      expect(user1.object_id).to eq(user2.object_id)
+      _(user1.object_id).must_equal user2.object_id
     end
   end
 
   describe '.take' do
     it 'returns the record when found' do
-      expect(User.take(ref).name).to eq('Cached')
+      _(User.take(ref).name).must_equal 'Cached'
     end
 
     it 'returns nil instead of raising when not found' do
-      expect(User.take('nonexistent')).to be_nil
+      _(User.take('nonexistent')).must_be_nil
     end
   end
 end
@@ -844,8 +905,9 @@ end
 #  before_save_filters.rb
 # =========================================================================
 
-describe 'plugins/db/before_save_filters.rb', :db_plugin do
-  before(:each) do
+describe 'plugins/db/before_save_filters.rb' do
+  db_plugin_setup
+  before do
     DB[:users].delete
     User.current = nil
   end
@@ -853,8 +915,8 @@ describe 'plugins/db/before_save_filters.rb', :db_plugin do
   describe 'timestamp handling' do
     it 'sets created_at on new records' do
       u = create_user(name: 'New')
-      expect(u.created_at).not_to be_nil
-      expect(u.created_at).to be_within(2).of(Time.now.utc)
+      refute_nil u.created_at
+      assert_in_delta Time.now.utc, u.created_at, 2
     end
 
     it 'sets updated_at on every save' do
@@ -862,33 +924,35 @@ describe 'plugins/db/before_save_filters.rb', :db_plugin do
       original_updated = u.updated_at
       sleep 0.01
       u.update(name: 'Updated')
-      expect(u.updated_at).to be > original_updated
+      assert u.updated_at > original_updated
     end
   end
 
   describe 'audit columns' do
-    let(:current_user) do
-      ref = new_ref
-      DB[:users].insert(ref: ref, name: 'Admin')
-      User[ref]
+    def current_user
+      @current_user ||= begin
+        ref = new_ref
+        DB[:users].insert(ref: ref, name: 'Admin')
+        User[ref]
+      end
     end
 
     it 'sets creator_ref on create when user is logged in' do
       User.current = current_user
       u = create_user(name: 'Created')
-      expect(u.creator_ref).to eq(current_user.ref)
+      _(u.creator_ref).must_equal current_user.ref
     end
 
     it 'sets updater_ref on save when user is logged in' do
       User.current = current_user
       u = create_user(name: 'A')
-      expect(u.updater_ref).to eq(current_user.ref)
+      _(u.updater_ref).must_equal current_user.ref
     end
 
     it 'leaves audit columns nil when no current user' do
       User.current = nil
       u = create_user(name: 'NoAudit')
-      expect(u.creator_ref).to be_nil
+      _(u.creator_ref).must_be_nil
     end
   end
 
@@ -897,8 +961,8 @@ describe 'plugins/db/before_save_filters.rb', :db_plugin do
       u = create_user(name: 'SoftDel')
       u.destroy
       row = DB[:users].where(ref: u.ref).first
-      expect(row).not_to be_nil
-      expect(row[:is_deleted]).to be true
+      refute_nil row
+      _(row[:is_deleted]).must_equal true
     end
   end
 
@@ -911,24 +975,25 @@ describe 'plugins/db/before_save_filters.rb', :db_plugin do
 
     it '.not_deleted excludes soft-deleted records' do
       names = User.dataset.not_deleted.select_map(:name)
-      expect(names).to include('Active', 'Inactive')
-      expect(names).not_to include('Deleted')
+      _(names).must_include 'Active'
+      _(names).must_include 'Inactive'
+      _(names).wont_include 'Deleted'
     end
 
     it '.deleted returns only soft-deleted records' do
       names = User.dataset.deleted.select_map(:name)
-      expect(names).to eq(['Deleted'])
+      _(names).must_equal ['Deleted']
     end
 
     it '.activated returns only active records' do
       names = User.dataset.activated.select_map(:name)
-      expect(names).to include('Active')
-      expect(names).not_to include('Inactive')
+      _(names).must_include 'Active'
+      _(names).wont_include 'Inactive'
     end
 
     it '.deactivated returns only inactive records' do
       names = User.dataset.deactivated.select_map(:name)
-      expect(names).to eq(['Inactive'])
+      _(names).must_equal ['Inactive']
     end
   end
 end
@@ -937,41 +1002,44 @@ end
 #  enums_plugin.rb
 # =========================================================================
 
-describe 'plugins/db/enums_plugin.rb', :db_plugin do
-  before(:each) { DB[:users].delete }
+describe 'plugins/db/enums_plugin.rb' do
+  db_plugin_setup
+  before { DB[:users].delete }
 
   # User already has: enum :step, values: { 'a'=>'Active', 'i'=>'Inactive', 'd'=>'Disabled' }
 
   describe '.enum class method' do
     it 'defines a class method returning all values' do
-      expect(User.steps).to eq({ 'a' => 'Active', 'i' => 'Inactive', 'd' => 'Disabled' }.to_lux_hash)
+      _(User.steps).must_equal({ 'a' => 'Active', 'i' => 'Inactive', 'd' => 'Disabled' }.to_lux_hash)
     end
 
     it 'returns single value when called with id' do
-      expect(User.steps('a')).to eq('Active')
-      expect(User.steps('d')).to eq('Disabled')
+      _(User.steps('a')).must_equal 'Active'
+      _(User.steps('d')).must_equal 'Disabled'
     end
   end
 
   describe 'instance enum methods' do
-    let(:user) do
-      DB[:users].insert(ref: new_ref, name: 'EnumUser', step_sid: 'i')
-      User.where(name: 'EnumUser').first
+    def user
+      @user ||= begin
+        DB[:users].insert(ref: new_ref, name: 'EnumUser', step_sid: 'i')
+        User.where(name: 'EnumUser').first
+      end
     end
 
     it '#step_sid returns the stored value or default' do
-      expect(user.step_sid).to eq('i')
+      _(user.step_sid).must_equal 'i'
     end
 
     it '#step returns the human name' do
-      expect(user.step).to eq('Inactive')
+      _(user.step).must_equal 'Inactive'
     end
 
     it 'returns default when field is blank' do
       DB[:users].insert(ref: new_ref, name: 'Default', step_sid: nil)
       u = User.where(name: 'Default').first
-      expect(u.step_sid).to eq('a') # default
-      expect(u.step).to eq('Active')
+      _(u.step_sid).must_equal 'a' # default
+      _(u.step).must_equal 'Active'
     end
   end
 
@@ -982,18 +1050,18 @@ describe 'plugins/db/enums_plugin.rb', :db_plugin do
 
     it 'creates the class method with all keys' do
       vals = User.priorities
-      expect(vals.keys).to contain_exactly('low', 'medium', 'high')
+      _(vals.keys.sort).must_equal ['high', 'low', 'medium']
     end
 
     it 'returns nil values (array enums store key only)' do
       # array-based enums produce { 'low' => nil, 'medium' => nil, 'high' => nil }
       # because Array elements destructure as (key, nil) pairs
-      expect(User.priorities['low']).to be_nil
+      _(User.priorities['low']).must_be_nil
     end
 
     it 'has no field (field: false for array-based)' do
       # no field defined, so only the class-level lookup is created
-      expect(User.priorities).to respond_to(:keys)
+      assert_respond_to User.priorities, :keys
     end
   end
 end
@@ -1002,22 +1070,29 @@ end
 #  hooks.rb
 # =========================================================================
 
-describe 'plugins/db/hooks.rb', :db_plugin do
-  before(:each) { DB[:tasks].delete }
+describe 'plugins/db/hooks.rb' do
+  db_plugin_setup
+  before do
+    DB[:tasks].delete
+    # Hooks registered via Task.before(:c) {...} accumulate on the Task
+    # class in HOOK_METHODS. Without this reset, a hook from one test
+    # (e.g. validation that adds errors) blows up every subsequent test.
+    Sequel::Plugins::LuxHooks::HOOK_METHODS.delete(Task)
+  end
 
   describe 'before/after hooks' do
     it 'fires before(:c) on create' do
       fired = []
       Task.before(:c) { fired << :before_create }
       create_task(name: 'Hook')
-      expect(fired).to include(:before_create)
+      _(fired).must_include :before_create
     end
 
     it 'fires after(:c) on create' do
       fired = []
       Task.after(:c) { fired << :after_create }
       create_task(name: 'Hook')
-      expect(fired).to include(:after_create)
+      _(fired).must_include :after_create
     end
 
     it 'fires before(:u) on update' do
@@ -1025,7 +1100,7 @@ describe 'plugins/db/hooks.rb', :db_plugin do
       Task.before(:u) { fired << :before_update }
       t = create_task(name: 'Hook')
       t.update(name: 'Updated')
-      expect(fired).to include(:before_update)
+      _(fired).must_include :before_update
     end
 
     it 'fires after(:u) on update' do
@@ -1033,7 +1108,7 @@ describe 'plugins/db/hooks.rb', :db_plugin do
       Task.after(:u) { fired << :after_update }
       t = create_task(name: 'Hook')
       t.update(name: 'Updated')
-      expect(fired).to include(:after_update)
+      _(fired).must_include :after_update
     end
 
     it 'fires before(:d) on destroy' do
@@ -1041,7 +1116,7 @@ describe 'plugins/db/hooks.rb', :db_plugin do
       Task.before(:d) { fired << :before_destroy }
       t = create_task(name: 'Hook')
       t.destroy
-      expect(fired).to include(:before_destroy)
+      _(fired).must_include :before_destroy
     end
 
     it 'fires after(:d) on destroy' do
@@ -1049,26 +1124,26 @@ describe 'plugins/db/hooks.rb', :db_plugin do
       Task.after(:d) { fired << :after_destroy }
       t = create_task(name: 'Hook')
       t.destroy
-      expect(fired).to include(:after_destroy)
+      _(fired).must_include :after_destroy
     end
 
     it 'supports combined hooks like before(:cu)' do
       fired = []
       Task.before(:cu) { fired << :before_cu }
       create_task(name: 'A')
-      expect(fired.count(:before_cu)).to eq(1) # create
+      _(fired.count(:before_cu)).must_equal 1 # create
 
       t = create_task(name: 'B')
       fired.clear
       t.update(name: 'C')
-      expect(fired.count(:before_cu)).to eq(1) # update
+      _(fired.count(:before_cu)).must_equal 1 # update
     end
 
     it 'fires before(:v) before validation' do
       fired = []
       Task.before(:v) { fired << :before_validate }
       create_task(name: 'Hook')
-      expect(fired).to include(:before_validate)
+      _(fired).must_include :before_validate
     end
 
     it 'fires before(:v) before before(:c)' do
@@ -1076,7 +1151,7 @@ describe 'plugins/db/hooks.rb', :db_plugin do
       Task.before(:v) { order << :validate }
       Task.before(:c) { order << :create }
       create_task(name: 'Order')
-      expect(order).to eq([:validate, :create])
+      _(order).must_equal [:validate, :create]
     end
 
     it 'fires before(:v) on update too' do
@@ -1085,54 +1160,50 @@ describe 'plugins/db/hooks.rb', :db_plugin do
       t = create_task(name: 'Hook')
       fired.clear
       t.update(name: 'Updated')
-      expect(fired).to include(:before_validate)
+      _(fired).must_include :before_validate
     end
 
     it 'supports before(:vc) combined hook' do
       fired = []
       Task.before(:vc) { fired << :before_vc }
       create_task(name: 'Combined')
-      expect(fired).to include(:before_vc)
+      _(fired).must_include :before_vc
     end
   end
 
   describe 'before hooks with errors prevent save' do
-    before(:each) do
+    before do
       Sequel::Plugins::LuxHooks::HOOK_METHODS.delete(Task)
     end
 
     it 'before(:c) errors prevent record creation' do
       Task.before(:c) { errors.add(:name, 'is invalid') }
-      expect {
-        create_task(name: 'Blocked')
-      }.to raise_error(Sequel::ValidationFailed, /is invalid/)
-      expect(DB[:tasks].count).to eq(0)
+      err = _ { create_task(name: 'Blocked') }.must_raise Sequel::ValidationFailed
+      _(err.message).must_match(/is invalid/)
+      _(DB[:tasks].count).must_equal 0
     end
 
     it 'before(:u) errors prevent record update' do
       t = create_task(name: 'Original')
       Task.before(:u) { errors.add(:name, 'cannot change') }
-      expect {
-        t.update(name: 'Changed')
-      }.to raise_error(Sequel::ValidationFailed, /cannot change/)
-      expect(t.reload.name).to eq('Original')
+      err = _ { t.update(name: 'Changed') }.must_raise Sequel::ValidationFailed
+      _(err.message).must_match(/cannot change/)
+      _(t.reload.name).must_equal 'Original'
     end
 
     it 'before(:d) errors prevent record destruction' do
       t = create_task(name: 'Keep')
       Task.before(:d) { errors.add(:base, 'cannot delete') }
-      expect {
-        t.destroy
-      }.to raise_error(Sequel::ValidationFailed, /cannot delete/)
-      expect(DB[:tasks].count).to eq(1)
+      err = _ { t.destroy }.must_raise Sequel::ValidationFailed
+      _(err.message).must_match(/cannot delete/)
+      _(DB[:tasks].count).must_equal 1
     end
 
     it 'before(:v) errors prevent save via standard validation' do
       Task.before(:v) { errors.add(:name, 'bad name') }
-      expect {
-        create_task(name: 'Blocked')
-      }.to raise_error(Sequel::ValidationFailed, /bad name/)
-      expect(DB[:tasks].count).to eq(0)
+      err = _ { create_task(name: 'Blocked') }.must_raise Sequel::ValidationFailed
+      _(err.message).must_match(/bad name/)
+      _(DB[:tasks].count).must_equal 0
     end
 
     it 'error messages are preserved in the exception' do
@@ -1140,15 +1211,15 @@ describe 'plugins/db/hooks.rb', :db_plugin do
       begin
         create_task(name: 'Fail')
       rescue Sequel::ValidationFailed => e
-        expect(e.errors[:name]).to include('too short')
-        expect(e.errors[:name]).to include('is blank')
+        _(e.errors[:name]).must_include 'too short'
+        _(e.errors[:name]).must_include 'is blank'
       end
     end
 
     it 'after hooks do not trigger validation check' do
       Task.after(:c) { errors.add(:name, 'should not matter') }
-      expect { create_task(name: 'OK') }.not_to raise_error
-      expect(DB[:tasks].count).to eq(1)
+      create_task(name: 'OK')  # should not raise
+      _(DB[:tasks].count).must_equal 1
     end
   end
 end
@@ -1157,17 +1228,25 @@ end
 #  _parent_model.rb
 # =========================================================================
 
-describe 'plugins/db/_parent_model.rb', :db_plugin do
-  before(:each) do
+describe 'plugins/db/_parent_model.rb' do
+  db_plugin_setup
+  before do
     DB[:users].delete
     DB[:tasks].delete
   end
 
-  let(:user_ref) { new_ref }
-  let!(:user) do
-    DB[:users].insert(ref: user_ref, name: 'Parent')
-    User[user_ref]
+  def user_ref
+    @user_ref ||= new_ref
   end
+
+  def user
+    @user ||= begin
+      DB[:users].insert(ref: user_ref, name: 'Parent')
+      User[user_ref]
+    end
+  end
+
+  before { user }  # eager (was let!)
 
   describe '#parent= and #parent (parent_key style)' do
     it 'sets parent via parent_key' do
@@ -1175,29 +1254,29 @@ describe 'plugins/db/_parent_model.rb', :db_plugin do
       t[:ref] = new_ref
       t[:name] = 'T'
       t.parent = user
-      expect(t[:parent_key]).to eq("User/#{user_ref}")
+      _(t[:parent_key]).must_equal "User/#{user_ref}"
     end
 
     it 'retrieves parent from parent_key' do
       t_ref = new_ref
       DB[:tasks].insert(ref: t_ref, name: 'T', parent_key: "User/#{user_ref}")
       t = Task[t_ref]
-      expect(t.parent).to be_a(User)
-      expect(t.parent.ref).to eq(user_ref)
+      _(t.parent).must_be_kind_of User
+      _(t.parent.ref).must_equal user_ref
     end
 
     it 'accepts a string key in Class/ref format' do
       t = Task.new
       t[:ref] = new_ref
       t.parent = "User/#{user_ref}"
-      expect(t[:parent_key]).to eq("User/#{user_ref}")
+      _(t[:parent_key]).must_equal "User/#{user_ref}"
     end
   end
 
   describe '#parent?' do
     it 'returns truthy when parent columns exist' do
       t = Task.new
-      expect(t.parent?).to be_truthy
+      assert t.parent?
     end
   end
 
@@ -1210,8 +1289,8 @@ describe 'plugins/db/_parent_model.rb', :db_plugin do
       DB[:comments].insert(ref: new_ref, body: 'C2', parent_key: 'User/other')
 
       comments = Comment.where_ref(user)
-      expect(comments.count).to eq(1)
-      expect(comments.first.body).to eq('C1')
+      _(comments.count).must_equal 1
+      _(comments.first.body).must_equal 'C1'
     end
   end
 
@@ -1221,7 +1300,7 @@ describe 'plugins/db/_parent_model.rb', :db_plugin do
       DB[:comments].insert(ref: new_ref, body: 'C1', parent_key: "User/#{user_ref}")
       DB[:comments].insert(ref: new_ref, body: 'C2', parent_key: 'User/other')
 
-      expect(Comment.dataset.for(user).count).to eq(1)
+      _(Comment.dataset.for(user).count).must_equal 1
     end
   end
 end
@@ -1230,36 +1309,44 @@ end
 #  link_objects.rb
 # =========================================================================
 
-describe 'plugins/db/link_objects.rb', :db_plugin do
-  before(:each) do
+describe 'plugins/db/link_objects.rb' do
+  db_plugin_setup
+  before do
     DB[:users].delete
     DB[:tasks].delete
   end
 
-  let(:user_ref) { new_ref }
-  let!(:user) do
-    DB[:users].insert(ref: user_ref, name: 'Owner')
-    User[user_ref]
+  def user_ref
+    @user_ref ||= new_ref
   end
+
+  def user
+    @user ||= begin
+      DB[:users].insert(ref: user_ref, name: 'Owner')
+      User[user_ref]
+    end
+  end
+
+  before { user }  # eager-create owner (was let!)
 
   describe 'DatasetMethods#where_ref' do
     it 'scopes by foreign ref column' do
       DB[:tasks].insert(ref: new_ref, name: 'T1', user_ref: user_ref)
       DB[:tasks].insert(ref: new_ref, name: 'T2', user_ref: 'other')
 
-      expect(Task.dataset.where_ref(user).count).to eq(1)
+      _(Task.dataset.where_ref(user).count).must_equal 1
     end
 
     it 'returns self when object is nil' do
       DB[:tasks].insert(ref: new_ref, name: 'T1')
-      expect(Task.dataset.where_ref(nil).count).to eq(1)
+      _(Task.dataset.where_ref(nil).count).must_equal 1
     end
   end
 
   describe 'ClassMethods.where_ref' do
     it 'delegates to dataset' do
       DB[:tasks].insert(ref: new_ref, name: 'T1', user_ref: user_ref)
-      expect(Task.where_ref(user).count).to eq(1)
+      _(Task.where_ref(user).count).must_equal 1
     end
   end
 
@@ -1268,15 +1355,15 @@ describe 'plugins/db/link_objects.rb', :db_plugin do
       t_ref = new_ref
       DB[:tasks].insert(ref: t_ref, name: 'T', user_ref: user_ref)
       task = Task[t_ref]
-      expect(task.user).to be_a(User)
-      expect(task.user.ref).to eq(user_ref)
+      _(task.user).must_be_kind_of User
+      _(task.user.ref).must_equal user_ref
     end
 
     it 'returns nil when ref is blank' do
       t_ref = new_ref
       DB[:tasks].insert(ref: t_ref, name: 'T', user_ref: nil)
       task = Task[t_ref]
-      expect(task.user).to be_nil
+      _(task.user).must_be_nil
     end
   end
 end
@@ -1285,34 +1372,30 @@ end
 #  composite_primary_keys.rb
 # =========================================================================
 
-describe 'plugins/db/composite_primary_keys.rb', :db_plugin do
-  before(:each) { DB[:org_users].delete }
+describe 'plugins/db/composite_primary_keys.rb' do
+  db_plugin_setup
+  before { DB[:org_users].delete }
 
   describe '.primary_keys' do
     it 'returns defined composite keys' do
-      expect(OrgUser.primary_keys).to eq([:org_ref, :user_ref])
+      _(OrgUser.primary_keys).must_equal [:org_ref, :user_ref]
     end
   end
 
   describe 'uniqueness enforcement on save' do
     it 'allows first record with given key combination' do
-      expect {
-        OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u1')
-      }.not_to raise_error
+      OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u1')  # should not raise
     end
 
     it 'raises when duplicate composite key is inserted' do
       OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u1')
-      expect {
-        OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u1')
-      }.to raise_error(StandardError, /already exists/)
+      err = _ { OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u1') }.must_raise StandardError
+      _(err.message).must_match(/already exists/)
     end
 
     it 'allows same org_ref with different user_ref' do
       OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u1')
-      expect {
-        OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u2')
-      }.not_to raise_error
+      OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u2')  # should not raise
     end
   end
 end
@@ -1321,8 +1404,9 @@ end
 #  array_search.rb
 # =========================================================================
 
-describe 'plugins/db/array_search.rb', :db_plugin do
-  before(:each) { DB[:users].delete }
+describe 'plugins/db/array_search.rb' do
+  db_plugin_setup
+  before { DB[:users].delete }
 
   describe '.all_tags' do
     before do
@@ -1333,19 +1417,19 @@ describe 'plugins/db/array_search.rb', :db_plugin do
 
     it 'returns tag names with counts' do
       result = User.dataset.all_tags
-      expect(result).to be_an(Array)
+      _(result).must_be_kind_of Array
       names = result.map { |r| r[:name] || r['name'] }
-      expect(names).to include('ruby')
+      _(names).must_include 'ruby'
     end
 
     it 'respects limit' do
       result = User.dataset.all_tags(limit: 2)
-      expect(result.length).to be <= 2
+      assert result.length <= 2
     end
 
     it 'works with custom field name' do
       result = User.dataset.all_tags(tags: :tags, limit: 10)
-      expect(result).to be_an(Array)
+      _(result).must_be_kind_of Array
     end
   end
 
@@ -1357,16 +1441,16 @@ describe 'plugins/db/array_search.rb', :db_plugin do
     end
 
     it 'finds records with any matching tag' do
-      expect(User.dataset.where_any('ruby', :tags).count).to eq(2)
+      _(User.dataset.where_any('ruby', :tags).count).must_equal 2
     end
 
     it 'accepts array of values' do
-      expect(User.dataset.where_any(['ruby', 'python'], :tags).count).to eq(3)
+      _(User.dataset.where_any(['ruby', 'python'], :tags).count).must_equal 3
     end
 
     it 'returns self when data is blank' do
-      expect(User.dataset.where_any(nil, :tags).count).to eq(3)
-      expect(User.dataset.where_any('', :tags).count).to eq(3)
+      _(User.dataset.where_any(nil, :tags).count).must_equal 3
+      _(User.dataset.where_any('', :tags).count).must_equal 3
     end
   end
 
@@ -1378,21 +1462,21 @@ describe 'plugins/db/array_search.rb', :db_plugin do
     end
 
     it 'finds records with all matching tags' do
-      expect(User.dataset.where_all(['ruby', 'js'], :tags).count).to eq(1)
-      expect(User.dataset.where_all(['ruby', 'js'], :tags).first[:name]).to eq('A')
+      _(User.dataset.where_all(['ruby', 'js'], :tags).count).must_equal 1
+      _(User.dataset.where_all(['ruby', 'js'], :tags).first[:name]).must_equal 'A'
     end
 
     it 'works with single tag' do
-      expect(User.dataset.where_all('ruby', :tags).count).to eq(3)
+      _(User.dataset.where_all('ruby', :tags).count).must_equal 3
     end
 
     it 'returns empty when no records match all tags' do
-      expect(User.dataset.where_all(['ruby', 'go'], :tags).count).to eq(0)
+      _(User.dataset.where_all(['ruby', 'go'], :tags).count).must_equal 0
     end
 
     it 'returns self when data is blank' do
-      expect(User.dataset.where_all(nil, :tags).count).to eq(3)
-      expect(User.dataset.where_all('', :tags).count).to eq(3)
+      _(User.dataset.where_all(nil, :tags).count).must_equal 3
+      _(User.dataset.where_all('', :tags).count).must_equal 3
     end
   end
 end
@@ -1401,12 +1485,13 @@ end
 #  model_tree.rb
 # =========================================================================
 
-describe 'plugins/db/model_tree.rb (ModelTree)', :db_plugin do
-  before(:each) { DB[:tree_nodes].delete }
+describe 'plugins/db/model_tree.rb (ModelTree)' do
+  db_plugin_setup
+  before { DB[:tree_nodes].delete }
 
-  let(:root_ref) { new_ref }
-  let(:child_ref) { new_ref }
-  let(:grandchild_ref) { new_ref }
+  def root_ref;        @root_ref        ||= new_ref; end
+  def child_ref;       @child_ref       ||= new_ref; end
+  def grandchild_ref;  @grandchild_ref  ||= new_ref; end
 
   before do
     DB[:tree_nodes].insert(ref: root_ref, name: 'Root', parent_refs: Sequel.pg_array([], :text))
@@ -1417,7 +1502,7 @@ describe 'plugins/db/model_tree.rb (ModelTree)', :db_plugin do
   describe '#parent' do
     it 'returns the direct parent (first element of parent_refs)' do
       child = TreeNode[child_ref]
-      expect(child.parent.ref).to eq(root_ref)
+      _(child.parent.ref).must_equal root_ref
     end
   end
 
@@ -1425,7 +1510,7 @@ describe 'plugins/db/model_tree.rb (ModelTree)', :db_plugin do
     it 'returns direct children' do
       root = TreeNode[root_ref]
       kids = root.children
-      expect(kids.map(&:ref)).to include(child_ref)
+      _(kids.map(&:ref)).must_include child_ref
     end
   end
 
@@ -1433,7 +1518,9 @@ describe 'plugins/db/model_tree.rb (ModelTree)', :db_plugin do
     it 'returns self ref plus all descendant refs' do
       root = TreeNode[root_ref]
       refs = root.children_refs
-      expect(refs).to include(root_ref, child_ref, grandchild_ref)
+      _(refs).must_include root_ref
+      _(refs).must_include child_ref
+      _(refs).must_include grandchild_ref
     end
   end
 
@@ -1443,7 +1530,8 @@ describe 'plugins/db/model_tree.rb (ModelTree)', :db_plugin do
       new_node[:ref] = new_ref
       new_node[:name] = 'New'
       new_node.parent_ref = child_ref
-      expect(new_node[:parent_refs]).to include(child_ref, root_ref)
+      _(new_node[:parent_refs]).must_include child_ref
+      _(new_node[:parent_refs]).must_include root_ref
     end
   end
 end
@@ -1452,10 +1540,14 @@ end
 #  paginate.rb
 # =========================================================================
 
-describe 'plugins/db/paginate.rb', :db_plugin do
-  before(:each) { DB[:users].delete }
+describe 'plugins/db/paginate.rb' do
+  db_plugin_setup
+  before { DB[:users].delete }
 
   before do
+    # truncate first - earlier `it`s in this describe (and earlier
+    # describes) leave rows behind that throw off page-size math
+    DB[:users].delete
     10.times do |i|
       DB[:users].insert(ref: new_ref, name: "P#{i.to_s.rjust(2, '0')}", created_at: Time.now.utc - (i * 60))
     end
@@ -1467,7 +1559,7 @@ describe 'plugins/db/paginate.rb', :db_plugin do
   describe 'Paginate()' do
     it 'returns the requested page size' do
       result = Paginate(User.dataset.order(:name), size: 3, page: 1)
-      expect(result.length).to eq(3)
+      _(result.length).must_equal 3
     end
 
     it 'paginates correctly across pages' do
@@ -1475,49 +1567,49 @@ describe 'plugins/db/paginate.rb', :db_plugin do
       page1 = Paginate(User.dataset.order(:name), size: 4, param: :pg)
       Lux::Current.new('http://test?pg=2')
       page2 = Paginate(User.dataset.order(:name), size: 4, param: :pg)
-      expect(page1.map(&:name) & page2.map(&:name)).to be_empty
+      assert_empty(page1.map(&:name) & page2.map(&:name))
     end
 
     it 'sets paginate_page from request params' do
       Lux::Current.new('http://test?pg=3')
       result = Paginate(User.dataset, size: 5, param: :pg)
-      expect(result.paginate_page).to eq(3)
+      _(result.paginate_page).must_equal 3
     end
 
     it 'sets paginate_next to true when more records exist' do
       result = Paginate(User.dataset.order(:name), size: 5, page: 1)
-      expect(result.paginate_next).to be true
+      _(result.paginate_next).must_equal true
     end
 
     it 'sets paginate_next to false on last page' do
       result = Paginate(User.dataset.order(:name), size: 20, page: 1)
-      expect(result.paginate_next).to be false
+      _(result.paginate_next).must_equal false
     end
 
     it 'sets paginate_opts' do
       Lux::Current.new('http://test?pg=2')
       result = Paginate(User.dataset, size: 5, param: :pg)
       opts = result.paginate_opts
-      expect(opts[:page]).to eq(2)
-      expect(opts[:param]).to eq(:pg)
+      _(opts[:page]).must_equal 2
+      _(opts[:param]).must_equal :pg
     end
 
     it 'defaults page to 1 for invalid values' do
       result = Paginate(User.dataset, size: 5, page: 0)
-      expect(result.paginate_page).to eq(1)
+      _(result.paginate_page).must_equal 1
     end
   end
 
   describe 'dataset #page / #paginate' do
     it 'works as dataset method' do
       result = User.dataset.order(:name).page(size: 3, page: 1)
-      expect(result.length).to eq(3)
-      expect(result).to respond_to(:paginate_next)
+      _(result.length).must_equal 3
+      assert_respond_to result, :paginate_next
     end
 
     it 'is aliased as #paginate' do
       result = User.dataset.order(:name).paginate(size: 3, page: 1)
-      expect(result.length).to eq(3)
+      _(result.length).must_equal 3
     end
   end
 end
@@ -1526,8 +1618,9 @@ end
 #  link_objects.rb – plural ref (has_many)
 # =========================================================================
 
-describe 'plugins/db/link_objects.rb – plural ref', :db_plugin do
-  before(:each) do
+describe 'plugins/db/link_objects.rb – plural ref' do
+  db_plugin_setup
+  before do
     DB[:users].delete
     DB[:tasks].delete
     DB[:comments].delete
@@ -1535,8 +1628,8 @@ describe 'plugins/db/link_objects.rb – plural ref', :db_plugin do
   end
 
   describe 'link :users (array-based has_many via user_refs[])' do
-    let(:u1_ref) { new_ref }
-    let(:u2_ref) { new_ref }
+    def u1_ref; @u1_ref ||= new_ref; end
+    def u2_ref; @u2_ref ||= new_ref; end
 
     before do
       DB[:users].insert(ref: u1_ref, name: 'Alice')
@@ -1549,8 +1642,8 @@ describe 'plugins/db/link_objects.rb – plural ref', :db_plugin do
       project = Project[p_ref]
 
       users = project.users
-      expect(users.length).to eq(2)
-      expect(users.map(&:name)).to contain_exactly('Alice', 'Bob')
+      _(users.length).must_equal 2
+      _(users.map(&:name).sort).must_equal ['Alice', 'Bob']
     end
 
     it 'returns empty array when refs array is empty' do
@@ -1558,7 +1651,7 @@ describe 'plugins/db/link_objects.rb – plural ref', :db_plugin do
       DB[:projects].insert(ref: p_ref, name: 'P2', user_refs: Sequel.pg_array([], :text))
       project = Project[p_ref]
 
-      expect(project.users).to eq([])
+      _(project.users).must_equal []
     end
 
     it 'returns empty array when refs is nil' do
@@ -1566,12 +1659,12 @@ describe 'plugins/db/link_objects.rb – plural ref', :db_plugin do
       DB[:projects].insert(ref: p_ref, name: 'P3')
       project = Project[p_ref]
 
-      expect(project.users).to eq([])
+      _(project.users).must_equal []
     end
   end
 
   describe 'link :comments (reverse-lookup has_many)' do
-    let(:task_ref) { new_ref }
+    def task_ref; @task_ref ||= new_ref; end
 
     before do
       DB[:tasks].insert(ref: task_ref, name: 'MyTask')
@@ -1585,14 +1678,14 @@ describe 'plugins/db/link_objects.rb – plural ref', :db_plugin do
       task = Task[task_ref]
       comments = task.comments
 
-      expect(comments).to respond_to(:count)
-      expect(comments.count).to eq(2)
-      expect(comments.map(&:body)).to contain_exactly('C1', 'C2')
+      assert_respond_to comments, :count
+      _(comments.count).must_equal 2
+      _(comments.map(&:body).sort).must_equal ['C1', 'C2']
     end
 
     it 'returns empty dataset when no associated records exist' do
       task = Task[task_ref]
-      expect(task.comments.count).to eq(0)
+      _(task.comments.count).must_equal 0
     end
   end
 
@@ -1607,23 +1700,26 @@ describe 'plugins/db/link_objects.rb – plural ref', :db_plugin do
       task[:name] = 'T'
       task.user = user
 
-      expect(task[:user_ref]).to eq(u_ref)
+      _(task[:user_ref]).must_equal u_ref
     end
   end
 
   describe 'where_ref via parent_type/parent_ref fallback' do
-    let(:user_ref) { new_ref }
-    let!(:user) do
-      DB[:users].insert(ref: user_ref, name: 'Parent')
-      User[user_ref]
+    def user_ref; @user_ref ||= new_ref; end
+    def user
+      @user ||= begin
+        DB[:users].insert(ref: user_ref, name: 'Parent')
+        User[user_ref]
+      end
     end
+    before { user }  # eager (was let!)
 
     it 'scopes by parent_type and parent_ref when no FK column exists' do
       DB[:notes].insert(ref: new_ref, body: 'N1', parent_type: 'User', parent_ref: user_ref)
       DB[:notes].insert(ref: new_ref, body: 'N2', parent_type: 'User', parent_ref: 'other')
 
-      expect(Note.where_ref(user).count).to eq(1)
-      expect(Note.where_ref(user).first.body).to eq('N1')
+      _(Note.where_ref(user).count).must_equal 1
+      _(Note.where_ref(user).first.body).must_equal 'N1'
     end
   end
 end
@@ -1632,17 +1728,25 @@ end
 #  _parent_model.rb – parent_type + parent_ref style
 # =========================================================================
 
-describe 'plugins/db/_parent_model.rb – parent_type/parent_ref style', :db_plugin do
-  before(:each) do
+describe 'plugins/db/_parent_model.rb – parent_type/parent_ref style' do
+  db_plugin_setup
+  before do
     DB[:users].delete
     DB[:notes].delete
   end
 
-  let(:user_ref) { new_ref }
-  let!(:user) do
-    DB[:users].insert(ref: user_ref, name: 'Owner')
-    User[user_ref]
+  def user_ref
+    @user_ref ||= new_ref
   end
+
+  def user
+    @user ||= begin
+      DB[:users].insert(ref: user_ref, name: 'Owner')
+      User[user_ref]
+    end
+  end
+
+  before { user }  # eager (was let!)
 
   describe '#parent= (parent_type/parent_ref)' do
     it 'sets parent_type and parent_ref from a model' do
@@ -1651,8 +1755,8 @@ describe 'plugins/db/_parent_model.rb – parent_type/parent_ref style', :db_plu
       note[:body] = 'Hello'
       note.parent = user
 
-      expect(note[:parent_type]).to eq('User')
-      expect(note[:parent_ref]).to eq(user_ref)
+      _(note[:parent_type]).must_equal 'User'
+      _(note[:parent_ref]).must_equal user_ref
     end
   end
 
@@ -1662,8 +1766,8 @@ describe 'plugins/db/_parent_model.rb – parent_type/parent_ref style', :db_plu
       DB[:notes].insert(ref: n_ref, body: 'Test', parent_type: 'User', parent_ref: user_ref)
       note = Note[n_ref]
 
-      expect(note.parent).to be_a(User)
-      expect(note.parent.ref).to eq(user_ref)
+      _(note.parent).must_be_kind_of User
+      _(note.parent.ref).must_equal user_ref
     end
 
     it 'caches the parent after first access' do
@@ -1673,7 +1777,7 @@ describe 'plugins/db/_parent_model.rb – parent_type/parent_ref style', :db_plu
 
       parent1 = note.parent
       parent2 = note.parent
-      expect(parent1.object_id).to eq(parent2.object_id)
+      _(parent1.object_id).must_equal parent2.object_id
     end
   end
 
@@ -1683,16 +1787,16 @@ describe 'plugins/db/_parent_model.rb – parent_type/parent_ref style', :db_plu
       note[:ref] = new_ref
       result = note.parent(user)
 
-      expect(result).to be(note)
-      expect(note[:parent_type]).to eq('User')
-      expect(note[:parent_ref]).to eq(user_ref)
+      assert_same note, result
+      _(note[:parent_type]).must_equal 'User'
+      _(note[:parent_ref]).must_equal user_ref
     end
   end
 
   describe '#parent?' do
     it 'returns truthy for model with parent_type column' do
       note = Note.new
-      expect(note.parent?).to be_truthy
+      assert note.parent?
     end
   end
 
@@ -1703,8 +1807,8 @@ describe 'plugins/db/_parent_model.rb – parent_type/parent_ref style', :db_plu
       DB[:notes].insert(ref: new_ref, body: 'N3', parent_type: 'Task', parent_ref: user_ref)
 
       notes = Note.where_ref(user)
-      expect(notes.count).to eq(1)
-      expect(notes.first.body).to eq('N1')
+      _(notes.count).must_equal 1
+      _(notes.first.body).must_equal 'N1'
     end
   end
 
@@ -1714,8 +1818,106 @@ describe 'plugins/db/_parent_model.rb – parent_type/parent_ref style', :db_plu
       DB[:notes].insert(ref: new_ref, body: 'N2', parent_type: 'Task', parent_ref: user_ref)
 
       result = Note.dataset.for(user)
-      expect(result.count).to eq(1)
-      expect(result.first.body).to eq('N1')
+      _(result.count).must_equal 1
+      _(result.first.body).must_equal 'N1'
+    end
+  end
+end
+
+# =========================================================================
+#  _ref_linker.rb - parent_model column (preferred over parent_type)
+# =========================================================================
+
+describe 'plugins/db/_ref_linker.rb - parent_model column' do
+  db_plugin_setup
+  before do
+    DB[:users].delete
+    DB[:memos].delete
+    DB[:both_polys].delete
+  end
+
+  def user_ref
+    @user_ref ||= new_ref
+  end
+
+  def user
+    @user ||= begin
+      DB[:users].insert(ref: user_ref, name: 'Owner')
+      User[user_ref]
+    end
+  end
+
+  before { user }  # eager (was let!)
+
+  describe 'parent_model column on its own' do
+    it 'writes parent_model and parent_ref from a model' do
+      m = Memo.new
+      m[:ref] = new_ref
+      m.parent = user
+      _(m[:parent_model]).must_equal 'User'
+      _(m[:parent_ref]).must_equal user_ref
+    end
+
+    it 'reads parent through parent_model' do
+      m_ref = new_ref
+      DB[:memos].insert(ref: m_ref, body: 'Hi', parent_model: 'User', parent_ref: user_ref)
+      m = Memo[m_ref]
+      _(m.parent).must_be_kind_of User
+      _(m.parent.ref).must_equal user_ref
+    end
+
+    it 'parent? returns true for models with parent_model' do
+      assert Memo.new.parent?
+    end
+
+    it 'scope routes through parent_model column' do
+      DB[:memos].insert(ref: new_ref, body: 'M1', parent_model: 'User', parent_ref: user_ref)
+      DB[:memos].insert(ref: new_ref, body: 'M2', parent_model: 'User', parent_ref: 'other')
+      _(Memo.where_ref(user).count).must_equal 1
+    end
+
+    it 'detect returns :poly_pair with parent_model as the type column' do
+      shape = Sequel::Plugins::RefLinker.detect(Memo, User)
+      _(shape[:kind]).must_equal :poly_pair
+      _(shape[:columns]).must_equal [:parent_model, :parent_ref]
+    end
+  end
+
+  describe 'precedence when both columns exist' do
+    it 'prefers parent_model over parent_type on write' do
+      b = BothPoly.new
+      b[:ref] = new_ref
+      b.parent = user
+      _(b[:parent_model]).must_equal 'User'
+      _(b[:parent_type]).must_be_nil
+      _(b[:parent_ref]).must_equal user_ref
+    end
+
+    it 'prefers parent_model on detect' do
+      shape = Sequel::Plugins::RefLinker.detect(BothPoly, User)
+      _(shape[:columns].first).must_equal :parent_model
+    end
+  end
+
+  describe 'missing polymorphic columns' do
+    it 'Lux.shell.die fires naming the searched columns and the host class' do
+      messages = nil
+      # Override Lux.shell.die for this test only; restore via singleton class cleanup.
+      orig = Lux.shell.singleton_class.method_defined?(:die) ? Lux.shell.method(:die) : nil
+      Lux.shell.define_singleton_method(:die) { |msg| messages = Array(msg); raise(msg.inspect) }
+
+      begin
+        bare = BareModel.new
+        bare[:ref] = new_ref
+        err = _ { bare.parent = user }.must_raise RuntimeError
+        _(err.message).must_match(/BareModel/)
+        _(messages.join(' ')).must_include 'BareModel'
+        _(messages.join(' ')).must_include 'parent_model'
+        _(messages.join(' ')).must_include 'parent_type'
+        _(messages.join(' ')).must_include 'parent_key'
+      ensure
+        Lux.shell.singleton_class.send(:remove_method, :die) if Lux.shell.singleton_class.method_defined?(:die)
+      end
     end
   end
 end
@@ -1724,21 +1926,24 @@ end
 #  create_limit.rb
 # =========================================================================
 
-describe 'plugins/db/create_limit.rb', :db_plugin do
-  before(:each) do
+describe 'plugins/db/create_limit.rb' do
+  db_plugin_setup
+  before do
     DB[:notes].delete
     DB[:users].delete
   end
 
-  let(:current_user) do
-    ref = new_ref
-    DB[:users].insert(ref: ref, name: 'Creator')
-    User[ref]
+  def current_user
+    @current_user ||= begin
+      ref = new_ref
+      DB[:users].insert(ref: ref, name: 'Creator')
+      User[ref]
+    end
   end
 
   describe 'ClassMethods' do
     it '.create_limit stores the limit configuration' do
-      expect(Note.cattr.create_limit_data).to eq([3, 1.hour, nil])
+      _(Note.cattr.create_limit_data).must_equal [3, 1.hour, nil]
     end
   end
 
@@ -1746,33 +1951,38 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
     it 'raises when no user is logged in' do
       User.current = nil
       note = Note.new(ref: new_ref, body: 'Test')
-      expect { note.save }.to raise_error(Lux::Error, /log in/)
+      err = _ { note.save }.must_raise Lux::Error
+      _(err.message).must_match(/log in/)
     end
 
     it 'allows creation when under the limit' do
       User.current = current_user
       note = Note.new(ref: new_ref, body: 'Test', creator_ref: current_user.ref)
-      expect { note.save }.not_to raise_error
+      note.save  # should not raise
     end
 
     it 'skips check on existing records (update)' do
       User.current = current_user
       note = Note.create(ref: new_ref, body: 'Test', creator_ref: current_user.ref)
-      expect { note.update(body: 'Updated') }.not_to raise_error
+      note.update(body: 'Updated')  # should not raise
     end
 
     it 'skips check when model has no creator_ref column' do
       User.current = current_user
       # Comment has no creator_ref, so create_limit validation is skipped
       comment = Comment.new(ref: new_ref, body: 'Hi')
-      expect { comment.save }.not_to raise_error
+      comment.save  # should not raise
     end
 
-    context 'when over the limit' do
+    describe 'when over the limit' do
       before do
         User.current = current_user
-        # Bypass the Lux.env.test? guard
-        allow(Lux.env).to receive(:test?).and_return(false)
+        # Bypass the Lux.env.test? guard by overriding the singleton method.
+        Lux.env.define_singleton_method(:test?) { false }
+      end
+
+      after do
+        Lux.env.singleton_class.send(:remove_method, :test?) if Lux.env.singleton_class.method_defined?(:test?)
       end
 
       it 'adds a validation error when rate limit is exceeded' do
@@ -1781,9 +1991,9 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         note = Note.new(ref: new_ref, body: 'One too many', creator_ref: current_user.ref)
         note.valid?
 
-        expect(note.errors[:base]).to be_an(Array)
-        expect(note.errors[:base].first).to include('max of 3')
-        expect(note.errors[:base].first).to include('Spam protection')
+        _(note.errors[:base]).must_be_kind_of Array
+        _(note.errors[:base].first).must_include 'max of 3'
+        _(note.errors[:base].first).must_include 'Spam protection'
       end
 
       it 'does not block different users' do
@@ -1795,7 +2005,7 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         User.current = other_user
 
         note = Note.new(ref: new_ref, body: 'From other', creator_ref: other_user.ref)
-        expect(note.valid?).to be true
+        _(note.valid?).must_equal true
       end
     end
   end
@@ -1805,18 +2015,20 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
   # ---------------------------------------------------------------------------
 
   describe 'AutoMigrate type conversions' do
-    let(:table_name) { :am_type_test }
-
-    before(:all) do
-      load File.expand_path('../../plugins/db/migrate/auto_migrate.rb', __dir__)
-      AutoMigrate.auto_confirm = true
+    def table_name
+      :am_type_test
     end
 
-    before(:each) do
+    before do
+      # Original before(:all): load auto_migrate once via constant guard.
+      unless defined?(AutoMigrate)
+        load File.expand_path('../../plugins/db/migrate/auto_migrate.rb', __dir__)
+      end
+      AutoMigrate.auto_confirm = true
       DB.drop_table?(table_name)
     end
 
-    after(:all) do
+    after do
       DB.drop_table?(:am_type_test)
       AutoMigrate.auto_confirm = false
     end
@@ -1842,8 +2054,8 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.integer :count
       end
 
-      expect(col_type(:count)).to eq('integer')
-      expect(DB[table_name].first[:count]).to eq(42)
+      _(col_type(:count)).must_equal 'integer'
+      _(DB[table_name].first[:count]).must_equal 42
     end
 
     it 'converts string to boolean' do
@@ -1858,10 +2070,10 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.boolean :active
       end
 
-      expect(col_type(:active)).to eq('boolean')
+      _(col_type(:active)).must_equal 'boolean'
       rows = DB[table_name].order(:ref).all
-      expect(rows[0][:active]).to eq(true)
-      expect(rows[1][:active]).to eq(false)
+      _(rows[0][:active]).must_equal true
+      _(rows[1][:active]).must_equal false
     end
 
     it 'converts integer to string' do
@@ -1875,8 +2087,8 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.string :code, limit: 50
       end
 
-      expect(col_type(:code)).to eq('character varying(50)')
-      expect(DB[table_name].first[:code]).to eq('123')
+      _(col_type(:code)).must_equal 'character varying(50)'
+      _(DB[table_name].first[:code]).must_equal '123'
     end
 
     it 'converts integer to boolean' do
@@ -1891,10 +2103,10 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.boolean :flag
       end
 
-      expect(col_type(:flag)).to eq('boolean')
+      _(col_type(:flag)).must_equal 'boolean'
       rows = DB[table_name].order(:ref).all
-      expect(rows[0][:flag]).to eq(true)
-      expect(rows[1][:flag]).to eq(false)
+      _(rows[0][:flag]).must_equal true
+      _(rows[1][:flag]).must_equal false
     end
 
     it 'converts boolean to integer' do
@@ -1909,10 +2121,10 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.integer :flag
       end
 
-      expect(col_type(:flag)).to eq('integer')
+      _(col_type(:flag)).must_equal 'integer'
       rows = DB[table_name].order(:ref).all
-      expect(rows[0][:flag]).to eq(1)
-      expect(rows[1][:flag]).to eq(0)
+      _(rows[0][:flag]).must_equal 1
+      _(rows[1][:flag]).must_equal 0
     end
 
     it 'converts decimal to integer (truncates)' do
@@ -1926,8 +2138,8 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.integer :price
       end
 
-      expect(col_type(:price)).to eq('integer')
-      expect(DB[table_name].first[:price]).to eq(3)
+      _(col_type(:price)).must_equal 'integer'
+      _(DB[table_name].first[:price]).must_equal 3
     end
 
     it 'converts integer to decimal' do
@@ -1941,8 +2153,8 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.decimal :amount
       end
 
-      expect(col_type(:amount)).to include('numeric')
-      expect(DB[table_name].first[:amount].to_f).to eq(100.0)
+      _(col_type(:amount)).must_include 'numeric'
+      _(DB[table_name].first[:amount].to_f).must_equal 100.0
     end
 
     it 'converts string to date' do
@@ -1956,8 +2168,8 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.date :born_on
       end
 
-      expect(col_type(:born_on)).to eq('date')
-      expect(DB[table_name].first[:born_on]).to eq(Date.new(2025, 6, 15))
+      _(col_type(:born_on)).must_equal 'date'
+      _(DB[table_name].first[:born_on]).must_equal Date.new(2025, 6, 15)
     end
 
     it 'converts string to timestamp' do
@@ -1971,8 +2183,8 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.datetime :happened_at
       end
 
-      expect(col_type(:happened_at)).to include('timestamp')
-      expect(DB[table_name].first[:happened_at]).to be_a(Time)
+      _(col_type(:happened_at)).must_include 'timestamp'
+      _(DB[table_name].first[:happened_at]).must_be_kind_of Time
     end
 
     it 'converts date to timestamp' do
@@ -1986,7 +2198,7 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.datetime :started
       end
 
-      expect(col_type(:started)).to include('timestamp')
+      _(col_type(:started)).must_include 'timestamp'
     end
 
     it 'converts timestamp to date (truncates time)' do
@@ -2000,8 +2212,8 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.date :started
       end
 
-      expect(col_type(:started)).to eq('date')
-      expect(DB[table_name].first[:started]).to eq(Date.new(2025, 6, 15))
+      _(col_type(:started)).must_equal 'date'
+      _(DB[table_name].first[:started]).must_equal Date.new(2025, 6, 15)
     end
 
     it 'converts string to decimal' do
@@ -2015,8 +2227,8 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.decimal :price
       end
 
-      expect(col_type(:price)).to include('numeric')
-      expect(DB[table_name].first[:price].to_f).to eq(19.99)
+      _(col_type(:price)).must_include 'numeric'
+      _(DB[table_name].first[:price].to_f).must_equal 19.99
     end
 
     it 'converts array base type (text[] to integer[])' do
@@ -2030,8 +2242,8 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         f.integer :ids, array: true
       end
 
-      expect(col_type(:ids)).to eq('integer[]')
-      expect(DB[table_name].first[:ids]).to eq([1, 2, 3])
+      _(col_type(:ids)).must_equal 'integer[]'
+      _(DB[table_name].first[:ids]).must_equal [1, 2, 3]
     end
 
     it 'prints warning for unknown conversion' do
@@ -2040,11 +2252,12 @@ describe 'plugins/db/create_limit.rb', :db_plugin do
         TrueClass :flag, default: false
       end
 
-      expect {
+      out = capture_stdout do
         run_migrate do |f|
           f.date :flag
         end
-      }.to output(/Cannot auto-convert/).to_stdout
+      end
+      _(out).must_match(/Cannot auto-convert/)
     end
   end
 end
@@ -2053,63 +2266,66 @@ end
 #  schema_define.rb – `enum` DSL inside `schema do ... end`
 # =========================================================================
 
-describe 'plugins/db/schema_define.rb – enum DSL', :db_plugin do
+describe 'plugins/db/schema_define.rb – enum DSL' do
+  db_plugin_setup
+
   describe 'column synthesis' do
     it 'derives _sid column + max from longest string key' do
       rule = Lux.schema(:enum_widget).rules[:status_sid]
-      expect(rule[:type]).to eq(:string)
-      expect(rule[:max]).to eq(1)
-      expect(rule[:default]).to eq('a')
-      expect(rule[:required]).to be true
-      expect(rule[:allowed]).to eq([:a, :i, :d])
+      _(rule[:type]).must_equal :string
+      _(rule[:max]).must_equal 1
+      _(rule[:default]).must_equal 'a'
+      _(rule[:required]).must_equal true
+      _(rule[:allowed]).must_equal [:a, :i, :d]
     end
 
     it 'derives _id column with integer type for numeric keys' do
       rule = Lux.schema(:enum_widget).rules[:level_id]
-      expect(rule[:type]).to eq(:integer)
-      expect(rule[:allowed]).to eq([1, 2, 3])
-      expect(rule).not_to have_key(:max)
+      _(rule[:type]).must_equal :integer
+      _(rule[:allowed]).must_equal [1, 2, 3]
+      refute rule.key?(:max)
     end
 
     it 'marks ? suffix fields as optional' do
       rule = Lux.schema(:enum_widget).rules[:mood_sid]
-      expect(rule[:required]).to be false
+      _(rule[:required]).must_equal false
     end
 
     it 'merges user-supplied meta and auto-wires :collection' do
       rule = Lux.schema(:enum_widget).rules[:mood_sid]
-      expect(rule[:meta][:label]).to eq('Mood')
-      expect(rule[:meta][:collection]).to be_a(Proc)
+      _(rule[:meta][:label]).must_equal 'Mood'
+      _(rule[:meta][:collection]).must_be_kind_of Proc
     end
   end
 
   describe 'plugin replay (class + instance helpers)' do
     it 'defines pluralized class accessor returning values hash' do
-      expect(EnumWidget.statuses).to be_a(Hash)
-      expect(EnumWidget.statuses).to eq({ 'a' => 'Active', 'i' => 'Inactive', 'd' => 'Disabled' }.to_lux_hash)
-      expect(EnumWidget.statuses('i')).to eq('Inactive')
+      _(EnumWidget.statuses).must_be_kind_of Hash
+      _(EnumWidget.statuses).must_equal({ 'a' => 'Active', 'i' => 'Inactive', 'd' => 'Disabled' }.to_lux_hash)
+      _(EnumWidget.statuses('i')).must_equal 'Inactive'
     end
 
     it 'defines class accessor for integer-keyed enums' do
-      # lux_hash stringifies keys but indifferent-lookup keeps integer access working
-      expect(EnumWidget.levels.keys).to eq(['1', '2', '3'])
-      expect(EnumWidget.levels(2)).to eq('Normal')
+      # Lux::Hash stringifies SYMBOL keys only; integer keys are preserved
+      # as-is so callers can use them verbatim (e.g. `levels[2]`).
+      _(EnumWidget.levels.keys).must_equal [1, 2, 3]
+      _(EnumWidget.levels(2)).must_equal 'Normal'
     end
 
     it 'defines instance label method' do
       DB[:enum_widgets].delete
       DB[:enum_widgets].insert(ref: new_ref, status_sid: 'i', level_id: 3, mood_sid: 'h')
       w = EnumWidget.first
-      expect(w.status).to eq('Inactive')
-      expect(w.level).to eq('High')
-      expect(w.mood).to eq('Happy')
+      _(w.status).must_equal 'Inactive'
+      _(w.level).must_equal 'High'
+      _(w.mood).must_equal 'Happy'
     end
 
     it 'auto-wires meta[:collection] to Klass.<plural>' do
       rule  = Lux.schema(:enum_widget).rules[:status_sid]
       proc_ = rule[:meta][:collection]
       result = EnumWidget.new.instance_exec(&proc_)
-      expect(result).to eq(EnumWidget.statuses)
+      _(result).must_equal EnumWidget.statuses
     end
   end
 
@@ -2120,51 +2336,59 @@ describe 'plugins/db/schema_define.rb – enum DSL', :db_plugin do
       w[:ref] = new_ref
       w[:status_sid] = 'zz'
       w[:level_id] = 1
-      expect(w.valid?).to be false
-      expect(w.errors[:status_sid].join).to match(/not allowed/)
+      _(w.valid?).must_equal false
+      _(w.errors[:status_sid].join).must_match(/not allowed/)
     end
   end
 
   describe 'die-early checks' do
     before do
-      # die normally exits the process; raise instead so we can assert on it
-      allow(Lux.shell).to receive(:die) { |msg| raise(msg) }
+      # die normally exits the process; raise instead so we can assert on it.
+      Lux.shell.define_singleton_method(:die) { |msg| raise(msg) }
+    end
+
+    after do
+      Lux.shell.singleton_class.send(:remove_method, :die) if Lux.shell.singleton_class.method_defined?(:die)
     end
 
     it 'dies when neither block nor values: is given' do
-      expect { Lux.schema { enum :foo } }.to raise_error(/no values given/)
+      err = _ { Lux.schema { enum :foo } }.must_raise RuntimeError
+      _(err.message).must_match(/no values given/)
     end
 
     it 'dies when default is not in keys' do
-      expect {
+      err = _ {
         Lux.schema do
           enum :foo, default: 'x' do |f|
             f[:a] = 'A'
           end
         end
-      }.to raise_error(/default "x" not in keys/)
+      }.must_raise RuntimeError
+      _(err.message).must_match(/default "x" not in keys/)
     end
 
     it 'dies on mixed key types' do
-      expect {
+      err = _ {
         Lux.schema do
           enum :foo do |f|
             f[1] = 'A'
             f[:b] = 'B'
           end
         end
-      }.to raise_error(/mixed key types/)
+      }.must_raise RuntimeError
+      _(err.message).must_match(/mixed key types/)
     end
 
     it 'dies on duplicate column declaration' do
-      expect {
+      err = _ {
         Lux.schema do
           status_sid max: 1
           enum :status do |f|
             f[:a] = 'A'
           end
         end
-      }.to raise_error(/column :status_sid already declared/)
+      }.must_raise RuntimeError
+      _(err.message).must_match(/column :status_sid already declared/)
     end
   end
 end

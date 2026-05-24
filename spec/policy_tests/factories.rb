@@ -1,14 +1,14 @@
 PolUser ||= Struct.new(:id, :name, :email, :is_admin)
 PolPost ||= Struct.new(:id, :created_by, :name)
 
-mock :pol_user do |user, opts|
+factory :pol_user do |user, opts|
   user.id       = sequence :pol_user_id
   user.name     = opts[:name]     || "user-#{sequence(:pol_user_name)}"
   user.email    = opts[:email]    || "user#{sequence(:pol_user_email)}@example.com"
   user.is_admin = opts[:is_admin] || false
 end
 
-mock :pol_post do |post, opts|
+factory :pol_post do |post, opts|
   post.id          = sequence :pol_post_id
   post.name        = opts[:name]       || "post-#{sequence(:pol_post_name)}"
   post.created_by  = opts[:created_by] || sequence(:pol_post_creator)

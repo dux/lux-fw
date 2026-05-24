@@ -1,5 +1,5 @@
-require 'spec_helper'
-require_relative './mocks'
+require 'test_helper'
+require_relative './factories'
 require_relative './policies'
 
 class PolFakeController
@@ -17,55 +17,67 @@ class PolMocvaraPolicy < Lux::Policy
 end
 
 describe Lux::Policy do
-  let(:controller)  { PolFakeController.new }
-  let!(:post)       { mock.create :pol_post }
-  let!(:admin_user) { mock.create :pol_user, is_admin: true }
+  def controller
+    @controller ||= PolFakeController.new
+  end
+
+  def post
+    @post ||= factory.create :pol_post
+  end
+
+  def admin_user
+    @admin_user ||= factory.create :pol_user, is_admin: true
+  end
 
   before do
     Thread.current[:current_user] = nil
+    post
+    admin_user
   end
 
-  context 'authorize checks if' do
+  describe 'authorize checks if' do
     it 'is_authorized? is false' do
-      expect(controller.is_authorized?).to be false
+      _(controller.is_authorized?).must_equal false
     end
 
     it 'accepts block as an argument' do
       Thread.current[:current_user] = admin_user
       controller.authorize { true }
-      expect(controller.is_authorized?).to be true
+      _(controller.is_authorized?).must_equal true
     end
 
     it 'accepts only true as an argument' do
       controller.authorize(true)
-      expect(controller.is_authorized?).to be true
+      _(controller.is_authorized?).must_equal true
     end
 
     it 'fails on is_authorized! bang check' do
-      expect { controller.is_authorized! }.to raise_error Lux::Policy::Error
+      _{ controller.is_authorized! }.must_raise Lux::Policy::Error
     end
 
     it 'fails on false pass' do
-      expect { controller.authorize(false) }.to raise_error Lux::Policy::Error
+      _{ controller.authorize(false) }.must_raise Lux::Policy::Error
     end
   end
 
-  context 'model checks' do
-    let(:user) { PolUser.new 1, 'Dux', 'dux@foo.bar', true }
+  describe 'model checks' do
+    def user
+      @user ||= PolUser.new 1, 'Dux', 'dux@foo.bar', true
+    end
 
     it 'checks if it can work trough model' do
-      expect(PolMocvara.new.can(user).admin?).to eq(true)
+      _(PolMocvara.new.can(user).admin?).must_equal true
     end
 
     it 'checks if it can access current user' do
       Thread.current[:current_user] = user
-      expect(PolMocvara.new.can.admin?).to eq(true)
+      _(PolMocvara.new.can.admin?).must_equal true
     end
   end
 
-  context 'lux controller is wired with policy adapter' do
+  describe 'lux controller is wired with policy adapter' do
     it 'has authorize / is_authorized? on Lux::Controller' do
-      expect(Lux::Controller.include?(Lux::Policy::Controller)).to be true
+      _(Lux::Controller.include?(Lux::Policy::Controller)).must_equal true
     end
   end
 end

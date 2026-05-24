@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 ###
 
@@ -54,20 +54,20 @@ end
 describe Lux::JsonExporter do
   it 'expects that is export simple' do
     result = PetsExporter.export(Cat.new)
-    expect(result).to eq({ kind: 'cat', num: 1, foo: :bar })
+    _(result).must_equal({ kind: 'cat', num: 1, foo: :bar })
   end
 
   it 'expects to fail' do
-    expect { PetsExporter.export(Mouse.new) }.to raise_error(StandardError)
+    _{ PetsExporter.export(Mouse.new) }.must_raise StandardError
   end
 
-  it 'expects that is export simple' do
+  it 'expects that is export simple for cow' do
     result  = PetsExporter.export(Cow.new)
-    expect(result).to eq({ kind: 'cow', num: 2, foo: :bar })
+    _(result).must_equal({ kind: 'cow', num: 2, foo: :bar })
   end
 
   it 'expects nested exporter to work' do
     result  = SuperStrangeExporter.export(Cat.new)
-    expect(result).to eq({ kind: 'cat', num: 1, strange: true, foo: :bar })
+    _(result).must_equal({ kind: 'cat', num: 1, strange: true, foo: :bar })
   end
 end

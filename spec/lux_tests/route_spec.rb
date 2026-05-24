@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe Lux::Application::Route do
   def route_for path
@@ -8,13 +8,13 @@ describe Lux::Application::Route do
 
   describe '#path' do
     it 'returns the full nav path when no scope is entered' do
-      expect(route_for('/a/b/c').path).to eq(%w[a b c])
+      _(route_for('/a/b/c').path).must_equal %w[a b c]
     end
 
     it 'returns the path slice after consumed offset' do
       route = route_for('/a/b/c')
       route.with_scope(1) do
-        expect(route.path).to eq(%w[b c])
+        _(route.path).must_equal %w[b c]
       end
     end
 
@@ -22,7 +22,7 @@ describe Lux::Application::Route do
       route = route_for('/a/b/c/d')
       route.with_scope(1) do
         route.with_scope(1) do
-          expect(route.path).to eq(%w[c d])
+          _(route.path).must_equal %w[c d]
         end
       end
     end
@@ -30,29 +30,29 @@ describe Lux::Application::Route do
     it 'unwinds offset on scope exit' do
       route = route_for('/a/b/c')
       route.with_scope(1) {}
-      expect(route.path).to eq(%w[a b c])
+      _(route.path).must_equal %w[a b c]
     end
 
     it 'unwinds offset even when block raises' do
       route = route_for('/a/b/c')
-      expect { route.with_scope(1) { raise 'boom' } }.to raise_error('boom')
-      expect(route.path).to eq(%w[a b c])
+      _{ route.with_scope(1) { raise 'boom' } }.must_raise RuntimeError
+      _(route.path).must_equal %w[a b c]
     end
   end
 
   describe '#root' do
     it 'returns the first remaining segment' do
       route = route_for('/a/b/c')
-      expect(route.root).to eq('a')
+      _(route.root).must_equal 'a'
       route.with_scope(1) do
-        expect(route.root).to eq('b')
+        _(route.root).must_equal 'b'
       end
     end
 
     it 'returns nil when fully consumed' do
       route = route_for('/a')
       route.with_scope(1) do
-        expect(route.root).to be_nil
+        _(route.root).must_be_nil
       end
     end
   end
@@ -60,9 +60,9 @@ describe Lux::Application::Route do
   describe '#child' do
     it 'returns the second remaining segment' do
       route = route_for('/a/b/c')
-      expect(route.child).to eq('b')
+      _(route.child).must_equal 'b'
       route.with_scope(1) do
-        expect(route.child).to eq('c')
+        _(route.child).must_equal 'c'
       end
     end
   end
@@ -70,11 +70,11 @@ describe Lux::Application::Route do
   describe '#consumed' do
     it 'returns segments before the cursor' do
       route = route_for('/a/b/c')
-      expect(route.consumed).to eq([])
+      _(route.consumed).must_equal []
       route.with_scope(1) do
-        expect(route.consumed).to eq(%w[a])
+        _(route.consumed).must_equal %w[a]
         route.with_scope(1) do
-          expect(route.consumed).to eq(%w[a b])
+          _(route.consumed).must_equal %w[a b]
         end
       end
     end
@@ -84,9 +84,9 @@ describe Lux::Application::Route do
     it 'leaves nav.path intact across scopes' do
       Lux::Current.new('http://example.com/a/b/c')
       Lux.current.route.with_scope(1) do
-        expect(Lux.current.nav.path).to eq(%w[a b c])
+        _(Lux.current.nav.path).must_equal %w[a b c]
       end
-      expect(Lux.current.nav.path).to eq(%w[a b c])
+      _(Lux.current.nav.path).must_equal %w[a b c]
     end
   end
 end

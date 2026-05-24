@@ -29,7 +29,8 @@ class Object
     end
   end
 
-  # better console log dump
+  # better console log dump - interactive debug helper, never call from
+  # library code; if you see it in lib/ or plugins/, delete it.
   def rr what
     raise_log_style what
   end

@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 class ApiExporter < Lux::JsonExporter
   before do
@@ -57,27 +57,40 @@ describe Lux::JsonExporter do
   it 'expects as expected' do
     model  = Struct.new(:name).new('Dux')
     export = ChildExporter.export(model)
-    expect(export).to eq({ name: 'Dux', foo: '1-2-3' })
+    _(export).must_equal({ name: 'Dux', foo: '1-2-3' })
   end
 end
 
 describe UserExporter do
-  let!(:model)  { Struct.new(:name, :email, :bio) }
-  let(:opts)    { nil }
-  let!(:user)   { model.new('Dux', 'DUX@foo.bar', 'charming chonker') }
-  let(:export)  { UserExporter.export(user, opts) }
+  def model
+    @model ||= Struct.new(:name, :email, :bio)
+  end
 
-  context 'without opts' do
+  def opts
+    nil
+  end
+
+  def user
+    @user ||= model.new('Dux', 'DUX@foo.bar', 'charming chonker')
+  end
+
+  def export
+    UserExporter.export(user, opts)
+  end
+
+  describe 'without opts' do
     it 'exports slim user' do
-      expect(export).to eq({ name: 'Dux', email: 'dux@foo.bar' })
+      _(export).must_equal({ name: 'Dux', email: 'dux@foo.bar' })
     end
   end
 
-  context 'with opts' do
-    let(:opts) { { full: true } }
+  describe 'with opts' do
+    def opts
+      { full: true }
+    end
 
     it 'exports slim user' do
-      expect(export).to eq({ name: 'Dux', email: 'dux@foo.bar', bio: 'Full user bio: %s' % user.bio })
+      _(export).must_equal({ name: 'Dux', email: 'dux@foo.bar', bio: 'Full user bio: %s' % user.bio })
     end
   end
 end

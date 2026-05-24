@@ -1,3 +1,4 @@
+require 'test_helper'
 require_relative '../loader'
 require 'rack'
 require 'socket'
@@ -132,28 +133,32 @@ def free_port
 end
 
 describe 'bin/lux-api' do
-  PORT = free_port
-  HOST = "http://127.0.0.1:#{PORT}"
-  BIN  = File.expand_path('../../bin/lux-api', __dir__)
+  PORT ||= free_port
+  HOST ||= "http://127.0.0.1:#{PORT}"
+  BIN  ||= File.expand_path('../../../bin/lux-api', __dir__)
 
-  before(:all) do
-    $no_error_print = true
-    @mini = MiniRackServer.new(PORT)
-    @server_thread = Thread.new { @mini.start }
+  before do
+    unless $bin_server_started
+      $no_error_print = true
+      $bin_mini = MiniRackServer.new(PORT)
+      $bin_server_thread = Thread.new { $bin_mini.start }
 
-    # wait for server to accept connections
-    20.times do
-      TCPSocket.new('127.0.0.1', PORT).close
-      break
-    rescue Errno::ECONNREFUSED
-      sleep 0.1
+      # wait for server to accept connections
+      20.times do
+        TCPSocket.new('127.0.0.1', PORT).close
+        break
+      rescue Errno::ECONNREFUSED
+        sleep 0.1
+      end
+
+      Minitest.after_run do
+        $bin_mini&.stop
+        $bin_server_thread&.kill
+        $no_error_print = false
+      end
+
+      $bin_server_started = true
     end
-  end
-
-  after(:all) do
-    @mini&.stop
-    @server_thread&.kill
-    $no_error_print = false
   end
 
   def lux_api(*args)
@@ -175,22 +180,22 @@ describe 'bin/lux-api' do
   describe 'index (no args)' do
     it 'returns the full API index as JSON' do
       data = lux_api_json
-      expect(data).to be_a(Hash)
-      expect(data).to have_key('board')
+      _(data).must_be_kind_of Hash
+      _(data).must_include 'board'
     end
 
     it 'returns index as YAML' do
       out = lux_api('--yaml')
       data = YAML.safe_load(out, permitted_classes: [Symbol])
-      expect(data).to be_a(Hash)
-      expect(data).to have_key('board')
+      _(data).must_be_kind_of Hash
+      _(data).must_include 'board'
     end
 
     it 'returns index as text' do
       out = lux_api('--text')
-      expect(out).to include('board:')
-      expect(out).to include('collection:')
-      expect(out).to include('member:')
+      _(out).must_include 'board:'
+      _(out).must_include 'collection:'
+      _(out).must_include 'member:'
     end
   end
 
@@ -199,24 +204,24 @@ describe 'bin/lux-api' do
   describe 'board/list' do
     it 'returns 2 boards as JSON' do
       data = lux_api_json('board/list')
-      expect(data['success']).to eq(true)
-      expect(data['data'].size).to eq(2)
-      expect(data['data'][0]['name']).to eq('Work')
-      expect(data['data'][1]['name']).to eq('Personal')
+      _(data['success']).must_equal true
+      _(data['data'].size).must_equal 2
+      _(data['data'][0]['name']).must_equal 'Work'
+      _(data['data'][1]['name']).must_equal 'Personal'
     end
 
     it 'returns boards as YAML' do
       out = lux_api('--yaml', 'board/list')
       data = YAML.safe_load(out, permitted_classes: [Symbol])
-      expect(data['success']).to eq(true)
-      expect(data['data'].size).to eq(2)
+      _(data['success']).must_equal true
+      _(data['data'].size).must_equal 2
     end
 
     it 'returns boards as text' do
       out = lux_api('--text', 'board/list')
-      expect(out).to include('success: true')
-      expect(out).to include('Work')
-      expect(out).to include('Personal')
+      _(out).must_include 'success: true'
+      _(out).must_include 'Work'
+      _(out).must_include 'Personal'
     end
   end
 
@@ -225,20 +230,20 @@ describe 'bin/lux-api' do
   describe 'board/:ref/show' do
     it 'shows board 1' do
       data = lux_api_json('board/1/show')
-      expect(data['success']).to eq(true)
-      expect(data['data']['name']).to eq('Work')
-      expect(data['data']['task_count']).to eq(7)
+      _(data['success']).must_equal true
+      _(data['data']['name']).must_equal 'Work'
+      _(data['data']['task_count']).must_equal 7
     end
 
     it 'shows board 2' do
       data = lux_api_json('board/2/show')
-      expect(data['success']).to eq(true)
-      expect(data['data']['name']).to eq('Personal')
+      _(data['success']).must_equal true
+      _(data['data']['name']).must_equal 'Personal'
     end
 
     it 'returns error for unknown board' do
       data = lux_api_json('board/999/show')
-      expect(data['success']).to eq(false)
+      _(data['success']).must_equal false
     end
   end
 
@@ -247,50 +252,50 @@ describe 'bin/lux-api' do
   describe 'board/:ref/tasks' do
     it 'lists all 7 tasks for board 1' do
       data = lux_api_json('board/1/tasks')
-      expect(data['success']).to eq(true)
-      expect(data['data'].size).to eq(7)
+      _(data['success']).must_equal true
+      _(data['data'].size).must_equal 7
     end
 
     it 'lists all 7 tasks for board 2' do
       data = lux_api_json('board/2/tasks')
-      expect(data['success']).to eq(true)
-      expect(data['data'].size).to eq(7)
+      _(data['success']).must_equal true
+      _(data['data'].size).must_equal 7
     end
 
     it 'filters active tasks for board 1' do
       data = lux_api_json('board/1/tasks', 'active=true')
-      expect(data['success']).to eq(true)
-      expect(data['data'].size).to eq(4)
+      _(data['success']).must_equal true
+      _(data['data'].size).must_equal 4
       data['data'].each do |task|
-        expect(task['active']).to eq(true)
+        _(task['active']).must_equal true
       end
     end
 
     it 'filters inactive tasks for board 1' do
       data = lux_api_json('board/1/tasks', 'active=false')
-      expect(data['success']).to eq(true)
-      expect(data['data'].size).to eq(3)
+      _(data['success']).must_equal true
+      _(data['data'].size).must_equal 3
       data['data'].each do |task|
-        expect(task['active']).to eq(false)
+        _(task['active']).must_equal false
       end
     end
 
     it 'filters active tasks for board 2' do
       data = lux_api_json('board/2/tasks', 'active=true')
-      expect(data['success']).to eq(true)
-      expect(data['data'].size).to eq(4)
+      _(data['success']).must_equal true
+      _(data['data'].size).must_equal 4
     end
 
     it 'filters inactive tasks for board 2' do
       data = lux_api_json('board/2/tasks', 'active=false')
-      expect(data['success']).to eq(true)
-      expect(data['data'].size).to eq(3)
+      _(data['success']).must_equal true
+      _(data['data'].size).must_equal 3
     end
 
     it 'passes JSON params' do
       data = lux_api_json('board/1/tasks', '{"active":"true"}')
-      expect(data['success']).to eq(true)
-      expect(data['data'].size).to eq(4)
+      _(data['success']).must_equal true
+      _(data['data'].size).must_equal 4
     end
   end
 
@@ -299,22 +304,22 @@ describe 'bin/lux-api' do
   describe 'namespace filter' do
     it 'filters index to a single namespace' do
       data = lux_api_json('board')
-      expect(data.keys).to eq(['board'])
-      expect(data['board']).to have_key('collection')
-      expect(data['board']).to have_key('member')
+      _(data.keys).must_equal ['board']
+      _(data['board']).must_include 'collection'
+      _(data['board']).must_include 'member'
     end
 
     it 'works with --yaml format' do
       out = lux_api('--yaml', 'board')
       data = YAML.safe_load(out, permitted_classes: [Symbol])
-      expect(data.keys).to eq(['board'])
+      _(data.keys).must_equal ['board']
     end
 
     it 'prints error for unknown namespace' do
       out = lux_api('nonexistent')
-      expect(out).to include('Unknown namespace: nonexistent')
-      expect(out).to include('Available:')
-      expect(out).to include('board')
+      _(out).must_include 'Unknown namespace: nonexistent'
+      _(out).must_include 'Available:'
+      _(out).must_include 'board'
     end
   end
 
@@ -324,14 +329,14 @@ describe 'bin/lux-api' do
     it '--yaml on api call' do
       out = lux_api('--yaml', 'board/1/tasks', 'active=true')
       data = YAML.safe_load(out, permitted_classes: [Symbol])
-      expect(data['success']).to eq(true)
-      expect(data['data'].size).to eq(4)
+      _(data['success']).must_equal true
+      _(data['data'].size).must_equal 4
     end
 
     it '--text on api call' do
       out = lux_api('--text', 'board/1/show')
-      expect(out).to include('success: true')
-      expect(out).to include('name: Work')
+      _(out).must_include 'success: true'
+      _(out).must_include 'name: Work'
     end
   end
 end

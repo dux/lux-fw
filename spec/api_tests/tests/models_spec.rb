@@ -1,48 +1,51 @@
+require 'test_helper'
 require_relative '../loader'
 
 describe Lux::Api do
-  let!(:name) { 'acme gmbh' }
+  def company_name
+    @company_name ||= 'acme gmbh'
+  end
 
-  context 'company' do
+  describe 'company' do
     it 'gets valid collection url' do
-      response = CompanyApi.render.update(1, company: { name: name, address: 'nowhere 123' })
-      expect(response[:data][:name]).to eq(name)
+      response = CompanyApi.render.update(1, company: { name: company_name, address: 'nowhere 123' })
+      _(response[:data]['name']).must_equal company_name
     end
 
     it 'strips out undefined fields' do
-      response = CompanyApi.render.update(1, company: { name: name, not_defined: 'nowhere 123' })
-      expect(response[:data][:name]).to eq(name)
-      expect(response[:data][:address]).to eq(nil)
-      expect(response[:data][:not_defined]).to eq(nil)
+      response = CompanyApi.render.update(1, company: { name: company_name, not_defined: 'nowhere 123' })
+      _(response[:data]['name']).must_equal company_name
+      _(response[:data]['address']).must_be_nil
+      _(response[:data]['not_defined']).must_be_nil
     end
 
     it 'allows alternative method define' do
       response = CompanyApi.render.foo(1, { bar: 3 })
-      expect(response[:data]).to eq(9)
+      _(response[:data]).must_equal 9
     end
   end
 
-  context 'user' do
+  describe 'user' do
     it 'rejects bad email in user model' do
-      response = UserApi.render.update(1, user: { name: name, email: 'bad email' })
-      expect(response[:success]).to eq(false)
+      response = UserApi.render.update(1, user: { name: company_name, email: 'bad email' })
+      _(response[:success]).must_equal false
     end
 
     it 'passes with good email' do
-      response = UserApi.render.update(1, user: { name: name, email: 'better@email.com' })
-      expect(response[:success]).to eq(true)
+      response = UserApi.render.update(1, user: { name: company_name, email: 'better@email.com' })
+      _(response[:success]).must_equal true
     end
   end
 
-  context 'parent - child' do
+  describe 'parent - child' do
     it 'test collection' do
       response = UserApi.render.call_me_in_child
-      expect(response[:data]).to eq(4690)
+      _(response[:data]).must_equal 4690
     end
 
     it 'test member' do
       response = UserApi.render.call_me_in_child(1)
-      expect(response[:data]).to eq(2468)
+      _(response[:data]).must_equal 2468
     end
   end
 end

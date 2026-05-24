@@ -1,18 +1,20 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe Lux::Environment do
   describe 'initialization' do
     it 'raises for unsupported env name' do
-      expect { Lux::Environment.new('staging') }.to raise_error(ArgumentError, /Unsupported/)
+      err = _{ Lux::Environment.new('staging') }.must_raise ArgumentError
+      _(err.message).must_match(/Unsupported/)
     end
 
     it 'raises for empty env name' do
-      expect { Lux::Environment.new('') }.to raise_error(ArgumentError, /Unsupported/)
+      err = _{ Lux::Environment.new('') }.must_raise ArgumentError
+      _(err.message).must_match(/Unsupported/)
     end
 
     it 'accepts valid environment names' do
       %w(development production test).each do |name|
-        expect { Lux::Environment.new(name) }.not_to raise_error
+        Lux::Environment.new(name)
       end
     end
   end
@@ -28,77 +30,111 @@ describe Lux::Environment do
 
     it 'prefers LUX_ENV over RACK_ENV' do
       with_env('LUX_ENV' => 'production', 'RACK_ENV' => 'test') do
-        expect(Lux::Environment.resolve_name).to eq('production')
+        _(Lux::Environment.resolve_name).must_equal 'production'
       end
     end
 
     it 'falls back to RACK_ENV when LUX_ENV is empty' do
       with_env('LUX_ENV' => '', 'RACK_ENV' => 'test') do
-        expect(Lux::Environment.resolve_name).to eq('test')
+        _(Lux::Environment.resolve_name).must_equal 'test'
       end
     end
 
     it "defaults to 'development' when neither is set" do
       with_env('LUX_ENV' => nil, 'RACK_ENV' => nil) do
-        expect(Lux::Environment.resolve_name).to eq('development')
+        _(Lux::Environment.resolve_name).must_equal 'development'
       end
     end
   end
 
   describe 'development environment' do
-    let(:env) { Lux::Environment.new('development') }
+    def env
+      @env ||= Lux::Environment.new('development')
+    end
 
-    it { expect(env.development?).to be true }
-    it { expect(env.dev?).to be true }
-    it { expect(env.production?).to be false }
-    it { expect(env.prod?).to be false }
+    it 'is development' do
+      _(env.development?).must_equal true
+    end
+
+    it 'is dev' do
+      _(env.dev?).must_equal true
+    end
+
+    it 'is not production' do
+      _(env.production?).must_equal false
+    end
+
+    it 'is not prod' do
+      _(env.prod?).must_equal false
+    end
   end
 
   describe 'production environment' do
-    let(:env) { Lux::Environment.new('production') }
+    def env
+      @env ||= Lux::Environment.new('production')
+    end
 
-    it { expect(env.development?).to be false }
-    it { expect(env.production?).to be true }
-    it { expect(env.prod?).to be true }
+    it 'is not development' do
+      _(env.development?).must_equal false
+    end
+
+    it 'is production' do
+      _(env.production?).must_equal true
+    end
+
+    it 'is prod' do
+      _(env.prod?).must_equal true
+    end
   end
 
   describe 'test environment' do
-    let(:env) { Lux::Environment.new('test') }
+    def env
+      @env ||= Lux::Environment.new('test')
+    end
 
-    it { expect(env.test?).to be true }
+    it 'is test' do
+      _(env.test?).must_equal true
+    end
+
     # test env is NOT production, so development? returns true
-    it { expect(env.development?).to be true }
-    it { expect(env.production?).to be false }
+    it 'is development (non-production)' do
+      _(env.development?).must_equal true
+    end
+
+    it 'is not production' do
+      _(env.production?).must_equal false
+    end
   end
 
   describe '#to_s' do
     it 'returns the actual env name' do
-      expect(Lux::Environment.new('production').to_s).to eq('production')
-      expect(Lux::Environment.new('development').to_s).to eq('development')
-      expect(Lux::Environment.new('test').to_s).to eq('test')
+      _(Lux::Environment.new('production').to_s).must_equal 'production'
+      _(Lux::Environment.new('development').to_s).must_equal 'development'
+      _(Lux::Environment.new('test').to_s).must_equal 'test'
     end
   end
 
   describe '#==' do
-    let(:env) { Lux::Environment.new('test') }
+    def env
+      @env ||= Lux::Environment.new('test')
+    end
 
     it 'compares by string name' do
-      expect(env == 'test').to be true
-      expect(env == 'production').to be false
+      _(env == 'test').must_equal true
+      _(env == 'production').must_equal false
     end
 
     it 'compares by symbol' do
-      expect(env == :test).to be true
+      _(env == :test).must_equal true
     end
 
     it 'delegates to predicate methods' do
-      expect(env == :dev).to be true  # test is not production, so dev? is true
-      expect(env == :prod).to be false
+      _(env == :dev).must_equal true  # test is not production, so dev? is true
+      _(env == :prod).must_equal false
     end
 
     it 'returns false for unknown keys instead of raising' do
-      expect { env == :totally_unknown_env }.not_to raise_error
-      expect(env == :totally_unknown_env).to be false
+      _(env == :totally_unknown_env).must_equal false
     end
   end
 end

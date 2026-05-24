@@ -1,28 +1,28 @@
-require 'spec_helper'
+require 'test_helper'
 require_relative './fixtures'
 
 describe Lux::Schema do
-  before(:all) do
-    @rules = TestSchema
+  def rules
+    @rules ||= TestSchema
   end
 
   describe 'DB schema access' do
     it 'gets valid schema' do
-      schema = @rules.db_schema
-      expect(schema[0]).to eq([:name, :string, { limit: 255 }])
-      expect(schema[1]).to eq([:speed, :float, {}])
-      expect(schema[2]).to eq([:email, :string, { limit: 120, null: false }])
-      expect(schema[3]).to eq([:email_nil, :string, { limit: 120 }])
-      expect(schema[4]).to eq([:emails, :string, { array: true, limit: 120 }])
-      expect(schema[5]).to eq([:tags, :string, { array: true, limit: 30 }])
-      expect(schema[6]).to eq([:eyes, :string, { default: 'blue', limit: 255, null: false }])
-      expect(schema[7]).to eq([:age, :integer, { null: false }])
-      expect(schema.length).to eq(13)
+      schema = rules.db_schema
+      _(schema[0]).must_equal [:name, :string, { limit: 255 }]
+      _(schema[1]).must_equal [:speed, :float, {}]
+      _(schema[2]).must_equal [:email, :string, { limit: 120, null: false }]
+      _(schema[3]).must_equal [:email_nil, :string, { limit: 120 }]
+      _(schema[4]).must_equal [:emails, :string, { array: true, limit: 120 }]
+      _(schema[5]).must_equal [:tags, :string, { array: true, limit: 30 }]
+      _(schema[6]).must_equal [:eyes, :string, { default: 'blue', limit: 255, null: false }]
+      _(schema[7]).must_equal [:age, :integer, { null: false }]
+      _(schema.length).must_equal 13
     end
 
     it 'gets db_rules separately' do
-      db_rules = @rules.db_rules
-      expect(db_rules).to eq([[:timestamps]])
+      db_rules = rules.db_rules
+      _(db_rules).must_equal [[:timestamps]]
     end
   end
 end

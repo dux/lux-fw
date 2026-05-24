@@ -1,0 +1,57 @@
+# Hammerfile for lux-fw - run via `hammer <task>` (see lux-hammer gem).
+# Replaces the legacy Rakefile.
+
+SPEC_DIRS ||= %w[
+  hash_tests
+  lib_tests
+  test_tests
+  lux_tests
+  json_exporter_tests
+  view_cell_tests
+  policy_tests
+  schema_tests
+  api_tests
+].freeze
+
+task :test do
+  desc 'Run the Minitest suite (one ruby process per spec folder)'
+  alt :t
+  opt :folder,   desc: 'Run a single spec folder (e.g. lux_tests)'
+  opt :isolated, type: :boolean, desc: 'Every spec in a fresh ruby process (max isolation, slow)'
+
+  proc do |o|
+    # one-folder mode
+    if o[:folder]
+      next sh %(bundle exec ruby -Ilib -Ispec -e "Dir.glob('spec/#{o[:folder]}/**/*_spec.rb').sort.each { |f| require_relative f }")
+    end
+
+    # isolated mode - every spec in its own ruby
+    if o[:isolated]
+      failed = []
+      Dir.glob('spec/**/*_spec.rb').sort.each do |f|
+        ok = system "bundle exec ruby -Ilib -Ispec #{f} > /dev/null 2>&1"
+        print ok ? '.' : 'F'
+        failed << f unless ok
+      end
+      puts
+      error "FAILED: #{failed.join("\n        ")}" if failed.any?
+      next
+    end
+
+    # default - folder-isolated
+    failed = []
+    SPEC_DIRS.each do |dir|
+      next if Dir.glob("spec/#{dir}/**/*_spec.rb").empty?
+      say.yellow "== spec/#{dir} =="
+      cmd = %(bundle exec ruby -Ilib -Ispec -e "Dir.glob('spec/#{dir}/**/*_spec.rb').sort.each { |f| require_relative f }")
+      ok = system(cmd)
+      failed << dir unless ok
+    end
+    error "FAILED folders: #{failed.join(', ')}" if failed.any?
+  end
+end
+
+task :version do
+  desc 'Print the current gem version'
+  proc { say File.read('.version').strip }
+end

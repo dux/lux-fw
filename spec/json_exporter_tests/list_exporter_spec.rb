@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 ###
 
@@ -43,11 +43,9 @@ describe Lux::JsonExporter do
     model  = Company3.new
     export = Company3Exporter.export(model)
 
-    expect(export[:users]).to eq(
-      [
-        { name: :foo, kind: 'User3' },
-        { name: :bar, kind: 'User3' }
-      ]
-    )
+    _(export[:users]).must_equal [
+      { name: :foo, kind: 'User3' },
+      { name: :bar, kind: 'User3' }
+    ]
   end
 end

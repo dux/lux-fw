@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 # Parity tests for HtmlTag scoping rules. Run these BEFORE refactoring to
 # pin down current behaviour, then AFTER to prove no regression. Covers:
@@ -71,33 +71,35 @@ end
 ###
 
 describe 'HtmlTag scoping' do
-  let(:host) { ScopingHost.new }
+  def host
+    @host ||= ScopingHost.new
+  end
 
   it 'copies host @ivars into the builder' do
-    expect(host.ivar_and_method).to eq('<div><span>hello</span><em>helper-value</em></div>')
+    _(host.ivar_and_method).must_equal '<div><span>hello</span><em>helper-value</em></div>'
   end
 
   it 'forwards unknown methods to the host via method_missing' do
-    expect(host.ivar_and_method).to include('helper-value')
+    _(host.ivar_and_method).must_include 'helper-value'
   end
 
   it 'exposes host via this/context/parent' do
-    expect(host.explicit_this).to eq('<div><h1>x-a</h1><p>x-b</p><b>x-c</b></div>')
+    _(host.explicit_this).must_equal '<div><h1>x-a</h1><p>x-b</p><b>x-c</b></div>'
   end
 
   it 'preserves host scope inside deeply nested blocks' do
-    expect(host.deep_nesting).to eq(
+    _(host.deep_nesting).must_equal(
       '<section><div><ul><li>x-0-hello</li><li>x-1-hello</li><li>x-2-hello</li></ul></div></section>'
     )
   end
 
   it 'mixes kwargs attrs + positional inner + ivar' do
-    expect(host.mixed_args).to eq('<a href="#" class="lead">hello</a>')
+    _(host.mixed_args).must_equal '<a href="#" class="lead">hello</a>'
   end
 
   it 'does not leak builder-local @ivar mutations back to host' do
     out, after = host.ivar_isolation
-    expect(out).to eq('<div><span>mutated</span></div>')
-    expect(after).to eq('hello')  # host untouched
+    _(out).must_equal '<div><span>mutated</span></div>'
+    _(after).must_equal 'hello'  # host untouched
   end
 end

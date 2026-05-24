@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 class FooCustomExporter < Lux::JsonExporter
   define :export_2 do
@@ -40,28 +40,30 @@ end
 ###
 
 describe FooCustomExporter do
-  let!(:model) { Struct.new(:sum).new(2) }
+  def model
+    @model ||= Struct.new(:sum).new(2)
+  end
 
   it 'expects 2' do
     export = FooCustomExporter.export(model, exporter: :export_2)
-    expect(export[:num]).to eq(4)
+    _(export[:num]).must_equal 4
   end
 
   it 'expects 4' do
     export = FooCustomExporter.export(model, exporter: 'Export4')
-    expect(export[:num]).to eq(8)
+    _(export[:num]).must_equal 8
   end
 
   it 'expects 2' do
     export = BarExporter.export(model)
-    expect(export[:sum]).to eq(2)
+    _(export[:sum]).must_equal 2
   end
 
   it 'expects to find a pet class' do
     exported1 = DogPetExporter.export(Dog.new)
-    expect(exported1).to eq({ kind: 'dog', foo: :bar, klass: DogPetExporter })
+    _(exported1).must_equal({ kind: 'dog', foo: :bar, klass: DogPetExporter })
 
     exported2 = PetExporter.export(Dog.new)
-    expect(exported2).to eq({ kind: 'dog', foo: :bar, klass: PetExporter })
+    _(exported2).must_equal({ kind: 'dog', foo: :bar, klass: PetExporter })
   end
 end

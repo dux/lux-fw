@@ -1,31 +1,33 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe Lux::Response::Flash do
-  let(:flash) {
-    f = Lux::Response::Flash.new
-    f.info  = 'foo'
-    f.error = "b'ar"
-    f.error 'ba"z'
-    f
-  }
+  def flash
+    @flash ||= begin
+      f = Lux::Response::Flash.new
+      f.info  = 'foo'
+      f.error = "b'ar"
+      f.error 'ba"z'
+      f
+    end
+  end
 
   describe '#clear' do
     it 'returns and clears flash messages' do
       msg = flash.clear
-      expect(msg[:info]).to eq ['foo']
-      expect(msg[:error]).to eq ["b'ar", 'ba"z']
+      _(msg[:info]).must_equal ['foo']
+      _(msg[:error]).must_equal ["b'ar", 'ba"z']
     end
 
     it 'empties the flash after clearing' do
       flash.clear
-      expect(flash.to_h).to eq({})
+      _(flash.to_h).must_equal({})
     end
   end
 
   describe '#clear_for_js' do
     it 'joins messages with comma for JS consumption' do
-      expect(flash.clear_for_js[:error]).to eq %{b'ar, ba"z}
-      expect(flash.clear_for_js[:info]).to be_nil # already cleared
+      _(flash.clear_for_js[:error]).must_equal %{b'ar, ba"z}
+      _(flash.clear_for_js[:info]).must_be_nil # already cleared
     end
   end
 
@@ -33,38 +35,38 @@ describe Lux::Response::Flash do
     it 'supports info messages' do
       f = Lux::Response::Flash.new
       f.info 'hello'
-      expect(f.to_h[:info]).to eq(['hello'])
+      _(f.to_h[:info]).must_equal ['hello']
     end
 
     it 'supports error messages' do
       f = Lux::Response::Flash.new
       f.error 'bad thing'
-      expect(f.to_h[:error]).to eq(['bad thing'])
+      _(f.to_h[:error]).must_equal ['bad thing']
     end
 
     it 'supports warning messages' do
       f = Lux::Response::Flash.new
       f.warning 'careful'
-      expect(f.to_h[:warning]).to eq(['careful'])
+      _(f.to_h[:warning]).must_equal ['careful']
     end
 
     it 'supports assignment syntax' do
       f = Lux::Response::Flash.new
       f.info = 'assigned'
-      expect(f.to_h[:info]).to eq(['assigned'])
+      _(f.to_h[:info]).must_equal ['assigned']
     end
   end
 
   describe '#present? / #empty?' do
     it 'returns truthy when messages exist' do
-      expect(flash.present?).to be_truthy
-      expect(flash.empty?).to be false
+      assert flash.present?
+      refute flash.empty?
     end
 
     it 'returns falsey when empty' do
       f = Lux::Response::Flash.new
-      expect(f.present?).to be_falsey
-      expect(f.empty?).to be true
+      refute f.present?
+      assert f.empty?
     end
   end
 
@@ -73,7 +75,7 @@ describe Lux::Response::Flash do
       f = Lux::Response::Flash.new
       f.error 'same'
       f.error 'same'
-      expect(f.to_h[:error]).to eq(['same'])
+      _(f.to_h[:error]).must_equal ['same']
     end
   end
 
@@ -81,7 +83,7 @@ describe Lux::Response::Flash do
     it 'limits messages to 5 per type' do
       f = Lux::Response::Flash.new
       10.times { |i| f.error "error #{i}" }
-      expect(f.to_h[:error].length).to eq(5)
+      _(f.to_h[:error].length).must_equal 5
     end
   end
 
@@ -90,14 +92,14 @@ describe Lux::Response::Flash do
       f = Lux::Response::Flash.new
       f.info ''
       f.info nil
-      expect(f.to_h.keys).to be_empty
+      _(f.to_h.keys).must_be_empty
     end
   end
 
   describe 'initialization with existing data' do
     it 'restores from a hash' do
       f = Lux::Response::Flash.new({ info: ['restored'] })
-      expect(f.to_h[:info]).to eq(['restored'])
+      _(f.to_h[:info]).must_equal ['restored']
     end
   end
 end

@@ -1,83 +1,90 @@
-require 'spec_helper'
+require 'test_helper'
 
 describe Lux::Utils::StringBase do
   describe '.encode / .decode (short keys)' do
     it 'encodes and decodes integers' do
       encoded = Lux::Utils::StringBase.encode(12345)
-      expect(encoded).to be_a(String)
-      expect(Lux::Utils::StringBase.decode(encoded)).to eq(12345)
+      _(encoded).must_be_kind_of String
+      _(Lux::Utils::StringBase.decode(encoded)).must_equal 12345
     end
 
     it 'encodes and decodes zero' do
-      expect(Lux::Utils::StringBase.encode(0)).to eq('')
+      _(Lux::Utils::StringBase.encode(0)).must_equal ''
       # decode of empty string should return 0
-      expect(Lux::Utils::StringBase.decode('')).to eq(0)
+      _(Lux::Utils::StringBase.decode('')).must_equal 0
     end
 
     it 'handles large integers' do
       large = 999_999_999
       encoded = Lux::Utils::StringBase.encode(large)
-      expect(Lux::Utils::StringBase.decode(encoded)).to eq(large)
+      _(Lux::Utils::StringBase.decode(encoded)).must_equal large
     end
   end
 
   describe '.short' do
-    let(:encoder) { Lux::Utils::StringBase.short }
+    def encoder
+      @encoder ||= Lux::Utils::StringBase.short
+    end
 
     it 'uses SHORT_KEYS and multiplier 99' do
       encoded = encoder.encode(100)
-      expect(encoder.decode(encoded)).to eq(100)
+      _(encoder.decode(encoded)).must_equal 100
     end
 
     it 'rejects invalid base on decode' do
       # 'c' decodes to index 1, which is not divisible by multiplier 99
-      expect { encoder.decode('c') }.to raise_error(RuntimeError, /Invalid decode base/)
+      err = _{ encoder.decode('c') }.must_raise RuntimeError
+      _(err.message).must_match(/Invalid decode base/)
     end
   end
 
   describe '.medium' do
-    let(:encoder) { Lux::Utils::StringBase.medium }
+    def encoder
+      @encoder ||= Lux::Utils::StringBase.medium
+    end
 
     it 'encodes and decodes with medium keys' do
       encoded = encoder.encode(42)
-      expect(encoder.decode(encoded)).to eq(42)
+      _(encoder.decode(encoded)).must_equal 42
     end
   end
 
   describe '.long' do
-    let(:encoder) { Lux::Utils::StringBase.long }
+    def encoder
+      @encoder ||= Lux::Utils::StringBase.long
+    end
 
     it 'encodes and decodes with long keys (case-sensitive)' do
       encoded = encoder.encode(1000)
-      expect(encoder.decode(encoded)).to eq(1000)
+      _(encoder.decode(encoded)).must_equal 1000
     end
 
     it 'produces shorter strings than medium for same value' do
       value = 100_000
       long_str = Lux::Utils::StringBase.long.encode(value)
       medium_str = Lux::Utils::StringBase.medium.encode(value)
-      expect(long_str.length).to be <= medium_str.length
+      assert long_str.length <= medium_str.length
     end
   end
 
   describe '.uid' do
     it 'returns a 16-char string' do
       uid = Lux::Utils::StringBase.uid
-      expect(uid).to be_a(String)
-      expect(uid.length).to eq(16)
+      _(uid).must_be_kind_of String
+      _(uid.length).must_equal 16
     end
 
     it 'generates unique values' do
       uids = 10.times.map { Lux::Utils::StringBase.uid; sleep(0.001); Lux::Utils::StringBase.uid }
-      expect(uids.uniq.length).to be > 1
+      assert uids.uniq.length > 1
     end
   end
 
   describe '#rand' do
     it 'returns a random string of given length from key chars' do
       result = Lux::Utils::StringBase.medium.rand(10)
-      expect(result.length).to eq(10)
-      expect(result.chars).to all(match(/[a-z0-9]/))
+      _(result.length).must_equal 10
+      result.chars.each { |c| _(c).must_match(/[a-z0-9]/) }
     end
   end
 
@@ -86,19 +93,19 @@ describe Lux::Utils::StringBase do
       id = 42
       slug = "some-title-#{Lux::Utils::StringBase.encode(id)}"
       extracted = Lux::Utils::StringBase.short.extract(slug)
-      expect(extracted).to eq(id)
+      _(extracted).must_equal id
     end
 
     it 'returns nil for invalid slugs' do
-      expect(Lux::Utils::StringBase.short.extract('')).to be_nil
+      _(Lux::Utils::StringBase.short.extract('')).must_be_nil
     end
   end
 
   describe 'Integer#string_id' do
     it 'encodes integer to string ID' do
       encoded = 123.string_id
-      expect(encoded).to be_a(String)
-      expect(encoded.string_id).to eq(123)
+      _(encoded).must_be_kind_of String
+      _(encoded.string_id).must_equal 123
     end
   end
 
@@ -106,11 +113,12 @@ describe Lux::Utils::StringBase do
     it 'decodes string ID from slug' do
       id = 456
       slug = "my-item-#{id.string_id}"
-      expect(slug.string_id).to eq(id)
+      _(slug.string_id).must_equal id
     end
 
     it 'raises for invalid string ID' do
-      expect { 'invalid!!!'.string_id }.to raise_error(ArgumentError, /Bad ID/)
+      err = _{ 'invalid!!!'.string_id }.must_raise ArgumentError
+      _(err.message).must_match(/Bad ID/)
     end
   end
 end

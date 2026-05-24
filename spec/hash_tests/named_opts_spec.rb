@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'test_helper'
 
 class LuxHashFoo
   BAR = Lux::Hash(self, method: :bar) do |opt|
@@ -28,56 +28,57 @@ class LuxHashFoo
 end
 
 describe 'named options' do
-  context 'defines class method' do
+  describe 'defines class method' do
     it 'creates class constant' do
-      expect(LuxHashFoo::BAR.BAZ).to eq(:b)
+      _(LuxHashFoo::BAR.BAZ).must_equal :b
     end
 
     it 'creates class method to access constant' do
-      expect(LuxHashFoo.bar.BAZ).to eq(:b)
+      _(LuxHashFoo.bar.BAZ).must_equal :b
     end
 
     it 'is accesible via native constant' do
-      expect(LuxHashFoo::OPTS[1]).to eq('Active foo')
+      _(LuxHashFoo::OPTS[1]).must_equal 'Active foo'
     end
 
     it 'is accesible via named option' do
-      expect(LuxHashFoo::OPTS.ACTIVE).to eq(1)
+      _(LuxHashFoo::OPTS.ACTIVE).must_equal 1
     end
 
     it 'if instructed does not create constant' do
-      expect{ LuxHashFoo::BAZ }.to raise_error NameError
+      _{ LuxHashFoo::BAZ }.must_raise NameError
     end
   end
 
-  context 'does not pollute' do
+  describe 'does not pollute' do
     it 'creates via set' do
-      expect(LuxHashFoo::OPTS.OPTA).to eq(:a)
+      _(LuxHashFoo::OPTS.OPTA).must_equal :a
     end
 
     it 'creates via method missing' do
-      expect(LuxHashFoo::OPTS.OPTB).to eq(:b)
+      _(LuxHashFoo::OPTS.OPTB).must_equal :b
     end
 
     it 'gets name via code' do
-      expect(LuxHashFoo::OPTS[:b]).to eq('B name')
-      expect(LuxHashFoo::OPTS['b']).to eq('B name')
+      _(LuxHashFoo::OPTS[:b]).must_equal 'B name'
+      _(LuxHashFoo::OPTS['b']).must_equal 'B name'
     end
 
     it 'ensures hash is frozen' do
-      expect{LuxHashFoo::OPTS.ACTIVE = 2}.to raise_error FrozenError
+      _{ LuxHashFoo::OPTS.ACTIVE = 2 }.must_raise FrozenError
     end
 
     it 'does not freeze if freeze false option given' do
-      expect{LuxHashFoo::UNFOROZEN.ONE = 2}.not_to raise_error
+      LuxHashFoo::UNFOROZEN.ONE = 2
+      _(LuxHashFoo::UNFOROZEN.ONE).must_equal 2
     end
 
     it 'creates constants' do
-      expect(LuxHashFoo::STATUS[1]).to eq('Active object')
-      expect(LuxHashFoo::STATUS.ACTIVE).to eq(1)
-      expect(LuxHashFoo::STATUS_INACTIVE).to eq(0)
-      expect(LuxHashFoo::STATUS_ACTIVE).to eq(1)
-      expect(LuxHashFoo::STATUS_DEAD).to eq(2)
+      _(LuxHashFoo::STATUS[1]).must_equal 'Active object'
+      _(LuxHashFoo::STATUS.ACTIVE).must_equal 1
+      _(LuxHashFoo::STATUS_INACTIVE).must_equal 0
+      _(LuxHashFoo::STATUS_ACTIVE).must_equal 1
+      _(LuxHashFoo::STATUS_DEAD).must_equal 2
     end
   end
 end
