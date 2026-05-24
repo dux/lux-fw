@@ -1,0 +1,81 @@
+- # Exception detail. URL: /admin/plugins/exception_logger/show?uid=<uid>
+- # Rendered by the host's AdminController via auto_find_template; data is
+- # looked up inline (no plugin controller for GET).
+
+- prefix = '/admin/plugins/exception_logger'
+- exp    = LuxException.get_exp(lux.params[:uid]) or Lux.error.not_found
+
+%p.mb-3
+  %a.text-sm.text-blue-600.hover:underline{ href: prefix + '/' } &larr; Back
+
+%h2.text-xl.font-semibold.mb-3 Error details
+
+.bg-white.rounded.shadow-sm.overflow-hidden.mb-6
+  %table.w-full.text-sm
+    %tbody
+      %tr
+        %th.text-left.font-medium.bg-slate-50.px-3.py-2.align-top{ style: 'width: 150px;' } Class
+        %td.px-3.py-2.align-top
+          &= exp[:klass]
+          %a.ml-2.text-xs.text-blue-600.hover:underline{ href: '%s/?klass=%s' % [prefix, CGI.escape(exp[:klass].to_s)] } filter
+      %tr.border-t.border-slate-100
+        %th.text-left.font-medium.bg-slate-50.px-3.py-2.align-top Message
+        %td.px-3.py-2.align-top.break-all
+          &= exp[:message]
+      %tr.border-t.border-slate-100
+        %th.text-left.font-medium.bg-slate-50.px-3.py-2.align-top Times
+        %td.px-3.py-2.align-top
+          = exp[:times]
+          %span.text-slate-500  &middot; first #{LuxException.time_ago(exp[:first_at])} &middot; last #{LuxException.time_ago(exp[:last_at])}
+      %tr.border-t.border-slate-100
+        %th.text-left.font-medium.bg-slate-50.px-3.py-2.align-top Backtrace
+        %td.px-3.py-2.align-top
+          -# get_exp pre-wraps app-local frames in <b>...</b>; render raw and
+          -# style <b> via an arbitrary Tailwind descendant variant.
+          %pre.bg-slate-900.text-slate-100.text-xs.p-3.rounded.overflow-x-auto.whitespace-pre-wrap.break-words{ class: '[&_b]:text-amber-300 [&_b]:font-semibold' }
+            != exp[:body]
+
+%h3.text-lg.font-semibold.mb-2 Log
+.bg-white.rounded.shadow-sm.overflow-hidden.mb-6
+  %table.w-full.text-sm
+    %thead.bg-slate-50.text-slate-600
+      %tr
+        %th.text-left.font-medium.px-3.py-2{ style: 'width: 170px;' } At
+        %th.text-left.font-medium.px-3.py-2{ style: 'width: 100px;' } Ago
+        %th.text-left.font-medium.px-3.py-2{ style: 'width: 130px;' } IP
+        %th.text-left.font-medium.px-3.py-2{ style: 'width: 260px;' } User
+        %th.text-left.font-medium.px-3.py-2 URL
+    %tbody
+      - exp[:logs].each do |el|
+        %tr.border-t.border-slate-100.align-top
+          %td.px-3.py-2
+            %details
+              %summary.cursor-pointer.text-blue-700.hover:underline
+                = el[:created_at]&.strftime('%Y-%m-%d %H:%M:%S')
+              %pre.mt-2.bg-slate-900.text-slate-100.text-xs.p-3.rounded.overflow-x-auto.whitespace-pre-wrap.break-words
+                &= (JSON.pretty_generate(JSON.parse(el[:env])) rescue el[:env])
+          %td.px-3.py-2.text-slate-500= LuxException.time_ago(el[:created_at])
+          %td.px-3.py-2
+            - if el[:ip]
+              %a.text-blue-700.hover:underline{ href: 'https://ipgeolocation.io/ip-location/%s' % CGI.escape(el[:ip].to_s) }
+                &= el[:ip]
+          %td.px-3.py-2
+            &= el[:email]
+          %td.px-3.py-2.break-all
+            - if el[:url]
+              %a.text-blue-700.hover:underline{ href: el[:url].to_s.split(/\s+/).last }
+                &= el[:url]
+            - else
+              %span.text-slate-400 &mdash;
+      - if exp[:logs].empty?
+        %tr
+          %td.text-center.text-slate-400.py-6{ colspan: 5 } no logs
+
+.mt-5
+  - if exp[:is_resolved]
+    %span.inline-block.text-sm.text-emerald-700.bg-emerald-50.border.border-emerald-200.rounded.px-3.py-1 &check; Resolved
+  - else
+    %form{ method: 'post', action: prefix + '/resolve' }
+      %input{ type: 'hidden', name: '_csrf', value: lux.csrf }
+      %input{ type: 'hidden', name: 'uid', value: exp[:uid] }
+      %button.text-sm.bg-emerald-600.hover:bg-emerald-700.text-white.font-medium.rounded.px-4.py-2{ type: 'submit' } Mark resolved

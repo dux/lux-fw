@@ -10,7 +10,7 @@ require 'digest'
 
 require_relative 'lib/lux_exception'
 require_relative 'lib/lux_exception_log'
-require_relative 'lib/lux_exception_web'
+require_relative 'lib/lux_exception_controller'
 
 Lux.config.error_logger = proc do |err|
   LuxException.add err

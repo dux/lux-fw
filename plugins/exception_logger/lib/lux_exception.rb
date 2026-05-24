@@ -5,10 +5,10 @@ class LuxException < ApplicationModel
   schema do
     uid String, max: 30, index: true
     klass String, index: true
-    message :text
-    body :text
+    message? :text
+    body? :text
     times Integer, default: 1
-    is_resolved :boolean
+    is_resolved? :boolean
     first_at Time
     last_at Time, index: true
   end
@@ -16,6 +16,24 @@ class LuxException < ApplicationModel
   IGNORE ||= ['Lux::Error', 'Lux::Api::Error']
 
   class << self
+    # Compact "Ns/m/h/d ago" - used by the admin views without pulling in
+    # an extra helper module.
+    def time_ago time
+      return '' unless time
+      diff = Time.now - time
+      case diff
+      when 0..59 then "#{diff.to_i}s ago"
+      when 60..3599 then "#{(diff / 60).to_i}m ago"
+      when 3600..86399 then "#{(diff / 3600).to_i}h ago"
+      else "#{(diff / 86400).to_i}d ago"
+      end
+    end
+
+    def trim str, n
+      s = str.to_s
+      s.length > n ? s[0, n] + '...' : s
+    end
+
     def fingerprint error
       lines = (error.backtrace || [])
         .reject { |el| el.include?('/gems/') || el.include?('/.') }

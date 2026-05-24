@@ -16,22 +16,32 @@ Lux.plugin :exception_logger
 The loader wires `Lux.config.error_logger` to `LuxException.add`, so framework
 errors are recorded automatically after the plugin is loaded.
 
-## Web Viewer
+## Admin Pages
 
-Route the Sinatra viewer in your app:
+Symlink the controller + views into the host app:
 
-```ruby
-LuxExceptionWeb.password = ENV['LUX_EXCEPTION_PASSWORD']
-
-Lux.app do
-  routes do
-    map '/admin/sys-errors' => LuxExceptionWeb
-  end
-end
+```sh
+lux mount exception_logger
 ```
 
-Open `/admin/sys-errors` to browse exceptions, filter by user or class, inspect
-request logs, and mark exceptions as resolved.
+That places:
+
+```
+app/views/admin/plugins/exception_logger/{root,show}.haml
+```
+
+The `root` and `show` pages are pure templates - rendered by the host's
+`AdminController` via `auto_find_template(nav.path)`. They look up their own
+data inline (`LuxException.get_list`, `LuxException.get_exp(lux.params[:uid])`),
+so no GET-side controller action is needed.
+
+The plugin ships one POST-only controller (`LuxExceptionController`, in
+`lib/`, required by the loader) that owns `/admin/plugins/exception_logger/resolve`
+via a per-action `route` annotation. This is the only host-mounted code path -
+no `plugin_routes` entry, no controller symlink.
+
+Open `/admin/plugins/exception_logger` to browse exceptions, filter by user or
+class, inspect request logs, and mark exceptions as resolved.
 
 ## Manual Logging
 
@@ -115,10 +125,14 @@ Existing records with `is_resolved` set to `nil` are treated as unresolved.
 
 ```
 plugins/exception_logger/
-  loader.rb                  # wires Lux.config.error_logger
+  loader.rb                                                 # wires Lux.config.error_logger
   lib/
-    lux_exception.rb         # grouping + add/get/query API
-    lux_exception_log.rb     # per-occurrence record
-    lux_exception_web.rb     # mountable Sinatra viewer
-  views/                     # web viewer templates
+    lux_exception.rb                                        # grouping + add/get/query API
+    lux_exception_log.rb                                    # per-occurrence record
+    lux_exception_controller.rb                             # POST /resolve only
+  mount/
+    app/
+      views/admin/plugins/exception_logger/{root,show}.haml # rendered by host AdminController
+  spec/
+    exception_logger_admin_spec.rb                          # end-to-end flow
 ```
