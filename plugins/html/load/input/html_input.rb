@@ -26,8 +26,8 @@ class HtmlInput
     @opts.delete :disabled if @opts[:disabled].to_s == 'false'
   end
 
-  def tag *args, &block
-    HtmlTag *args, &block
+  def tag(*args, **attrs, &block)
+    HtmlTag.render_root(self, *args, **attrs, &block)
   end
 
   # .render :name          # @object.name

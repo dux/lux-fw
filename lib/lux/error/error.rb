@@ -50,7 +50,7 @@ module Lux
             plain = format(error, message: true).gsub('&', '&amp;').gsub('<', '&lt;')
             n.button 'Copy', class: 'btn', style: 'float: right;',
               onclick: "navigator.clipboard.writeText(this.nextElementSibling.value);this.innerText='Copied'"
-            n.tag :textarea, { style: 'display:none;' }, plain
+            n.tag :textarea, plain, style: 'display:none;'
             n.push format(error, html: true, message: true)
           end
         end

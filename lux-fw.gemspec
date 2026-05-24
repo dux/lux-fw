@@ -74,9 +74,6 @@ Gem::Specification.new 'lux-fw' do |gem|
   # used by Lux::ViewCell.css to compile SCSS blocks defined in cells
   gem.add_dependency 'sassc'
 
-  # HTML builder DSL used by plugins/html and lib/lux/error
-  gem.add_dependency 'html-tag'
-
   # gem.add_dependency 'dry-inflector' # replace with sequel inflector
 
   # gem.add_dependency 'memory_profiler'

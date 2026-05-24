@@ -17,6 +17,7 @@ via their full namespace, or through monkey-patches on stdlib classes
 | `Lux::Utils::Boolean`       | `boolean.rb`         | string -> boolean parser, mixed into TrueClass/FalseClass |
 | `Lux::Utils::Json`          | `json.rb`            | `to_jsons` / `to_jsonp` / `to_jsonc`, mixed into Hash/Array |
 | `Lux::Utils::TimeOptions`   | `time_options.rb`    | `short` / `long` date formatters, mixed into Time/Date/DateTime |
+| `Lux::Utils::HtmlTag`       | `html_tag/`          | tag-based HTML builder DSL (vendored, rewritten); top-level `HtmlTag` kept as alias |
 
 Two more live in the db plugin (same namespace, plugin-coupled location):
 
@@ -125,6 +126,64 @@ data.to_jsonp        # always pretty
 data.to_jsonp(true)  # pretty + colorise keys (terminal)
 data.to_jsonc        # compact, unquoted keys (for embedding in JS)
 ```
+
+### HtmlTag
+
+```ruby
+# Builder form (returns the rendered HTML string)
+HtmlTag.div(class: 'box') do |n|
+  n.h1 'Title'
+  n.p  'Body'
+end
+# => "<div class=\"box\"><h1>Title</h1><p>Body</p></div>"
+
+# Explicit render entry (when you want a non-bareword tag name)
+HtmlTag.call(:ul) do |n|
+  n.li 'one'
+  n.li 'two'
+end
+
+# Class mixin - imports `tag` without pulling the rest of the module
+class Card
+  HtmlTag.mixin(self)
+
+  def render
+    tag.div(class: 'card') { tag.h2 'Hello' }
+  end
+end
+
+# include HtmlTag - same `tag` helper, full module included
+class Widget
+  include HtmlTag
+end
+
+# Hash#tag / String#tag (lib/overload/hash.rb, lib/overload/string.rb)
+{ class: 'btn' }.tag(:button, 'Save')   # '<button class="btn">Save</button>'
+'hello'.tag(:span, class: 'lead')       # '<span class="lead">hello</span>'
+
+# `_klass` div shortcut: tag name starting with `_` -> <div class="klass">.
+# `__` separates classes, remaining `_` become `-`.
+tag._search_filter            # <div class="search-filter"></div>
+tag._card__lead { 'x' }       # <div class="card lead">x</div>
+
+# Register a custom tag
+HtmlTag.define :foo
+HtmlTag.define :hr2, empty: true
+
+# Pretty output (off by default)
+HtmlTag::OPTS[:format] = true
+```
+
+Signature is uniform across every entry point:
+
+```
+tag(name, inner = nil, **attrs, &block)
+```
+
+* `inner` is the text/value placed between the tags (overridden by `&block`).
+* `attrs` are always kwargs - the old `div 123, class: :foo` arg-order swap is gone.
+* Inside a `&block`, unknown methods flow to the host (cell/controller), and host
+  `@ivars` are visible. Use `this` / `context` / `parent` for an explicit host handle.
 
 ### TimeOptions
 

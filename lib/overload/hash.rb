@@ -93,5 +93,13 @@ class Hash
       self[key] = data.html_safe
     end
   end
+
+  # `attrs.tag(:div, 'inner')` -> '<div ...>inner</div>'. The receiver is the
+  # attributes hash. Provided by the vendored html-tag (see lib/lux/utils/html_tag/).
+  def tag(node_name, inner = nil, &block)
+    inbound = HtmlTag::Inbound.new
+    inbound.tag(node_name, inner, **self, &block)
+    inbound.render
+  end
 end
 

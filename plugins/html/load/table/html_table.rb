@@ -109,7 +109,7 @@ class HtmlTable
       end
     end
 
-    n.th title, th_opts
+    n.th title, **th_opts
   end
 
   def render_tr n, object
@@ -121,10 +121,10 @@ class HtmlTable
 
     allowed = [:id, :class, :href, :style, :width, :align, :onclick]
 
-    n.tr(tr_opts.slice(*allowed)) do |n|
+    n.tr(**tr_opts.slice(*allowed)) do |n|
       for opts in @cols
         content = render_cell object, opts
-        n.td content, opts.slice(*allowed)
+        n.td content, **opts.slice(*allowed)
       end
     end
   end

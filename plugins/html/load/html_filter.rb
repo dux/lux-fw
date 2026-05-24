@@ -18,7 +18,7 @@
 # end
 
 class HtmlFilter
-  HtmlTag self
+  HtmlTag.mixin(self)
 
   def initialize parent
     @parent = parent
@@ -64,7 +64,7 @@ class HtmlFilter
     opts[:method]   = :get
 
     tag._search_filter do |n|
-      n.form(opts) do |n|
+      n.form(**opts) do |n|
         n.push data
         n.push render_clear
       end

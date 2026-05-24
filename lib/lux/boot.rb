@@ -13,7 +13,6 @@ require 'pry'
 require 'reline'
 require 'class-cattr'
 require 'class-callbacks'
-require 'html-tag'
 
 Pry.config.input = Reline
 
@@ -42,6 +41,14 @@ require_relative './logger/lux_adapter'
 
 require_relative './config/config'
 require_relative './config/lux_adapter'
+
+# HtmlTag is vendored under Lux::Utils::HtmlTag. Pre-required because
+# Dir.require_all (below) sorts shallowest-first, so view_cell.rb at depth
+# 2 would otherwise hit `include HtmlTag` before the depth-3 html_tag/
+# files load.
+require_relative './utils/html_tag/html_tag'
+require_relative './utils/html_tag/inbound'
+require_relative './utils/html_tag/globals'
 
 require_relative './boot_adapter'
 

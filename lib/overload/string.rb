@@ -91,6 +91,14 @@ class String
     opts.tag(node_name, self)
   end
 
+  # `'inner'.tag(:p, class: 'x')` -> '<p class="x">inner</p>'. The receiver is
+  # the inner text. Provided by the vendored html-tag (see lib/lux/utils/html_tag/).
+  def tag(node_name, **attrs, &block)
+    inbound = HtmlTag::Inbound.new
+    inbound.tag(node_name, self, **attrs, &block)
+    inbound.render
+  end
+
   def fix_ut8
     self.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '?')
   end

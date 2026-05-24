@@ -207,7 +207,7 @@ module ApplicationHelper
 
     if data = table.render
       unless opts[:no_box] || request.path.include?('dialog')
-        data = data.tag(:div, { class: 'box' })
+        data = data.tag(:div, class: 'box')
       end
 
       data += paginate(list).to_s if list.respond_to?(:paginate_page)
