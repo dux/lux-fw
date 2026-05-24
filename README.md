@@ -303,7 +303,7 @@ Three orthogonal facets: name, behavior, runtime.
 
 ```ruby
 Lux.env.production?                    # name (dev/prod/test)
-Lux.mode.log?                          # behavior toggle (log/errors/reload)
+Lux.mode.debug?                        # behavior toggle (debug/reload)
 Lux.runtime.web?                       # process kind (web/cli/rake)
 ```
 

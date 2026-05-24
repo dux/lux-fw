@@ -55,7 +55,7 @@ class LuxJob < ApplicationModel
     end
 
     def run
-      verbose = ENV['LUX_LIVE'] != 'true'
+      verbose = Lux.mode.debug?
 
       puts "Registered jobs:"
       if JOBS.empty?

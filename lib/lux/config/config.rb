@@ -15,7 +15,7 @@ module Lux
 
         info.push "Lux env:  #{Lux.env.to_s.colorize(:yellow)}"
 
-        flags = %w(log errors reload).map do |name|
+        flags = %w(debug reload).map do |name|
           on = Lux.mode.send("#{name}?")
           on ? "#{name} (yes)".colorize(:yellow) : "#{name} (no)".colorize(:green)
         end
@@ -44,7 +44,7 @@ module Lux
       Lux.config.delay_timeout = Lux.env.dev? ? 3600 : 30
 
       # Logger
-      Lux.config.log_level            = Lux.mode.log? ? :info : :error
+      Lux.config.log_level            = Lux.mode.debug? ? :info : :error
       Lux.config.logger_path_mask     = './log/%s.log'
       Lux.config.logger_files_to_keep = 3
       Lux.config.logger_file_max_size = 10_240_000

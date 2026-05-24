@@ -44,8 +44,7 @@ task :console do
   needs :app
 
   proc do |opts|
-    ENV['LUX_LOG']    ||= 'true'
-    ENV['LUX_ERRORS'] ||= 'true'
+    ENV['LUX_DEBUG']  ||= 'true'
     ENV['LUX_RELOAD'] ||= 'true'
 
     require 'pry'

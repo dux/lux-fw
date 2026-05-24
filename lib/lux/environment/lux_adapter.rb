@@ -1,5 +1,5 @@
 # Lux.env     - environment name (dev/prod/test)
-# Lux.mode    - behavior toggles (log/errors/reload)
+# Lux.mode    - behavior toggles (debug/reload)
 # Lux.runtime - runtime kind (web/cli/rake)
 #
 # Env name resolution: ENV['LUX_ENV'] || ENV['RACK_ENV'] || 'development'.

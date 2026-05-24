@@ -33,7 +33,7 @@ owner of `*_ref` column conventions. It recognises four field shapes:
 | `:scalar`   | `<name>_ref`                  | belongs_to one record        |
 | `:array`    | `<name>_refs` (text[])        | has_many via array of refs   |
 | `:poly_key` | `parent_key` ("Class/ref")    | polymorphic belongs_to (1col)|
-| `:poly_pair`| `parent_type` + `parent_ref`  | polymorphic belongs_to (2col)|
+| `:poly_pair`| `parent_model`\|`parent_type` + `parent_ref` | polymorphic belongs_to (2col); type col is `parent_model` if present, else `parent_type` |
 
 Public surface:
 
@@ -46,7 +46,7 @@ end
 
 Task.where_ref(@user)       # class-level scope
 Task.dataset.for(@user)     # dataset-level scope (alias: where_ref)
-note.parent = @user         # writes parent_key OR parent_type+parent_ref
+note.parent = @user         # writes parent_key OR parent_model+parent_ref OR parent_type+parent_ref
 note.parent                 # reads back the parent
 ```
 

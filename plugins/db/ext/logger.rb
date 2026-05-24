@@ -28,7 +28,7 @@ if ENV['RAKE_ENV'] != 'test' || ENV['DB_LOG'] == 'true'
     db.loggers << logger
   end
 
-  if Lux.mode.log?
+  if Lux.mode.debug?
     Lux.app do
       before do
         Thread.current[:db_q] = { time: 0.0, cnt: 0, list:{} }

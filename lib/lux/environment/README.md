@@ -3,7 +3,7 @@
 Three orthogonal facets of "where am I running?":
 
 * `Lux.env`     - environment name (`development`, `production`, `test`)
-* `Lux.mode`    - behavior toggles (`log?`, `errors?`, `reload?`)
+* `Lux.mode`    - behavior toggles (`debug?`, `reload?`)
 * `Lux.runtime` - process kind (`web?`, `cli?`, `rake?`)
 
 ## Full example
@@ -26,20 +26,18 @@ Lux.env(:prod)           # same: Lux.env(:prod) -> bool
 # --- Lux.mode: behavior toggles -----------------------------------------
 
 # Defaults per env:
-#   dev:  log=on  errors=on  reload=on
-#   prod: log=off errors=off reload=off
-#   test: log=off errors=off reload=off
+#   dev:  debug=on  reload=on
+#   prod: debug=off reload=off
+#   test: debug=off reload=off
 
-Lux.mode.log?            # screen dev log: Lux.log, SQL echo, pretty JSON
-Lux.mode.errors?         # rich error pages, verbose 404s
+Lux.mode.debug?          # verbose responses, pretty JSON, :info log level
 Lux.mode.reload?         # per-request code reload
 
 # Block form for env-conditioned messages:
-Lux.error.not_found Lux.mode.errors?('404 Not Found') { 'long debug msg' }
+Lux.error.not_found Lux.mode.debug?('404 Not Found') { 'long debug msg' }
 
-# Runtime override (also via LUX_LOG / LUX_ERRORS / LUX_RELOAD env vars):
-Lux.mode.log = true
-Lux.mode.errors = false
+# Runtime override (also via LUX_DEBUG / LUX_RELOAD env vars):
+Lux.mode.debug  = true
 Lux.mode.reload = false
 
 # --- Lux.runtime: how the process was started ---------------------------
@@ -51,9 +49,9 @@ Lux.runtime.rake?        # run via rake
 
 ## Notes
 
-* `LUX_LOG`, `LUX_ERRORS`, `LUX_RELOAD` accept `true`/`false`
+* `LUX_DEBUG`, `LUX_RELOAD` accept `true`/`false`
   (case-insensitive). Empty = unset. Other = boot-time error.
-* `lux server` accepts `-l`, `-e`, `-r` flags for these on the CLI.
+* `lux server` accepts `-d`, `-e`, `-r` flags for these on the CLI.
 
 ## See also
 

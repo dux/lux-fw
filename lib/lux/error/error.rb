@@ -46,7 +46,7 @@ module Lux
         message = message.to_s.gsub('","', %[",\n "]).gsub('<', '&lt;')
 
         HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|
-          if error && Lux.mode.errors?
+          if error && Lux.mode.debug?
             plain = format(error, message: true).gsub('&', '&amp;').gsub('<', '&lt;')
             n.button 'Copy', class: 'btn', style: 'float: right;',
               onclick: "navigator.clipboard.writeText(this.nextElementSibling.value);this.innerText='Copied'"

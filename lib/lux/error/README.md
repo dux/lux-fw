@@ -35,7 +35,7 @@ end
 # --- conditional rendering across dev / prod -----------------------------
 
 # dev: include the detailed message; prod: bare 404
-Lux.error.not_found Lux.mode.errors?('404 Not Found') {
+Lux.error.not_found Lux.mode.debug?('404 Not Found') {
   'Subdomain "%s" matched but nothing called' % name
 }
 

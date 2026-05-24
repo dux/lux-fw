@@ -3,7 +3,7 @@ module Utils
   module Json
     # to json smart - pretty in dev
     def to_jsons
-      Lux.mode.log? ? to_jsonp : to_json
+      Lux.mode.debug? ? to_jsonp : to_json
     end
 
     # to json pretty

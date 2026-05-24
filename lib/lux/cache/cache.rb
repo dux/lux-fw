@@ -167,7 +167,7 @@ module Lux
     end
 
     def log_get name
-      return unless Lux.mode.log?
+      return unless Lux.mode.debug?
 
       var = Lux.current.var
       var[:show_cache_log] = true if Lux.current.params[:lux_show_cache_get]

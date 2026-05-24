@@ -1,24 +1,22 @@
 # Boot-time behavior toggles, independent of env identity.
 #
-#   Lux.mode.log?      # screen dev logging (console only)
-#   Lux.mode.errors?   # error visibility (response + console)
+#   Lux.mode.debug?    # verbose responses + pretty JSON + :info logging
 #   Lux.mode.reload?   # per-request code reload
 #
 # Precedence (lowest -> highest):
-#   env default -> ENV var (LUX_LOG / LUX_ERRORS / LUX_RELOAD) -> runtime setter
+#   env default -> ENV var (LUX_DEBUG / LUX_RELOAD) -> runtime setter
 #
 # ENV values are case-insensitive 'true' / 'false'. Empty/unset = default.
 # Any other value raises ArgumentError eagerly in Lux::Mode.new.
 #
-# errors? supports a ternary block form for verbose 404/error messages:
-#   Lux.mode.errors?                  # => bool
-#   Lux.mode.errors?('short') { 'long' }  # => 'short' or 'long'
+# debug? supports a ternary block form for verbose 404/error messages:
+#   Lux.mode.debug?                       # => bool
+#   Lux.mode.debug?('short') { 'long' }   # => 'short' or 'long'
 
 module Lux
   class Mode
     FLAGS ||= {
-      log:    { dev: true, prod: false, test: false, env: 'LUX_LOG' },
-      errors: { dev: true, prod: false, test: false, env: 'LUX_ERRORS' },
+      debug:  { dev: true, prod: false, test: false, env: 'LUX_DEBUG' },
       reload: { dev: true, prod: false, test: false, env: 'LUX_RELOAD' },
     }.freeze
 
