@@ -6,10 +6,12 @@
 #
 # Recognised field shapes
 # -----------------------
-#   :scalar      <name>_ref               -> belongs_to a single record
-#   :array       <name>_refs   (text[])   -> has_many via array of refs
-#   :poly_key    parent_key    (text)     -> polymorphic belongs_to ("Class/ref")
-#   :poly_pair   parent_type + parent_ref -> polymorphic belongs_to (two cols)
+#   :scalar      <name>_ref                       -> belongs_to a single record
+#   :array       <name>_refs   (text[])           -> has_many via array of refs
+#   :poly_key    parent_key    (text)             -> polymorphic belongs_to ("Class/ref")
+#   :poly_pair   (parent_model | parent_type)     -> polymorphic belongs_to (two cols);
+#                + parent_ref                        type column is parent_model if present,
+#                                                    else parent_type.
 #
 # All public operations (detect / resolve / assign / scope) work on the
 # shapes above. The tree-array shape (`parent_refs text[]`) is handled by
@@ -39,11 +41,26 @@ module Sequel::Plugins::RefLinker
   # ------------------------------------------------------------------
 
   class << self
+    # Polymorphic type-column lookup. Returns [type_col, :parent_ref] when
+    # the host class has either `parent_model` (preferred) or `parent_type`
+    # alongside `parent_ref`; nil otherwise. Single source of truth for the
+    # poly_pair column resolution used by detect / parent= / parent.
+    def poly_pair_columns host_class
+      schema = host_class.db_schema
+      type_col =
+        if schema[:parent_model]
+          :parent_model
+        elsif schema[:parent_type]
+          :parent_type
+        end
+      type_col ? [type_col, :parent_ref] : nil
+    end
+
     # Inspect host_class and decide which shape it uses to point at target_class.
     # Returns a Hash { kind:, columns: [...] } or nil if no shape matches.
-    #   detect(Task, User)  -> { kind: :scalar,   columns: [:user_ref] }
-    #   detect(Project, User) -> { kind: :array,  columns: [:user_refs] }
-    #   detect(Note, User)  -> { kind: :poly_pair, columns: [:parent_type, :parent_ref] }
+    #   detect(Task, User)    -> { kind: :scalar,    columns: [:user_ref] }
+    #   detect(Project, User) -> { kind: :array,     columns: [:user_refs] }
+    #   detect(Note, User)    -> { kind: :poly_pair, columns: [:parent_model | :parent_type, :parent_ref] }
     def detect host_class, target_class
       schema = host_class.db_schema
       name   = target_class.to_s.underscore
@@ -54,8 +71,10 @@ module Sequel::Plugins::RefLinker
       array = "#{name}_refs".to_sym
       return { kind: :array, columns: [array] } if schema[array]
 
-      return { kind: :poly_key,  columns: [:parent_key] }              if schema[:parent_key]
-      return { kind: :poly_pair, columns: [:parent_type, :parent_ref] } if schema[:parent_type]
+      return { kind: :poly_key, columns: [:parent_key] } if schema[:parent_key]
+      if cols = poly_pair_columns(host_class)
+        return { kind: :poly_pair, columns: cols }
+      end
 
       nil
     end
@@ -80,8 +99,8 @@ module Sequel::Plugins::RefLinker
         klass, ref = v.split('/', 2)
         klass.constantize.find(ref)
       when :poly_pair
-        type = instance[:parent_type] or return nil
-        ref  = instance[:parent_ref]
+        type = instance[shape[:columns][0]] or return nil
+        ref  = instance[shape[:columns][1]]
         type.constantize.find(ref)
       end
     end
@@ -96,10 +115,12 @@ module Sequel::Plugins::RefLinker
       if object.is_a?(String)
         if instance.db_schema[:parent_key]
           instance[:parent_key] = object
-        else
+        elsif cols = poly_pair_columns(instance.class)
           klass, ref = object.split('/', 2)
-          instance[:parent_type] = klass
-          instance[:parent_ref]  = ref
+          instance[cols[0]] = klass
+          instance[cols[1]] = ref
+        else
+          die_missing_poly_columns instance.class
         end
         return object
       end
@@ -113,8 +134,8 @@ module Sequel::Plugins::RefLinker
       when :poly_key
         instance[:parent_key] = '%s/%s' % [object.class, object.ref]
       when :poly_pair
-        instance[:parent_type] = object.class.to_s
-        instance[:parent_ref]  = object.ref
+        instance[shape[:columns][0]] = object.class.to_s
+        instance[shape[:columns][1]] = object.ref
       when :array
         # appending semantics live in the caller; assigning replaces.
         instance[shape[:columns][0]] = [object.ref]
@@ -141,8 +162,19 @@ module Sequel::Plugins::RefLinker
       when :poly_key
         dataset.where(parent_key: object.key)
       when :poly_pair
-        dataset.where(parent_type: object.class.to_s, parent_ref: object.ref)
+        dataset.where(shape[:columns][0] => object.class.to_s, shape[:columns][1] => object.ref)
       end
+    end
+
+    # Lux.shell.die helper for the "no polymorphic columns" case. Names
+    # the columns the plugin looked for and the host class so the schema
+    # gap is obvious from the fatal message.
+    def die_missing_poly_columns host_class
+      Lux.shell.die [
+        'Polymorphic parent columns missing on %s' % host_class,
+        'searched for: parent_key, parent_model (+parent_ref), parent_type (+parent_ref)',
+        'add one of those columns to the table schema to enable a polymorphic parent'
+      ]
     end
   end
 
@@ -221,17 +253,20 @@ module Sequel::Plugins::RefLinker
   module InstanceMethods
     # Set parent. Accepts a model instance OR a pre-formatted "Class/ref"
     # string. Always writes the polymorphic columns (parent_key OR
-    # parent_type+parent_ref) - never a typed *_ref column, even if one
-    # exists on the host. Use a direct assignment (e.g. task.user = u) or
-    # `link :user` if you want to write a scalar column instead.
+    # parent_model+parent_ref OR parent_type+parent_ref) - never a typed
+    # *_ref column, even if one exists on the host. Use a direct
+    # assignment (e.g. task.user = u) or `link :user` if you want to
+    # write a scalar column instead.
     def parent= model
       if model.is_a?(String)
         if db_schema[:parent_key]
           self[:parent_key] = model
-        else
+        elsif cols = Sequel::Plugins::RefLinker.poly_pair_columns(self.class)
           klass, ref = model.split('/', 2)
-          self[:parent_type] = klass
-          self[:parent_ref]  = ref
+          self[cols[0]] = klass
+          self[cols[1]] = ref
+        else
+          Sequel::Plugins::RefLinker.die_missing_poly_columns self.class
         end
         @parent = nil
         return model
@@ -239,9 +274,11 @@ module Sequel::Plugins::RefLinker
 
       if db_schema[:parent_key]
         self[:parent_key] = '%s/%s' % [model.class, model.ref]
+      elsif cols = Sequel::Plugins::RefLinker.poly_pair_columns(self.class)
+        self[cols[0]] = model.class.to_s
+        self[cols[1]] = model.ref
       else
-        self[:parent_type] = model.class.to_s
-        self[:parent_ref]  = model.ref
+        Sequel::Plugins::RefLinker.die_missing_poly_columns self.class
       end
       @parent = model
     end
@@ -258,16 +295,20 @@ module Sequel::Plugins::RefLinker
       if key = self[:parent_key]
         klass, ref = key.split('/', 2)
         klass.constantize.find(ref)
-      elsif type = self[:parent_type]
-        type.constantize.find(self[:parent_ref])
+      elsif cols = Sequel::Plugins::RefLinker.poly_pair_columns(self.class)
+        if type = self[cols[0]]
+          type.constantize.find(self[cols[1]])
+        else
+          raise ArgumentError, '%s parent not set.' % self.class
+        end
       else
-        raise ArgumentError, '%s parent not set.' % self.class
+        Sequel::Plugins::RefLinker.die_missing_poly_columns self.class
       end
     end
 
     # True if the host model declares any polymorphic-parent columns.
     def parent?
-      !!(db_schema[:parent_key] || db_schema[:parent_type])
+      !!(db_schema[:parent_key] || db_schema[:parent_model] || db_schema[:parent_type])
     end
   end
 
