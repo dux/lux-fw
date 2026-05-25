@@ -60,31 +60,20 @@ class LuxJobLock
     # PID of the backend currently holding our advisory lock, or nil.
     # Queried via the pool (not the pinned connection), so it's safe to
     # call from the liveness-check thread without contending with LISTEN.
+    #
+    # objsubid = 2 is the (int4, int4) advisory-lock form (what we use);
+    # the single-bigint form would be objsubid = 1. The pg_locks docs page
+    # has these swapped - source of truth is SET_LOCKTAG_INT32 in
+    # src/backend/utils/adt/lockfuncs.c.
     def holder_pid
       row = DB.fetch(
         "SELECT pid FROM pg_locks
          WHERE locktype = 'advisory'
-           AND classid = ? AND objid = ? AND objsubid = 1
+           AND classid = ? AND objid = ? AND objsubid = 2
            AND granted = true",
         LOCK_CLASSID, LOCK_OBJID
       ).first
       row && row[:pid]
-    end
-
-    # Dump every advisory lock visible to this connection. Used as a one-shot
-    # diagnostic when the liveness check thinks the lock is gone, so we can
-    # see whether our row is still there under different objsubid/keys, or
-    # truly absent.
-    def dump_advisory_locks
-      rows = DB.fetch(
-        "SELECT pid, classid, objid, objsubid, granted, mode
-         FROM pg_locks WHERE locktype = 'advisory' ORDER BY pid"
-      ).all
-      if rows.empty?
-        "  (no advisory locks visible)"
-      else
-        rows.map { |r| "  pid=#{r[:pid]} classid=#{r[:classid]} objid=#{r[:objid]} objsubid=#{r[:objsubid]} granted=#{r[:granted]} mode=#{r[:mode]}" }.join("\n")
-      end
     end
   end
 end
