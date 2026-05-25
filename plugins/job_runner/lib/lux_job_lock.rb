@@ -27,14 +27,23 @@ class LuxJobLock
 
   class << self
     def acquire!(conn)
-      got = conn.exec("SELECT pg_try_advisory_lock(#{LOCK_CLASSID}, #{LOCK_OBJID})").getvalue(0, 0)
-      unless got == 't' || got == true
+      unless try_acquire(conn)
         Lux.shell.die [
           'Job runner already running',
           "pid: #{holder_pid.inspect}"
         ]
       end
-      Lux.shell.info "LuxJobLock: acquired advisory lock (backend pid #{backend_pid(conn)})"
+    end
+
+    # Non-dying variant: returns true on success, false if another backend
+    # holds the lock. Used by the re-acquire loop in LuxJob.run after a
+    # transient lock loss, so a brief overlap with a competing instance
+    # doesn't kill the process.
+    def try_acquire(conn)
+      got = conn.exec("SELECT pg_try_advisory_lock(#{LOCK_CLASSID}, #{LOCK_OBJID})").getvalue(0, 0)
+      ok = (got == 't' || got == true)
+      Lux.shell.info "LuxJobLock: acquired advisory lock (backend pid #{backend_pid(conn)})" if ok
+      ok
     end
 
     def release(conn)

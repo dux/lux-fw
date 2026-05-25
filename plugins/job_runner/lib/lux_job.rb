@@ -4,6 +4,7 @@
 require 'timeout'
 
 class LuxJobError < StandardError; end
+class LuxJobLockLost < StandardError; end
 
 class LuxJob < ApplicationModel
   schema do
@@ -32,6 +33,11 @@ class LuxJob < ApplicationModel
   NOTIFY_CHANNEL ||= 'lux_jobs'
   MIN_WAKE_SECS  ||= 1
   MAX_WAKE_SECS  ||= 300
+
+  # Backoff between re-acquire attempts when the advisory lock is lost
+  # mid-run (connection blip, PG restart, or another instance briefly
+  # holding it). Bounded so we don't hammer pg_try_advisory_lock.
+  RELOCK_WAIT_SECS ||= 5
 
   class << self
     def define name, every: nil, timeout: nil, &block
@@ -76,29 +82,57 @@ class LuxJob < ApplicationModel
       # Sweep any leftover rows from the previous row-based lock scheme.
       LuxJob.where(name: '__job_runner_lock__').delete
 
-      # One pinned connection holds the advisory lock AND the LISTEN
-      # subscription. If this connection dies the lock is auto-released
-      # by Postgres - the liveness thread catches that case below.
-      DB.synchronize do |conn|
-        LuxJobLock.acquire!(conn)
-        our_pid  = LuxJobLock.backend_pid(conn)
-        liveness = start_liveness_check(our_pid)
+      main_thread = Thread.current
+      first_run = true
 
+      # Outer loop survives lock loss (connection blip, PG restart, brief
+      # contention with another instance). On LuxJobLockLost we re-enter
+      # synchronize, re-acquire the advisory lock and re-LISTEN.
+      loop do
         begin
-          conn.exec("LISTEN #{NOTIFY_CHANNEL}")
+          # One pinned connection holds the advisory lock AND the LISTEN
+          # subscription. If this connection dies the lock is auto-released
+          # by Postgres - the liveness thread raises LuxJobLockLost which
+          # unwinds back to the outer loop.
+          DB.synchronize do |conn|
+            if first_run
+              # Initial startup: die loudly if another runner is already up.
+              LuxJobLock.acquire!(conn)
+              first_run = false
+            else
+              # Re-acquire after a transient loss: poll politely. If a
+              # competing instance is briefly holding it we wait it out
+              # instead of crashing.
+              until LuxJobLock.try_acquire(conn)
+                Lux.shell.info "LuxJob: lock held by pid=#{LuxJobLock.holder_pid.inspect}; waiting #{RELOCK_WAIT_SECS}s"
+                sleep RELOCK_WAIT_SECS
+              end
+            end
 
-          # Initial sweep covers anything due at startup before we wait.
-          process_jobs verbose: verbose
+            our_pid  = LuxJobLock.backend_pid(conn)
+            liveness = start_liveness_check(our_pid, main_thread)
 
-          loop do
-            # wait_for_notify needs a block, so pass an empty one.
-            conn.wait_for_notify(next_wake_seconds) {}
-            process_jobs verbose: verbose
+            begin
+              conn.exec("LISTEN #{NOTIFY_CHANNEL}")
+
+              # Initial sweep covers anything due at startup before we wait.
+              process_jobs verbose: verbose
+
+              loop do
+                # wait_for_notify needs a block, so pass an empty one.
+                conn.wait_for_notify(next_wake_seconds) {}
+                process_jobs verbose: verbose
+              end
+            ensure
+              liveness&.kill
+              conn.exec("UNLISTEN *") rescue nil
+              LuxJobLock.release(conn)
+            end
           end
-        ensure
-          liveness&.kill
-          conn.exec("UNLISTEN *") rescue nil
-          LuxJobLock.release(conn)
+        rescue LuxJobLockLost => e
+          Lux.shell.info "LuxJob: #{e.message}; re-acquiring in #{RELOCK_WAIT_SECS}s"
+          sleep RELOCK_WAIT_SECS
+          # loop around and try again
         end
       end
     end
@@ -106,17 +140,19 @@ class LuxJob < ApplicationModel
     # Periodically verifies that our pinned connection still holds the
     # advisory lock. If Sequel silently reconnects, or the network blips
     # and PG releases the lock, the holder pid will no longer match ours
-    # (or will be nil). Exiting lets the supervisor restart cleanly -
-    # the restarted process will re-acquire the lock.
-    def start_liveness_check(our_pid)
+    # (or will be nil). Raising on the main thread unwinds the synchronize
+    # block; the outer loop in `run` then re-acquires the lock.
+    def start_liveness_check(our_pid, main_thread)
       Thread.new do
         Thread.current.name = 'lux_job_liveness'
         loop do
           sleep LuxJobLock::LIVENESS_INTERVAL
           holder = LuxJobLock.holder_pid
           if holder != our_pid
-            Lux.shell.error "LuxJob: lost advisory lock (holder=#{holder.inspect}, expected=#{our_pid}). Exiting for supervisor restart."
-            Process.exit(1)
+            msg = "lost advisory lock (holder=#{holder.inspect}, expected=#{our_pid})"
+            Lux.shell.info "LuxJob: #{msg}"
+            main_thread.raise(LuxJobLockLost, msg)
+            break
           end
         rescue => e
           Lux.shell.info "LuxJob: liveness check error: #{e.message}"
