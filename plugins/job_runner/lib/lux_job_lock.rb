@@ -70,5 +70,21 @@ class LuxJobLock
       ).first
       row && row[:pid]
     end
+
+    # Dump every advisory lock visible to this connection. Used as a one-shot
+    # diagnostic when the liveness check thinks the lock is gone, so we can
+    # see whether our row is still there under different objsubid/keys, or
+    # truly absent.
+    def dump_advisory_locks
+      rows = DB.fetch(
+        "SELECT pid, classid, objid, objsubid, granted, mode
+         FROM pg_locks WHERE locktype = 'advisory' ORDER BY pid"
+      ).all
+      if rows.empty?
+        "  (no advisory locks visible)"
+      else
+        rows.map { |r| "  pid=#{r[:pid]} classid=#{r[:classid]} objid=#{r[:objid]} objsubid=#{r[:objsubid]} granted=#{r[:granted]} mode=#{r[:mode]}" }.join("\n")
+      end
+    end
   end
 end

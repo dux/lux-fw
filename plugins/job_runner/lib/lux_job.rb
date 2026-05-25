@@ -151,6 +151,7 @@ class LuxJob < ApplicationModel
           if holder != our_pid
             msg = "lost advisory lock (holder=#{holder.inspect}, expected=#{our_pid})"
             Lux.shell.info "LuxJob: #{msg}"
+            Lux.shell.info "LuxJob: pg_locks dump:\n#{LuxJobLock.dump_advisory_locks}"
             main_thread.raise(LuxJobLockLost, msg)
             break
           end
