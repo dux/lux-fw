@@ -166,7 +166,7 @@ guidance is consolidated in the top-level [`AGENTS.md`](./AGENTS.md).
 | [`Lux::Api`](./lib/lux/api/README.md)                   | `Lux::Api` (subclass `ApplicationApi`)     |
 | [`Lux::Application`](./lib/lux/application/README.md)   | `Lux do ... end` / `Lux.app`               |
 | [`Lux::Cache`](./lib/lux/cache/README.md)               | `Lux.cache`                                |
-| [`Lux::Config`](./lib/lux/config/README.md)             | `Lux.config`                               |
+| [`Lux::Boot::Config`](./lib/lux/boot/config/README.md)             | `Lux.config`                               |
 | [`Lux::Controller`](./lib/lux/controller/README.md)     | `class X < Lux::Controller`                |
 | [`Lux::Current`](./lib/lux/current/README.md)           | `Lux.current` / `current` / `lux`          |
 | [`Lux::Db`](./lib/lux/db/README.md)                     | `Lux.db` / `Lux.db(:name)` / `DB`          |
@@ -247,7 +247,7 @@ Lux.cache.delete('users/count')
 Lux.cache.lock('task', 3) { do_it }
 ```
 
-### Lux::Config
+### Lux::Boot::Config
 
 YAML config + `.env` loader + lifecycle hooks. Indifferent access.
 

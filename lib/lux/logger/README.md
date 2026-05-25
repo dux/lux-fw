@@ -62,4 +62,4 @@ end
 ## See also
 
 * [`../environment/README.md`](../environment/README.md) - dev / prod / test
-* [`../config/README.md`](../config/README.md) - logger config hooks
+* [`../boot/config/README.md`](../boot/config/README.md) - logger config hooks

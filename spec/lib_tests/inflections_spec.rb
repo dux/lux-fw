@@ -1,6 +1,6 @@
 require 'test_helper'
 
-# Guards for the custom inflections registered in lib/lux/boot.rb.
+# Guards for the custom inflections registered in lib/lux/loader.rb.
 # These overrides matter for the enums plugin and any caller of
 # String#singularize / String#pluralize.
 describe 'String inflections (lux-fw overrides)' do

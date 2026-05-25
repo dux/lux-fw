@@ -59,7 +59,7 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | `Lux::Browser::Channel`| In-process pub/sub backing `response.sse` streams          | [README](./lib/lux/browser/channel/README.md) |
 | `Lux::Error`           | Thin exception class + `Lux.error.not_found` style helpers | [README](./lib/lux/error/README.md) |
 | `Lux::Environment`     | `Lux.env` / `Lux.mode` / `Lux.runtime` facets              | [README](./lib/lux/environment/README.md) |
-| `Lux::Config`          | YAML config + `.env` loader + lifecycle hooks              | [README](./lib/lux/config/README.md) |
+| `Lux::Boot::Config`          | YAML config + `.env` loader + lifecycle hooks              | [README](./lib/lux/boot/config/README.md) |
 | `Lux::Plugin`          | Plugin loader (`Lux.root/plugins` then `Lux.fw_root/plugins`) | [README](./lib/lux/plugin/README.md) |
 | `Lux::Reloader`        | Fast code reloader; skips installed gems via `Gem.path`    | [README](./lib/lux/reloader/README.md) |
 | `Lux::Logger`          | Default + named loggers with rotation                      | [README](./lib/lux/logger/README.md) |
@@ -124,7 +124,7 @@ require 'lux-fw'
 Lux.boot!
 ```
 
-See `lib/lux/application/README.md` and `lib/lux/config/README.md` for
+See `lib/lux/application/README.md` and `lib/lux/boot/config/README.md` for
 entry-point details.
 
 ## Adding code

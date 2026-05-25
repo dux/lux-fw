@@ -41,7 +41,7 @@ module Lux
   end
 
   def rack_dispatch env
-    Timeout::timeout Lux::Config.app_timeout do
+    Timeout::timeout Lux::Boot::Config.app_timeout do
       app  = Lux::Application.new env
       app.render_base || raise('No RACK response given')
     end

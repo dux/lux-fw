@@ -10,7 +10,7 @@ if File.exist?('lux-fw.gemspec')
 end
 
 require_relative '../lib/overload/thread_simple'
-require_relative '../lib/lux/boot'
+require_relative '../lib/lux/loader'
 
 LUX_ROOT ||= File.expand_path '../..', __FILE__
 

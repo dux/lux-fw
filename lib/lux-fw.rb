@@ -1,8 +1,10 @@
-# Capture before requiring boot so amazing_print/sequel/etc. load time
-# is counted in Lux.started_at. Defined here (not in lux.rb) because
-# boot.rb pulls in heavy gems before lux.rb runs.
+# Seed Lux::Boot::STARTED_AT before requiring loader so amazing_print /
+# sequel / etc. require-time is counted. Defined here (not in boot/boot.rb)
+# because loader.rb pulls in those heavy gems before boot/boot.rb runs.
 module Lux
-  STARTED_AT ||= Time.now
+  module Boot
+    STARTED_AT ||= Time.now
+  end
 end
 
-require_relative './lux/boot'
+require_relative './lux/loader'

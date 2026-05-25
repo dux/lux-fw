@@ -61,4 +61,4 @@ existing references valid.
 ## See also
 
 * [`../environment/README.md`](../environment/README.md) - `Lux.mode.reload?`
-* [`../config/README.md`](../config/README.md) - `on_reload_code` hook
+* [`../boot/config/README.md`](../boot/config/README.md) - `on_reload_code` hook

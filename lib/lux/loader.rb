@@ -39,8 +39,8 @@ require_relative './environment/lux_adapter'
 
 require_relative './logger/lux_adapter'
 
-require_relative './config/config'
-require_relative './config/lux_adapter'
+require_relative './boot/config/config'
+require_relative './boot/config/lux_adapter'
 
 # HtmlTag is vendored under Lux::Utils::HtmlTag. Pre-required because
 # Dir.require_all (below) sorts shallowest-first, so view_cell.rb at depth
@@ -50,7 +50,8 @@ require_relative './utils/html_tag/html_tag'
 require_relative './utils/html_tag/inbound'
 require_relative './utils/html_tag/globals'
 
-require_relative './boot_adapter'
+require_relative './boot/boot'
+require_relative './boot/lux_adapter'
 
 Sequel.extension     :inflector
 Sequel::Model.plugin :after_initialize

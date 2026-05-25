@@ -2,8 +2,8 @@ require 'test_helper'
 require 'fileutils'
 require 'tmpdir'
 
-describe Lux::Config do
-  # Lux::Config.load reports invalid YAML via Lux.shell.die, which calls
+describe Lux::Boot::Config do
+  # Lux::Boot::Config.load reports invalid YAML via Lux.shell.die, which calls
   # exit(1). Reopen the shell singleton so die raises a RuntimeError we can
   # assert on, then restore the original after each example.
   before do
@@ -37,7 +37,7 @@ describe Lux::Config do
       production:
         host: https://example.com
     YAML
-      config = Lux::Config.load
+      config = Lux::Boot::Config.load
 
       _(config['host']).must_equal 'http://test'
       _(config['production']['host']).must_equal 'https://example.com'
@@ -46,14 +46,14 @@ describe Lux::Config do
 
   it 'raises when config yaml is empty' do
     with_config_file '' do
-      err = _{ Lux::Config.load }.must_raise RuntimeError
+      err = _{ Lux::Boot::Config.load }.must_raise RuntimeError
       _(err.message).must_match(/Config root must be a Hash|root must be a Hash/)
     end
   end
 
   it 'raises when config root is not a hash' do
     with_config_file "- host\n" do
-      err = _{ Lux::Config.load }.must_raise RuntimeError
+      err = _{ Lux::Boot::Config.load }.must_raise RuntimeError
       _(err.message).must_match(/root must be a Hash/)
     end
   end
@@ -63,14 +63,14 @@ describe Lux::Config do
       test:
         host: http://test
     YAML
-      err = _{ Lux::Config.load }.must_raise RuntimeError
+      err = _{ Lux::Boot::Config.load }.must_raise RuntimeError
       _(err.message).must_match(/:default \/ :base root not defined|:default\/:base root not defined/)
     end
   end
 
   it 'raises when default root is not a hash' do
     with_config_file "default: false\n" do
-      err = _{ Lux::Config.load }.must_raise RuntimeError
+      err = _{ Lux::Boot::Config.load }.must_raise RuntimeError
       _(err.message).must_match(/:default root must be a Hash/)
     end
   end
@@ -81,7 +81,7 @@ describe Lux::Config do
         host: http://default
       test: false
     YAML
-      err = _{ Lux::Config.load }.must_raise RuntimeError
+      err = _{ Lux::Boot::Config.load }.must_raise RuntimeError
       _(err.message).must_match(/:test section must be a Hash/)
     end
   end
@@ -92,7 +92,7 @@ describe Lux::Config do
         host: http://default
       production: false
     YAML
-      err = _{ Lux::Config.load }.must_raise RuntimeError
+      err = _{ Lux::Boot::Config.load }.must_raise RuntimeError
       _(err.message).must_match(/:production section must be a Hash/)
     end
   end

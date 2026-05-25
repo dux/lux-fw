@@ -1,4 +1,4 @@
-# Lux::Config
+# Lux::Boot::Config
 
 YAML config + `.env` loader + lifecycle hooks. Indifferent access.
 
@@ -106,6 +106,6 @@ boot logic in the plugin loader.
 
 ## See also
 
-* [`../environment/README.md`](../environment/README.md) - env / mode / runtime
-* [`../logger/README.md`](../logger/README.md) - logger config
-* [`../plugin/README.md`](../plugin/README.md) - plugin load and config order
+* [`../../environment/README.md`](../../environment/README.md) - env / mode / runtime
+* [`../../logger/README.md`](../../logger/README.md) - logger config
+* [`../../plugin/README.md`](../../plugin/README.md) - plugin load and config order

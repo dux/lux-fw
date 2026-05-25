@@ -8,7 +8,7 @@ module Lux
   # get config hash pointer or die if key provided and not found
   def config
     init_env
-    @lux_config ||= Lux::Config.load.to_lux_hash
+    @lux_config ||= Lux::Boot::Config.load.to_lux_hash
   end
   alias :secrets :config
 
