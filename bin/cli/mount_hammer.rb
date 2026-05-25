@@ -5,9 +5,12 @@ require_relative '../../lib/lux/plugin/mount'
 task :mount do
   desc 'Symlink missing entries from each plugin\'s mount/ into the app root'
   opt :unlink, alias: :u, type: :boolean, default: false, desc: 'Unlink plugin-owned symlinks, then list user-added symlinks in the app'
+  opt :list,   alias: :l, type: :boolean, default: false, desc: 'List all plugin mount entries and their status'
 
   proc do |opts|
-    if opts[:unlink]
+    if opts[:list]
+      Lux::Plugin::Mount.print_list opts[:args].first
+    elsif opts[:unlink]
       Lux::Plugin::Mount.unlink opts[:args].first
     else
       Lux::Plugin::Mount.apply opts[:args].first
@@ -20,12 +23,7 @@ namespace :mount do
     desc 'List all plugin mount entries and their status'
 
     proc do |opts|
-      entries = Lux::Plugin::Mount.list opts[:args].first
-      if entries.empty?
-        puts 'No plugin mounts found'
-      else
-        entries.each { |e| puts '  %-9s %-12s %s' % [e.status, e.plugin, e.dst.to_s.sub(Lux.root.to_s + '/', '')] }
-      end
+      Lux::Plugin::Mount.print_list opts[:args].first
     end
   end
 

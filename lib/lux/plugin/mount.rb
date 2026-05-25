@@ -191,6 +191,22 @@ module Lux
         end
       end
 
+      def print_list plugin_name = nil
+        entries = list(plugin_name)
+        if entries.empty?
+          puts 'No plugin mounts found'
+          return entries
+        end
+
+        entries.group_by(&:plugin).sort.each do |plugin, group|
+          puts plugin.to_s.colorize(:blue)
+          group.sort_by { |e| e.dst.to_s }.each do |e|
+            puts '  %-9s %s' % [e.status, e.dst.to_s.sub(Lux.root.to_s + '/', '')]
+          end
+        end
+        entries
+      end
+
       def doctor fix: false
         entries = list
         if entries.empty?
