@@ -321,12 +321,36 @@ Lux::Error.render(exception)           # last-resort rendering
 
 ### Lux::Hash
 
-Hash with indifferent access. Used everywhere the framework returns or
-accepts flexible-key data.
+Hash with indifferent access. All keys are coerced to String, so
+`:foo`, `'foo'` and `.foo` hit the same slot. Integer / Class keys
+round-trip via `to_s` (`h[1]` and `h['1']` are the same). `nil` /
+empty keys are rejected on write. Used everywhere the framework
+returns or accepts flexible-key data (config, JSON, params).
 
 ```ruby
 h = { 'name' => 'Dux' }.to_lux_hash
 h[:name] == h['name'] == h.name        # all 'Dux'
+```
+
+The `Lux::Hash(...)` helper builds a frozen enum hash. Storage stays
+clean (`code -> value`); the constant name becomes a method on the
+returned hash. Lookup works by either:
+
+```ruby
+class Order
+  # storage: { "1" => "Active", "2" => "Done", "3" => "Archived" }
+  # also creates Order::STATUS_ACTIVE = 1, etc.
+  STATUS = Lux::Hash(self, constants: :status) do |opt|
+    opt.ACTIVE   1 => 'Active'
+    opt.DONE     2 => 'Done'
+    opt.ARCHIVED 3 => 'Archived'
+  end
+end
+
+Order::STATUS[1]              # => 'Active'   (lookup by DB code)
+Order::STATUS.DONE            # => 'Done'     (lookup by constant name)
+Order::STATUS_ACTIVE          # => 1          (the code as a Ruby constant)
+Order::STATUS.to_h            # => { "1" => "Active", "2" => "Done", "3" => "Archived" }
 ```
 
 ### Lux::JsonExporter

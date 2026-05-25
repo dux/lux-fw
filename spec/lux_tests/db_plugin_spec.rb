@@ -2306,10 +2306,11 @@ describe 'plugins/db/schema_define.rb – enum DSL' do
     end
 
     it 'defines class accessor for integer-keyed enums' do
-      # Lux::Hash stringifies SYMBOL keys only; integer keys are preserved
-      # as-is so callers can use them verbatim (e.g. `levels[2]`).
-      _(EnumWidget.levels.keys).must_equal [1, 2, 3]
+      # Lux::Hash stringifies all keys; integer lookups still resolve
+      # (1 → "1") so callers keep using `levels[2]` verbatim.
+      _(EnumWidget.levels.keys).must_equal ['1', '2', '3']
       _(EnumWidget.levels(2)).must_equal 'Normal'
+      _(EnumWidget.levels('2')).must_equal 'Normal'
     end
 
     it 'defines instance label method' do

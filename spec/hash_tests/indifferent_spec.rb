@@ -189,11 +189,35 @@ describe 'clean hash' do
       _(h['foo']).must_equal 456
     end
 
-    it 'preserves non-symbol keys (Integer / Class / etc.)' do
+    it 'coerces all keys to string' do
       h = {}.to_lux_hash
       h[123] = 456
       _(h[123]).must_equal 456
-      _(h['123']).must_be_nil
+      _(h['123']).must_equal 456
+      _(h.keys).must_equal ['123']
+    end
+
+    it 'raises on nil or empty key on write' do
+      h = {}.to_lux_hash
+      _{ h[nil] = 1 }.must_raise ArgumentError
+      _{ h[''] = 1 }.must_raise ArgumentError
+    end
+
+    it 'returns nil on nil-key read (does not raise)' do
+      h = {}.to_lux_hash
+      _(h[nil]).must_be_nil
+      _(h['']).must_be_nil
+    end
+
+    it 'key? / fetch / delete coerce keys' do
+      h = {}.to_lux_hash
+      h[123] = :x
+      _(h.key?(123)).must_equal true
+      _(h.key?('123')).must_equal true
+      _(h.fetch(123)).must_equal :x
+      _(h.fetch('123')).must_equal :x
+      _(h.delete(123)).must_equal :x
+      _(h.key?('123')).must_equal false
     end
 
     it 'returns nested hash with Lux::Hash::Methods' do

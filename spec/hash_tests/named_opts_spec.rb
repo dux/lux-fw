@@ -15,10 +15,6 @@ class LuxHashFoo
     opt.ACTIVE 1 => 'Active foo'
   end
 
-  UNFOROZEN = Lux::Hash(freeze: false) do |opt|
-    opt.ONE 1 => 'one'
-  end
-
   # creates STATUS_INACTIVE = 0, STATUS_ACTIVE = 1, STATUS_DEAD = 2
   STATUS = Lux::Hash(self, constants: :status) do |opt|
     opt.INACTIVE 0 => 'Inactive object'
@@ -30,11 +26,11 @@ end
 describe 'named options' do
   describe 'defines class method' do
     it 'creates class constant' do
-      _(LuxHashFoo::BAR.BAZ).must_equal :b
+      _(LuxHashFoo::BAR.BAZ).must_equal 'Baz'
     end
 
     it 'creates class method to access constant' do
-      _(LuxHashFoo.bar.BAZ).must_equal :b
+      _(LuxHashFoo.bar.BAZ).must_equal 'Baz'
     end
 
     it 'is accesible via native constant' do
@@ -42,7 +38,7 @@ describe 'named options' do
     end
 
     it 'is accesible via named option' do
-      _(LuxHashFoo::OPTS.ACTIVE).must_equal 1
+      _(LuxHashFoo::OPTS.ACTIVE).must_equal 'Active foo'
     end
 
     it 'if instructed does not create constant' do
@@ -52,30 +48,33 @@ describe 'named options' do
 
   describe 'does not pollute' do
     it 'creates via set' do
-      _(LuxHashFoo::OPTS.OPTA).must_equal :a
+      _(LuxHashFoo::OPTS.OPTA).must_equal 'A name'
     end
 
     it 'creates via method missing' do
-      _(LuxHashFoo::OPTS.OPTB).must_equal :b
+      _(LuxHashFoo::OPTS.OPTB).must_equal 'B name'
     end
 
-    it 'gets name via code' do
+    it 'gets value via code' do
       _(LuxHashFoo::OPTS[:b]).must_equal 'B name'
       _(LuxHashFoo::OPTS['b']).must_equal 'B name'
     end
 
-    it 'ensures hash is frozen' do
-      _{ LuxHashFoo::OPTS.ACTIVE = 2 }.must_raise FrozenError
+    it 'storage holds only code -> value (no constant-name keys)' do
+      _(LuxHashFoo::OPTS.to_h).must_equal({ 'a' => 'A name', 'b' => 'B name', '1' => 'Active foo' })
     end
 
-    it 'does not freeze if freeze false option given' do
-      LuxHashFoo::UNFOROZEN.ONE = 2
-      _(LuxHashFoo::UNFOROZEN.ONE).must_equal 2
+    it 'ensures hash is frozen' do
+      _{ LuxHashFoo::OPTS['x'] = 1 }.must_raise FrozenError
+    end
+
+    it 'rejects lowercase named option' do
+      _{ Lux::Hash() { |opt| opt.foo 1 => 'x' } }.must_raise ArgumentError
     end
 
     it 'creates constants' do
       _(LuxHashFoo::STATUS[1]).must_equal 'Active object'
-      _(LuxHashFoo::STATUS.ACTIVE).must_equal 1
+      _(LuxHashFoo::STATUS.ACTIVE).must_equal 'Active object'
       _(LuxHashFoo::STATUS_INACTIVE).must_equal 0
       _(LuxHashFoo::STATUS_ACTIVE).must_equal 1
       _(LuxHashFoo::STATUS_DEAD).must_equal 2
