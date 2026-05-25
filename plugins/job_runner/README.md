@@ -12,8 +12,7 @@ Load the plugin in your app:
 Lux.plugin 'job_runner'
 ```
 
-Symlink the admin dashboard views + API into the host (requires the
-`admin_web` plugin for the `/admin` mount and layout):
+Symlink the JSON API into the host:
 
 ```sh
 lux mount job_runner
@@ -23,12 +22,17 @@ That places under your app root:
 
 ```
 app/api/lux_jobs_api.rb
-app/views/admin/plugins/lux_jobs/root.haml
-app/views/admin/plugins/lux_jobs/show.haml
 ```
 
-Edit them in place - they're your files now; the plugin only provides the
-starting point. `lux mount` is idempotent.
+The admin dashboard views (`/admin/plugins/lux_jobs`) ship with the
+`admin_web` plugin instead - mount that to get them:
+
+```sh
+lux mount admin_web
+```
+
+Edit either set in place - they're your files now; the plugin only provides
+the starting point. `lux mount` is idempotent.
 
 ## Usage
 
@@ -146,8 +150,5 @@ plugins/job_runner/
   mount/                     # symlinked into the host via `lux mount`
     app/
       api/lux_jobs_api.rb
-      views/admin/plugins/lux_jobs/
-        root.haml
-        show.haml
   Hammerfile                 # `lux job_runner:start`, `:restart`
 ```
