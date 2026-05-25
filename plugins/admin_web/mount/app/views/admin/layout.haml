@@ -18,18 +18,27 @@
       = CdnAsset.url 'auto-fez.js'
       = CdnAsset.url 'auto-admin.js'
   %body
-    .flex
-      .w-300px.shrink-0
-        %admin-menu
-          %a{ href: '/admin' } /
-          - @menu_loader.call.each do |item|
-            %a{ href: "/admin/#{item[:slug]}", icon: item[:icon] }= item[:nav]
-          - if user.email == 'rejotl@gmail.com'
-            %a{ href: '/admin/run' } Run
+    %admin-menu
+    .flex.admin-body
+      %admin-side-menu
+        %a{ href: '/admin' } /
+        %dl
+          %dt Local app
+          %dd
+            - @menu_loader.call.each do |item|
+              %a{ href: "/admin/#{item[:slug]}" }
+                - if item[:icon]
+                  %ui-icon{ name: item[:icon] }
+                = item[:nav]
+            - if user.is_admin?
+              %a{ href: '/admin/run' } Run
+
+          %dt Plugins
+          %dd
+            to add
       .flex-1.min-w-0
         .pjax#admin.typo-system
           = base_js
-          - unless @error
 
           - if @important_info
             .flash.flash-warn.center{ style: 'margin-bottom: 0; border-top: none; font-size: 120%; padding-bottom: 11px;' }
