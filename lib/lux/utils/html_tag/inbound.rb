@@ -65,6 +65,11 @@ module Lux
         #   tag._btn_primary         ->  <div class="btn-primary"></div>
         # (`__` separates classes; remaining `_` become `-`.)
         def tag(name, inner = nil, **attrs, &block)
+          # If `inner` is a Hash, treat it as attrs (no inner content was given).
+          if inner.is_a?(::Hash)
+            attrs = inner.merge(attrs)
+            inner = nil
+          end
           name = name.to_sym
           name, attrs = _expand_class_shortcut(name, attrs) if name.start_with?('_')
           empty = EMPTY_TAGS.include?(name)

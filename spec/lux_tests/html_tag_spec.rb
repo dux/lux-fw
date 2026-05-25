@@ -71,4 +71,9 @@ describe 'Lux::Utils::HtmlTag' do
   it 'merges shortcut classes with an explicit :class kwarg' do
     _(HtmlTag._card(class: 'extra') { 'y' }).must_equal '<div class="card extra">y</div>'
   end
+
+  it 'treats a second-positional Hash as attrs, not inner content' do
+    out = HtmlTag.call('ui-favorite', { key: 'User/abc', exists: false })
+    _(out).must_equal '<ui-favorite key="User/abc" exists="false"></ui-favorite>'
+  end
 end
