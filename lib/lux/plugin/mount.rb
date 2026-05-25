@@ -110,7 +110,7 @@ module Lux
           return enum_for(:mounts) unless block
           mount_root = Pathname.new(folder).join('mount')
           return unless mount_root.directory?
-          mount_root.glob('**/*').reject(&:directory?).sort.each do |src|
+          mount_root.glob('**/*', File::FNM_DOTMATCH).reject { |p| p.directory? || %w[. ..].include?(p.basename.to_s) }.sort.each do |src|
             yield src, Lux.root.join(src.relative_path_from(mount_root))
           end
         end
