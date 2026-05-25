@@ -1,3 +1,12 @@
+:ruby
+  # Scan app/views/admin/*/ for `.yaml` files with a `nav` key, return [{slug, nav, icon}]
+  @menu_loader = -> do
+    Dir.glob(Lux.root.join('app/views/admin/*/.yaml')).filter_map do |f|
+      data = YAML.load_file(f)
+      next unless data.is_a?(Hash) && data['nav']
+      { slug: File.basename(File.dirname(f)), nav: data['nav'], icon: data['icon'] }
+    end.sort_by { |i| i[:nav].to_s }
+  end
 !!!
 %html{ lang: :en }
   %head
@@ -8,48 +17,38 @@
       = CdnAsset.url 'https://dux.github.io/fez/demo/log.js'
       = CdnAsset.url 'auto-fez.js'
       = CdnAsset.url 'auto-admin.js'
-      :css
-        .container {
-          max-width: 2000px;
-        }
-
-        body.not-mobile .container {
-          margin: 0 50px;
-        }
   %body
-    .pjax#admin.typo-system
-      = base_js
-      - unless @error
+    .flex
+      .w-300px.shrink-0
         %admin-menu
           %a{ href: '/admin' } /
-          %a{ href: '/admin/users', id: 'a_users', icon: :users } Users
-          %a{ href: '/admin/spaces' } Orgs
-          %a{ href: '/admin/admin_messages' } Messages
-          %a{ href: '/admin/errors' } Errors
-          %a{ href: '/admin/sys_logs' } Logs
-          %a{ href: '/admin/lux_loggers' } Logger
-          %a{ href: '/admin/emails' } Email
+          - @menu_loader.call.each do |item|
+            %a{ href: "/admin/#{item[:slug]}", icon: item[:icon] }= item[:nav]
           - if user.email == 'rejotl@gmail.com'
             %a{ href: '/admin/run' } Run
+      .flex-1.min-w-0
+        .pjax#admin.typo-system
+          = base_js
+          - unless @error
 
-      - if @important_info
-        .flash.flash-warn.center{ style: 'margin-bottom: 0; border-top: none; font-size: 120%; padding-bottom: 11px;' }
-          = @important_info
+          - if @important_info
+            .flash.flash-warn.center{ style: 'margin-bottom: 0; border-top: none; font-size: 120%; padding-bottom: 11px;' }
+              = @important_info
 
-      %div{ style: 'margin-top:30px;' }
-      .container
-        = yield
+          %div{ style: 'margin-top:30px;' }
+          .container
+            = yield
 
-      - if !request.xhr?
-        - if @_footer.class == FalseClass
-          %div{ style: 'padding: 20px;' }
-            .center{ style: 'border-top: 1px solid #ddd; padding-top: 25px; margin-bottom: 30px;' }
-              %a{ href: '/' }
-                %img{ src: '/s-logo.png' }
+          - if !request.xhr?
+            - if @_footer.class == FalseClass
+              %div{ style: 'padding: 20px;' }
+                .center{ style: 'border-top: 1px solid #ddd; padding-top: 25px; margin-bottom: 30px;' }
+                  %a{ href: '/' }
+                    %img{ src: '/s-logo.png' }
 
-    %footer
-      .center{ style: 'max-width: 800px; margin: auto; border-top: 1px solid #ddd; padding: 50px;' }
-        #{App.name(true)} Admin &sdot; #{Time.now.year}
+        %footer
+          .center{ style: 'max-width: 800px; margin: auto; border-top: 1px solid #ddd; padding: 50px;' }
+            #{App.name(true)} Admin &sdot; #{Time.now.year}
 
     %s-dialog
     %s-image-zoom
