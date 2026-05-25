@@ -18,7 +18,9 @@
 # but become load-bearing the moment it is enabled - inherited socket FDs
 # from the master are dropped before the worker touches the pool.
 
-require 'puma/dsl'
+# Opt-in: only extend Puma::DSL when the host app has already loaded puma.
+# In lux-fw dev (no puma) this file is a no-op so the loader sweep is safe.
+return unless defined?(Puma::DSL)
 
 module Lux
   module Boot

@@ -55,3 +55,17 @@ task :version do
   desc 'Print the current gem version'
   proc { say File.read('.version').strip }
 end
+
+task :console do
+  desc 'Start pry console with lux-fw loaded'
+  alt :c
+
+  proc do
+    $LOAD_PATH.unshift File.expand_path('lib')
+    require 'overload/thread_simple'
+    require 'lux/loader'
+    require 'pry'
+    say "Lux v#{File.read('.version').strip} loaded from #{Dir.pwd}", :green
+    Pry.start
+  end
+end
