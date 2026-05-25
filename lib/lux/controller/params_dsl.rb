@@ -212,7 +212,12 @@ module Lux
       # Instance-side. Called from Lux::Controller#action right after the
       # action name is resolved, before any before-filters run. Fails fast
       # with 405 when the request method is not in the per-action allow set.
+      # Skips when the response body is already set - a prior route has
+      # already responded, so this controller is a no-op and must not 405
+      # the in-flight response (e.g. catch-all `call 'main#call'` running
+      # after an earlier `map 'api', ...` completed).
       def enforce_allowed_verbs!
+        return if lux.response.body?
         verb    = lux.request.request_method.to_s.downcase.to_sym
         allowed = self.class.allowed_verbs_for(@lux.action)
         return if allowed == :any || allowed.include?(verb)
