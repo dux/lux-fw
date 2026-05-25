@@ -70,7 +70,8 @@ module Lux
       ENV['TZ'] ||= 'UTC'
 
       # Delay
-      Lux.config.delay_timeout = Lux.env.dev? ? 3600 : 30
+      Lux.config.delay_timeout    = Lux.env.dev? ? 3600 : 30
+      Lux.config.defer_pool_size  = 3
 
       # Logger
       Lux.config.log_level            = Lux.mode.debug? ? :info : :error

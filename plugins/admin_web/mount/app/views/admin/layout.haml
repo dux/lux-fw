@@ -1,12 +1,3 @@
-:ruby
-  # Scan app/views/admin/*/ for `.yaml` files with a `nav` key, return [{slug, nav, icon}]
-  @menu_loader = -> do
-    Dir.glob(Lux.root.join('app/views/admin/*/.yaml')).filter_map do |f|
-      data = YAML.load_file(f)
-      next unless data.is_a?(Hash) && data['nav']
-      { slug: File.basename(File.dirname(f)), nav: data['nav'], icon: data['icon'] }
-    end.sort_by { |i| i[:nav].to_s }
-  end
 !!!
 %html{ lang: :en }
   %head
@@ -20,22 +11,7 @@
   %body
     %admin-menu
     .flex.admin-body
-      %admin-side-menu
-        %a{ href: '/admin' } /
-        %dl
-          %dt Local app
-          %dd
-            - @menu_loader.call.each do |item|
-              %a{ href: "/admin/#{item[:slug]}" }
-                - if item[:icon]
-                  %ui-icon{ name: item[:icon] }
-                = item[:nav]
-            - if user.is_admin?
-              %a{ href: '/admin/run' } Run
-
-          %dt Plugins
-          %dd
-            to add
+      = cell.admin_helper.full_left_menu
       .flex-1.min-w-0
         .pjax#admin.typo-system
           = base_js
