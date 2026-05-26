@@ -6,9 +6,8 @@ require_relative '../api/kitchen_sink_api'
 # See spec/api/kitchen_sink_api.rb for the fixture.
 
 describe 'KitchenSinkApi - DSL feature coverage' do
-  # mount_on writes to a Lux::Api::OPTS global. Other api_tests/* specs
-  # (notably sys_spec) also write to it, so we re-assert ours before any
-  # test that reads it. Robust against load order.
+  # mount_on is per-class now (not a global), so this just re-asserts the
+  # declared value for clarity; no longer needed for cross-spec isolation.
   before { KitchenSinkApi.mount_on '/kapi' }
 
   describe 'class-level metadata' do
@@ -23,8 +22,18 @@ describe 'KitchenSinkApi - DSL feature coverage' do
       _(opts[:icon]).must_include '<path'
     end
 
-    it 'inherits mount_on from base' do
-      _(Lux::Api::OPTS[:api][:mount_on]).must_equal '/kapi'
+    it 'stores mount_on per class' do
+      _(KitchenSinkApi.mount_on).must_equal '/kapi'
+    end
+
+    it 'walks ancestors when class did not declare mount_on' do
+      klass = Class.new(KitchenSinkApi)
+      _(klass.mount_on).must_equal '/kapi'
+    end
+
+    it 'falls back to /api default' do
+      klass = Class.new(Lux::Api)
+      _(klass.mount_on).must_equal '/api'
     end
   end
 

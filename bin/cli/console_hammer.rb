@@ -50,6 +50,30 @@ task :console do
     require 'pry'
     require 'amazing_print'
 
+    # double Ctrl+C exits Pry: first one at an empty prompt arms the exit
+    # and prints a hint, the next one bails out. Ctrl+C while typing only
+    # cancels the buffer (Pry default) and disarms the exit.
+    Pry::REPL.prepend(Module.new do
+      def read
+        val = super
+        if val == :control_c
+          if pry.eval_string.empty?
+            if @_lux_ctrl_c_armed
+              output.puts ''
+              exit 0
+            end
+            @_lux_ctrl_c_armed = true
+            output.puts '(press Ctrl+C again to exit)'
+          else
+            @_lux_ctrl_c_armed = false
+          end
+        else
+          @_lux_ctrl_c_armed = false
+        end
+        val
+      end
+    end)
+
     # create mock session
     Lux::Current.new '/'
 

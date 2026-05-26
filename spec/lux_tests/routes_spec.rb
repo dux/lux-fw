@@ -72,6 +72,17 @@ class MountedRackApp
   end
 end
 
+# Lux::Api subclass used to verify that map/call auto-detect API targets and
+# pass the correct mount_at (consumed-prefix) via Rack SCRIPT_NAME so the
+# API's auto_mount sees the right URL split.
+class MountedTestApi < Lux::Api
+  unsafe
+  allow :get
+  define :ping do
+    proc { 'pong' }
+  end
+end
+
 class BoardsController < Lux::Controller
   def root;    render text: 'boards:root';    end
   def new;     render text: 'boards:new';     end
@@ -154,6 +165,12 @@ Lux.app do
   map '/foo/bar/baz'  => MountedRackApp     # deep absolute path
   map r3:                MountedRackApp     # symbol shortcut (single segment)
 
+  # Lux::Api dispatch: a Lux::Api subclass is mounted as a rack app with
+  # mount_at derived from the consumed route prefix so the API auto_mount
+  # splits the URL at the right place.
+  map '/admin/api' => MountedTestApi        # absolute deep path
+  map api1:           MountedTestApi        # single-segment symbol shortcut
+
   # Fallback 404 - this used to be a bare line inside `routes do` and ran on
   # every unmatched request. Wrap in a routes callback so it still fires last.
   routes { lux.response.body 'not found', status: 404 unless lux.response.body? }
@@ -215,6 +232,20 @@ describe 'Lux::Application' do
 
     it 'leaves unmatched requests alone' do
       _(Lux.render.get('/totally-different').status).must_equal 404
+    end
+  end
+
+  describe 'Lux::Api dispatch via map' do
+    it 'mounts a Lux::Api subclass at a deep absolute path' do
+      res = Lux.render.get('/admin/api/mounted_test/ping')
+      _(res.status).must_equal 200
+      _(res.body[:data]).must_equal 'pong'
+    end
+
+    it 'mounts a Lux::Api subclass at a single-segment symbol path' do
+      res = Lux.render.get('/api1/mounted_test/ping')
+      _(res.status).must_equal 200
+      _(res.body[:data]).must_equal 'pong'
     end
   end
 

@@ -1,0 +1,30 @@
+:ruby
+  name    = params[:name].gsub(/[^\w_\.]/, '')
+  command = ["cat ./log/#{name}"]
+
+  if params[:q].present?
+    for el in params[:q].split(/\s+/)
+      command.push "grep '#{el}'"
+    end
+  end
+
+  command.push 'head -2000'
+
+  @lines = `#{command.join(' | ')}`
+
+  if params[:delete]
+    File.delete? './log/%s' % params[:name]
+    current.response.redirect_to '/admin/sys_logs'
+  end
+
+%h3.mb-2 #{name}
+
+%a.btn.btn-default{ href: '/admin/plugins/sys_logs' } &larr;
+&sdot;
+%a.btn.btn-danger{ onclick: "if (confirm('Sure?')) { Pjax.load('/admin/plugins/sys_logs') }" } Delete
+
+.mt-3.mb-3
+  %s-search
+
+%code
+  %pre= @lines.split($/).reverse.join($/)

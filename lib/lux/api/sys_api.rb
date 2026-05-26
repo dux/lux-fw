@@ -72,16 +72,16 @@ module Lux
 
       private
 
-      # Recover the actual mount prefix from the live request path; this is
-      # more reliable than OPTS[:api][:mount_on], which is global state that
-      # the last-loaded class wins.
+      # Recover the actual mount prefix from the live request path. With
+      # per-class mount_on this matches the dispatching class, even when
+      # multiple APIs are mounted at different roots.
       def derive_mount_on
         path = @api.request&.path
-        return OPTS.dig(:api, :mount_on) || '/' unless path
+        return '/api' unless path
 
         # "/api/sys/schema" -> "/api"
         prefix = path.split('/sys/').first.to_s
-        prefix.empty? ? '/' : prefix
+        prefix.empty? ? '/api' : prefix
       end
     end
   end

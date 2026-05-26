@@ -1,0 +1,53 @@
+:ruby
+  @exp = ExceptionDb.get_exp params[:uid]
+
+%h2 Error details
+
+.boxb
+  %table.table
+    %col{ style: 'width: 150px;' }
+    %tr
+      %td
+        %b Klass
+      %td
+        = @exp[:klass]
+        &bull;
+        %a.btn.btn-sm{ href: '/admin/errors?klass=%s' % @exp[:klass] } filter
+    %tr
+      %td
+        %b Message
+      %td= @exp[:message]
+    %tr
+      %td
+        %b Backtrace
+      %td
+        %code
+          %pre= @exp[:body]
+
+%b Log
+
+.boxb
+  %table.table
+    %tr
+      %th{ style: 'width: 170px;' } At
+      %th{ style: 'width: 170px;' } Ago
+      %th{ style: 'width: 120px;' } IP
+      %th{ style: 'width: 300px;' } User
+      %th URL
+    - for el in @exp[:logs]
+      %tr
+        %td
+          %span.btn.btn-sm{ onclick: "$('#env-#{el[:id]}').toggle()" }= el[:created_at].long
+        %td= Time.ago el[:created_at]
+        %td
+          %a{ href: 'https://ipgeolocation.io/ip-location/%s' % el[:ip] }= el[:ip]
+        %td= el[:email]
+        %td
+          - if el[:url]
+            %a{ href: el[:url].split(/\s+/).last }= el[:url]
+          - else
+            &mdash;
+      %tr.hidden{ id: "env-#{el[:id]}" }
+        %td{ colspan: 4 }
+          %pre= JSON(el[:env]).to_jsonp
+

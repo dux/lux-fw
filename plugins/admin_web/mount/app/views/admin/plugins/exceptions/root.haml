@@ -1,0 +1,51 @@
+:ruby
+  folders = `ls -t log/exceptions`.split(/\s+/)
+
+  @users = Lux.cache.fetch('admin-error-users', ttl: 3.minute) { ExceptionDb.get_users }
+  @types = Lux.cache.fetch('admin-error-types', ttl: 3.minute) { ExceptionDb.get_error_types }
+
+.row
+  .col
+    %h2 Click to see the error
+  .col
+    %ui-info
+      = ExceptionDb.size
+
+%button.btn{ onclick: "$('#users').toggle()" }
+  Filter by user (last month)
+  - if params[:user]
+    &sdot; #{params[:user]}
+%button.btn{ onclick: "$('#types').toggle()" }
+  Filter by class
+  - if params[:klass]
+    &sdot; #{params[:klass]}
+
+#users.boxb.hidden
+  - for el in @users
+    %a.btn{ class: el[:email] == user.email ? 'btn-outline' : nil, href: '?user=%s' % el[:email]}= '%s (%s)' % [el[:email], el[:count]]
+
+#types.boxb.hidden
+  - for el in @types
+    %a.btn{ class: ExceptionDb::IGNORE.include?(el[:klass]) ? 'btn-outline' : nil, href: '?klass=%s' % el[:klass]}= '%s (%s)' % [el[:klass], el[:count]]
+
+%hr
+
+.boxb
+  %table.table.hover
+    %tr
+      %th{ style: 'width: 50px;'} ID
+      %th{ style: 'width: 250px;'} Klass
+      %th Message
+      %th.c{ style: 'width: 60px;'} Times
+      %th{ style: 'width: 180px;'} Last & first
+    - for el in ExceptionDb.get_list klass: params[:klass], email: params[:user]
+      %tr{ href: "/admin/errors/show?uid=#{el[:uid]}" }
+        %td= el[:id]
+        %td
+          %a.btn{ href: '?klass=%s' % el[:klass] }= el[:klass]
+        %td= el[:message].to_s.trim(200).html_escape(true) rescue "Messave error: #{$!.message}"
+        %td.c= el[:times]
+        %td
+          = Time.ago el[:last_at]
+          %br
+          = Time.ago el[:first_at]

@@ -11,7 +11,7 @@ module Lux
 
       # full schema document
       def schema mount_on: nil
-        mount_on ||= OPTS.dig(:api, :mount_on) || '/'
+        mount_on ||= '/api'
 
         {
           version:  SCHEMA_VERSION,

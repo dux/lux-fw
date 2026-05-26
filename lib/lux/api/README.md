@@ -116,6 +116,7 @@ To opt out class-wide (legacy code): `def_registration_strict false`.
 | `schema_ref :name`      | reference a top-level model schema instead of inline params |
 | `allow :get, :put`      | additional HTTP methods (default POST) |
 | `unsafe`                | endpoint callable without bearer token |
+| `undocumented`          | endpoint stays callable but is hidden from OpenAPI/Postman/introspect output |
 | `define name do; proc {...}; end` | explicit endpoint registration |
 | `annotation :flag do ... end` | custom marker, used like `unsafe` |
 | `plugin :name do ... end` / `plugin :name` | reusable behavior |

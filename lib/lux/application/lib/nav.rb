@@ -6,7 +6,8 @@ module Lux
 
       # acepts path as a string
       def initialize request
-        @path        = request.path.split('/').slice(1, 100) || []
+        # lowercase path segments; for `key:value` segments only the key is lowercased
+        @path        = (request.path.split('/').slice(1, 100) || []).map { |s| s.sub(/\A[^:]+/) { _1.downcase } }
         @request     = request
         @refs        = []
 
@@ -21,6 +22,11 @@ module Lux
 
       def root= value
         @path[0] = value
+      end
+
+      # nav.root?(:admin) -> true if /admin/...
+      def root? name
+        root == name.to_s
       end
 
       def child

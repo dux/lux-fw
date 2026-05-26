@@ -59,12 +59,17 @@ module Lux
         request  = api_host.request
         response = api_host.response
 
-        mount_on ||= OPTS[:api][:mount_on] || '/'
+        # Resolution order:
+        # 1. explicit `mount_on:` kwarg
+        # 2. Rack SCRIPT_NAME (set by lux.response.rack mount_at:) - per-mount override
+        # 3. this class's declared mount_on (walks ancestors, default '/api')
+        script_name = request.env['SCRIPT_NAME'].to_s if request.respond_to?(:env)
+        mount_on ||= (script_name && !script_name.empty? ? script_name : self.mount_on)
         mount_on   = [request.base_url, mount_on].join('') unless mount_on.to_s.include?('//')
 
         if request.url == mount_on && request.request_method == 'GET'
           # root GET -> redirect to interactive explorer at <mount_on>/sys/web
-          prefix = (OPTS.dig(:api, :mount_on) || '/').to_s.chomp('/')
+          prefix = self.mount_on.to_s.chomp('/')
           { _redirect: "#{prefix}/sys/web" }
         else
           response.header['Content-Type'] = 'application/json' if response
@@ -225,10 +230,20 @@ module Lux
         puts '---'
       end
 
-      # sets api mount point
-      # mount_on '/api'
-      def mount_on what
-        OPTS[:api][:mount_on] = what
+      # Per-class API mount path. Dual-purpose:
+      # * `mount_on '/api'` (writer) - declare this class's root.
+      # * `mount_on`        (reader) - resolve via @mount_on, then walk
+      #   ancestors, falling back to '/api' if nothing was declared anywhere.
+      #
+      # This is per-class so AppApi and AdminApi can mount at different roots
+      # without clobbering each other. Subclasses inherit unless they declare
+      # their own.
+      def mount_on what = nil
+        if what
+          @mount_on = what
+        else
+          @mount_on || (superclass.respond_to?(:mount_on) ? superclass.mount_on : nil) || '/api'
+        end
       end
 
       # if you want to make API DOC public use "documented"

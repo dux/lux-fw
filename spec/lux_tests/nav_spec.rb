@@ -16,6 +16,24 @@ describe Lux::Application::Nav do
     end
   end
 
+  describe '#root?' do
+    it 'matches root segment by symbol' do
+      _(nav_for('/admin/foo').root?(:admin)).must_equal true
+    end
+
+    it 'matches root segment by string' do
+      _(nav_for('/admin/foo').root?('admin')).must_equal true
+    end
+
+    it 'returns false on mismatch' do
+      _(nav_for('/admin/foo').root?(:users)).must_equal false
+    end
+
+    it 'returns false at root path' do
+      _(nav_for('/').root?(:admin)).must_equal false
+    end
+  end
+
   describe '#child' do
     it 'returns the second path segment' do
       _(nav_for('/users/profile').child).must_equal 'profile'
@@ -165,6 +183,25 @@ describe Lux::Application::Nav do
     it 'extracts colon-separated params from path' do
       nav = nav_for('/users/page:3')
       _(Lux.current.params[:page]).must_equal '3'
+    end
+  end
+
+  describe 'path lowercasing' do
+    it 'lowercases path segments' do
+      nav = nav_for('/Foo/Bar')
+      _(nav.path).must_equal %w[foo bar]
+    end
+
+    it 'lowercases qs key but preserves qs value' do
+      nav = nav_for('/Foo/BAR:BAZ')
+      _(Lux.current.params[:bar]).must_equal 'BAZ'
+      _(nav.path).must_equal %w[foo]
+    end
+
+    it 'only lowercases up to the first colon in a segment' do
+      nav = nav_for('/A/Key:Val:Extra')
+      _(Lux.current.params[:key]).must_equal 'Val:Extra'
+      _(nav.path).must_equal %w[a]
     end
   end
 

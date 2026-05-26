@@ -34,10 +34,19 @@ module Lux
         call target unless lux.route.root
       end
 
+      # Pure predicate against nav root - delegates to Lux::Application::Nav#root?
+      # root?(:admin) -> true if /admin/...
+      def root? name
+        lux.nav.root? name
+      end
+
       # Absolute-path match. Captures `:var` placeholders into params.
       # ```
       # match '/:city/people', Main::PeopleController
       # ```
+      # Advances the route cursor by the number of segments consumed, so
+      # lux.route.consumed reflects the matched prefix (needed for sub-mounts
+      # like Lux::Api to derive their own mount_on).
       def match base, target
         base = base.split('/').slice(1, 100)
 
@@ -49,7 +58,7 @@ module Lux
           end
         end
 
-        call target
+        lux.route.with_scope(base.length) { call target }
       end
 
       # Strict, length-exact path match for per-action `route` annotations.
@@ -245,6 +254,17 @@ module Lux
 
         if object.is_a?(String)
           object = CONTROLLER_CLASS_CACHE[object] ||= ('%s_controller' % object).classify.constantize
+        end
+
+        # Lux::Api subclass mounted as a rack app. Mount point resolution:
+        # * if the route DSL consumed a prefix (e.g. `map '/admin/api', X`), use it
+        # * else fall back to the class's declared mount_on (default '/api')
+        # mount_at sets SCRIPT_NAME so the API's auto_mount strips the prefix cleanly.
+        if defined?(Lux::Api) && object.is_a?(Class) && object < Lux::Api
+          consumed = lux.route.consumed
+          mount_at = consumed.any? ? ('/' + consumed.join('/')) : object.mount_on
+          mount_at = nil if mount_at == '/' || mount_at.to_s.empty?
+          return lux.response.rack object, mount_at: mount_at
         end
 
         if [Module, Class].include?(object.class) && object.respond_to?(:call)
