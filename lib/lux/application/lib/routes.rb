@@ -92,7 +92,7 @@ module Lux
       def subdomain name
         return unless lux.nav.subdomain == name.to_s
         yield
-        Lux.error.not_found Lux.mode.debug?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
+        raise Lux.error.not_found Lux.mode.debug?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
       end
 
       # Main routing DSL. All forms match against the current route cursor first,
@@ -158,7 +158,7 @@ module Lux
                 # legacy [match, target] tuple
                 [route_object[0], route_object[1]]
               else
-                Lux.error 'Unsupported route type "%s"' % route_object.class
+                raise Lux.error 'Unsupported route type "%s"' % route_object.class
               end
             end
           end
@@ -279,11 +279,11 @@ module Lux
         action ||= resourceful_action(lux.route.path)
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
-          Lux.error.not_found Lux.mode.debug?('404 Not Found') { "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" }
+          raise Lux.error.not_found Lux.mode.debug?('404 Not Found') { "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" }
         end
 
         if opts[:except] && opts[:except].include?(action.to_sym)
-          Lux.error.not_found Lux.mode.debug?('404 Not Found') { "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" }
+          raise Lux.error.not_found Lux.mode.debug?('404 Not Found') { "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" }
         end
 
         if object.respond_to?(:action)

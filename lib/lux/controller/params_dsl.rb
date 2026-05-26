@@ -222,7 +222,7 @@ module Lux
         allowed = self.class.allowed_verbs_for(@lux.action)
         return if allowed == :any || allowed.include?(verb)
 
-        Lux.error.method_not_allowed Lux.mode.debug?('405 Method Not Allowed') {
+        raise Lux.error.method_not_allowed Lux.mode.debug?('405 Method Not Allowed') {
           allowed_label = allowed.to_a.map { |v| v.to_s.upcase }.join(', ')
           'Action %s#%s does not allow %s. Allowed: %s. Add `allow :%s` above the def to enable it.' %
             [self.class, @lux.action, verb.upcase, allowed_label, verb]

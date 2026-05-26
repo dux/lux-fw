@@ -26,7 +26,7 @@ Differentiators. The places lux is ahead of Sinatra/Roda/Hanami, not just at par
   shape.
 * **Custom reloader that skips `Gem.path`** - addresses the Rails "reload-degradation" complaint head-on
   (`lib/lux/reloader/`).
-* **Exception logger with mountable viewer** (`plugins/exception_logger`). Hanami / Sinatra miss this entirely.
+* **Exception logger with mountable viewer** (`plugins/admin_web`). Hanami / Sinatra miss this entirely.
 * **CSRF + CORS first-class on the response object.** `response.cors :all`, auto-injected CSRF token in `HtmlForm`,
   preflight handled at the application level (`lib/lux/response/lib/cors.rb`, `lib/lux/current/lib/csrf.rb`).
 * **Job runner with PG LISTEN/NOTIFY trigger + advisory lock + exponential backoff.** Single-DB, no Redis required, no

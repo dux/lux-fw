@@ -126,7 +126,7 @@ module Lux
       # CSRF: enforce for non-safe verbs that aren't Bearer-authenticated.
       # Opt-out per-app via Lux.config.csrf = false. See Lux::Current#csrf.
       if Lux.config[:csrf] != false && lux.csrf_required? && !lux.csrf_valid?
-        Lux.error.forbidden 'CSRF token missing or invalid'
+        raise Lux.error.forbidden 'CSRF token missing or invalid'
       end
 
       if Lux.config.serve_static_files
@@ -135,7 +135,7 @@ module Lux
 
       resolve_routes unless lux.response.body?
 
-      Lux.error.not_found unless lux.response.body?
+      raise Lux.error.not_found unless lux.response.body?
 
       lux.response.render self
     rescue StandardError => err
@@ -147,7 +147,7 @@ module Lux
     # to the routing DSL (`map`, `call`, etc.) — typically used to forward to a
     # controller that renders the error page:
     #   rescue_from do |err|
-    #     ExceptionDb.add err
+    #     LuxException.add err
     #     map 'promo#app_error'   # router map; ivars (incl. @error) auto-pass
     #   end
     def self.rescue_from &block
@@ -167,7 +167,7 @@ module Lux
     #   3. Framework default → Lux::Error.render (server-dump style)
     # If anything in 1 or 2 raises, Lux.call's outer rescue returns a low-level Rack tuple.
     def render_error err
-      Lux.logger.error Lux::Error.format(err, message: true, gems: false)
+      Lux.error.log err
       # Lux.error helpers set lux.response.status before raising; honour that.
       # Anything else (raw StandardError) defaults to 500.
       status = lux.response.status.to_i
@@ -220,7 +220,7 @@ module Lux
         if icon.exist?
           lux.response.send_file(icon, inline: true)
         else
-          Lux.error.not_found Lux.mode.debug?('404 Not Found') { '%s not found' % path }
+          raise Lux.error.not_found Lux.mode.debug?('404 Not Found') { '%s not found' % path }
         end
       end
     end

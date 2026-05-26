@@ -3,7 +3,7 @@
 - # looked up inline (no plugin controller for GET).
 
 - prefix = '/admin/plugins/exception_logger'
-- exp    = LuxException.get_exp(lux.params[:uid]) or Lux.error.not_found
+- exp    = LuxException.get_exp(lux.params[:uid]) or raise Lux.error.not_found
 
 %p.mb-3
   %a.text-sm.text-blue-600.hover:underline{ href: prefix + '/' } &larr; Back

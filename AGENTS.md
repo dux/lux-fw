@@ -81,9 +81,8 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | `oauth`           | Oauth interface (facebook, github, google, linkedin, slack, ...)   | [README](./plugins/oauth/README.md) |
 | `authcog`         | Central-auth landing controller (hash-callback exchange)           | [README](./plugins/authcog/README.md) |
 | `auto_controller` | Convention-based routing + template auto-finding                   | [README](./plugins/auto_controller/README.md) |
-| `admin_web`       | Skeleton admin section mounted at `/admin`                         | [README](./plugins/admin_web/README.md) |
+| `admin_web`       | `/admin` mount + PG-backed exception logger, grouped by fingerprint| [README](./plugins/admin_web/README.md) |
 | `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks)         | [README](./plugins/job_runner/README.md) |
-| `exception_logger`| Postgres-backed exception logger, grouped by fingerprint           | [README](./plugins/exception_logger/README.md) |
 | `lux_logger`      | Database-backed structured logger                                  | [README](./plugins/lux_logger/README.md) |
 
 ## Repo layout

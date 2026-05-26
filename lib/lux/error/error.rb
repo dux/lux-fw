@@ -2,7 +2,7 @@
 
 # Lux::Error - thin exception class. No HTTP status, no registry, no shortcuts.
 # HTTP status is set on lux.response by `Lux.error CODE, msg` (see error/lux_adapter.rb),
-# not carried on the exception itself.
+# not carried on the exception itself. `Lux.error` builds the exception; the caller raises it.
 #
 # Static helpers below (.render, .inline, .format) handle error display.
 module Lux

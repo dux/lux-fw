@@ -9,10 +9,10 @@
 class AuthcogController < Lux::Controller
   def call
     callback = params[:callback].to_s
-    Lux.error.bad_request('Missing callback') unless callback =~ /\A[A-Za-z0-9]{40}\z/
+    raise Lux.error.bad_request('Missing callback') unless callback =~ /\A[A-Za-z0-9]{40}\z/
 
     data = fetch_identity(callback)
-    Lux.error.bad_request("AuthCog returned no email") if data[:email].blank?
+    raise Lux.error.bad_request("AuthCog returned no email") if data[:email].blank?
 
     Lux.logger(:authcog).info "central-auth login - #{data[:email]} (#{data[:provider]})"
 
@@ -56,11 +56,11 @@ class AuthcogController < Lux::Controller
     when 200
       JSON.parse(res.body, symbolize_names: true)
     when 404
-      Lux.error.bad_request('AuthCog callback unknown - expired session?')
+      raise Lux.error.bad_request('AuthCog callback unknown - expired session?')
     when 410
-      Lux.error.bad_request('AuthCog callback already used or expired')
+      raise Lux.error.bad_request('AuthCog callback already used or expired')
     else
-      Lux.error.bad_request("AuthCog exchange failed (#{res.code})")
+      raise Lux.error.bad_request("AuthCog exchange failed (#{res.code})")
     end
   end
 end

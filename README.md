@@ -520,7 +520,7 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 | `assets`           | CDN asset pipeline | [README](./plugins/assets/README.md) |
 | `job_runner`       | Background job queue (LuxJob) | [README](./plugins/job_runner/README.md) |
 | `lux_logger`       | Structured database logger | [README](./plugins/lux_logger/README.md) |
-| `exception_logger` | PG-backed exception logger + mountable viewer | [README](./plugins/exception_logger/README.md) |
+| `admin_web`        | `/admin` mount + PG-backed exception logger | [README](./plugins/admin_web/README.md) |
 | `oauth`            | OAuth integration | [README](./plugins/oauth/README.md) |
 | `auto_controller`  | Convention-based controller routing | [README](./plugins/auto_controller/README.md) |
 | `authcog`          | Central-auth landing controller | [README](./plugins/authcog/README.md) |

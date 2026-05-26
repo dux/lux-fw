@@ -242,7 +242,7 @@ class LuxJob < ApplicationModel
         job.save
 
       rescue => e
-        Lux.config.error_logger&.call(e)
+        Lux.error.log e
 
         msg = "UNHANDLED: #{e.message} (#{e.class}) #{e.backtrace&.first}"
         job.response = msg

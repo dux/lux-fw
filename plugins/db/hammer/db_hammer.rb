@@ -209,7 +209,7 @@ namespace :db do
   end
 
   task :seed do
-    desc 'Load seed from ./db/seeds'
+    desc 'Load seed from ./db/seeds and plugins/*/seeds'
     needs :app
     proc do |_opts|
       LuxDb.dev_check!
@@ -222,6 +222,19 @@ namespace :db do
         for file in Dir['db/seeds/*.rb'].sort
           puts 'Seed: %s' % file.colorize(:green)
           load file
+        end
+
+        # Plugin-shipped seeds. Each loaded plugin may ship `seeds/*.rb`;
+        # files run after app seeds so they can rely on core records (users,
+        # spaces, ...) being in place. Plugins without a seeds/ dir are
+        # silently skipped.
+        Lux::Plugin::PLUGIN.each_value do |plugin|
+          files = Dir[::File.join(plugin.folder, 'seeds/*.rb')].sort
+          next if files.empty?
+          for file in files
+            puts 'Seed (%s): %s' % [plugin.name, file.colorize(:green)]
+            load file
+          end
         end
       end
     end

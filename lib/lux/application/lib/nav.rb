@@ -175,7 +175,7 @@ module Lux
         begin
           parts = request.host.to_s.split('.')
         rescue NoMethodError
-          Lux.error 400, 'Host name error'
+          raise Lux.error 400, 'Host name error'
         end
 
         if parts.last.is_numeric?

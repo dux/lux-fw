@@ -10,7 +10,7 @@ class LuxExceptionController < Lux::Controller
   route '/admin/plugins/exception_logger/resolve'
   allow :post
   def resolve
-    exep = LuxException.first(uid: params[:uid]) or Lux.error.not_found
+    exep = LuxException.first(uid: params[:uid]) or raise Lux.error.not_found
     exep.update is_resolved: true
     redirect_to '/admin/plugins/exception_logger/show?uid=%s' % exep.uid
   end

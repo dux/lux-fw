@@ -413,7 +413,7 @@ module Lux
           yield if block_given?
           true
         elsif lux.nav.format
-          Lux.error.not_found Lux.mode.debug?('404 Not Found') { '%s document Not Found' % lux.nav.format.to_s.upcase }
+          raise Lux.error.not_found Lux.mode.debug?('404 Not Found') { '%s document Not Found' % lux.nav.format.to_s.upcase }
         end
       else
         yield lux.nav.format
@@ -492,7 +492,7 @@ module Lux
         [base, defined].join(' ')
       end
 
-      Lux.error 404, message
+      raise Lux.error 404, message
     end
   end
 end
