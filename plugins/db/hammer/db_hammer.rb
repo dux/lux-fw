@@ -210,7 +210,10 @@ namespace :db do
 
   task :seed do
     desc 'Load seed from ./db/seeds and plugins/*/seeds'
-    needs :app
+    # needs :env (not :app) so models load inside db:am where DB_MIGRATE=true
+    # creates their tables; loading models on an empty DB makes enum checks
+    # against db_schema fail.
+    needs :env
     proc do |_opts|
       LuxDb.dev_check!
 

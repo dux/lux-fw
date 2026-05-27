@@ -17,8 +17,7 @@ module Ref
   # validates the canonical 16-char form. accepts "key-ref" composite by
   # stripping the prefix before splitting on ':'.
   def is? text
-    text = text.to_s.split(':')[0].to_s
-    !!(text.length == 16 && text =~ /^\w+$/)
+    text.length == 16 && text =~ /^[a-z0-9]+$/
   end
 
   # Ref.generate                  -> 16-char lowercase+digits

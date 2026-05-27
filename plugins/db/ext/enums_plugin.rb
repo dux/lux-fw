@@ -64,11 +64,12 @@ class Sequel::Model
       do_instance = [:both, :instance].include?(opts[:helpers])
       do_class    = [:both, :class].include?(opts[:helpers])
 
-      if do_instance
-        unless db_schema[field_sym]
-          Lux.shell.die 'enum: field "%s" not found for "%s" on %s' % [opts[:field], name, self.name]
-        end
-
+      # Skip column-bound helpers when the column doesn't exist yet
+      # (typical on a fresh DB during db:am - the model loads before
+      # AutoMigrate creates the table). Class helpers + validation
+      # below still install; once the table exists and the model is
+      # reloaded, instance helpers attach normally.
+      if do_instance && db_schema[field_sym]
         # Override the column reader so a blank stored value transparently
         # reads back as the default key (the first declared key, unless
         # `default:` was passed explicitly).
@@ -89,6 +90,8 @@ class Sequel::Model
           end
           out || value
         end
+      elsif do_instance
+        Lux.shell.info 'enum: field "%s" not found for "%s" on %s, skipping instance helpers' % [opts[:field], name, self.name]
       end
 
       if do_class

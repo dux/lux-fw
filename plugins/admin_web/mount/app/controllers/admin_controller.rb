@@ -3,7 +3,7 @@ class AdminController < FrontendController
 
   layout :admin
 
-  allow :get, :post
+  allow :get
   def call
     auto_export_var lux.route.root, nav.ref, :update if nav.ref
     tpl = auto_find_template nav.path
