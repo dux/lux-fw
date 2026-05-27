@@ -11,7 +11,6 @@ require 'digest'
 
 require_relative 'lib/lux_exception'
 require_relative 'lib/lux_exception_log'
-require_relative 'lib/lux_exception_controller'
 
 module Lux::ErrorProxy
   LOG_DEDUPE_KEY ||= 'lux:error_log:last_fingerprint'.freeze

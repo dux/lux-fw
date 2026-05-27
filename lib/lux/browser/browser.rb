@@ -6,7 +6,7 @@ module Lux
   #
   # 1) Class-level: server-side composer for the window.Lux client surface.
   #    Subsystems register JS modules; Lux::Browser.client_js(...) returns the
-  #    composed bundle served at /lux/*.js. This is the framework client lib
+  #    composed bundle served at /_lux_/*.js. This is the framework client lib
   #    (csrf, fetch, sse, ...).
   #
   # 2) Instance-level: per-request state accumulator, accessed via lux.browser.

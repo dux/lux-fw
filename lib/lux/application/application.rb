@@ -114,10 +114,10 @@ module Lux
         }, ['']]
       end
 
-      # /lux/* - framework-served client assets (composed JS bundles). Always
-      # GET; csrf is skipped because the response carries the current token,
-      # not consumes one. See Lux::Browser::Mount.
-      if request_method == 'GET' && lux.request.path_info.start_with?('/lux/')
+      # /_lux_/* - framework-served client assets (composed JS bundles).
+      # Always GET; csrf is skipped because the response carries the current
+      # token, not consumes one. See Lux::Browser::Mount.
+      if request_method == 'GET' && lux.request.path_info.start_with?(Lux::Browser::Mount::PREFIX)
         if result = Lux::Browser::Mount.handle(lux)
           return result
         end

@@ -1,4 +1,4 @@
-// Lux.subscribe - thin pub/sub client for SSE streamed by /lux/stream.
+// Lux.subscribe - thin pub/sub client for SSE streamed by /_lux_/stream.
 //
 //   Lux.subscribe('notifications', msg => banner.show(msg))
 //   Lux.subscribe('user:42',       msg => inbox.update(msg))
@@ -14,7 +14,7 @@
 ;(function (global) {
   var Lux = global.Lux = global.Lux || {};
 
-  var STREAM_URL = '/lux/stream';
+  var STREAM_URL = '/_lux_/stream';
 
   var _es             = null;
   var _handlers       = {};    // channel -> [fn, ...]

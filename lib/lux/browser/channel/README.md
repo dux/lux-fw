@@ -1,13 +1,13 @@
 # Lux::Browser::Channel
 
 In-process pub/sub channels by name. Backbone for the SSE streams
-served at the baked-in `/lux/stream` endpoint. Publish from anywhere on
+served at the baked-in `/_lux_/stream` endpoint. Publish from anywhere on
 the server with `Lux.browser.publish`; subscribe from the client with
 `Lux.subscribe`.
 
 Nested under `Lux::Browser` because the only consumer today is the
 SSE writer (`response/lib/sse.rb`) which fans messages out to the
-`Lux.subscribe` client module served at `/lux/client.js`.
+`Lux.subscribe` client module served at `/_lux_/client.js`.
 
 ## Full example
 
@@ -22,12 +22,12 @@ Lux.browser.publish "user:#{user.id}", type: :inbox, count: 3
 ```
 
 ```html
-<!-- client: just include /lux/client.js and call subscribe -->
-<script src="/lux/client.js"></script>
+<!-- client: just include /_lux_/client.js and call subscribe -->
+<script src="/_lux_/client.js"></script>
 <script>
   Lux.subscribe('notifications', msg => banner.show(msg))
   Lux.subscribe('user:42',       msg => inbox.update(msg))
-  // auto-connects to /lux/stream on first subscribe;
+  // auto-connects to /_lux_/stream on first subscribe;
   // subscribing to a new channel reopens with the merged list (debounced).
 
   Lux.unsubscribe('notifications', fn)   // drop one handler
@@ -46,7 +46,7 @@ Lux::Browser::Channel.reset!                            # drop every subscriber 
 
 ## Endpoint
 
-The framework intercepts `/lux/stream?channels=a,b,c` and streams the
+The framework intercepts `/_lux_/stream?channels=a,b,c` and streams the
 SSE feed for those channels. **No authorization is enforced here** - the
 client can request any channel name. Gate access at your edge (front
 proxy / WAF) or with a global before-filter in `Lux::Application` that
@@ -65,7 +65,7 @@ the SSE writer to attach and detach a queue per client.
 * `Lux::Browser::Channel` keeps a `name -> [Queue, ...]` registry guarded by a Mutex.
 * `Lux.browser.publish(name, data)` fans `data` out to every queue currently
   subscribed to `name` (or, with the broker on, via PG NOTIFY).
-* `/lux/stream` opens a `text/event-stream` response, attaches a queue
+* `/_lux_/stream` opens a `text/event-stream` response, attaches a queue
   to each requested channel, yields formatted SSE frames until the client
   disconnects, and detaches in `ensure`.
 * The client (`Lux.subscribe`) opens one `EventSource` per page; events

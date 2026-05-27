@@ -4,7 +4,7 @@ Two roles in one class:
 
 1. **Class-level** - server-side composer for the `window.Lux` client
    surface. Subsystems register JS modules; the composed bundle is served
-   at `/lux/*.js` (a reserved framework path).
+   at `/_lux_/*.js` (a reserved framework path).
 2. **Instance-level** - per-request state accumulator, accessed via
    `lux.browser`. Chain-set arbitrary nested keys; emit as a `<script>`
    tag in the page head. Lands as `window.<root>` (separate namespace
@@ -22,10 +22,10 @@ Lux.browser.client                                        # all modules, core fi
 Lux.browser.client(:sse)                                  # core + sse only
 Lux.browser.client(:sse, :api)                            # core + listed
 
-# Served URLs (intercepted before route resolution; /lux/* is reserved):
-#   /lux/client.js                  -> all registered modules
-#   /lux/client.js?modules=sse,api  -> just those
-#   /lux/<name>.js                  -> core + that one (404 if unknown)
+# Served URLs (intercepted before route resolution; /_lux_/* is reserved):
+#   /_lux_/client.js                  -> all registered modules
+#   /_lux_/client.js?modules=sse,api  -> just those
+#   /_lux_/<name>.js                  -> core + that one (404 if unknown)
 
 # --- INSTANCE-LEVEL: per-request state (controller / before-filter) ---
 

@@ -68,8 +68,10 @@ DB.create_table :lux_exception_logs do
   Time   :created_at, index: true
 end
 
-# Boot the plugin: registers models + the per-action route on the
-# POST-only resolve controller.
+# Boot the plugin: registers the LuxException + LuxExceptionLog models.
+# The GET pages (list + show) are rendered directly via Lux::Template.render
+# in this spec; show.haml handles the inline toggle itself when the request
+# carries a `?toggle=<uid>` param.
 require_relative '../loader.rb'
 
 # Initialise the application so the per-action route registry is reachable
@@ -90,7 +92,11 @@ describe 'exception_logger admin flow' do
 
   def render_view path, params: {}
     Lux::Current.new('http://test%s' % path, query_string: params)
-    Lux::Template.render(self, '%s%s' % [VIEWS_ROOT, path])
+    # show.haml's inline toggle path calls redirect_to, which `throw :done`.
+    # The host controller wraps render with catch(:done); mirror that here.
+    catch :done do
+      Lux::Template.render(self, '%s%s' % [VIEWS_ROOT, path])
+    end
   end
 
   it 'flows through add, list, show, resolve' do
@@ -113,21 +119,23 @@ describe 'exception_logger admin flow' do
     _(body).must_include 'RuntimeError'
     _(body).must_include 'total: 1'
 
-    # 4. show page renders details + the resolve form
+    # 4. show page renders details + the Open/Resolved toggle
     body = render_view '/admin/plugins/exception_logger/show', params: { uid: exep.uid }
     _(body).must_include 'Backtrace'
-    _(body).must_include 'Mark resolved'
+    _(body).must_include 'Open'
+    _(body).must_include 'Resolved'
     _(body).must_include 'something blew up'
 
-    # 5. POST to the plugin's resolve action (the one thing the controller owns)
-    resp = Lux.render.post('/admin/plugins/exception_logger/resolve', query_string: { uid: exep.uid })
-    _(resp.status).must_equal 302
-    _(resp.headers['location']).must_match %r{\A/admin/plugins/exception_logger/show\?.*uid=#{exep.uid}}
+    # 5. Hitting the show page with `?toggle=<uid>` flips is_resolved inline
+    #    and redirects to the clean URL (redirect_to throws :done, which
+    #    render_view catches).
+    render_view '/admin/plugins/exception_logger/show', params: { uid: exep.uid, toggle: exep.uid }
+    _(Lux.current.response.status).must_equal 302
+    _(Lux.current.response.headers['location']).must_match %r{\A/admin/plugins/exception_logger/show\?.*uid=#{exep.uid}}
     _(exep.refresh.is_resolved).must_equal true
 
-    # 6. show page now reads Resolved instead of the form
-    body = render_view '/admin/plugins/exception_logger/show', params: { uid: exep.uid }
-    _(body).must_include 'Resolved'
-    refute_includes body, 'Mark resolved'
+    # 6. Same trigger flips it back.
+    render_view '/admin/plugins/exception_logger/show', params: { uid: exep.uid, toggle: exep.uid }
+    _(exep.refresh.is_resolved).must_equal false
   end
 end

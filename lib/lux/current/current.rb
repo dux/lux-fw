@@ -10,6 +10,24 @@ module Lux
     attr_accessor :session, :locale, :error
     attr_reader   :request, :response, :nav, :route, :var, :env, :params
 
+    # Body-only params: parsed POST/PUT/PATCH body, no GET/route merge,
+    # no EncryptParams processing. Lazy; falls back to request.POST for form-encoded
+    # bodies and to the JSON-parsed body for application/json. @opt.post wins
+    # (set by Lux.render.post mocks).
+    def post
+      @post ||= begin
+        raw = if @opt.post
+          @opt.post
+        elsif @request.media_type == 'application/json'
+          body = @request.body.tap(&:rewind).read
+          JSON.parse(body, symbolize_names: true) rescue {}
+        else
+          @request.POST.dup
+        end
+        (raw || {}).to_lux_hash
+      end
+    end
+
     def initialize env = nil, opts = {}
       @env     = env || '/mock'
       @env     = ::Rack::MockRequest.env_for(env) if env.is_a?(String)

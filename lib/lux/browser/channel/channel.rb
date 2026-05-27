@@ -122,5 +122,5 @@ end
 
 require_relative 'pg_broker'
 
-# Register the SSE client module so /lux/sse.js works.
+# Register the SSE client module so /_lux_/sse.js works.
 Lux::Browser.register :sse, file: 'assets/lux/sse.js'
