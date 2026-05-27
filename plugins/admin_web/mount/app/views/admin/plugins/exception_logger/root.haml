@@ -1,81 +1,49 @@
-- # Exception list. URL: /admin/plugins/exception_logger
-- # Rendered by the host's AdminController via auto_find_template; data is
-- # looked up inline (no plugin controller for GET).
+:ruby
+  # Exception list. URL: /admin/plugins/exception_logger
+  # Rendered by the host's AdminController via auto_find_template; data is
+  # looked up inline (no plugin controller for GET).
 
-- prefix       = '/admin/plugins/exception_logger'
-- klass_filter = lux.params[:klass]
-- user_filter  = lux.params[:user]
-- users        = LuxException.get_users
-- types        = LuxException.get_error_types
-- list         = LuxException.get_list klass: klass_filter, email: user_filter
-- total        = LuxException.size
+  @prefix       = '/admin/plugins/exception_logger'
+  @klass_filter = lux.params[:klass]
+  @user_filter  = lux.params[:user]
+  @status       = lux.params[:status] || 'open'
+  @days         = lux.params[:days]   || '7'
+  @since        = @days == 'all' ? nil : @days.to_i.days.ago
 
-.flex.items-center.justify-between.mb-5
-  %h1.text-2xl.font-semibold Exceptions
-  .text-sm.text-slate-500.bg-white.rounded.shadow-sm.px-3.py-1
-    total: #{total}
+  @list  = LuxException.get_list klass: @klass_filter, email: @user_filter, since: @since, status: @status
+  @total = LuxException.size  klass: @klass_filter, since: @since, status: @status
 
-.flex.flex-wrap.gap-3.mb-4
-  %details.bg-white.rounded.shadow-sm.flex-1{ open: !!user_filter }
-    %summary.cursor-pointer.px-3.py-2.text-sm.font-medium
-      Filter by user (last 7d)
-      - if user_filter
-        %span.text-slate-500.font-normal &middot; #{user_filter}
-    .p-3.border-t.border-slate-100.flex.flex-wrap.gap-2
-      - if users.empty?
-        %span.text-slate-400.text-sm no users in last 7 days
-      - users.each do |u|
-        %a.text-sm.bg-slate-50.hover:bg-slate-100.border.border-slate-200.rounded.px-2.py-1{ href: '%s/?user=%s' % [prefix, CGI.escape(u[:email].to_s)] }
-          &= u[:email]
-          %span.text-slate-400  (#{u[:count]})
+:javascript
+  window.exceptionPickUser  = () => Dialog.load('#{@prefix}/select_user_dialog',        (email) => Pjax.qs('user',  email));
+  window.exceptionPickClass = () => Dialog.load('#{@prefix}/select_error_class_dialog', (klass) => Pjax.qs('klass', klass));
 
-  %details.bg-white.rounded.shadow-sm.flex-1{ open: !!klass_filter }
-    %summary.cursor-pointer.px-3.py-2.text-sm.font-medium
-      Filter by class
-      - if klass_filter
-        %span.text-slate-500.font-normal &middot; #{klass_filter}
-    .p-3.border-t.border-slate-100.flex.flex-wrap.gap-2
-      - if types.empty?
-        %span.text-slate-400.text-sm no recent types
-      - types.each do |t|
-        - klass = t[:klass].to_s
-        - muted = LuxException::IGNORE.include?(klass)
-        %a.text-sm.border.rounded.px-2.py-1{ href: '%s/?klass=%s' % [prefix, CGI.escape(klass)], class: muted ? 'text-slate-400 bg-white border-slate-200' : 'bg-slate-50 hover:bg-slate-100 border-slate-200' }
-          &= klass
-          %span.text-slate-400  (#{t[:count]})
+.flex.items-center.justify-between.mb-4
+  %h1.h1 Exceptions
+  .text-sm.text-slate-500.bg-white.rounded.shadow-sm.px-3.py-1 total: #{@total}
 
-- if klass_filter || user_filter
-  %p.mb-3
-    %a.text-sm.text-blue-600.hover:underline{ href: prefix + '/' } clear filters
+.flex.flex-wrap.items-center.gap-2.mb-3
+  %span.text-sm.text-slate-500.w-15 Range:
+  %filter-btn{ filter: 'days', value: '1' } 1d
+  %filter-btn{ filter: 'days', value: '7', default: true } 7d
+  %filter-btn{ filter: 'days', value: '30' } 30d
+  %filter-btn{ filter: 'days', value: '365' } 1y
+  %filter-btn{ filter: 'days', value: 'all' } all
 
-.bg-white.rounded.shadow-sm.overflow-hidden
-  %table.w-full.text-sm
-    %thead.bg-slate-50.text-slate-600
-      %tr
-        %th.text-left.font-medium.px-3.py-2{ style: 'width: 250px;' } Class
-        %th.text-left.font-medium.px-3.py-2 Message
-        %th.text-center.font-medium.px-3.py-2{ style: 'width: 60px;' } Times
-        %th.text-left.font-medium.px-3.py-2{ style: 'width: 180px;' } Last &amp; first
-        %th.text-center.font-medium.px-3.py-2{ style: 'width: 80px;' } Resolved
-    %tbody
-      - list.each do |el|
-        %tr.border-t.border-slate-100.hover:bg-slate-50{ class: ('opacity-50' if el[:is_resolved]) }
-          %td.px-3.py-2.align-top
-            %a.inline-block.text-xs.bg-slate-100.hover:bg-slate-200.rounded.px-2.py-1{ href: '%s/?klass=%s' % [prefix, CGI.escape(el[:klass].to_s)] }
-              &= el[:klass]
-          %td.px-3.py-2.align-top
-            %a.text-blue-700.hover:underline{ href: '%s/show?uid=%s' % [prefix, CGI.escape(el[:uid].to_s)] }
-              &= LuxException.trim(el[:message], 200)
-          %td.px-3.py-2.align-top.text-center= el[:times]
-          %td.px-3.py-2.align-top.text-slate-500
-            = LuxException.time_ago(el[:last_at])
-            %br
-            = LuxException.time_ago(el[:first_at])
-          %td.px-3.py-2.align-top.text-center
-            - if el[:is_resolved]
-              %span.text-emerald-600 yes
-            - else
-              %span.text-slate-400 no
-      - if list.empty?
-        %tr
-          %td.text-center.text-slate-400.py-6{ colspan: 5 } no exceptions
+.flex.flex-wrap.items-center.gap-2.mb-3
+  %span.text-sm.text-slate-500.w-15 Status:
+  %filter-btn{ filter: 'status', value: 'open', default: true } Open
+  %filter-btn{ filter: 'status', value: 'all' } All
+  %filter-btn{ filter: 'status', value: 'resolved' } Resolved
+
+.flex.flex-wrap.items-center.gap-2.mb-4
+  %span.text-sm.text-slate-500.w-15 Filter by:
+  %filter-btn{ filter: 'klass', value: @klass_filter, onclick: 'exceptionPickClass()' } Error Class
+  %filter-btn{ filter: 'user',  value: @user_filter,  onclick: 'exceptionPickUser()'  } User
+
+= table @list, not_found: 'no exceptions' do |t|
+  - t.href { |o| '%s/show?uid=%s' % [@prefix, CGI.escape(o.uid.to_s)] }
+  - t.col(title: 'Class', width: 250) { |o| { class: 'badge', href: '%s/?klass=%s' % [@prefix, CGI.escape(o.klass.to_s)], onclick: 'event.stopPropagation()' }.tag(:a, CGI.escapeHTML(o.klass.to_s)) }
+  - t.col(title: 'Message')              { |o| CGI.escapeHTML(LuxException.trim(o.message, 200)) }
+  - t.col(title: 'Times', width: 60, align: :c) { |o| o.times }
+  - t.col(title: 'Last & first', width: 180)    { |o| [LuxException.time_ago(o.last_at), LuxException.time_ago(o.first_at)].join('<br>') }
+  - t.col(title: 'Resolved', width: 80, align: :c) { |o| { class: o.is_resolved ? 'badge badge-success' : 'badge' }.tag(:span, o.is_resolved ? 'yes' : 'no') }

@@ -1,0 +1,20 @@
+:ruby
+  # Dialog body. URL: /admin/plugins/exception_logger/select_error_class_dialog
+  # Returns selected class via app.callback(klass).
+  @types = LuxException.get_error_types
+
+%h3.h3 Filter by class
+
+- if @types.empty?
+  %p.text-slate-500 no recent error classes
+
+- else
+  .flex.flex-col.gap-1
+    - @types.each do |t|
+      - klass = t[:klass].to_s
+      - muted = LuxException::IGNORE.include?(klass)
+      %button.btn.btn-secondary.w-full.justify-between{ type: 'button', onclick: 'app.callback(%s)' % klass.to_json, class: ('opacity-60' if muted) }
+        &= klass
+        %span.text-slate-400  (#{t[:count]})
+
+  != HtmlHelper.paginate(@types)

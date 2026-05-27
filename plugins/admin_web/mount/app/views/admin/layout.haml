@@ -5,9 +5,8 @@
       = CdnAsset.url 'auto-shared.css'
       = CdnAsset.url 'auto-shared.js'
       = CdnAsset.url 'auto-admin.css'
-      = CdnAsset.url 'https://dux.github.io/fez/demo/log.js'
-      = CdnAsset.url 'auto-fez.js'
       = CdnAsset.url 'auto-admin.js'
+      = CdnAsset.url 'auto-fez.js'
       %script{ src: '/_lux_/client.js' }
   %body
     %admin-menu
@@ -36,5 +35,5 @@
           .center{ style: 'max-width: 800px; margin: auto; border-top: 1px solid #ddd; padding: 50px;' }
             #{App.name(true)} Admin &sdot; #{Time.now.year}
 
-    %s-dialog
+    %ui-dialog
     %s-image-zoom

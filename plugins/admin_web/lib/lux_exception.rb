@@ -73,12 +73,22 @@ class LuxException < ApplicationModel
     def get_list params = {}
       params = params.dup
       params.delete(:klass) unless params[:klass]
-      email = params.delete :email
+      email  = params.delete :email
+      since  = params.delete :since
+      status = params.delete :status
 
       list = LuxException.order(Sequel.desc(:last_at))
 
       unless params[:klass]
         list = list.exclude(klass: IGNORE)
+      end
+
+      list = list.where { last_at > since } if since
+
+      # status filter: 'open' (default in UI) hides resolved, 'resolved' shows only resolved, anything else means all
+      case status.to_s
+      when 'open'     then list = list.exclude(is_resolved: true)
+      when 'resolved' then list = list.where(is_resolved: true)
       end
 
       list = list.where(params) if params.any?
@@ -91,7 +101,7 @@ class LuxException < ApplicationModel
         list = list.where(uid: log_uids)
       end
 
-      list.limit(200).all
+      list.page(size: 50)
     end
 
     def get_users
@@ -100,8 +110,7 @@ class LuxException < ApplicationModel
         .exclude(email: nil)
         .group_and_count(:email)
         .order(Sequel.desc(:count))
-        .limit(7)
-        .all
+        .page(size: 20)
     end
 
     def get_error_types
@@ -109,8 +118,7 @@ class LuxException < ApplicationModel
         .where { last_at > 3.month.ago }
         .group_and_count(:klass)
         .order(Sequel.desc(:count))
-        .limit(100)
-        .all
+        .page(size: 30)
     end
 
     def quick_summary
@@ -139,8 +147,17 @@ class LuxException < ApplicationModel
       }
     end
 
-    def size
-      LuxException.count
+    def size klass: nil, since: nil, status: nil
+      list = LuxException
+      list = klass ? list.where(klass: klass) : list.exclude(klass: IGNORE)
+      list = list.where { last_at > since } if since
+
+      case status.to_s
+      when 'open'     then list = list.exclude(is_resolved: true)
+      when 'resolved' then list = list.where(is_resolved: true)
+      end
+
+      list.count
     end
 
     private

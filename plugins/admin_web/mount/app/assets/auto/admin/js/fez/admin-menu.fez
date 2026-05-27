@@ -1,0 +1,59 @@
+<script>
+  class {
+    init() {
+      this.topLinks = []
+      this.topLinks.push(`<a onclick="Api('users/log_off').follow('/')">log off</a>`)
+      this.topLinks.push(`<ui-avatar src="${app.user.avatar}" size="22" href="/admin/users/${app.user.ref}" size="26"></ui-avatar>`)
+    }
+  }
+</script>
+
+<style lang="scss">
+  #top-admin-menu {
+    background-color: #4B0082;
+    font-size: 0.95rem;
+    padding: 5px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    span.icon {
+      font-size: 22px;
+    }
+
+    * {
+      color: #eee;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .btn {
+      color: #000;
+      padding: 0 7px;
+      line-height: 20px;
+      margin: 0 1px;
+      font-size: 14px;
+      font-weight: 400;
+      height: 22px;
+      margin-top: 2px;
+
+      &.btn-primary {
+        color: #fff;
+      }
+
+      &:hover {
+        text-decoration: none;
+      }
+    }
+  }
+</style>
+
+<div id="top-admin-menu">
+  <a href="/">&larr; back to user app</a>
+  <div class="flex items-center gap-2">
+    {@html topLinks.join(' &sdot; ')}
+  </div>
+</div>

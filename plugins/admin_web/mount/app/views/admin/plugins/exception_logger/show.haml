@@ -22,7 +22,7 @@
 %p.mb-3
   %a.text-sm.text-blue-600.hover:underline{ href: @prefix + '/' } &larr; Back
 
-%h2.text-xl.font-semibold.mb-3 Error details
+%h2.h2 Error details
 
 .bg-white.rounded.shadow-sm.overflow-hidden.mb-6
   %table.w-full.text-sm
@@ -31,7 +31,7 @@
         %th.text-left.font-medium.bg-slate-50.px-3.py-2.align-top{ style: 'width: 150px;' } Class
         %td.px-3.py-2.align-top
           &= @exp[:klass]
-          %a.ml-2.text-xs.text-blue-600.hover:underline{ href: '%s/?klass=%s' % [@prefix, CGI.escape(@exp[:klass].to_s)] } filter
+          %a.ml-2.text-sm.text-blue-600.hover:underline{ href: '%s/?klass=%s' % [@prefix, CGI.escape(@exp[:klass].to_s)] } filter
       %tr.border-t.border-slate-100
         %th.text-left.font-medium.bg-slate-50.px-3.py-2.align-top Message
         %td.px-3.py-2.align-top.break-all
@@ -46,10 +46,10 @@
         %td.px-3.py-2.align-top
           -# get_exp pre-wraps app-local frames in <b>...</b>; render raw and
           -# style <b> via an arbitrary Tailwind descendant variant.
-          %pre.bg-slate-900.text-slate-100.text-xs.p-3.rounded.overflow-x-auto.whitespace-pre-wrap.break-words{ class: '[&_b]:text-amber-300 [&_b]:font-semibold' }
+          %pre.bg-slate-900.text-slate-100.text-sm.p-3.rounded.overflow-x-auto.whitespace-pre-wrap.break-words{ class: '[&_b]:text-amber-300 [&_b]:font-semibold' }
             != @exp[:body]
 
-%h3.text-lg.font-semibold.mb-2 Log
+%h3.h3 Log
 .bg-white.rounded.shadow-sm.overflow-hidden.mb-6
   %table.w-full.text-sm
     %thead.bg-slate-50.text-slate-600
@@ -80,17 +80,16 @@
               %span.text-slate-400 &mdash;
         %tr.hidden
           %td.px-3.pb-3{ colspan: 5 }
-            %pre.bg-slate-900.text-slate-100.text-xs.p-3.rounded.overflow-x-auto.whitespace-pre-wrap.break-words
+            %pre.bg-slate-900.text-slate-100.text-sm.p-3.rounded.overflow-x-auto.whitespace-pre-wrap.break-words
               &= (JSON.pretty_generate(JSON.parse(el[:env])) rescue el[:env])
       - if @exp[:logs].empty?
         %tr
           %td.text-center.text-slate-400.py-6{ colspan: 5 } no logs
 
-.mt-5
-  .inline-flex.rounded.border.border-slate-300.overflow-hidden.text-sm
-    - if @exp[:is_resolved]
-      %button.px-4.py-2.font-medium.border-r.border-slate-300.bg-white.text-slate-700.hover:bg-slate-50.cursor-pointer{ type: 'button', onclick: @toggle_js } Open
-      %span.px-4.py-2.font-medium.bg-emerald-600.text-white Resolved
-    - else
-      %span.px-4.py-2.font-medium.border-r.border-slate-300.bg-slate-700.text-white Open
-      %button.px-4.py-2.font-medium.bg-white.text-slate-700.hover:bg-slate-50.cursor-pointer{ type: 'button', onclick: @toggle_js } Resolved
+.mt-5.flex.items-center.gap-3
+  - if @exp[:is_resolved]
+    %span.badge.badge-success Resolved
+    %button.btn.btn-secondary{ type: 'button', onclick: @toggle_js } Mark open
+  - else
+    %span.badge.badge-warning Open
+    %button.btn.btn-primary{ type: 'button', onclick: @toggle_js } Mark resolved

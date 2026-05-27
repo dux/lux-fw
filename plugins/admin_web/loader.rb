@@ -12,6 +12,11 @@ require 'digest'
 require_relative 'lib/lux_exception'
 require_relative 'lib/lux_exception_log'
 
+# `HtmlHelper.paginate` is provided by the html plugin's `paginate` builder.
+# admin_web does not load the full html plugin, so the file is required
+# explicitly for the exception_logger views.
+require_relative '../html/load/html_paginate'
+
 module Lux::ErrorProxy
   LOG_DEDUPE_KEY ||= 'lux:error_log:last_fingerprint'.freeze
   LOG_DEDUPE_TTL ||= 60

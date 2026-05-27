@@ -138,6 +138,13 @@ module Lux
           return
         end
 
+        # Single non-Hash arg: unconditional dispatch (like `call`). Lets
+        # `map 'promo#app_error'` work inside rescue_from without faking a
+        # route_match against the failing URL's root.
+        if target.nil? && !route_object.is_hash?
+          return catch(:done) { call route_object }
+        end
+
         # Normalize into [match_value, target_value]
         match_value, target_value =
           if target

@@ -93,6 +93,11 @@ module Lux
           instance_exec(@path.last, &block)
           @path.pop
         else
+          # single non-Hash arg dispatches unconditionally - mirror `call`
+          if target.nil? && !route_object.is_hash?
+            return call(route_object)
+          end
+
           # NOTE: inside module Lux, bare `Hash` resolves to Lux::Hash, so we
           # use the obj.is_hash? predicate from lib/overload/object.rb.
           full_target =

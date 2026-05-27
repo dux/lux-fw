@@ -1,0 +1,21 @@
+:ruby
+  # Dialog body. URL: /admin/plugins/exception_logger/select_user_dialog
+  # Returns selected email via app.callback(email).
+  @users = LuxException.get_users
+
+%h3.h3 Filter by user (last 7d)
+
+.my-4
+  %ui-search
+
+- if @users.empty?
+  %p.text-slate-500 no users with exceptions in last 7 days
+
+- else
+  .flex.flex-col.gap-1
+    - @users.each do |u|
+      %button.btn.btn-secondary.w-full.justify-between{ type: 'button', onclick: 'app.callback(%s)' % u[:email].to_s.to_json }
+        &= u[:email]
+        %span.text-slate-400  (#{u[:count]})
+
+  != HtmlHelper.paginate(@users)

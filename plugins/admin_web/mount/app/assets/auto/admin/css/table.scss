@@ -1,0 +1,233 @@
+table {
+  border-spacing: 0;
+  display: table !important;
+  table-layout: fixed;
+
+  td, th { vertical-align: top; }
+  tr:hover { cursor: pointer; }
+  td.m { vertical-align: middle; }
+
+  &.table {
+    white-space: nowrap;
+    table-layout: fixed;
+    width: 100%;
+
+    &.wrap {
+      white-space: wrap;
+    }
+
+    th {
+      padding: 5px;
+      text-align: left;
+    }
+
+    td {
+      padding: 10px 6px;
+      overflow: hidden;
+
+      &.small {
+        padding-top: 8px !important;
+      }
+
+      a {
+        color: #444;
+      }
+
+      .material-symbols-outlined {
+        color: #bbb;
+        line-height: 10px;
+        position: relative;
+        top: 6px;
+        margin-bottom: -16px;
+      }
+    }
+
+    th.c, td.c { text-align: center !important; }
+    th.r, td.r { text-align: right !important; }
+
+    th, td {
+      border-bottom: 1px solid #ddd;
+      // text-align: right;
+
+      a:not(.btn) {
+        color: #008;
+        text-decoration: underline;
+      }
+    }
+
+    // th:first-child, td:first-child {
+    //   text-align: left;
+    // }
+
+    tr:last-child td {
+      border: none !important;
+    }
+
+    &.bigger {
+      font-size: 15px;
+      padding: 6px;
+
+      td {
+        vertical-align: middle;
+      }
+    }
+
+    tr.active, tr.selected {
+      td {
+        font-weight: 600;
+
+        .material-symbols-outlined {
+          color: #444;
+        }
+      }
+    }
+
+    @media (max-width: 700px) {
+      & {
+        display: block !important;
+        background: transparent;
+        border: none;
+      }
+
+      th {
+        display: none;
+      }
+
+      tbody {
+        display: block;
+        background: transparent;
+      }
+
+      tr {
+        display: block;
+        margin-bottom: 15px;
+        background: #fff;
+        border: 1px solid #ddd;
+      }
+
+      td {
+        display: block;
+        width: 100% !important;
+        border-bottom: 1px solid #ddd;
+
+        &:empty {
+          display: none;
+        }
+
+        &.m\:inline {
+          display: inline-block;
+          width: auto !important;
+          vertical-align: top;
+
+          & + td {
+            display: inline-block;
+            width: calc(100% - 10px) !important;
+            vertical-align: top;
+          }
+        }
+      }
+    }
+  }
+
+  &.hover {
+     tr:hover td { background-color:#eef; }
+  }
+
+  tr.hover:hover td { background-color:#eef; }
+
+  &.centered {
+    width:100%;
+    td { width: 50%; vertical-align:top ;}
+    td:first-child { text-align:right; padding-right:20px; }
+    td:nth-child(2) { font-weight: bold; }
+  }
+
+  &.vcenter {
+    td { vertical-align:middle ;}
+  }
+
+  &.fixed {
+    width:100%;
+    table-layout:fixed;
+  }
+
+  &.narrow {
+    th, td { padding: 2px; }
+  }
+
+  &.striped {
+    tr:nth-child(2) td { background-color: #eee; }
+  }
+
+  &.tall {
+    td { padding: 10px 4px; }
+  }
+
+// Flex table is a module for creating dynamically resizable elements that
+// always sit on the same horizontal line (e.g., they never wrap). Using
+// tables means it's cross browser friendly.
+
+  &.flex {
+    display: table;
+
+    // Place this on every "cell"
+    .flex-item {
+      display: table-cell;
+      width: 1%;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    // Place this on the largest or most important "cell"
+    .flex-primary {
+      width: 99%;
+    }
+  }
+
+  &.box {
+    padding: 0;
+
+    tr > *:first-child {
+      padding-left: 10px;
+    }
+  }
+
+  &.spaced {
+    td, th {
+      padding: 12px;
+
+      &:first-child {
+        padding-left: 0;
+      }
+
+      &:last-child {
+        padding-right: 0;
+      }
+    }
+  }
+}
+
+.table {
+  overflow-x: auto;
+}
+
+.markdown {
+  table {
+    width: 100%;
+    white-space: nowrap;
+    table-layout: fixed;
+    margin: 20px 0;
+
+    th {
+      padding: 5px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    td {
+      padding: 6px 4px;
+      overflow: hidden;
+      border-bottom: 1px solid #ddd;
+    }
+  }
+}

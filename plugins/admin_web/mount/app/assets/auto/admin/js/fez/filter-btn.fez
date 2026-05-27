@@ -1,0 +1,79 @@
+<info>
+  <ul>
+    <li>Button bound to a URL querystring filter. Activates when <code>?filter=value</code> matches.</li>
+    <li>Click sets / clears the param via <code>Pjax.qs</code> (in-place pjax navigation).</li>
+    <li>Reuses admin <code>.btn</code> / <code>.btn-primary</code> from <code>admin/main.scss</code>.</li>
+    <li>Two modes - distinguished by presence of <code>onclick</code>:
+      <ul>
+        <li><strong>Pill</strong> (no <code>onclick</code>) - slot is the label in both states; click toggles the filter.</li>
+        <li><strong>Chip</strong> (with <code>onclick</code>) - inactive shows slot + runs <code>onclick</code>;
+            active shows <code>value</code> + <code>&amp;times;</code> and click clears the filter.</li>
+      </ul>
+    </li>
+    <li>Props:
+      <ul>
+        <li><code>filter</code>  - query param name (e.g. "days")</li>
+        <li><code>value</code>   - value to set on click / match for active state</li>
+        <li><code>default</code> - present = active when the param is absent</li>
+        <li><code>onclick</code> - string; if present switches to chip mode</li>
+      </ul>
+    </li>
+  </ul>
+</info>
+
+<demo>
+  <h4>Pill mode (toggle pills)</h4>
+  <filter-btn filter="days" value="1">1d</filter-btn>
+  <filter-btn filter="days" value="7" default>7d</filter-btn>
+  <filter-btn filter="days" value="30">30d</filter-btn>
+
+  <h4>Chip mode (active filter with dismiss)</h4>
+  <filter-btn filter="usr" value="foo@bar.baz" onclick="alert('open user picker')">Filter by user</filter-btn>
+  <filter-btn filter="usr" onclick="alert('open user picker')">Filter by user</filter-btn>
+</demo>
+
+<script>
+  class {
+    NAME = 'button'
+
+    init(props) {
+      this.copy('class', 'style')
+      this.root.type = 'button'
+      this.root.classList.add('btn')
+      // cache the slot label so onRefresh can swap between slot and value cleanly
+      this._slot = this.root.innerHTML.trim()
+    }
+
+    onRefresh() {
+      const props      = this.props
+      if (!props.filter) return
+
+      const current    = Pjax.qs(props.filter)
+      const isDefault  = props.default !== undefined
+      const isActive   = (props.value && current === props.value) || (!current && isDefault)
+      const isChipMode = !!props.onclick
+
+      this.root.classList.toggle('btn-primary', isActive)
+
+      if (isChipMode) {
+        // chip: slot when inactive, value + close icon when active
+        this.root.innerHTML = isActive
+          ? (props.value || '') + '<span>&times;</span>'
+          : this._slot
+      } else {
+        // pill: slot in both states; fall back to value if no slot
+        this.root.innerHTML = this._slot || (props.value || '')
+      }
+
+      this.root.onclick = () => {
+        if (isActive) {
+          Pjax.qs(props.filter, null)
+        } else if (isChipMode) {
+          new Function(props.onclick).call(this.root)
+        } else {
+          Pjax.qs(props.filter, props.value)
+        }
+      }
+    }
+  }
+</script>
