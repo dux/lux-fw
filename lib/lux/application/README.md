@@ -2,8 +2,11 @@
 
 Main router and request lifecycle. Lifecycle callbacks
 (`before`/`after`/`rescue_from`) live at the top level of
-`Lux do ... end`; all routing DSL (`map`, `root`, ...) lives inside the
-`routes do ... end` block.
+`Lux do ... end`. The routing DSL (`map`, `root`, `match`, `subdomain`,
+`get?`, ...) works **both** at the top level of `Lux do ... end` and
+inside an optional `routes do ... end` block - neither form is required.
+The two forms interleave by source order, so you can mix top-level routes
+and `routes do` blocks freely.
 
 `Lux do ... end` (inside Rack / `config.ru`) class-evals into
 `Lux::Application`, mounts as the Rack app, and prints the start banner.
@@ -40,41 +43,47 @@ Lux.app do
     call '%s#error' % [user ? :main : :promo]
   end
 
-  # --- routes -------------------------------------------------------------
-  routes do
-    root 'main'                                  # /          -> MainController#root
-    map about: 'static#about' if get?            # /about     (GET only)
-    map 'users'                                  # resourceful UsersController
+  # --- routes (top level; an optional `routes do ... end` wrapper also
+  #     works and interleaves with these by source order) -----------------
+  root 'main'                                    # /          -> MainController#root
+  map about: 'static#about' if get?              # /about     (GET only)
+  map 'users'                                    # resourceful UsersController
 
-    post? { map api: :api_router }               # POST scope block
+  post? { map api: :api_router }                 # POST scope block
 
-    map '/foo/:bar/baz' => 'main#foo'            # absolute path with capture
-    map [:array1, :array2] => 'root'             # multi-key map
-    map %r{^@} => [UsersController, :show]       # regex match
+  map '/foo/:bar/baz' => 'main#foo'              # absolute path with capture
+  map [:array1, :array2] => 'root'               # multi-key map
+  map %r{^@} => [UsersController, :show]         # regex match
 
-    map 'boards' do
-      root 'boards/index'                        # /boards
-      map favorites: 'boards#favorites'          # /boards/favorites
-    end
-
-    subdomain 'admin' do
-      map 'users', 'admin/users'                 # admin.host/users
-    end
-
-    map 'admin' do                               # nested scope
-      root 'admin/dashboard'                     # /admin
-      map users: 'admin/users'                   # /admin/users
-      map 'reports#monthly'                      # /admin/reports -> #monthly
-    end
-
-    map '/api'           => ApiApp               # any Rack-callable class
-    map '/admin/sys/jobs' => LuxJobWeb           # deep absolute path
-    call '/api'          => ApiApp               # unconditional (for rescue_from etc.)
-
-    favicon 'app/assets/favicon.ico'
-    plugin_route :authcog                        # explicit single plugin
-    plugin_routes                                # auto-mount every plugin with routes.rb
+  map 'boards' do
+    root 'boards/index'                          # /boards
+    map favorites: 'boards#favorites'            # /boards/favorites
   end
+
+  subdomain 'admin' do
+    map 'users', 'admin/users'                   # admin.host/users
+  end
+
+  map 'admin' do                                 # nested scope
+    root 'admin/dashboard'                       # /admin
+    map users: 'admin/users'                     # /admin/users
+    map 'reports#monthly'                        # /admin/reports -> #monthly
+  end
+
+  map '/api'           => ApiApp                 # any Rack-callable class
+  map '/admin/sys/jobs' => LuxJobWeb             # deep absolute path
+  call '/api'          => ApiApp                 # unconditional (for rescue_from etc.)
+
+  favicon 'app/assets/favicon.ico'
+  plugin_route :authcog                          # explicit single plugin
+  plugin_routes                                  # auto-mount every plugin with routes.rb
+
+  # Equivalent, wrapped in the optional block - mix and match as you like:
+  #
+  #   routes do
+  #     root 'main'
+  #     map 'users'
+  #   end
 end
 ```
 

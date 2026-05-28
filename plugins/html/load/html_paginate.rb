@@ -28,7 +28,7 @@ module HtmlHelper
 
     if opts[:page] > 1
       url = Url.current
-      opts[:page] == 1 ? url.delete(opts[:param]) : url.qs(opts[:param], opts[:page]-1)
+      url.qs(opts[:param], opts[:page]-1)
       ret.push %[<a href="#{url.relative}" data-key="ArrowLeft">&larr;</a>]
     else
       ret.push %[<span>&larr;</span>]

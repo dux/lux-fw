@@ -119,11 +119,15 @@ module Lux
     end
     alias :prop :property
 
-    def __find_exporter version = nil
-      base     = (@opts[:exporter] || model.class).to_s.classify
-      exporter = self.class.to_s
+    def __find_exporter
+      base  = (@opts[:exporter] || model.class).to_s.classify
+      shape = @opts[:shape]
 
       self.class.ancestors.map(&:to_s).each do |klass|
+        if shape
+          block = EXPORTERS["#{shape.to_s.classify}#{klass}"]
+          return block if block
+        end
         block = EXPORTERS[[base, klass].join] || EXPORTERS[klass]
         return block if block
       end

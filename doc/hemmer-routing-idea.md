@@ -1,3 +1,5 @@
+> STATUS: design proposal - NOT implemented. Describes a possible future router, not current behavior.
+
 # Hammer-style routing idea
 
 ## Why

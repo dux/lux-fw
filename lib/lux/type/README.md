@@ -55,7 +55,7 @@ Located in [`lib/lux/type/types/`](./types).
 | `:uuid`      | String  | RFC-4122 |
 | `:locale`    | String  | two-letter, lowercased |
 | `:country`   | String  | ISO 3166-1 alpha-2, uppercased |
-| `:currency`  | Float   | parsed with locale |
+| `:currency`  | Float   | `to_f.round(2)` |
 | `:currency_code` | String | ISO 4217, uppercased |
 | `:phone`     | String  | strips parens/dashes, requires 5+ digits |
 | `:iban`      | String  | validates IBAN |

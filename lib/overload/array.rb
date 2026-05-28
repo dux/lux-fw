@@ -14,7 +14,7 @@ class Array
 
   # Wrap all list elements with a tag
   def wrap name, opts={}
-    map{ |el| el.tag(name, opts) }
+    map{ |el| el.tag(name, **opts) }
   end
 
   # Set last element of an array

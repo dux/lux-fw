@@ -68,6 +68,13 @@ end
 model                          # the object being exported
 opts                           # options passed to .export
 json                           # the hash being built
+
+prop  :name                    # json[:name] = model.name
+property :name, 'value'        # explicit value (alias: prop); block form supported
+property(:meta) { |h| h[:a] = 1 }
+export :org                    # nested export of an associated object/array
+export some_object             # export a passed object (key derived from its class)
+merge other_hash               # shallow-merge a hash into json
 ```
 
 ## API

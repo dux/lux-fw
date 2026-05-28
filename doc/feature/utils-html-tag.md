@@ -1,3 +1,5 @@
+> STATUS: DONE / shipped. Lux::Utils::HtmlTag is vendored and in use; this note is kept for history.
+
 ## utils-html-tag
 
 Vendor the `html-tag` gem source into `lib/lux/utils/` as `Lux::Utils::HtmlTag`,

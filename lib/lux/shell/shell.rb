@@ -28,8 +28,6 @@ module Lux
     # be asserted on instead of exiting the suite.
     class Die < StandardError; end
 
-    SHELL_UNSAFE ||= /[\s\$\`\\\;\|\&\>\<\*\?\!\(\)\[\]\{\}\'\"#~]/
-
     # Run a command. Returns stripped stdout on success.
     # On failure (non-zero exit, timeout, or ENOENT):
     #   * with a block: calls block.(stderr, stdout); returns nil

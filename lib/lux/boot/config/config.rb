@@ -38,12 +38,10 @@ module Lux
 
           bad.('root must be a Hash') unless data.is_a?(::Hash)
 
-          base_key = if data['default']
+          base_key = if data.key?('default')
             'default'
           elsif data.key?('base')
             'base'
-          elsif data.key?('default')
-            'default'
           end
           base = data[base_key]
           bad.(':default / :base root not defined') unless base_key

@@ -41,7 +41,7 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 
 | Module | What it is | Read |
 |--------|------------|------|
-| `Lux::Application`     | Router + request lifecycle; routing DSL inside `routes do` | [README](./lib/lux/application/README.md) |
+| `Lux::Application`     | Router + request lifecycle; routing DSL at top level or in an optional `routes do` | [README](./lib/lux/application/README.md) |
 | `Lux::Controller`      | Rails-shaped HTTP controllers with `opt` / `params do`     | [README](./lib/lux/controller/README.md) |
 | `Lux::Api`             | JSON API classes; same params DSL as controllers           | [README](./lib/lux/api/README.md) |
 | `Lux::Schema`          | The shared schema DSL parser at the heart of the framework | [README](./lib/lux/schema/README.md) |
@@ -98,7 +98,7 @@ bin/cli/<name>_hammer.rb  # CLI subcommands
 
 ## Testing
 
-* Framework: **Minitest::Spec**. RSpec is gone (kept in `:rspec_legacy` bundler group only until isolation cleanup lands).
+* Framework: **Minitest::Spec**. RSpec is gone.
 * Entry point: every spec starts with `require 'test_helper'`. The helper loads lux, `Lux::Test`, and `spec/factories.rb`.
 * Base class: `Lux::Test::Case` (transparently mixed into every `describe` block).
 * Factories: vendored clean-mock at `lib/lux/test/factory/`, exposed as `factory` in every spec.

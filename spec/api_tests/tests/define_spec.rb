@@ -100,6 +100,41 @@ describe 'define block syntax' do
   end
 end
 
+describe 'define block with def_registration_strict false' do
+  before do
+    unless defined?(StrictFalseDefineApi)
+      class StrictFalseDefineApi < ApplicationApi
+        def_registration_strict false
+
+        define :open_action do
+          desc 'Anonymous action'
+          unsafe
+          params do
+            name String
+          end
+          proc { 'open' }
+        end
+      end
+    end
+  end
+
+  # Regression: define_method inside define_single_action fires method_added,
+  # and with strict registration off that callback used to re-register the
+  # action with empty opts, wiping unsafe/desc/params. Guard keeps them.
+  it 'keeps unsafe/desc/params when def_registration_strict is false' do
+    opts = StrictFalseDefineApi.opts
+    _(opts[:collection][:open_action][:unsafe]).must_equal true
+    _(opts[:collection][:open_action][:desc]).must_equal 'Anonymous action'
+    _(opts[:collection][:open_action][:params]).wont_be_nil
+  end
+
+  it 'still runs the action body' do
+    response = StrictFalseDefineApi.render :open_action, params: { name: 'x' }
+    _(response[:success]).must_equal true
+    _(response[:data]).must_equal 'open'
+  end
+end
+
 describe 'RESTful define syntax' do
   before do
     unless defined?(RestfulDefineApi)

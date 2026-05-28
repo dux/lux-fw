@@ -1,6 +1,7 @@
 class Lux::Type::CountryType < Lux::Type
   def coerce
     @value = @value.to_s.upcase
+    validate
   end
 
   def validate

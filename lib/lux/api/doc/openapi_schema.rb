@@ -79,7 +79,7 @@ module Lux
             field = TYPE_MAP[spec[:type].to_s] || { 'type' => 'string' }
             field = field.dup
             field['default']     = spec[:default] unless spec[:default].nil?
-            field['description'] = spec[:desc]    if spec[:desc]
+            field['description'] = spec[:description] || spec[:desc] if spec[:description] || spec[:desc]
             field['enum']        = spec[:values]  if spec[:values]
             props[name.to_s] = field
           end

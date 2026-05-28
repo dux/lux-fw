@@ -234,7 +234,6 @@ module Sequel::Plugins::RefLinker
           # plural reverse lookup: ask the other side for rows pointing back at us.
           # Resolved at call time via RefLinker.scope so the shape stays accurate
           # even if a column is added to the other model later.
-          host_class = klass.constantize
           class_eval <<-STR, __FILE__, __LINE__ + 1
             def #{name}
               Sequel::Plugins::RefLinker.scope(#{klass}.default, self)

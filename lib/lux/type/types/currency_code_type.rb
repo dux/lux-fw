@@ -13,6 +13,7 @@ class Lux::Type::CurrencyCodeType < Lux::Type
 
   def coerce
     @value = @value.to_s.upcase.strip
+    validate
   end
 
   def validate

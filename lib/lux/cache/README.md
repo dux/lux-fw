@@ -73,7 +73,7 @@ Lux.var                              # the underlying Hash if you need direct ac
 | `:memcached`       | via Dalli. `MEMCACHE_SERVERS`, `MEMCACHE_NAMESPACE` |
 | `:sqlite`          | file-backed, WAL mode, survives restarts |
 | `:null`            | no-op; use in tests |
-| custom             | any object answering `read`/`write`/`delete`/`exist?` |
+| custom             | any object answering `get`/`set`/`delete`/`fetch`/`get_multi`/`clear` |
 
 ## See also
 

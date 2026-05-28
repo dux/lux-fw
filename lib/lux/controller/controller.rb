@@ -316,7 +316,7 @@ module Lux
       opt.text = opt.plain if opt.plain
       opt.cache = @lux.render_cache if @lux.render_cache
       opt.cache = nil if lux.response.flash.present?
-      opt.layout ||= @lux.layout.nil? ? self.class.cattr.layout : @lux.layout
+      opt.layout = (@lux.layout.nil? ? self.class.cattr.layout : @lux.layout) if opt.layout.nil?
       opt
     end
 

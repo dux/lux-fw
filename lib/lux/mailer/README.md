@@ -52,9 +52,13 @@ Mailer.lost_password(user).deliver             # method_missing style
 Lux.defer { Mailer.deliver(:welcome, user) }   # background thread
 
 # --- mail send hook (e.g. log every outgoing) -----------------------
+# class-level `on_deliver` callback in the Mailer subclass; runs just
+# before delivery with the built `Mail::Message`. Multiple blocks stack.
 
-Lux.config.on_mail_send do |mail|
-  Lux.logger(:email).info "[#{self.class}.#{@_template} to #{mail.to}] #{mail.subject}"
+class Mailer < Lux::Mailer
+  on_deliver do |mail|
+    Lux.logger(:email).info "[#{self.class}.#{@_template} to #{mail.to}] #{mail.subject}"
+  end
 end
 ```
 
@@ -83,4 +87,4 @@ Instance variables set in the mailer method are visible in the template.
 
 * [`../template/README.md`](../template/README.md) - the rendering engine
 * [`../current/README.md`](../current/README.md) - `Lux.defer { Mailer.deliver(...) }` for async send
-* [`../boot/config/README.md`](../boot/config/README.md) - `Lux.config.on_mail_send` hook
+* [`./mailer.rb`](./mailer.rb) - class-level `on_deliver` callback (pre-delivery hook)

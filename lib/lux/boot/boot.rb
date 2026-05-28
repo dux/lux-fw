@@ -63,7 +63,7 @@ module Lux
       return if ENV['LUX_SKIP_BUNDLER_REQUIRE']
 
       @bundler_required = true
-      Bundler.require :default, (ENV['RACK_ENV'] || 'development').to_sym
+      Bundler.require :default, (ENV['LUX_ENV'] || ENV['RACK_ENV'] || 'development').to_sym
     end
 
     def set_defaults

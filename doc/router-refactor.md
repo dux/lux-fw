@@ -1,6 +1,12 @@
+> STATUS: design proposal - NOT implemented. Describes a possible future router, not current behavior.
+
 # Router Refactor - Architecture Reference
 
 Snapshot of how the request pipeline currently works, written as a baseline before any router refactor. File/line refs are against `master` at the time of writing.
+
+> Note: the "Architecture Reference" section below documents real current code.
+> The "Refactor plan" section is aspirational and was NOT carried out - in
+> particular `rescue_from` still exists and was NOT removed.
 
 ## Request flow at a glance
 

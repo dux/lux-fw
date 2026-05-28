@@ -1,8 +1,40 @@
 ## Lux command line helper
 
+> NOTE: The `lux` CLI is now built on lux-hammer. The old Thor/Rake setup is
+> retired - there is no Rakefile and no `rake ...` tasks. Run tasks as
+> `lux <cmd>` (or `bundle exec hammer <cmd>`). The real commands live in
+> `bin/cli/*_hammer.rb`. The Thor output and Rake list further down are kept
+> only for historical reference and no longer reflect reality.
+
 You can run command `lux` in your app home folder.
 
-If you have `capistrano` or `mina` installed, you will see linked tasks here as well.
+### Current commands
+
+```bash
+$ lux
+  lux console     # Start console                                       (alias: c)
+  lux evaluate    # Eval ruby string in context of Lux::Application     (alias: e, eval)
+  lux generate    # Generate models, cells, ...
+  lux hi          # Print hello world
+  lux memory      # Show memory usage
+  lux mount       # Symlink missing entries from each plugin's mount/ into the app root
+  lux render      # Render page via Lux.render (lux render /login -t TOKEN -s user_id=1 -i)
+  lux routes      # Print mounted route tree (verb, path, target, source)
+  lux secrets     # Edit, show and compile secrets
+  lux server      # Start web server                                    (alias: s)
+  lux stats       # Print project stats
+  lux test        # Run tests (auto-detects rspec or minitest)          (alias: t)
+```
+
+Run tests with `lux test` or `bundle exec hammer test`.
+
+---
+
+## Superseded (historical Thor/Rake output - no longer accurate)
+
+The sections below describe the retired Thor-based CLI and the old Rakefile
+tasks. They are preserved for history only; none of these `rake ...` tasks
+exist anymore.
 
 ```bash
 $ lux

@@ -7,35 +7,37 @@ raise with the right status.
 ## Full example
 
 ```ruby
-# --- raise helpers (set response status, then raise Lux::Error) ----------
+# --- raise helpers (set response status, BUILD the error; you must raise) --
+# Each helper sets the HTTP status and RETURNS a Lux::Error - it does not
+# raise on its own. Always `raise` the result.
 
-Lux.error.bad_request 'name missing'             # 400
-Lux.error.unauthorized 'login required'          # 401
-Lux.error.payment_required 'upgrade'             # 402
-Lux.error.forbidden 'no access'                  # 403
-Lux.error.not_found 'no such user'               # 404
-Lux.error.method_not_allowed 'POST only'         # 405
-Lux.error.not_acceptable                         # 406
-Lux.error.internal_server_error 'boom'           # 500
-Lux.error.not_implemented                        # 501
+raise Lux.error.bad_request 'name missing'             # 400
+raise Lux.error.unauthorized 'login required'          # 401
+raise Lux.error.payment_required 'upgrade'             # 402
+raise Lux.error.forbidden 'no access'                  # 403
+raise Lux.error.not_found 'no such user'               # 404
+raise Lux.error.method_not_allowed 'POST only'         # 405
+raise Lux.error.not_acceptable                         # 406
+raise Lux.error.internal_server_error 'boom'           # 500
+raise Lux.error.not_implemented                        # 501
 
 # --- arbitrary status / generic ------------------------------------------
 
-Lux.error 404                                    # status 404, default message
-Lux.error 418, "I'm a teapot"                    # status + custom message
-Lux.error 'generic'                              # status 400, custom message
+raise Lux.error 404                              # status 404, default message
+raise Lux.error 418, "I'm a teapot"              # status + custom message
+raise Lux.error 'generic'                        # status 400, custom message
 
 # --- in-controller use ---------------------------------------------------
 
 def show
-  @user = User.find(nav.ref) or Lux.error.not_found
-  Lux.error.forbidden unless @user.can.read?
+  @user = User.find(nav.ref) or raise Lux.error.not_found
+  raise Lux.error.forbidden unless @user.can.read?
 end
 
 # --- conditional rendering across dev / prod -----------------------------
 
 # dev: include the detailed message; prod: bare 404
-Lux.error.not_found Lux.mode.debug?('404 Not Found') {
+raise Lux.error.not_found Lux.mode.debug?('404 Not Found') {
   'Subdomain "%s" matched but nothing called' % name
 }
 

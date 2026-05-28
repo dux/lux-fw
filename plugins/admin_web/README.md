@@ -27,7 +27,7 @@ lux mount admin_web
 That places:
 
 ```
-app/controllers/admin/root_controller.rb
+app/controllers/admin_controller.rb
 app/views/admin/root/index.haml
 app/views/admin/plugins/exception_logger/{root,show}.haml
 ```
@@ -48,10 +48,11 @@ are pure templates - rendered by the host's `AdminController` via
 (`LuxException.get_list`, `LuxException.get_exp(lux.params[:uid])`), so no
 GET-side controller action is needed.
 
-The plugin ships one POST-only controller (`LuxExceptionController`, in
-`lib/`, required by the loader) that owns
-`/admin/plugins/exception_logger/resolve` via a per-action `route`
-annotation.
+Resolving an exception is handled inline by the `show` view, not a
+separate controller. Clicking Open/Resolved runs `Pjax.refresh('?toggle=<uid>')`,
+which re-loads the page with a `?toggle=<uid>` GET param; the view flips
+`is_resolved` and redirects back to the clean URL so a refresh or
+back-button doesn't re-flip the state.
 
 Open `/admin/plugins/exception_logger` to browse exceptions, filter by user
 or class, inspect request logs, and mark exceptions as resolved.
@@ -142,7 +143,6 @@ plugins/admin_web/
   lib/
     lux_exception.rb                                          # grouping + add/get/query API
     lux_exception_log.rb                                      # per-occurrence record
-    lux_exception_controller.rb                               # POST /resolve only
   mount/                                                      # symlinked into the host via `lux mount`
     app/
       controllers/admin_controller.rb

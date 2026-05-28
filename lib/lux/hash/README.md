@@ -42,8 +42,9 @@ STATUS = Lux::Hash() do |opt|       # plain hash
   opt.ACTIVE   1 => 'Active'
   opt.PENDING  2 => 'Pending'
 end
-STATUS[1]                          # 'Active'
-STATUS['ACTIVE']                   # 1
+STATUS[1]                          # 'Active'  (code -> value)
+STATUS.ACTIVE                      # 'Active'  (named method, NOT a key)
+# NOTE: no reverse lookup - STATUS['ACTIVE'] is nil (label is not a key)
 
 # Also expose Foo.status returning the hash:
 class Foo
@@ -61,7 +62,7 @@ class Foo
 end
 Foo::STATUS_ACTIVE                 # 1
 
-# Result is frozen by default; pass `freeze: false` in the opts to keep mutable.
+# Result is always frozen; there is no opt to keep it mutable.
 
 # --- to_lux_hash structuring ---------------------------------------
 

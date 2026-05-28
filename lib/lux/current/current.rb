@@ -205,8 +205,10 @@ module Lux
       Lux::Utils::Crypt.decrypt(token, opts)
     end
 
+    # Random per-session id. Set once and persisted in the session cookie;
+    # works for guests too - unrelated to the current user.
     def session_sid
-      User.current&[:session_sid]
+      session[:sid] ||= Lux::Utils::Crypt.uid(20)
     end
 
     def user

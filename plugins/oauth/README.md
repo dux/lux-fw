@@ -14,7 +14,7 @@ Lux.plugin :oauth
 
 ```ruby
 url   = LuxOauth.login(:facebook)         # build authorization URL
-user  = LuxOauth.get(:facebook).callback  # exchange code for user data
+user  = LuxOauth.get(:facebook).callback(params[:code])  # exchange code for user data
 ```
 
 ## Layout

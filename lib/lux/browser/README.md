@@ -18,9 +18,9 @@ Two roles in one class:
 Lux::Browser.register :sse, file: 'assets/lux/sse.js'    # registers a module
 Lux.browser.modules                                       # [:core, :sse, ...]
 Lux.browser.registered?(:sse)                             # true
-Lux.browser.client                                        # all modules, core first
-Lux.browser.client(:sse)                                  # core + sse only
-Lux.browser.client(:sse, :api)                            # core + listed
+Lux.browser.client_js                                     # all modules, core first
+Lux.browser.client_js(:sse)                               # core + sse only
+Lux.browser.client_js(:sse, :api)                         # core + listed
 
 # Served URLs (intercepted before route resolution; /_lux_/* is reserved):
 #   /_lux_/client.js                  -> all registered modules
@@ -85,7 +85,7 @@ lives under `window.Lux`, not `window.app`.
 | call | notes |
 |------|-------|
 | `Lux.browser.register(name, file:)` | path is relative to `Lux.fw_root` unless absolute |
-| `Lux.browser.client(*names)` | composed JS string; no args = all modules |
+| `Lux.browser.client_js(*names)` | composed JS string; no args = all modules |
 | `Lux.browser.modules` | `[Symbol]` |
 | `Lux.browser.registered?(name)` | Boolean |
 | `Lux.browser.publish(channel, data)` | broadcast to SSE subscribers (`Lux.subscribe` on client) |

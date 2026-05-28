@@ -23,6 +23,13 @@ lux db:restore              # restore from backup
 
 (See `hammer/db_hammer.rb` for the full task list.)
 
+> WARNING: `db:am` DROPS columns that are no longer in the model schema, and
+> performs `safe: false` type conversions. It prompts on an interactive TTY,
+> but auto-confirms (drops/converts WITHOUT asking) when `AutoMigrate.auto_confirm`
+> is set, when `Lux.env.production?`, or when STDIN is not a TTY (CI, piped, or
+> `db:reset`). Back up first when running it non-interactively against data you
+> care about.
+
 ## Ref linking
 
 `Sequel::Plugins::RefLinker` (see `plugins/_ref_linker.rb`) is the single

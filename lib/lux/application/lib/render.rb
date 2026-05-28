@@ -41,7 +41,7 @@ module Lux
       def cell name, *args
         opts    = args.last.is_hash? ? args.pop : {}
         context = args.shift
-        Lux::ViewCell.get(name, context, opts)
+        Lux::ViewCell.get(context, name, opts)
       end
     end
   end

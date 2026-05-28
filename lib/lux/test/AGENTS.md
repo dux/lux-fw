@@ -10,7 +10,7 @@ is zero hallucinated matchers and zero invented helpers.
 * Every `describe` block transparently mixes in `Lux::Test::Case` helpers,
   so all helpers below are instance methods inside every `it` block.
   Do not write `class FooTest < ...`.
-* Run: `rake test` (or `ruby -Ilib -Ispec spec/path/to/foo_spec.rb`).
+* Run: `bundle exec hammer test` (or `ruby -Ilib -Ispec spec/path/to/foo_spec.rb`).
 
 ## Assertions - the entire allowed list
 

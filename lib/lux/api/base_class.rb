@@ -340,8 +340,13 @@ module Lux
         set type, name, @@opts
         @@opts = {}
 
-        # actually wire up the method body
+        # actually wire up the method body. define_method fires method_added;
+        # when def_registration_strict is false that callback would re-register
+        # the action with the now-empty @@opts and clobber the desc/params/
+        # unsafe/allow we just captured - guard so it leaves our opts intact.
+        @in_define_action = true
         self.define_method(name, func)
+        @in_define_action = false
       end
 
       public
@@ -562,6 +567,10 @@ module Lux
       # hierarchy with `def_registration_strict false`, in which case every
       # public def registers (the old Joshua/Lux::Api behavior).
       def method_added name
+        # skip the define_method coming from define_single_action - that path
+        # registers the endpoint itself with the correct opts (see @in_define_action)
+        return if @in_define_action
+
         unless private_method_defined?(name) || protected_method_defined?(name)
           if @@opts[:desc] || !def_registration_strict?
             type = @method_type == :member ? :member : :collection

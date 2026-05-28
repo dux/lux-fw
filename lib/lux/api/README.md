@@ -21,7 +21,7 @@ class BoardsApi < ApplicationApi
   unsafe                                                # endpoints callable without bearer
 
   before do
-    @user = User.find_by_token(@api.bearer) or @api.error 'auth required', status: 401
+    @user = User.find_by_token(@api.bearer) or response.error('auth required', status: 401)
   end
 
   rescue_from Sequel::NoMatchingRow do |err|

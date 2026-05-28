@@ -14,7 +14,7 @@ module Lux
 
     class << self
       # load cell based on a name, pass context and optional vars
-      # Lux::ViewCell.get(:user, self) -> UserCell.new(self)
+      # Lux::ViewCell.get(self, :user) -> UserCell.new(self)
       def get parent, name, vars = {}
         ('%sCell' % name.to_s.classify)
           .constantize
@@ -31,8 +31,8 @@ module Lux
 
       # = cell @users
       # = cell @user
-      # = cell.user.render @user
-      # = cell(:user, user: @user).render
+      # = cell.user.template @user
+      # = cell(:user, user: @user).template
       def cell parent, *args
         if args.first
           # covert to list of objects

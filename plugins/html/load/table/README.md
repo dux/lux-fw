@@ -42,6 +42,31 @@ t.render
 | `:image`    | Img tag, uses `:width` (default 40px)    |
 | `:list`     | Join array with `, `                     |
 
+The types above belong to the base `HtmlTable`. The app-facing `table`
+helper (`ApplicationHelper#table`) builds an `AppTable` instead, which
+defines its own `as:` set tuned for application models:
+
+| Type           | Description                                          |
+|----------------|------------------------------------------------------|
+| `:boolean`     | `Yes` (green) for true, `-` otherwise                |
+| `:image`       | `<ui-asset>` tag (asset id or raw HTML/URL)          |
+| `:url`         | Anchor linking to the field's own value              |
+| `:email`       | Mailto link                                          |
+| `:bold`        | Wrap value in `<b>`                                  |
+| `:ago`         | Relative time (`Time.ago`), defaults to `created_at` |
+| `:user`        | Record's `creator` name (optionally with email)      |
+| `:scope_link`  | Linked button to the associated record's `scope_path`|
+| `:object`      | Associated record rendered as a scope link           |
+| `:sentence`    | Array joined to a sentence (models become links)     |
+| `:tags`        | Array joined with `&sdot;`                            |
+| `:date`        | Short date                                           |
+| `:time`        | Long datetime                                        |
+| `:html`        | Render value as HTML-safe                            |
+| `:delete`      | Trash icon that calls the destroy API                |
+
+`AppTable` also adds column helpers such as `id`, `avatar`, `count`,
+`delete`, `callback`, `href`, `dialog`, and `idialog`.
+
 #### Search
 
 ```ruby

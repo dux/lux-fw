@@ -53,21 +53,23 @@ module Sequel::Plugins::LuxSchema
         end
 
         # this are rules unique to database, so we check them here
+        pk_col = respond_to?(:ref) ? :ref : :id
+        pk_val = self[pk_col]
+
         schema.rules.each do |field, rule|
           # check uniqe fields
           if unique = rule.dig(:meta, :unique)
-            id    = self[:id] || 0
             value = self[field]
 
             # we only check if field is changed
-            if value.present? && column_changed?(field) && self.class.xwhere("LOWER(%s)=LOWER(?) and #{respond_to?(:ref) ? :ref : :id}::text<>?" % [field], value, id.to_s).first
+            if value.present? && column_changed?(field) && self.class.xwhere("LOWER(%s)=LOWER(?) and #{pk_col}::text<>?" % [field], value, pk_val.to_s).first
               error = unique.class == TrueClass ? %[Value "#{value}" for field "#{field}" has been already used, please chose another value.] : unique
               errors.add(field, error) unless (errors.on(field) || []).include?(error)
             end
           end
 
           # check protected fields
-          if (prot = rule.dig(:meta, :protected)) && self[:id]
+          if (prot = rule.dig(:meta, :protected)) && pk_val
             if column_changed?(field)
               error = prot.class == TrueClass ? "value once defined can't be overwritten." : prot
               errors.add(field, error) unless (errors.on(field) || []).include?(error)

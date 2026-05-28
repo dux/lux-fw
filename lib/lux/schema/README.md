@@ -28,7 +28,7 @@ Lux.schema :user do
   name     String, max: 30
   email    type: :email, index: true
   bio?     String                                  # `?` suffix = optional
-  role     %w[admin user guest]                    # allowed-values shorthand
+  role     String, values: %w[admin user guest]    # allowed-values whitelist
   tags?    [String]                                # array of strings
   age      Integer, min: 13, max: 130
   country  type: :country, default: 'HR'
@@ -116,7 +116,7 @@ Lux.schema(:user).valid?(data)        # true / false
 | `duplicates`   | Allow duplicates in array |
 | `index`        | DB column index hint |
 | `desc` / `description` | Human description (used by API explorer) |
-| `meta`         | Per-locale custom error messages |
+| `meta`         | free-form metadata bag - per-locale error overrides, plus `unique`/`protected`/`was`/`as`/... consumed by the db plugin |
 
 Plus per-type options: `min`, `max` (numbers/strings), and anything declared
 on a custom type via `Lux::Type.opts :key, 'desc'`.

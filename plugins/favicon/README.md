@@ -57,5 +57,4 @@ Serves a single SVG favicon and silences browser polling for the legacy
 * iOS Safari 16.4+ - uses the SVG for apple-touch-icon.
 * Older iOS - silently no apple icon. Ship a separate PNG at
   `public/apple-touch-icon.png` if you need legacy support; the static
-  handler will serve it and the plugin's 204 route only matches when
-  no file exists.
+  handler will serve it.

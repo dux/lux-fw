@@ -50,6 +50,7 @@ module Lux
         field = field.to_sym
         opts = resolve_opts(raw_opts)
 
+        read_value field            # normalize string keys to symbol before defaulting
         apply_default field, opts
         value = read_value field
 
@@ -191,7 +192,7 @@ module Lux
       else
         add_error field, e.message, opts
       end
-    rescue JSON::ParserError
+    rescue JSON::ParserError => e
       add_error field, e.message, opts
     end
 

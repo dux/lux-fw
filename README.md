@@ -98,8 +98,9 @@ The win is twofold:
 
 ## Framework features
 
-* Top-level routing DSL with tree-style scoping (`map`, `root`, `subdomain`,
-  `mount`, `plugin_route`, HTTP-method predicates), no `routes do` wrapper
+* Routing DSL with tree-style scoping (`map`, `root`, `subdomain`,
+  `plugin_route`, HTTP-method predicates), usable at the top level of
+  `Lux do ... end` or inside an optional `routes do` wrapper
 * Controllers with the shared `opt` / `params do` schema DSL
 * JSON-RPC-style APIs with auto-generated explorer, OpenAPI, Postman, and
   `/sys/AGENTS.md` for agents
@@ -190,8 +191,9 @@ guidance is consolidated in the top-level [`AGENTS.md`](./AGENTS.md).
 ### Lux::Api
 
 JSON-RPC-ish API classes. Shares the `params do` DSL with controllers
-and the schema layer. Auto-mounts `/sys/web` (interactive explorer),
-`/sys/openapi.json`, `/sys/postman.json`, `/sys/AGENTS.md`.
+and the schema layer. Auto-mounts, relative to the API's mount point
+(e.g. `/api`): `sys/web` (interactive explorer), `sys/openapi.json`,
+`sys/postman.json`, `sys/AGENTS.md`.
 
 ```ruby
 class UsersApi < ApplicationApi
@@ -232,7 +234,7 @@ Lux do
     map 'admin' do
       map users: 'admin/users'
     end
-    mount ApiApp => '/api'
+    map '/api' => ApiApp
   end
 end
 ```
@@ -534,13 +536,13 @@ lux server         # Start web server (alias: s, ss)
 lux console        # Start Pry console (alias: c)
 lux render /path   # Render any path locally (session, bearer, headers)
 lux routes         # Print mounted route tree
+lux mount          # Print plugin/app mount map
 lux generate       # Generate models, cells, controllers
-lux test           # Recreate test DB + run full test suite (alias: t)
-lux secrets        # Display / edit ENV and secrets
+lux evaluate CODE  # Evaluate Ruby in app context (alias: eval, e)
+lux test           # Run the test suite (alias: t)
+lux secrets        # Display ENV and secrets
 lux stats          # Project stats
 lux memory         # Profile memory usage
-lux new APP        # Create new Lux application
-lux sysd           # Systemd service management
 ```
 
 See [`bin/README.md`](./bin/README.md) for full CLI docs.
@@ -633,10 +635,13 @@ Hammer's full source: <https://github.com/dux/lux-hammer>
 ## Testing
 
 ```bash
-bundle exec rspec                       # all tests
-bundle exec rspec spec/lux_tests/X.rb   # one file
-lux test                                # recreate test DB + run all
+bundle exec hammer test                 # all tests (folder-isolated)
+hammer test --folder lux_tests          # one suite
+hammer test --isolated                  # per-spec processes
 ```
+
+Specs live under `spec/<area>_tests/` and are Minitest::Spec - named
+`*_spec.rb` despite being Minitest, not RSpec.
 
 ## Status
 

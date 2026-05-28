@@ -77,7 +77,7 @@ module Lux
             spec[:type] || 'string',
             spec[:required] ? 'yes' : 'no',
             spec[:default].nil? ? '' : spec[:default].to_s,
-            (spec[:desc] || '').to_s.gsub('|', '\\|')
+            (spec[:description] || spec[:desc] || '').to_s.gsub('|', '\\|')
           ]
         end
         rows.join("\n")

@@ -17,11 +17,12 @@ class AuthcogController < Lux::Controller
     Lux.logger(:authcog).info "central-auth login - #{data[:email]} (#{data[:provider]})"
 
     User.current = User.quick_create(data[:email])
-    session[:user_ref] = user.ref
 
     if user.is_locked
       return redirect_to '/', error: 'You are locked and you are not allowed to log in.'
     end
+
+    session[:user_ref] = user.ref
 
     user.name ||= data[:name]
     user.is_deleted = false

@@ -24,12 +24,13 @@ module Lux
         meta key, value
       end
 
-      # forward header to rack_response.header
+      # forward header to the host controller's rack response
       def header *args
+        rack = @api.api_host&.response
         if args.first
-          @api.rack_response.header[args.first] = args[1] if @api.rack_response
+          rack.header[args.first] = args[1] if rack
         else
-          @api.rack_response.header
+          rack&.header
         end
       end
 

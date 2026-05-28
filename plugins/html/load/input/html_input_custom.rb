@@ -8,6 +8,7 @@ class HtmlInput
 
     prefix = @opts.delete(:prefix)
     out = @opts.tag(:input)
+    out =
     if prefix
       %[<table style="width: 100%;"><tr>
           <td style="background: #eee; color: #888; border: 1px solid #ddd; border-right: none; padding: 8px 10px 0 10px; width: 20px;">#{prefix}</td>

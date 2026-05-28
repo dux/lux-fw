@@ -1,7 +1,7 @@
 # Lux.plugin :html
 
 HTML builders: form, input, table, menu, paginate, filter, plus
-`PageMeta` and timezone helpers.
+timezone helpers.
 
 ## Setup
 
@@ -20,7 +20,6 @@ plugins/html/
     html_filter.rb
     html_menu.rb
     html_paginate.rb
-    page_meta.rb
     time_zones.rb
     form/
       html_form.rb
