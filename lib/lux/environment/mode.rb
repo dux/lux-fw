@@ -7,14 +7,14 @@
 #   env default -> ENV var (LUX_DEBUG / LUX_RELOAD) -> runtime setter
 #
 # ENV values are case-insensitive 'true' / 'false'. Empty/unset = default.
-# Any other value raises ArgumentError eagerly in Lux::Mode.new.
+# Any other value raises ArgumentError eagerly in Lux::Environment::Mode.new.
 #
 # debug? supports a ternary block form for verbose 404/error messages:
 #   Lux.mode.debug?                       # => bool
 #   Lux.mode.debug?('short') { 'long' }   # => 'short' or 'long'
 
 module Lux
-  class Mode
+  class Environment::Mode
     FLAGS ||= {
       debug:  { dev: true, prod: false, test: false, env: 'LUX_DEBUG' },
       reload: { dev: true, prod: false, test: false, env: 'LUX_RELOAD' },

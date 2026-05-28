@@ -2,7 +2,7 @@ require 'test_helper'
 require_relative '../../plugins/auto_controller/load/auto_controller'
 
 class AutoControllerTestController < Lux::Controller
-  include Lux::AutoController
+  include Lux::Controller::Auto
 
   attr_reader :matched_filters
 
@@ -39,7 +39,7 @@ end
 
 ###
 
-describe Lux::AutoController do
+describe Lux::Controller::Auto do
   def run_filter_for path
     Lux::Current.new("http://test/#{path}")
     ctrl = AutoControllerTestController.new

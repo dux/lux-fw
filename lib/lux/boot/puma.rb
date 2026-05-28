@@ -1,17 +1,27 @@
 # Puma::DSL extension for config/puma.rb.
 #
 #   require 'lux/boot/puma'
+#   Dotenv.load
 #
-#   lux_boot worker_count do
-#     require_relative 'app'
+#   lux_boot do |is_prod|
+#     # optional overrides, e.g.
+#     # threads 1, 32 if is_prod
 #   end
 #
-# worker_count < 2: no-op. Single-process puma loads the app via config.ru.
+# lux_boot applies the standard lux puma config (port, threads, pidfile,
+# state_path, tmp_restart, logging, worker count) and yields is_prod so the
+# host app can override any directive at parse time. Defaults:
 #
-# worker_count >= 2: installs three hooks:
+#   port            ENV['PORT'] || 3000
+#   threads         1, 32
+#   plugin          :tmp_restart
+#   production      stdout -> ./log, environment production, workers 2
+#   development     stdout -> /dev/null
+#
+# When clustered (workers >= 2 after overrides) it installs three hooks:
 #
 #   before_fork        - disconnect any Sequel DBs held by the master
-#   on_worker_boot     - disconnect inherited sockets, then run user block
+#   on_worker_boot     - disconnect inherited sockets, then load ./config/app
 #   on_worker_shutdown - disconnect on worker exit
 #
 # Disconnects are a no-op without preload_app! (master holds no DB handles)
@@ -25,21 +35,44 @@ return unless defined?(Puma::DSL)
 module Lux
   module Boot
     module PumaDSL
-      def lux_boot(worker_count, &block)
-        return if worker_count.to_i < 2
+      def lux_boot(&block)
+        is_prod   = ENV['RACK_ENV'] == 'production'
+        puma_port = ENV['PORT'] || 3000
 
-        workers worker_count
+        plugin       :tmp_restart # restart on touch of tmp/restart.txt
+        port          puma_port
+        log_requests  false
+        pidfile       './tmp/puma.%s.pid'   % puma_port
+        state_path    './tmp/puma.%s.state' % puma_port
+        threads       1, 32
+
+        if is_prod
+          stdout_redirect './log/puma.log', './log/puma_errors.log'
+          environment 'production'
+          workers 2
+        else
+          stdout_redirect '/dev/null'
+        end
+
+        # let the host app override any directive at parse time (master)
+        block&.call(is_prod)
+
+        return if @options[:workers].to_i < 2
+
+        # puma 8 renamed on_worker_* -> before_worker_*; keep both eras working
+        boot_hook = respond_to?(:before_worker_boot)     ? :before_worker_boot     : :on_worker_boot
+        down_hook = respond_to?(:before_worker_shutdown) ? :before_worker_shutdown : :on_worker_shutdown
 
         before_fork do
           Sequel::DATABASES.each(&:disconnect) if defined?(Sequel)
         end
 
-        on_worker_boot do
+        send boot_hook do
           Sequel::DATABASES.each(&:disconnect) if defined?(Sequel)
-          block&.call
+          require './config/app'
         end
 
-        on_worker_shutdown do
+        send down_hook do
           Sequel::DATABASES.each(&:disconnect) if defined?(Sequel)
         end
       end

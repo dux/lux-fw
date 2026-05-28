@@ -230,6 +230,11 @@ module Lux
     # `routes do` callbacks. Both halt via the :done catch when a handler
     # writes the response body.
     def resolve_routes
+      # Expose the running Application instance so route-block helpers (e.g.
+      # nav.ref_load_objects ivars: true) can export ivars that #call copies
+      # into the controller via instance_variables_hash.
+      lux.var[:lux_app] = self
+
       catch :done do
         resolve_action_routes
         run_callback :routes, lux.nav.path unless lux.response.body?

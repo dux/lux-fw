@@ -19,7 +19,7 @@ module Lux
   end
 
   def mode
-    @mode_base ||= Lux::Mode.new(Lux::Environment.resolve_name)
+    @mode_base ||= Lux::Environment::Mode.new(Lux::Environment.resolve_name)
   end
 
   def runtime
