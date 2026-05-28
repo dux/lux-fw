@@ -1,5 +1,5 @@
 class AdminController < FrontendController
-  include ControllerAutoLoader
+  include Lux::Controller::Auto
 
   layout :admin
 

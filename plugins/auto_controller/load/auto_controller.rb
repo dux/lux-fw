@@ -1,23 +1,47 @@
 # Convention-based routing mixin for controllers.
 #
-# Include it in a controller that drives its own `call`:
+# Include it; Auto supplies a `call` that runs `filter` then renders the template
+# matching cattr.layout + nav.path:
 #
 #   class MainController < FrontendController
 #     include Lux::Controller::Auto    # usually via ControllerAutoLoader
 #     layout :main
 #
-#     def call
-#       auto_render
+#     filter do                  # optional - runs before auto_render
+#       filter :spaces do ... end
 #     end
 #   end
 #
-# `auto_render` mounts nav.path under cattr.layout; `filter` matches nav.path
-# segments; `auto_export_var` loads a model by ref.
+# Override `call` for full control. `auto_render` renders cattr.layout + nav.path;
+# `filter` is the entry hook and the nav.path matcher; `auto_export_var` loads a
+# model by ref.
 module Lux
   class Controller
     module Auto
       AUTO_EXTS       ||= %w[haml md erb].freeze
       AUTO_PATH_CACHE ||= {}
+
+      def self.included base
+        base.extend ClassMethods
+      end
+
+      module ClassMethods
+        # Class-level `filter do |mount_on| ... end` - the static counterpart to
+        # the runtime `filter :seg do ... end` matcher, in the spirit of `before do`.
+        # Stores the block; the instance-level #filter (invoked by #call) runs it.
+        def filter &block
+          @auto_filter = block if block
+          @auto_filter
+        end
+      end
+
+      # Default entry point for convention-routed controllers (mounted via
+      # `call 'main#call'`). Runs #filter, then renders the cattr.layout + nav.path
+      # template unless a filter already rendered or redirected.
+      def call
+        filter
+        auto_render unless lux.response.body?
+      end
 
       # Find a template by path under cattr.template_root (default ./app/views).
       # Tries /path.{haml,md,erb} then /path/root.{...}; returns the path or nil.
@@ -64,17 +88,37 @@ module Lux
         end
       end
 
-      # Runtime nav.path matcher. Runs the block only when the segments at the
-      # current depth match; nesting descends one segment per level so filters
-      # read like the URL. `:ref` matches the extracted ref placeholder.
-      #   filter :spaces do        # /spaces/*
-      #     filter :ref do         # /spaces/:ref/*
-      #       filter :admin do ... end   # /spaces/:ref/admin
+      # Two call shapes share this name:
+      #
+      #   filter                       Entry hook invoked by #call. Runs the
+      #                                class-level `filter do |mount_on| ... end`
+      #                                block (mount_on = cattr.layout) when one is
+      #                                defined; a no-op otherwise. Override with
+      #                                `def filter` on the controller and call
+      #                                `super` to keep the class-level block.
+      #
+      #   filter :seg [, :seg] do end  Runtime nav.path matcher. Runs the block
+      #                                only when the segments at the current depth
+      #                                match; nesting descends one segment per
+      #                                level so filters read like the URL. `:ref`
+      #                                matches the extracted ref placeholder. Pass
+      #                                several segments to match in one step
+      #                                (`filter :admin, :users`). A filter that
+      #                                renders or redirects sets the response
+      #                                body, so #call then skips auto_render.
+      #     filter :spaces do        # /spaces/*
+      #       filter :ref do         # /spaces/:ref/*
+      #         filter :admin do ... end   # /spaces/:ref/admin
+      #       end
       #     end
-      #   end
-      # Pass several segments to match in one step (`filter :admin, :users`).
-      # A block that renders/redirects short-circuits (caller checks response).
       def filter *segments, &block
+        if segments.empty? && block.nil?
+          if blk = self.class.filter
+            instance_exec cattr.layout, &blk
+          end
+          return
+        end
+
         return unless block
 
         @filter_depth ||= 0
