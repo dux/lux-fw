@@ -275,9 +275,8 @@ class AutoMigrate
       # skip if another field declares meta: { was: :this_field } — will be renamed
       next if @field_opts.any? { |_, v| v.dig(:meta, :was) == field }
 
-      if AutoMigrate.auto_confirm || Lux.env.production? || !STDIN.tty?
-        puts "Remove column #{@table_name}.#{field} (auto-confirmed)".colorize(:light_blue)
-      else
+      # dev TTY confirms destructive drops; prod / CI / piped just roll, quietly
+      if !AutoMigrate.auto_confirm && !Lux.env.production? && STDIN.tty?
         print "Remove column #{@table_name}.#{field} (y/N): ".colorize(:light_blue)
         next unless STDIN.gets.chomp.downcase.index('y')
       end
@@ -441,11 +440,9 @@ class AutoMigrate
     end
 
     unless conv[:safe]
-      label = "Convert #{@table_name}.#{field} from #{from} to #{to} (may lose data)"
-      if AutoMigrate.auto_confirm || Lux.env.production? || !STDIN.tty?
-        puts " #{label} (auto-confirmed)".colorize(:light_blue)
-      else
-        print " #{label} (y/N): ".colorize(:light_blue)
+      # dev TTY confirms lossy conversions; prod / CI / piped just roll, quietly
+      if !AutoMigrate.auto_confirm && !Lux.env.production? && STDIN.tty?
+        print " Convert #{@table_name}.#{field} from #{from} to #{to} (may lose data) (y/N): ".colorize(:light_blue)
         return unless STDIN.gets.chomp.downcase.index('y')
       end
     end

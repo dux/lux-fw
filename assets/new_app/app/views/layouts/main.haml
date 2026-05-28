@@ -1,0 +1,12 @@
+!!!
+%html{ lang: 'en' }
+  %head
+    %meta{ charset: 'utf-8' }
+    %title= @title || '{{App}}'
+    :css
+      body { font-family: -apple-system, Helvetica, Arial, sans-serif; margin: 0; color: #111; }
+      .wrap { max-width: 760px; margin: 3rem auto; padding: 0 1rem; }
+      a.btn { display: inline-block; padding: .6rem 1rem; background: #111; color: #fff; border-radius: 6px; text-decoration: none; }
+  %body
+    .wrap
+      = yield

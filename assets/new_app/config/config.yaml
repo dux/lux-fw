@@ -1,0 +1,19 @@
+default:
+  env: development
+
+  plugins:
+    - db
+    - authcog
+
+  db:
+    main: postgresql://localhost/{{app}}_development
+
+  # central-auth exchange host (see Lux.plugin :authcog)
+  authcog: https://auth.authcog.com
+
+  host: http://lvh.me:3000
+
+  app:
+    name: {{App}}
+
+  secret: {{secret}}

@@ -9,6 +9,16 @@
 #   * soft-delete / active   : not_deleted / deleted / activated / deactivated
 
 Sequel::Model.dataset_module do
+  # -- base default scope --------------------------------------------------
+
+  # The unfiltered dataset. Reverse `link` (e.g. `link :comments`) resolves
+  # through `RelatedModel.default`, so every model answers it out of the box.
+  # Override per-model for custom default filtering/ordering:
+  #   scope(:default) { not_deleted }
+  def default
+    self
+  end
+
   # -- ref-based scope -----------------------------------------------------
 
   # Scope dataset to rows that point at obj through any recognised

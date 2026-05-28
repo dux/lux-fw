@@ -13,7 +13,8 @@ unified under a single shared DSL. Rack-based, Sequel ORM, PostgreSQL.
 
 ```bash
 gem install lux-fw
-lux new my-app && cd my-app && bundle exec lux s
+lux new my-app && cd my-app && bundle install
+createdb my_app_development && lux db:am && lux s
 ```
 
 ### Sinatra-simple if that's all you need

@@ -1,0 +1,10 @@
+%h1= @title || 'Welcome to {{App}}'
+
+- if @user
+  %p Signed in as #{@user.name.presence || @user.email}.
+  %p
+    %a.btn{ href: '/logout' } Sign out
+- else
+  %p You are not signed in.
+  %p
+    %a.btn{ href: 'https://auth.authcog.com/domain:lvh.me/port:3000' } Sign in with AuthCog

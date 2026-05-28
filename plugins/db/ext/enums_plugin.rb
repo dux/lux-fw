@@ -13,7 +13,7 @@ class Sequel::Model
     #   instance#priority             -> label for stored key
     #
     # opts:
-    #   field:    backing column (default: "#{method}_sid")
+    #   field:    backing column (default: "#{method}_id" for Integer keys, else "#{method}_sid")
     #   method:   instance label method (default: name)
     #   default:  default key
     #   helpers:  :both (default), :class, :instance, false
@@ -32,11 +32,16 @@ class Sequel::Model
         opts = { values: opts, helpers: :class }
       end
 
-      raw_values = opts[:values] || {}.to_lux_hash.tap { |_| block.call(_) }
+      # plain Hash for the block form (not to_lux_hash) so Integer keys survive
+      # for column-suffix detection; the caster below re-keys values anyway.
+      raw_values = opts[:values] || {}.tap { |h| block.call(h) }
 
       opts[:method]  ||= name.to_s
       opts[:helpers]   = :both unless opts.key?(:helpers)
-      opts[:field]   ||= opts[:method].to_s + '_sid'
+      # suffix follows the key type, matching schema_define.rb:
+      # Integer keys -> _id (integer column), else _sid (string column)
+      enum_keys      = raw_values.is_a?(Hash) ? raw_values.keys : raw_values.to_a
+      opts[:field]   ||= opts[:method].to_s + (enum_keys.first.is_a?(Integer) ? '_id' : '_sid')
 
       class_method_name = name.to_s.pluralize.to_sym
 

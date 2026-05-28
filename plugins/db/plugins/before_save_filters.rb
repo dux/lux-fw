@@ -42,7 +42,11 @@ module Sequel::Plugins::LuxBeforeSave
           opts[:deleted_by]     = cur.ref if respond_to?(:deleted_by)
         end
 
+        # soft delete is still a logical delete: run the destroy callbacks
+        # (cache clear + before/after :d hooks) around the flag update.
+        before_destroy
         self.this.update opts
+        after_destroy
         true
       else
         super

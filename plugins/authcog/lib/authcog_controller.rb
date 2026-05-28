@@ -28,7 +28,7 @@ class AuthcogController < Lux::Controller
     user.is_deleted = false
     user.save
 
-    if data[:avatar] && user.cached_avatar.blank?
+    if data[:avatar] && user.respond_to?(:cached_avatar) && user.cached_avatar.blank?
       avatar = data[:avatar]
       Lux.current.defer do
         uploaded = Cdn.upload_hash(avatar, path: 'avatars/users') rescue avatar

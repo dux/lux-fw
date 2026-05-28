@@ -15,13 +15,17 @@ First, make sure you have `ruby 2.x+` installed.
 
 `gem install lux-fw`
 
-Create new template for lux app
+Create a new Lux app
 
 `lux new my-app`
 
-Start the app
+Set it up and start it
 
-`budle exec lux s`
+```
+cd my-app && bundle install
+createdb my_app_development && lux db:am
+lux s
+```
 
 Look at the generated code and play with it.
 
