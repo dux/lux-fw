@@ -20,10 +20,10 @@ drop the external dependency entirely, and document it like every other
 * Call sites:
   * `lib/lux/error/error.rb` -> `HtmlTag.html { ... }`, `HtmlTag.pre { ... }`
   * `lib/lux/view_cell/view_cell.rb` -> `include HtmlTag`
-  * `plugins/html/load/html_filter.rb` -> `HtmlTag self`
-  * `plugins/html/load/input/html_input.rb` -> `HtmlTag *args, &block`
-  * `plugins/html/load/table/html_table*.rb` -> `HtmlTag.div`, `HtmlTag.span`, etc.
-  * `plugins/html/load/form/html_form_custom.rb` -> `HtmlTag.button { ... }`
+  * `plugins/web_common/load/html/html_filter.rb` -> `HtmlTag self`
+  * `plugins/web_common/load/html/input/html_input.rb` -> `HtmlTag *args, &block`
+  * `plugins/web_common/load/html/table/html_table*.rb` -> `HtmlTag.div`, `HtmlTag.span`, etc.
+  * `plugins/web_common/load/html/form/html_form_custom.rb` -> `HtmlTag.button { ... }`
 
 ### Goal
 
@@ -68,7 +68,7 @@ chain is required, but we'll add one inside the folder for predictable order
 
 ### Files untouched
 * All call sites (`lib/lux/error/error.rb`, `lib/lux/view_cell/view_cell.rb`,
-  `plugins/html/load/...`) - they keep `HtmlTag.xxx` / `include HtmlTag` /
+  `plugins/web_common/load/html/...`) - they keep `HtmlTag.xxx` / `include HtmlTag` /
   `HtmlTag self` / `HtmlTag *args, &block`, served by the top-level alias and
   bare function.
 

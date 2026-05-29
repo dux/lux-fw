@@ -73,15 +73,10 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | Plugin            | What it is | Read |
 |-------------------|------------|------|
 | `db`              | Boots `Lux::Db` + Sequel extensions (hooks, links, paginate, enums) | [README](./plugins/db/README.md) |
-| `html`            | HTML builders (form, input, table, menu, paginate, filter) + `PageMeta` | [README](./plugins/html/README.md) |
-| `header`          | Per-request `<head>` builder, exposed as `lux.header`              | [README](./plugins/header/README.md) |
-| `assets`          | Asset generation and template helpers                              | [README](./plugins/assets/README.md) |
-| `favicon`         | Serves a single SVG favicon                                        | [README](./plugins/favicon/README.md) |
+| `web_common`      | Shared web layer: html builders, `lux.header`, assets, favicon, authcog controller, PG exception logger + `/admin` | [README](./plugins/web_common/README.md) |
 | `locale`          | Small, namespaced translation lookup with dotted keys              | [README](./plugins/locale/README.md) |
 | `oauth`           | Oauth interface (facebook, github, google, linkedin, slack, ...)   | [README](./plugins/oauth/README.md) |
-| `authcog`         | Central-auth landing controller (hash-callback exchange)           | [README](./plugins/authcog/README.md) |
 | `auto_controller` | Convention-based routing + template auto-finding                   | [README](./plugins/auto_controller/README.md) |
-| `admin_web`       | `/admin` mount + PG-backed exception logger, grouped by fingerprint| [README](./plugins/admin_web/README.md) |
 | `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks)         | [README](./plugins/job_runner/README.md) |
 | `lux_logger`      | Database-backed structured logger                                  | [README](./plugins/lux_logger/README.md) |
 

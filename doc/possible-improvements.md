@@ -26,7 +26,7 @@ Differentiators. The places lux is ahead of Sinatra/Roda/Hanami, not just at par
   shape.
 * **Custom reloader that skips `Gem.path`** - addresses the Rails "reload-degradation" complaint head-on
   (`lib/lux/reloader/`).
-* **Exception logger with mountable viewer** (`plugins/admin_web`). Hanami / Sinatra miss this entirely.
+* **Exception logger with mountable viewer** (`plugins/web_common`). Hanami / Sinatra miss this entirely.
 * **CSRF + CORS first-class on the response object.** `response.cors :all`, auto-injected CSRF token in `HtmlForm`,
   preflight handled at the application level (`lib/lux/response/lib/cors.rb`, `lib/lux/current/lib/csrf.rb`).
 * **Job runner with PG LISTEN/NOTIFY trigger + advisory lock + exponential backoff.** Single-DB, no Redis required, no
@@ -34,7 +34,7 @@ Differentiators. The places lux is ahead of Sinatra/Roda/Hanami, not just at par
 * **`rescue_from` at app and controller level** (`Lux::Application.rescue_from`, `Lux::Controller.rescue_from`) with a
   documented resolution order (app > controller :error > framework default).
 * **Pagination** end-to-end: `Lux::Utils::PaginatedArray`, Sequel `paginate` ext (`plugins/db/ext/paginate.rb`), and
-  `HtmlHelper.paginate` view helper (`plugins/html/load/html_paginate.rb`).
+  `HtmlHelper.paginate` view helper (`plugins/web_common/load/html/html_paginate.rb`).
 * **Enum DSL** in schema blocks (`enum :status do |f| ... end`) - emits Sequel column + helpers + validation +
   `for_select`; backed by the db plugin (`plugins/db/lib/schema_define.rb`).
 * **Shell API.** `Lux::Shell.exec` strips output and raises on failure (or yields `(err, out)` to a block);
@@ -63,7 +63,7 @@ Present and working, but shallow compared to what the equivalent ecosystem ships
   from a form input to its schema error (`Lux::Current.errors`) is half-wired - convention is there, no
   `form_for(schema)` shorthand that closes the loop the way Hanami does with dry-validation.
 * **Multi-DB ergonomics** via `Lux.db(:name)`. Arguably better than Rails; light on docs.
-* **Admin UI.** `plugins/admin_web` exists and renders CRUD over Sequel models; no `lux generate admin_resource User`
+* **Admin UI.** `plugins/web_common` exists and renders CRUD over Sequel models; no `lux generate admin_resource User`
   that emits a tailored page.
 * **Mailer** (`lib/lux/mailer`) - templates + delivery. No preview route, no `deliver_later` wiring to `LuxJob` (every
   host app rolls its own).
@@ -111,7 +111,7 @@ Recurring but lower frequency. Each is small and self-contained.
   Rails both have it; the data is already in `Lux.current` and the exception log.
 * **Async / Falcon / fiber-friendly.** Rails finally got it. lux uses `Lux.defer` threads; making `Lux.current`
   fiber-local instead of thread-local would future-proof without forcing a rewrite.
-* **Admin UI generator.** `plugins/admin_web` exists; an `lux generate admin_resource User` that emits a CRUD page
+* **Admin UI generator.** `plugins/web_common` exists; an `lux generate admin_resource User` that emits a CRUD page
   multiplies its value. Pairs naturally with the scaffold generator.
 * **Form -> schema error auto-binding.** `HtmlForm` + schema + `Lux::Current.errors` are all there; the last 20% is a
   `form_for(schema)` helper that reads errors and renders them next to the offending input. The unified DSL makes this
@@ -129,7 +129,7 @@ they don't get re-pitched.
   `Lux::RateLimit` would just lock users into one storage backend and one algorithm.
 * **GraphQL / batch endpoint.** The API + schema story covers the same need with less ceremony.
 * **Asset pipeline beyond CDN URLs.** Sprockets / Propshaft is a full-time job; we delegate to the browser and the
-  CDN. `plugins/assets/cdn_asset` is enough for the lux philosophy.
+  CDN. `plugins/web_common/load/assets/cdn_asset.rb` is enough for the lux philosophy.
 * **OAuth provider mode.** Big scope, narrow audience; consumer-side via `plugins/oauth` is enough.
 * **Per-mount DI container (Hanami slices).** Plugin layout already scopes ownership; another container layer is more
   complexity than payoff.

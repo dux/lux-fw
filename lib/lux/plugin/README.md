@@ -110,9 +110,9 @@ In the host:
 ```ruby
 Lux do
   routes do
-    plugin_route :favicon              # explicit, at root
+    plugin_route :web_common           # explicit, at root
     map 'admin' do
-      plugin_route :authcog            # explicit, mounted under /admin
+      plugin_route :my_plugin          # explicit, mounted under /admin
     end
 
     plugin_routes                      # loops every loaded plugin with routes.rb;

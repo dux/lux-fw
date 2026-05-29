@@ -313,9 +313,9 @@ module Lux
       # `plugin_route` does not auto-load to keep ordering explicit.
       #
       # Usage in app routes:
-      #   plugin_route :favicon
+      #   plugin_route :web_common
       #   map 'admin' do
-      #     plugin_route :authcog   # mount under /admin
+      #     plugin_route :my_plugin   # mount under /admin
       #   end
       def plugin_route name
         plugin = Lux::Plugin::PLUGIN[name.to_s] or raise "Plugin :#{name} not loaded - call Lux.plugin :#{name} first"

@@ -519,16 +519,11 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 | Plugin | What | Docs |
 |--------|------|------|
 | `db`               | Sequel model extensions, auto-migrate, `link` associations | [README](./plugins/db/README.md) |
-| `html`             | HTML builders: form, input, table, menu, paginate, filter | [README](./plugins/html/README.md) |
-| `assets`           | CDN asset pipeline | [README](./plugins/assets/README.md) |
+| `web_common`       | Shared web layer: html builders, `lux.header`, assets, favicon, authcog controller, PG exception logger + `/admin` | [README](./plugins/web_common/README.md) |
 | `job_runner`       | Background job queue (LuxJob) | [README](./plugins/job_runner/README.md) |
 | `lux_logger`       | Structured database logger | [README](./plugins/lux_logger/README.md) |
-| `admin_web`        | `/admin` mount + PG-backed exception logger | [README](./plugins/admin_web/README.md) |
 | `oauth`            | OAuth integration | [README](./plugins/oauth/README.md) |
 | `auto_controller`  | Convention-based controller routing | [README](./plugins/auto_controller/README.md) |
-| `authcog`          | Central-auth landing controller | [README](./plugins/authcog/README.md) |
-| `favicon`          | Favicon serving | [README](./plugins/favicon/README.md) |
-| `header`           | Common HTTP header helpers | [README](./plugins/header/README.md) |
 
 ## CLI
 

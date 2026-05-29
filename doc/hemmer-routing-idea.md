@@ -228,7 +228,7 @@ works without a `routes do` wrapper. The existing
 
 ### Step 6 - Port one app, prove it
 
-Pick the smallest internal app (probably `plugins/admin_web`) and rewrite
+Pick the smallest internal app (probably `plugins/web_common`) and rewrite
 its `routes.rb` against the new registry. Run it under the new resolver,
 gate the old resolver behind a config flag during the transition.
 

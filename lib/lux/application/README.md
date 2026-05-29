@@ -75,7 +75,7 @@ Lux.app do
   call '/api'          => ApiApp                 # unconditional (for rescue_from etc.)
 
   favicon 'app/assets/favicon.ico'
-  plugin_route :authcog                          # explicit single plugin
+  plugin_route :web_common                       # explicit single plugin
   plugin_routes                                  # auto-mount every plugin with routes.rb
 
   # Equivalent, wrapped in the optional block - mix and match as you like:

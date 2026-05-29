@@ -63,7 +63,7 @@ Located in [`lib/lux/type/types/`](./types).
 | `:label`     | String  | enum-friendly |
 | `:point` / `:simple_point` | Array(Float, Float) | lat/lon |
 | `:hash`      | Hash    | passes through |
-| `:image`     | upload  | works with `plugins/html` form |
+| `:image`     | upload  | works with `plugins/web_common` html form |
 | `:model`     | nested schema | set automatically by `name do ... end` |
 
 ## Defining a custom type
