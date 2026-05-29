@@ -45,6 +45,11 @@ describe 'define block syntax' do
             proc { 'multi_allowed' }
           end
         end
+
+        define_ref :ref_sugar do
+          desc 'Member via define_ref'
+          proc { "sugar_#{@ref}" }
+        end
       end
     end
   end
@@ -84,6 +89,19 @@ describe 'define block syntax' do
     _(response[:data]).must_equal 'member_123'
   end
 
+  it 'define_ref registers a member endpoint without a ref do block' do
+    opts = DefineTestApi.opts
+    _(opts[:member].key?(:ref_sugar)).must_equal true
+    _(opts[:member][:ref_sugar][:desc]).must_equal 'Member via define_ref'
+  end
+
+  it 'define_ref method is renamed to *_ref and dispatches as member' do
+    _(DefineTestApi.instance_method(:ref_sugar_ref)).must_be_kind_of UnboundMethod
+    response = DefineTestApi.render :ref_sugar, id: 7
+    _(response[:success]).must_equal true
+    _(response[:data]).must_equal 'sugar_7'
+  end
+
   it 'stores allow from define block' do
     opts = DefineTestApi.opts
     _(opts[:member][:with_allow][:allow]).must_equal ['GET']
@@ -97,41 +115,6 @@ describe 'define block syntax' do
   it 'existing define in CompanyApi works' do
     response = CompanyApi.render.foo(1, bar: 5)
     _(response[:data]).must_equal 15
-  end
-end
-
-describe 'define block with def_registration_strict false' do
-  before do
-    unless defined?(StrictFalseDefineApi)
-      class StrictFalseDefineApi < ApplicationApi
-        def_registration_strict false
-
-        define :open_action do
-          desc 'Anonymous action'
-          unsafe
-          params do
-            name String
-          end
-          proc { 'open' }
-        end
-      end
-    end
-  end
-
-  # Regression: define_method inside define_single_action fires method_added,
-  # and with strict registration off that callback used to re-register the
-  # action with empty opts, wiping unsafe/desc/params. Guard keeps them.
-  it 'keeps unsafe/desc/params when def_registration_strict is false' do
-    opts = StrictFalseDefineApi.opts
-    _(opts[:collection][:open_action][:unsafe]).must_equal true
-    _(opts[:collection][:open_action][:desc]).must_equal 'Anonymous action'
-    _(opts[:collection][:open_action][:params]).wont_be_nil
-  end
-
-  it 'still runs the action body' do
-    response = StrictFalseDefineApi.render :open_action, params: { name: 'x' }
-    _(response[:success]).must_equal true
-    _(response[:data]).must_equal 'open'
   end
 end
 

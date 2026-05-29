@@ -29,16 +29,17 @@ end
 # Tiny API class with send_file and send_data actions
 class FileTestApi < Lux::Api
   documented
-  def_registration_strict false
 
   allow :get
-  def grab_file
-    send_file __FILE__, name: 'spec.rb', content_type: 'text/x-ruby'
+  define :grab_file do
+    desc 'Download a file'
+    proc { send_file __FILE__, name: 'spec.rb', content_type: 'text/x-ruby' }
   end
 
   allow :get
-  def grab_data
-    send_data 'hello,world', name: 'hi.csv', content_type: 'text/csv'
+  define :grab_data do
+    desc 'Download inline data'
+    proc { send_data 'hello,world', name: 'hi.csv', content_type: 'text/csv' }
   end
 end
 

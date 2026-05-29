@@ -281,20 +281,14 @@ module Lux
         end
       end
 
-      # Register an API endpoint. `define` ALWAYS registers (with or without
-      # desc). Plain `def` registers only when preceded by a `desc` line,
-      # which acts as the opt-in marker. Without `desc`, a `def` is a plain
-      # Ruby helper, not an endpoint.
+      # Register a collection API endpoint (at class root). For member
+      # endpoints use `define_ref`, or `define` inside a `ref do` block. A
+      # plain `def` is never an endpoint - only `define`/`define_ref` register.
       #
       # Basic usage:
       #   define :foo do
+      #     desc 'Foo'        # optional metadata
       #     proc { ... }
-      #   end
-      #
-      # Equivalent def form (requires desc as opt-in marker):
-      #   desc 'Foo'
-      #   def foo
-      #     ...
       #   end
       #
       # With HTTP method (RESTful style):
@@ -333,6 +327,24 @@ module Lux
         end
       end
 
+      # Member (ref) counterpart of `define`. Registers an endpoint under
+      # :member without an enclosing `ref do` block - sugar for a single
+      # member action. The block has the exact same shape as `define`
+      # (desc / detail / params / allow / annotations + a returned Proc).
+      #
+      #   define_ref :show do
+      #     desc 'Show one record'
+      #     proc { @record.export }
+      #   end
+      #
+      # Reach for `ref do ... end` directly when several member actions share
+      # a `before do` (e.g. loading the record).
+      def define_ref name = nil, allow: nil, **http_methods, &block
+        ref do
+          define name, allow: allow, **http_methods, &block
+        end
+      end
+
       private
 
       def define_single_action(name, http_methods = nil, &block)
@@ -347,10 +359,9 @@ module Lux
         set type, name, @@opts
         @@opts = {}
 
-        # actually wire up the method body. define_method fires method_added;
-        # when def_registration_strict is false that callback would re-register
-        # the action with the now-empty @@opts and clobber the desc/params/
-        # unsafe/allow we just captured - guard so it leaves our opts intact.
+        # wire up the method body. define_method fires method_added; the
+        # @in_define_action guard skips it so our just-captured opts and this
+        # registration are left intact.
         @in_define_action = true
         self.define_method(name, func)
         @in_define_action = false
@@ -358,23 +369,27 @@ module Lux
 
       public
 
-      # Defines a group of member ("ref") actions. Each method defined inside the
-      # block (public AND private) is renamed to `<name>_ref` after the block ends,
-      # so collection actions can keep the un-suffixed names. The renamed method is
-      # what dispatch invokes when a request includes a resource id segment.
+      # Groups member ("ref") actions. Every method defined inside the block
+      # (public AND private) is renamed to `<name>_ref` after the block ends,
+      # so collection actions can keep the un-suffixed names. The renamed
+      # method is what dispatch invokes when a request carries a resource id.
+      #
+      # Endpoints inside `ref do` are created with `define` (a plain `def` is
+      # only a renamed helper, never an endpoint). For a single member action
+      # with no shared `before`, `define_ref` is shorter.
       #
       #   ref do
       #     before do
       #       @user = User.find(@ref)
       #     end
       #
-      #     def show       # becomes :show_ref
-      #       @user.export
+      #     define :show do
+      #       proc { @user.export }
       #     end
       #
       #     private
       #
-      #     def helper     # becomes :helper_ref (private)
+      #     def helper     # becomes :helper_ref (private), not an endpoint
       #     end
       #   end
       def ref &block
@@ -565,54 +580,17 @@ module Lux
         Lux.schema name, &block
       end
 
-      # `def` inside an API class registers as an endpoint ONLY when preceded
-      # by a `desc` line (the opt-in marker). Without `desc`, the method is a
-      # plain Ruby helper. `define` always registers, with or without desc.
-      # Private/protected methods are never registered as endpoints.
-      #
-      # Legacy apps that pre-date the desc requirement can opt out per class
-      # hierarchy with `def_registration_strict false`, in which case every
-      # public def registers (the old Joshua/Lux::Api behavior).
+      # `def` inside an API class is always a plain Ruby helper - it is never
+      # an endpoint. Endpoints are created exclusively with `define` (root ->
+      # collection) and `define_ref` (member). This callback only clears any
+      # pending opts (a stray desc/params/annotation before a plain def) so
+      # they cannot leak onto the next define.
       def method_added name
-        # skip the define_method coming from define_single_action - that path
-        # registers the endpoint itself with the correct opts (see @in_define_action)
+        # the define_method coming from define_single_action manages its own
+        # opts and registration - leave them untouched (see @in_define_action)
         return if @in_define_action
 
-        unless private_method_defined?(name) || protected_method_defined?(name)
-          if @@opts[:desc] || !def_registration_strict?
-            type = @method_type == :member ? :member : :collection
-            set type, name, @@opts
-          end
-        end
         @@opts = {}
-      end
-
-      # Per-class opt-out from the strict `desc + def` rule. Inherited.
-      # Use sparingly - it's intended for legacy code migration.
-      def def_registration_strict value = true
-        @def_registration_strict = value
-      end
-
-      def def_registration_strict?
-        return @def_registration_strict if instance_variable_defined?(:@def_registration_strict)
-        ancestors.drop(1).each do |k|
-          next unless k.is_a?(Class) && k <= Lux::Api
-          if k.instance_variable_defined?(:@def_registration_strict)
-            return k.instance_variable_get(:@def_registration_strict)
-          end
-        end
-        true
-      end
-
-      # Compatibility DSL for older code that used Joshua-style blocks:
-      #   collection do; def foo; end; end  -- equivalent to defining at class root
-      #   member     do; def foo; end; end  -- equivalent to `ref do ... end`
-      def collection &block
-        class_exec(&block) if block_given?
-      end
-
-      def member &block
-        ref(&block)
       end
 
       def make_hash_html_safe hash

@@ -40,13 +40,13 @@ Widget.new('beta')
 # Base "model" API with a generate macro
 
 class ExampleModelApi < ApplicationApi
-  def_registration_strict false
-
   def self.generate name
+    action_desc = "#{name.to_s.capitalize} widget"
+    body = -> { send("generated_#{name}") }
     if name == :create
-      class_eval { define_method(name) { send("generated_#{name}") } }
+      define(name)     { desc action_desc; body }   # root -> collection
     else
-      ref { define_method(name) { send("generated_#{name}") } }
+      define_ref(name) { desc action_desc; body }   # ref  -> member
     end
   end
 
@@ -98,24 +98,29 @@ class WidgetsApi < ExampleModelApi
 
   # For :update we want to wrap, so define it directly via the parent's
   # generated_* private helper rather than calling `generate :update`.
-  ref do
-    define_method(:update) do
+  define_ref :update do
+    desc 'Update widget'
+    proc do
       base = send(:generated_update)
       base.merge(child_touched: display_name)
     end
+  end
 
-    # New ref action that uses a parent private helper
-    def archive
-      { display: display_name, ref: @ref }
-    end
+  # New ref action that uses a parent private helper
+  define_ref :archive do
+    desc 'Archive widget'
+    proc { { display: display_name, ref: @ref } }
   end
 
   # Collection :create using generate, then add a sibling wrapper action.
   generate :create
 
-  def create_wrapped
-    base = send(:generated_create)
-    base.merge(child_create_wrapped: true)
+  define :create_wrapped do
+    desc 'Create widget (wrapped)'
+    proc do
+      base = send(:generated_create)
+      base.merge(child_create_wrapped: true)
+    end
   end
 end
 

@@ -173,7 +173,8 @@ The schema splits each API class into two action sets:
   or envelope. Examples: `list`, `create`, `search`.
 - **Member actions** act on one specific record identified by `ref`. They
   appear under `member` in the schema because the Ruby class declared them
-  inside a `ref do ... end` block. Examples: `show`, `update`, `delete`.
+  with `define_ref` (or `define` inside a `ref do ... end` block). Examples:
+  `show`, `update`, `delete`.
 
 For a member action you **must** provide the id:
 

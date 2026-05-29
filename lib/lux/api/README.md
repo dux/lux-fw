@@ -28,44 +28,50 @@ class BoardsApi < ApplicationApi
     @api.response.error 'Not found', status: 404
   end
 
-  # --- collection actions ----------------------------------------------
+  # --- collection actions (define, at class root) ----------------------
 
-  desc 'List boards'                                    # `desc` opts the next def in as an endpoint
-  define :list do                                       # `define` registers explicitly (proc/lambda)
+  define :list do
+    desc 'List boards'                                  # desc is optional metadata
     proc { @user.boards.all }
   end
 
-  desc 'Create a board'
-  params do
-    name   String, max: 30
-    tags?  [String]
-  end
-  def create
-    @user.boards.create!(@api.params.to_h)
+  define :create do
+    desc 'Create a board'
+    params do
+      name   String, max: 30
+      tags?  [String]
+    end
+    proc { @user.boards.create!(@api.params.to_h) }
   end
 
-  # --- member actions (require ref) ------------------------------------
+  # --- member actions (define inside ref do; @board loaded once) -------
 
   ref do
     before { @board = @user.boards.find(@ref) }
 
-    desc 'Get one board'
-    def show; @board; end
-
-    desc 'Update a board'
-    params do
-      name?  String, max: 30
-    end
-    def update
-      @board.update(@api.params.to_h)
-      @board
+    define :show do
+      desc 'Get one board'
+      proc { @board }
     end
 
-    desc 'Delete a board'
-    allow :delete                                        # additional verb (default POST)
-    def destroy
-      @board.destroy
-      message 'deleted'                                  # plain message body
+    define :update do
+      desc 'Update a board'
+      params do
+        name?  String, max: 30
+      end
+      proc do
+        @board.update(@api.params.to_h)
+        @board
+      end
+    end
+
+    define :destroy do
+      desc 'Delete a board'
+      allow :delete                                       # additional verb (default POST)
+      proc do
+        @board.destroy
+        message 'deleted'                                 # plain message body
+      end
     end
   end
 
@@ -93,22 +99,43 @@ POST /api/boards/create
 { "name": "todo", "tags": ["work"] }
 ```
 
-## Endpoint registration
+## Creating a visible API endpoint
 
-A plain `def` inside an Api class is registered as an endpoint **only if**
-preceded by a `desc` line (the opt-in marker). Without `desc`, the method
-is treated as a plain Ruby helper.
+Endpoints are created in **exactly one way** - the `define` family. A plain `def` is
+**never** an endpoint; it is always a plain Ruby helper.
 
-`define :name do ... end` always registers (with or without `desc`). Use
-it when you want to wire a Proc/lambda explicitly.
+* `define :name do ... end` at class root -> a **collection** action
+* `define_ref :name do ... end` -> a **member** action (request carries a resource id)
+* `define :name do ... end` inside `ref do ... end` -> also a member action; use the
+  block form when several member actions share a `before` (e.g. loading the record)
 
-To opt out class-wide (legacy code): `def_registration_strict false`.
+The block configures the action with optional `desc` / `detail` / `params` / `allow` /
+annotations (metadata only) and **returns a `Proc`** - the action body.
+
+```ruby
+define :create do          # collection endpoint
+  desc 'Create a board'    # optional - metadata, not required
+  params { name String }
+  proc { Board.create(params.to_h) }
+end
+
+define_ref :show do        # member endpoint (resource id in @ref)
+  proc { @board }
+end
+
+def helper                 # plain def -> never an endpoint
+  ...
+end
+```
+
+`desc` is optional metadata for the explorer/docs - it no longer turns a method into an
+endpoint. Private and protected methods are never endpoints.
 
 ## DSL reference
 
 | Class method | Purpose |
 |--------------|---------|
-| `desc 'text'`           | description for the next endpoint |
+| `desc 'text'`           | optional description for the next define (metadata only) |
 | `detail 'longer'`       | longer description (Markdown) |
 | `icon File.read(...)`   | SVG icon for the explorer |
 | `class_desc` / `class_detail` | apply to whole class |
@@ -117,10 +144,11 @@ To opt out class-wide (legacy code): `def_registration_strict false`.
 | `allow :get, :put`      | additional HTTP methods (default POST) |
 | `unsafe`                | endpoint callable without bearer token |
 | `undocumented`          | endpoint stays callable but is hidden from OpenAPI/Postman/introspect output |
-| `define name do; proc {...}; end` | explicit endpoint registration |
+| `define name do; proc {...}; end` | collection endpoint (at class root) |
+| `define_ref name do; proc {...}; end` | member endpoint (no enclosing `ref do` needed) |
 | `annotation :flag do ... end` | custom marker, used like `unsafe` |
 | `plugin :name do ... end` / `plugin :name` | reusable behavior |
-| `ref do ... end`        | member endpoints (`@ref` set from request) |
+| `ref do ... end`        | group member endpoints + share a `before` (`@ref` from request) |
 | `before do ... end` / `after do ... end` | callbacks |
 | `rescue_from Error do ... end` | per-exception handling |
 | `mount_on '/api'`       | API root path |

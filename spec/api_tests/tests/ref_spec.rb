@@ -6,18 +6,18 @@ require_relative '../loader'
 # and @ref / @bearer_token are exposed to action bodies and callbacks.
 
 class RefSpecBaseApi < Lux::Api
-  def_registration_strict false
-
   before do
     @root_callback_seen = (@root_callback_seen || 0) + 1
   end
 
-  def root_collection_action
-    @root_callback_seen
+  define :root_collection_action do
+    desc 'Root collection action'
+    proc { @root_callback_seen }
   end
 
-  def see_ref_in_collection
-    @ref
+  define :see_ref_in_collection do
+    desc 'See @ref in a collection action'
+    proc { @ref }
   end
 
   ref do
@@ -25,8 +25,9 @@ class RefSpecBaseApi < Lux::Api
       @ref_callback_seen = (@ref_callback_seen || 0) + 1
     end
 
-    def member_action
-      [@ref, @bearer_token, @root_callback_seen, @ref_callback_seen]
+    define :member_action do
+      desc 'Member action'
+      proc { [@ref, @bearer_token, @root_callback_seen, @ref_callback_seen] }
     end
 
     define :defined_in_ref do
@@ -40,8 +41,9 @@ class RefSpecBaseApi < Lux::Api
     end
   end
 
-  def see_bearer_at_root
-    @bearer_token
+  define :see_bearer_at_root do
+    desc 'See @bearer_token at root'
+    proc { @bearer_token }
   end
 
   private
@@ -126,36 +128,36 @@ end
 # super / super! across inheritance lines
 
 class RefSpecParentApi < Lux::Api
-  def_registration_strict false
-
-  def parent_collection
-    'parent-c'
+  define :parent_collection do
+    desc 'Parent collection action'
+    proc { 'parent-c' }
   end
 
-  ref do
-    def parent_member
-      'parent-m'
-    end
+  define_ref :parent_member do
+    desc 'Parent member action'
+    proc { 'parent-m' }
   end
 end
 
 class RefSpecChildApi < RefSpecParentApi
-  def parent_collection
-    super + '-overridden'
+  # super() (with parens) is required inside a Proc body
+  define :parent_collection do
+    desc 'Parent collection action'
+    proc { super() + '-overridden' }
   end
 
-  ref do
-    # Inside ref do, methods are renamed via UnboundMethod#bind, so plain
-    # Ruby `super` looks for the *original* (un-suffixed) name on the
-    # superclass and fails. Use the `super!` shim instead, which derives
-    # the correct *_ref name automatically.
-    def parent_member
-      super! + '-overridden'
-    end
+  # Inside ref scope, methods are renamed via UnboundMethod#bind, so plain
+  # Ruby `super` looks for the *original* (un-suffixed) name on the
+  # superclass and fails. Use the `super!` shim instead, which derives the
+  # correct *_ref name automatically.
+  define_ref :parent_member do
+    desc 'Parent member action'
+    proc { super! + '-overridden' }
+  end
 
-    def with_explicit_super_bang
-      super!('parent_member') + '!shim'
-    end
+  define_ref :with_explicit_super_bang do
+    desc 'super! with explicit member name'
+    proc { super!('parent_member') + '!shim' }
   end
 end
 
