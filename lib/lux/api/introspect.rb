@@ -27,6 +27,11 @@ module Lux
       # collect model schemas for documented APIs that opt in by defining
       # self.api_schema (returning a Lux::Schema). Keyed by api_schema_ref so
       # per-method entries can $ref into here without duplicating field lists.
+      #
+      # TODO: api_schema / api_schema_ref are read here but no DSL defines them
+      # yet (no class in lib/ or plugins/ declares them), so this block is inert
+      # until a class defines self.api_schema. Wire up a DSL or drop this path.
+      # Tracked alongside schema_ref (base_class.rb).
       def schemas
         out = {}
 

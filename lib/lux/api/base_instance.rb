@@ -63,8 +63,9 @@ module Lux
       if is_allowed
         begin
           parse_api_params
-          parse_annotations unless response.error?
-          resolve_api_body  unless response.error?
+          parse_annotations    unless response.error?
+          authenticate_request unless response.error?
+          resolve_api_body     unless response.error?
         rescue Lux::Api::Error => error
           # controlled error raised via error "message", ignore
           response.error error.message
@@ -150,11 +151,36 @@ module Lux
       end
     end
 
+    # Run the class-level `auth` hook (if declared) unless the endpoint opted
+    # out with `unsafe`. The hook gets the bearer token and is expected to
+    # reject by setting response.error / raising; on rejection resolve_api_body
+    # is skipped. No hook declared -> behavior is unchanged (endpoint stays open).
+    def authenticate_request
+      return if @api.method_opts[:unsafe]
+
+      block = self.class.opts.dig(:opts, :auth)
+      return unless block
+
+      # the hook's return value is the current user, exposed via #user
+      @current_user = instance_exec @api.bearer, &block
+
+      # dev aid: make the bearer/unsafe contract obvious when the hook rejects,
+      # so a 401 during local work explains itself instead of looking like a bug.
+      if @api.development && response.error?
+        response.message 'Auth: pass "Authorization: Bearer <token>", or mark this endpoint `unsafe` for anonymous access.'
+      end
+    end
+
     def execute_callback name
+      # before-callbacks yield the endpoint's method_opts (so a hook can check
+      # :unsafe / :allow / custom flags - response.data is still empty here);
+      # after-callbacks yield response.data, the value the action produced.
+      arg = name.to_s.start_with?('before') ? @api.method_opts : response.data
+
       self.class.ancestors.reverse.map(&:to_s).each do |klass|
         if before_list = (OPTS.dig(klass, name.to_sym) || [])
           for before in before_list
-            instance_exec response.data, &before
+            instance_exec arg, &before
           end
         end
       end
@@ -168,7 +194,11 @@ module Lux
           response.header['Content-Type'] = content_type || (@api.raw[0] == '{' ? 'application/json' : 'text/plain')
         end
       elsif content_type
-        response.data = content_type
+        # content_type without a block is almost always a mistake - the arg only
+        # labels a raw body. The old behavior silently shipped the string AS the
+        # body (response('text/csv') -> body "text/csv"), which hid bugs. Fail
+        # loudly and point at the block form instead.
+        raise ArgumentError.new('response(content_type) needs a block: response(%p) { body }' % content_type)
       else
         @api.response
       end
@@ -204,6 +234,12 @@ module Lux
 
     def params
       @api.params
+    end
+
+    # current user: whatever the class `auth` hook returned. nil when the
+    # endpoint is `unsafe` (hook skipped) or no auth hook is declared.
+    def user
+      @current_user
     end
 
     # inline error raise

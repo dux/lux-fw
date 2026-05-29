@@ -291,6 +291,9 @@ module Lux
       #     proc { ... }
       #   end
       #
+      # Prefer `allow :get, :put` (varargs or array) to declare HTTP verbs; the
+      # get:/array shorthands below still work but are not the documented path.
+      #
       # With HTTP method (RESTful style):
       #   define get: :foo do
       #     proc { ... }
@@ -446,6 +449,11 @@ module Lux
       # reference a top-level model schema by its underscored name
       # generators (postman, openapi, web) resolve it from schemas: in the
       # introspect output, so the field list is not duplicated per action
+      #
+      # TODO: doc-only. parse_api_params validates against :params / :_schema
+      # only, so schema_ref does NOT enforce validation at runtime. Either wire
+      # it into validation or rename it to make the doc-only nature explicit.
+      # See also api_schema / api_schema_ref in introspect.rb.
       def schema_ref name
         @@opts[:schema_ref] = name.to_s
       end
@@ -519,12 +527,33 @@ module Lux
         @@opts[:content_type] = name
       end
 
-      # allow methods without @api.bearer token set
+      # mark the next endpoint as unsafe: it skips the class `auth` hook and is
+      # callable without a bearer token.
       def unsafe
         @@opts[:unsafe] = true
       end
 
+      # Class-level authentication hook. The block receives the request bearer
+      # token and runs before every endpoint that is NOT marked `unsafe`.
+      # Reject by calling `response.error(...)` (or raising) - the action body
+      # is then skipped. Usually it also loads the current user.
+      #
+      #   auth do |bearer|
+      #     @user = User.find_by_token(bearer) or response.error('auth required', status: 401)
+      #   end
+      #
+      # One hook per class; subclasses inherit it until they declare their own.
+      # Endpoints opt out individually with `unsafe`. Without a hook the
+      # framework enforces nothing - endpoints stay open.
+      def auth &block
+        raise ArgumentError.new('auth requires a block') unless block_given?
+
+        set :opts, :auth, block
+      end
+
       # block execute before any public method or just some member or collection methods
+      # the block is yielded the endpoint's method_opts, so a hook can branch on
+      # per-action flags: `before do |opts| ... unless opts[:unsafe] end`
       def before &block
         set_callback :before, block
       end
