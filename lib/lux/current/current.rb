@@ -219,7 +219,7 @@ module Lux
     private
 
     def prepare_params
-      @params = (@request.params.dup || {}).to_lux_hash
+      @params = (request_params.dup || {}).to_lux_hash
       @params.merge! @opt.query_string if @opt.query_string
 
       # remove empty parametars in GET request
@@ -230,6 +230,18 @@ module Lux
       end
 
       Lux::Current::EncryptParams.decrypt @params
+    end
+
+    # Rack raises (EmptyContentError / "bad content body", both EOFError) when a
+    # request advertises a multipart/form-data content type but carries an empty
+    # or truncated body - e.g. a reverse-proxy auth subrequest (Caddy
+    # forward_auth) that copies the Content-Type header without forwarding the
+    # body. An empty urlencoded body already degrades to {}, so mirror that for
+    # multipart instead of letting it surface as a 500.
+    def request_params
+      @request.params
+    rescue EOFError
+      {}
     end
   end
 end
