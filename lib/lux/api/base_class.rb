@@ -49,6 +49,13 @@ module Lux
             [status, headers, body]
           end
         end
+      rescue => error
+        # last-resort guard: request parsing (JSON.parse / multipart) and
+        # response serialization run outside the per-action rescue_from. Funnel
+        # anything that escapes into the same JSON + logged error shape, so an
+        # API request never returns a raw 500 or non-JSON body.
+        body = Response.auto_format error
+        [body[:status] || 500, { 'Content-Type' => 'application/json' }, [body.to_json]]
       end
 
       # ApplicationApi.auto_mount request: request, response: response, mount_on: '/api', development: true

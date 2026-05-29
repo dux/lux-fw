@@ -6,9 +6,20 @@ module Lux
       attr_reader :errors
 
       def self.auto_format error
+        Lux.error.log error
+
+        code     = client_error?(error) ? 400 : 500
         response = new nil
-        response.error error.message, code: error.is_a?(Lux::Api::Error) ? 400 : 500
+        response.error error.message, code: code, status: code
         response.render
+      end
+
+      # Client/request faults (param validation, malformed JSON body, bad
+      # multipart) map to 400; anything else is an unexpected server error -> 500.
+      def self.client_error? error
+        return true if error.is_a?(Lux::Api::Error)
+        name = error.class.name.to_s
+        name == 'JSON::ParserError' || name.start_with?('Rack::')
       end
 
       ###

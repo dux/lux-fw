@@ -77,6 +77,8 @@ module Lux
           if block
             instance_exec error, &block
           else
+            # no rescue_from registered: still log so nothing is silently dropped
+            Lux.error.log error
             response.error error.message, status: 500
           end
         end
