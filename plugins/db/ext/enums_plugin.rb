@@ -32,16 +32,21 @@ class Sequel::Model
         opts = { values: opts, helpers: :class }
       end
 
-      # plain Hash for the block form (not to_lux_hash) so Integer keys survive
-      # for column-suffix detection; the caster below re-keys values anyway.
-      raw_values = opts[:values] || {}.tap { |h| block.call(h) }
+      # lux_hash for the block form so the friendly setters work
+      # (Lux::Hash#method_missing turns `f.free = {...}` / `f.FREE = {...}` into
+      # h['free']= / h['FREE']=). Keys are stringified here, so the suffix check
+      # below treats all-digit keys as integers to keep Integer-keyed enums on
+      # their _id column; the caster re-keys values by the real column type.
+      raw_values = opts[:values] || {}.to_lux_hash.tap { |h| block.call(h) }
 
       opts[:method]  ||= name.to_s
       opts[:helpers]   = :both unless opts.key?(:helpers)
       # suffix follows the key type, matching schema_define.rb:
-      # Integer keys -> _id (integer column), else _sid (string column)
+      # Integer (or all-digit) keys -> _id (integer column), else _sid (string column)
       enum_keys      = raw_values.is_a?(Hash) ? raw_values.keys : raw_values.to_a
-      opts[:field]   ||= opts[:method].to_s + (enum_keys.first.is_a?(Integer) ? '_id' : '_sid')
+      first_key      = enum_keys.first
+      integer_keyed  = first_key.is_a?(Integer) || first_key.to_s.match?(/\A\d+\z/)
+      opts[:field]   ||= opts[:method].to_s + (integer_keyed ? '_id' : '_sid')
 
       class_method_name = name.to_s.pluralize.to_sym
 
