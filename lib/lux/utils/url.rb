@@ -166,14 +166,12 @@ module Lux
       end
       alias :domain= :domain
 
-      # reader/writer; pass nil to clear
-      def subdomain name=nil
-        if name
-          @opt.subdomain = name
-          self
-        else
-          @opt.subdomain
-        end
+      # reader/writer; pass nil (or '') to clear -> apex/root. Uses a sentinel so
+      # a bare call reads while an explicit nil clears the subdomain.
+      def subdomain name = :_nil
+        return @opt.subdomain if name == :_nil
+        @opt.subdomain = name.to_s.empty? ? nil : name
+        self
       end
       alias :subdomain= :subdomain
 
