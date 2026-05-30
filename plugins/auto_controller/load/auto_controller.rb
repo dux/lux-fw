@@ -62,7 +62,9 @@ module Lux
         end
       end
 
-      # Render the template matching cattr.layout + nav.path, or the 404 page.
+      # Render the template matching cattr.layout + nav.path, or raise a 404.
+      # The 404 flows through the app error sink, which renders the error template
+      # at the layout root (e.g. app/views/main/error.haml).
       def auto_render
         path = [cattr.layout] + nav.path
         if tpl = auto_find_template(path)
@@ -70,8 +72,7 @@ module Lux
         else
           base = '/' + path.join('/')
           exts = AUTO_EXTS.map { |e| ".#{e}" }.join(', ')
-          @paths = ["#{base}{#{exts}}", "#{base}/root{#{exts}}"]
-          render '/error_404', status: 404
+          raise Lux.error.not_found Lux.mode.debug?('Not Found') { "No template found, looked for #{base}{#{exts}} and #{base}/root{#{exts}}" }
         end
       end
 

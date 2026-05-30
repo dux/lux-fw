@@ -28,7 +28,7 @@ end
 ```
 
 `auto_render` mounts `nav.path` under `cattr.layout` (the controller's `layout`)
-and renders the matching template, or `/error_404` when none matches.
+and renders the matching template, or raises a 404 when none matches.
 
 Available helpers: `auto_render`, `auto_find_template`, `auto_export_var`,
 `filter`.
@@ -44,7 +44,8 @@ With `layout :main` and the default `template_root` of `./app/views`,
 | `/notes`       | `main/notes.*`                                       |
 | `/notes/intro` | `main/notes/intro.*`, else `main/notes/intro/root.*` |
 
-No match renders `/error_404` with status 404.
+No match raises `Lux.error.not_found` (status 404); the app error template at the
+layout root (e.g. `main/error.*`) then renders through the error sink.
 
 ## Filters
 

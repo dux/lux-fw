@@ -48,8 +48,8 @@ module Lux
 
       # render a template in this controller's scope without action dispatch
       # skips before/after callbacks — just renders template with layout and helpers
-      # MainController.render_template(:error_404)
-      # MainController.render_template(:error_404, self)
+      # MainController.render_template(:error)
+      # MainController.render_template(:error, self)
       def render_template template, scope = nil
         ctrl = new
         if scope
@@ -70,7 +70,7 @@ module Lux
       # The block receives the exception as an argument; @error and @status
       # are already set as ivars by Application#render_error before it runs.
       #   rescue_from do |err|
-      #     render :error_500
+      #     render :error
       #   end
       def rescue_from &block
         define_method(:error) { instance_exec(@error, &block) }
@@ -151,9 +151,10 @@ module Lux
         end
       end
 
-      # Self-contained HTML error page (no template lookup). Used by the default
-      # Lux::Controller#error action; can be called directly from a custom :error
-      # to wrap the framework chrome around your own content.
+      # Self-contained HTML error page (no template lookup). Fallback used by the
+      # default Lux::Controller#error action when the app has no error template;
+      # can be called directly from a custom :error to wrap the framework chrome
+      # around your own content.
       def default_error_page status, error
         name      = ::Rack::Utils::HTTP_STATUS_CODES[status] || 'Error'
         message   = error.message.to_s.gsub('<', '&lt;').gsub('>', '&gt;')
@@ -242,15 +243,19 @@ module Lux
       lux.response.flash
     end
 
-    # Default :error action — renders a self-contained HTML page (no template lookup).
+    # Default :error action — renders the app error template at the layout root
+    # (e.g. app/views/main/error.haml) when present, else a self-contained HTML page.
     # Override on any controller (def error) or via the rescue_from class macro.
-    # Reads @error and @status set by Application#render_error before dispatch.
+    # Reads @error and @status set by Application#render_error before dispatch; the
+    # HTTP status lives on lux.response (always an integer, 200 unless set otherwise).
     def error
       @status ||= (lux.response.status.to_i >= 400 ? lux.response.status : 500)
       lux.response.status @status
 
       if lux.nav.format.to_s == 'json' || request.content_type.to_s.include?('json')
         render json: { status: @status, error: @error.message }
+      elsif template_file_exists?(build_template_path('error', cattr.layout))
+        render :error
       else
         render html: self.class.default_error_page(@status, @error)
       end

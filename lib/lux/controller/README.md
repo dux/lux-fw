@@ -61,10 +61,12 @@ class BoardsController < ApplicationController
 
   mock :show, :about                           # generate empty actions for templates
 
-  # Default :error action, inherited from Lux::Controller; override for
-  # custom rendering. @error and @status are set before dispatch.
+  # Default :error action, inherited from Lux::Controller; renders the single
+  # `error` template at the layout root (app/views/<layout>/error.*) when
+  # present, else a framework page. Override for custom rendering. @error and
+  # @status are set before dispatch; the HTTP status also lives on lux.response.
   def error
-    render @status == 404 ? :not_found : :server_error
+    render :error
   end
 
   # --- render shortcuts ---------------------------------------------------

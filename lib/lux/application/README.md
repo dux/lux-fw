@@ -157,7 +157,11 @@ Errors anywhere in the routing/action pipeline are caught by
 3. `Lux::Error.render` (last-resort framework page)
 
 The `:error` action receives `@error` (exception) and `@status` (resolved
-HTTP code) as ivars. Override per controller for custom rendering.
+HTTP code) as ivars; the HTTP status also lives on `lux.response` (always an
+integer, 200 unless set otherwise). By default it renders the single `error`
+template at the layout root (e.g. `app/views/main/error.haml`) when present,
+else a self-contained framework page — one template covers every status.
+Override per controller for custom rendering.
 
 ## CLI
 

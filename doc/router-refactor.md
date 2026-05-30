@@ -426,7 +426,7 @@ User overrides anywhere they want richer behaviour:
 ```ruby
 class MainController < Lux::Controller
   def error
-    render @status == 404 ? :error_404 : :error_500
+    render :error
   end
 end
 
@@ -442,7 +442,7 @@ API/HTML/admin diverge naturally through ordinary inheritance — no framework b
 ### User-facing migration
 
 * Apps with no `rescue_from`: **zero changes**. They get a nicer default error page in dev (current default chrome is `Lux::Error.render`; new default is the same content rendered through the controller pipeline).
-* Apps with `rescue_from { |err| MainController.render_template(:error_500, self) }`: replace with `def error; render :error_500; end` on `MainController`. Net change: ~1 file moved, ~3 lines.
+* Apps with `rescue_from { |err| MainController.render_template(:error, self) }`: replace with `def error; render :error; end` on `MainController`. Net change: ~1 file moved, ~3 lines.
 * For one release, keep a deprecated `rescue_from` shim that synthesises an `error` method on a one-off controller — adds ~15 lines of compat that get deleted in v-next. Recommended unless we are willing to make the cutover hard.
 
 ## Step-by-step migration
