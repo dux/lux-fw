@@ -189,6 +189,12 @@ module Lux
       @browser ||= Lux::Browser.new
     end
 
+    # Per-request HTML <head> builder. Chain-set title/meta/links, then
+    # emit via `lux.header.render` in the layout. See lib/lux/render/header.rb.
+    def header
+      @header ||= Lux::Render::Header.new
+    end
+
     def bearer_token
       auth = request.env['HTTP_AUTHORIZATION'].to_s
       auth.start_with?('Bearer ') ? auth[7..].presence : nil

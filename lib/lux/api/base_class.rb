@@ -10,44 +10,36 @@ module Lux
 
         request = Rack::Request.new env
 
-        if request.path == '/favicon.ico'
+        api_host = Struct.new(:request, :response).new(
+          request,
+          Struct.new(:header, :status).new({}, 200)
+        )
+
+        data = auto_mount api_host: api_host, development: ENV['RACK_ENV'] == 'development'
+
+        # 302 redirect sentinel: auto_mount returned { _redirect: '/path' }
+        if data.is_hash? && data[:_redirect]
+          return [302, { 'Location' => data[:_redirect], 'Content-Type' => 'text/html' }, []]
+        end
+
+        if data.is_hash?
           [
-            200,
-            { 'Cache-Control'=>'public; max-age=1000000' },
-            [Lux.fw_root.join('assets/api/web/favicon.png').read]
+            data[:status] || 200,
+            { 'Content-Type' => 'application/json', 'Cache-Control'=>'private; max-age=0' },
+            [data.to_json]
           ]
         else
-          api_host = Struct.new(:request, :response).new(
-            request,
-            Struct.new(:header, :status).new({}, 200)
-          )
-
-          data = auto_mount api_host: api_host, development: ENV['RACK_ENV'] == 'development'
-
-          # 302 redirect sentinel: auto_mount returned { _redirect: '/path' }
-          if data.is_hash? && data[:_redirect]
-            return [302, { 'Location' => data[:_redirect], 'Content-Type' => 'text/html' }, []]
-          end
-
-          if data.is_hash?
-            [
-              data[:status] || 200,
-              { 'Content-Type' => 'application/json', 'Cache-Control'=>'private; max-age=0' },
-              [data.to_json]
-            ]
-          else
-            data = data.to_s
-            # merge any headers the action set on api_host.response (Content-Type,
-            # Content-Disposition, ETag, Last-Modified, etc.) with sensible defaults
-            headers = { 'Cache-Control' => 'public; max-age=3600' }
-            headers.merge!(api_host.response.header || {})
-            headers['Content-Type'] ||= 'text/html'
-            # the action can also set status (e.g. send_file emits 304 on If-None-Match)
-            status = api_host.response.status || 200
-            # 304 / 204 must NOT have a body per HTTP spec
-            body = [204, 304].include?(status) ? [] : [data]
-            [status, headers, body]
-          end
+          data = data.to_s
+          # merge any headers the action set on api_host.response (Content-Type,
+          # Content-Disposition, ETag, Last-Modified, etc.) with sensible defaults
+          headers = { 'Cache-Control' => 'public; max-age=3600' }
+          headers.merge!(api_host.response.header || {})
+          headers['Content-Type'] ||= 'text/html'
+          # the action can also set status (e.g. send_file emits 304 on If-None-Match)
+          status = api_host.response.status || 200
+          # 304 / 204 must NOT have a body per HTTP spec
+          body = [204, 304].include?(status) ? [] : [data]
+          [status, headers, body]
         end
       rescue => error
         # last-resort guard: request parsing (JSON.parse / multipart) and

@@ -23,6 +23,9 @@ task :server do
     require 'socket'
     TCPServer.new('0.0.0.0', port.to_i).close
 
+    # rename the terminal window/tab (ghostty, iterm2) for the server's lifetime
+    print "\e]0;#{File.basename(Dir.pwd)} lux web\a" if $stdout.tty?
+
     flags = %w(LUX_DEBUG LUX_RELOAD).map { |k| "#{k}=#{ENV[k]}" }.join(' ')
     base  = "RACK_ENV=#{ENV['RACK_ENV']} #{flags} bundle exec puma"
 

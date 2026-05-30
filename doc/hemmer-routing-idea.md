@@ -122,7 +122,7 @@ the routes inside the same `ns`.
   the existing `call 'foo#bar'` / `lux.response.body ...` still work.
 * `plugin_route` / `plugin_routes` - same idea, just that plugin routes
   now register into the shared tree instead of evaluating in place.
-* `rescue_from` (app-level), `subdomain`, `favicon` - orthogonal.
+* `rescue_from` (app-level), `subdomain` - orthogonal.
 
 ### What we drop
 

@@ -1,8 +1,8 @@
 # Lux.plugin :web_common
 
 The shared web layer for a Lux app, bundled as one plugin. It folds
-together six formerly separate plugins - `assets`, `favicon`, `header`,
-`html`, `authcog`, `admin_web` - so an app lists a single entry:
+together formerly separate plugins - `assets`, `html`,
+`authcog`, `admin_web` - so an app lists a single entry:
 
 ```yaml
 # config/config.yaml
@@ -21,8 +21,6 @@ list it after `db`.
 | Area | Provides | Loaded from |
 |------|----------|-------------|
 | assets  | `CdnAsset` (manifest/CDN asset URLs) + `ApplicationHelper` template helpers (`svelte`, `request`, `response`) | `load/assets/` |
-| favicon | `Lux::Favicon.head` `<link>` builder + `routes.rb` serving `public/favicon.svg` for legacy `.ico` / `apple-touch-icon` polling | `load/favicon/`, `routes.rb` |
-| header  | `lux.header` - per-request `<head>` builder (title, description, og/twitter meta, canonical, robots) | `load/header/` |
 | html    | form / input / table builders plus `HtmlMenu`, `HtmlHelper.paginate`, `HtmlFilter`, timezone helpers | `load/html/` |
 | authcog | `AuthcogController` - central-auth login + hash-callback landing | `lib/authcog_controller.rb` |
 | admin_web | PG-backed exception logger (`LuxException` / `LuxExceptionLog`) and a mountable `/admin` viewer | `lib/`, `mount/` |
@@ -40,34 +38,13 @@ The detailed per-builder docs live next to the code:
 ```ruby
 Lux do
   routes do
-    favicon './public/favicon.svg'   # framework DSL for /favicon.svg itself
-
     map 'authcog', 'authcog#call'    # central-auth login + landing
     map 'admin',   'admin#call'      # admin viewer (after `lux mount web_common`)
-
-    plugin_routes                    # picks up web_common/routes.rb (favicon polling)
   end
 end
 ```
 
-`plugin_route :web_common` / `plugin_routes` evaluate `routes.rb`, which only
-declares the legacy favicon-polling handlers; everything else is wired
-explicitly by the app, as above.
-
-### Header
-
-```ruby
-lux.header.title       'My page'
-lux.header.description 'short summary'
-lux.header.canonical   'https://example.com/page'
-```
-
-```haml
-%head
-  = lux.header.render do |page|
-    != Lux::Favicon.head
-    = asset 'main.css'
-```
+Everything is wired explicitly by the app, as above.
 
 ### Exception logger
 
@@ -92,10 +69,9 @@ Then browse `/admin/plugins/exception_logger`. See the query/summary API on
 ```
 plugins/web_common/
   loader.rb            # authcog + exception-logger wiring, ErrorProxy.log hook
-  routes.rb            # legacy favicon / apple-touch-icon polling
   Hammerfile           # `lux assets:auto` compiler
   load/
-    assets/  favicon/  header/  html/{form,input,table,...}
+    assets/  html/{form,input,table,...}
   lib/
     authcog_controller.rb
     lux_exception.rb  lux_exception_log.rb

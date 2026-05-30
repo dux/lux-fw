@@ -74,7 +74,6 @@ Lux.app do
   map '/admin/sys/jobs' => LuxJobWeb             # deep absolute path
   call '/api'          => ApiApp                 # unconditional (for rescue_from etc.)
 
-  favicon 'app/assets/favicon.ico'
   plugin_route :web_common                       # explicit single plugin
   plugin_routes                                  # auto-mount every plugin with routes.rb
 

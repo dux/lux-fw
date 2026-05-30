@@ -4,8 +4,6 @@
 # entry instead of six:
 #
 #   load/assets   - CdnAsset + ApplicationHelper template helpers
-#   load/favicon  - Lux::Favicon <link> builder (+ routes.rb for legacy polling)
-#   load/header   - lux.header per-request <head> builder
 #   load/html     - form / input / table / menu / paginate / filter builders
 #   lib/authcog   - central-auth login + landing controller
 #   lib/lux_*     - PG-backed exception logger (+ mount/ for the /admin viewer)

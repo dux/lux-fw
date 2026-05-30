@@ -68,6 +68,24 @@ lux render /api/users/show -m post -t TOKEN  # POST with bearer
 lux render /admin -s user_id=1 -i            # session + full info hash
 ```
 
+## Page `<head>` builder
+
+`Lux::Render::Header` is the per-request `<head>` builder, reached as
+`lux.header` (memoized on `Lux.current`). Chain-set title / meta / links,
+then emit via `lux.header.render` in the layout's `%head` block.
+
+```ruby
+lux.header.title       'My page'
+lux.header.description 'short summary'
+lux.header.canonical   'https://example.com/page'
+```
+
+```haml
+%head
+  = lux.header.render do |page|
+    = asset 'main.css'
+```
+
 ## See also
 
 * [`../template/README.md`](../template/README.md) - the template engine

@@ -73,7 +73,7 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | Plugin            | What it is | Read |
 |-------------------|------------|------|
 | `db`              | Boots `Lux::Db` + Sequel extensions (hooks, links, paginate, enums) | [README](./plugins/db/README.md) |
-| `web_common`      | Shared web layer: html builders, `lux.header`, assets, favicon, authcog controller, PG exception logger + `/admin` | [README](./plugins/web_common/README.md) |
+| `web_common`      | Shared web layer: html builders, assets, authcog controller, PG exception logger + `/admin` | [README](./plugins/web_common/README.md) |
 | `locale`          | Small, namespaced translation lookup with dotted keys              | [README](./plugins/locale/README.md) |
 | `oauth`           | Oauth interface (facebook, github, google, linkedin, slack, ...)   | [README](./plugins/oauth/README.md) |
 | `auto_controller` | Convention-based routing + template auto-finding                   | [README](./plugins/auto_controller/README.md) |

@@ -519,7 +519,7 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 | Plugin | What | Docs |
 |--------|------|------|
 | `db`               | Sequel model extensions, auto-migrate, `link` associations | [README](./plugins/db/README.md) |
-| `web_common`       | Shared web layer: html builders, `lux.header`, assets, favicon, authcog controller, PG exception logger + `/admin` | [README](./plugins/web_common/README.md) |
+| `web_common`       | Shared web layer: html builders, assets, authcog controller, PG exception logger + `/admin` | [README](./plugins/web_common/README.md) |
 | `job_runner`       | Background job queue (LuxJob) | [README](./plugins/job_runner/README.md) |
 | `lux_logger`       | Structured database logger | [README](./plugins/lux_logger/README.md) |
 | `oauth`            | OAuth integration | [README](./plugins/oauth/README.md) |

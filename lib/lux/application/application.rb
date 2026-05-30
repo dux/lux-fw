@@ -30,7 +30,7 @@ module Lux
     # order. We bypass the public `routes` method because class-callbacks keys
     # by `caller[0]`, which would collapse to the same key for every call from
     # inside our wrapper.
-    ROUTING_DSL ||= %i[map root match subdomain plugin_route plugin_routes favicon
+    ROUTING_DSL ||= %i[map root match subdomain plugin_route plugin_routes
                        get? head? post? delete? put? patch?]
 
     ROUTING_DSL.each do |name|
@@ -208,21 +208,6 @@ module Lux
         session: lux.session.hash,
         headers: out[1]
       }.to_lux_hash
-    end
-
-    def favicon path
-      cpath = lux.request.path.downcase
-
-      if !lux.response.body? && (cpath.start_with?('/favicon') || cpath.start_with?('/apple-touch-icon'))
-        lux.response.max_age = 600 if lux.response.max_age.to_i == 0
-
-        icon = Lux.root.join(path)
-        if icon.exist?
-          lux.response.send_file(icon, inline: true)
-        else
-          raise Lux.error.not_found Lux.mode.debug?('404 Not Found') { '%s not found' % path }
-        end
-      end
     end
 
     # internall call to resolve the routes. Per-action `route` annotations

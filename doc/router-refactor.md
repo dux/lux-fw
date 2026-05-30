@@ -332,7 +332,7 @@ Two related but separable changes. Both can ship together or in order; together 
 
 ## What stays distinct
 
-* **`render_base`** (Rack lifecycle), **`render_page`**, **`mount`**, **`favicon`**, **`resolve_routes`** — all Application-only.
+* **`render_base`** (Rack lifecycle), **`render_page`**, **`mount`**, **`resolve_routes`** — all Application-only.
 * **Routes DSL** (`map`, `get?`, `match`, `root`, `subdomain`, `call`, `route_match?`) — mixed into Application only. Controllers do not route to other controllers; that is the router's job.
 * **Controller-only mechanics** — `action_missing`, `helper`, `render_template`, `render_cached`, `respond_to`, `layout`, `cache`, `etag`. Stay on Controller.
 
@@ -356,7 +356,7 @@ Mixin (sibling) chosen over inheritance (`Application < Controller`) for one rea
 
 `Lux::Controller` adds: `:before_action`, `:before_render` callbacks, `action`/`action_missing`, `render_template`, `render_cached`, `helper`, `respond_to`, `layout`, `cache`, `etag`, `redirect_to`, `flash`, `send_file`, `render_to_string`, `render_javascript`. **Plus a default `error` action** (see Part B).
 
-`Lux::Application` adds: `include Routes`, `:routes` callback, `render_base`, `render_page`, `resolve_routes`, `mount`, `favicon`, `render_error`.
+`Lux::Application` adds: `include Routes`, `:routes` callback, `render_base`, `render_page`, `resolve_routes`, `mount`, `render_error`.
 
 ## Part B — Error handling
 
@@ -464,7 +464,7 @@ Each step is independently shippable; run specs between each.
 * **`CONTROLLER_CLASS_CACHE`** stays on the `Routes` module (process-wide, not per-subclass).
 * **Callback firing scopes.** Application's `:before`/`:after` fire once per request on the Application instance. Controller's `:before`/`:before_action`/`:before_render`/`:after` fire per action on the controller instance. The mixin shares the *mechanism*, not the firing site.
 * **Two-tier rescue.** `Application#render_base` catches once and dispatches to `error`. `Lux.call` catches once more as the absolute floor. No third tier.
-* **`Lux.app do ... end` DSL** is unchanged: `before`, `after`, `map`, `root`, `match`, `get?`, `post?`, `subdomain`, `mount`, `favicon`. The only macro that disappears is `rescue_from`.
+* **`Lux.app do ... end` DSL** is unchanged: `before`, `after`, `map`, `root`, `match`, `get?`, `post?`, `subdomain`, `mount`. The only macro that disappears is `rescue_from`.
 
 ## What gets deleted
 

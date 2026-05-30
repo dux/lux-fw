@@ -143,10 +143,6 @@ module Lux
         @path = prev_path
       end
 
-      def favicon path
-        record verb: 'GET', path: '/favicon.ico', target: '[favicon] %s' % path
-      end
-
       def plugin_route name
         record verb: '*', path: build_path, target: '[plugin] %s' % name
       end
