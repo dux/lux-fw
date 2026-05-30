@@ -143,7 +143,7 @@ class Lux::Application::Nav
     seg = (i && i > 0) ? path[i - 1].to_s : nil
     app = Lux.current.var[:lux_app] unless opts[:ivars] == false
 
-    models.filter_map do |klass|
+    Array(models).filter_map do |klass|
       name = klass.to_s.split('::').last.underscore
       abbr = klass.abbr rescue nil   # nil when the model defines no abbr -> name match only
 

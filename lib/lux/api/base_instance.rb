@@ -72,14 +72,13 @@ module Lux
         rescue => error
           # uncontrolled error, should be logged
           Lux::Api.error_print error if @api.development
+          Lux.error.log error
 
           block = RESCUE_FROM[error.class] || RESCUE_FROM[:all]
 
           if block
             instance_exec error, &block
           else
-            # no rescue_from registered: still log so nothing is silently dropped
-            Lux.error.log error
             response.error error.message, status: 500
           end
         end

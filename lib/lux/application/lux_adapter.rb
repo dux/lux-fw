@@ -46,7 +46,7 @@ module Lux
       app.render_base || raise('No RACK response given')
     end
   rescue => err
-    Lux.logger.error Lux::Error.format(err, message: true)
+    Lux.error.log err
 
     if Lux.mode.debug?
       raise

@@ -49,11 +49,12 @@ Everything is wired explicitly by the app, as above.
 
 ### Exception logger
 
-Loading the plugin overrides `Lux::ErrorProxy.log` so framework errors
-flowing through `Lux.error.log` are recorded in `lux_exceptions`. The
-override is a no-op until the table exists, so an app can adopt
-`web_common` before running `lux db:am`; the first auto-migrate creates
-`lux_exceptions` + `lux_exception_logs` from the model schemas.
+Loading the plugin defines `Lux::ErrorProxy.log_custom` so framework errors
+flowing through `Lux.error.log` are recorded in `lux_exceptions` after the
+framework has handled duplicate suppression, screen logging, and error-file
+logging. If the exception tables are not migrated yet, the framework logs the
+custom hook failure without masking the original error; the first auto-migrate
+creates `lux_exceptions` + `lux_exception_logs` from the model schemas.
 
 Mount the `/admin` controller + views into the host:
 
@@ -69,7 +70,7 @@ Then browse `/admin/plugins/exception_logger`. See the query/summary API on
 
 ```
 plugins/web_common/
-  loader.rb            # authcog + exception-logger wiring, ErrorProxy.log hook
+  loader.rb            # authcog + exception-logger wiring, ErrorProxy.log_custom hook
   Hammerfile           # `lux assets:auto` compiler
   load/
     favicon.rb           # `favicon` routing DSL

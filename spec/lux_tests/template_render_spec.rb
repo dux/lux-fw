@@ -5,6 +5,18 @@ describe 'Template Helper#render' do
     './spec/fixtures/views'
   end
 
+  def with_error_log_buffer
+    buf = StringIO.new
+    logger = Logger.new(buf)
+    logger.formatter = proc { |_, _, _, msg| "#{msg}\n" }
+
+    prev = Lux.instance_variable_get(:@default_logger)
+    Lux.instance_variable_set(:@default_logger, logger)
+    yield buf
+  ensure
+    Lux.instance_variable_set(:@default_logger, prev)
+  end
+
   # build a helper scope with the Helper module mixed in
   def build_helper(root_template_path = nil)
     scope = Object.new
@@ -23,6 +35,19 @@ describe 'Template Helper#render' do
       helper = build_helper
       result = helper.render "#{views}/pages/index"
       _(result).must_include 'page:index'
+    end
+
+    it 'logs template exceptions before returning the inline fallback' do
+      Dir.mkdir('./tmp') unless Dir.exist?('./tmp')
+      File.write('./tmp/template_error_probe.haml', '= missing_method_for_log_probe')
+
+      with_error_log_buffer do |buf|
+        result = Lux::Template.render(Object.new, './tmp/template_error_probe')
+
+        _(result).must_include 'lux-inline-error'
+        _(buf.string).must_include '[NameError]'
+        _(buf.string).must_include 'missing_method_for_log_probe'
+      end
     end
 
     it 'renders a symbol as a relative path' do

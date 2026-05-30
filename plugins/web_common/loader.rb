@@ -22,28 +22,9 @@ require_relative 'lib/authcog_controller'
 require_relative 'lib/lux_exception'
 require_relative 'lib/lux_exception_log'
 
-# Route framework-internal `Lux.error.log` calls into the LuxException table.
+# Persist framework-internal `Lux.error.log` calls into the LuxException table.
 module Lux::ErrorProxy
-  LOG_DEDUPE_KEY ||= 'lux:error_log:last_fingerprint'.freeze
-  LOG_DEDUPE_TTL ||= 60
-
-  def self.log(err)
-    # Dedupe burst-repeats: if the last logged error has the same class and
-    # was raised from the same app-level callsite, drop it. Uses Lux.cache
-    # server directly so it works outside an HTTP request context too.
-    root = Lux.root.to_s
-    site = (err.backtrace || []).find { |l| l.start_with?(root) }
-    fingerprint = "#{err.class}@#{site}"
-
-    cache = Lux.cache.server rescue nil
-    if cache
-      return if (cache.get(LOG_DEDUPE_KEY) rescue nil) == fingerprint
-      cache.set(LOG_DEDUPE_KEY, fingerprint, LOG_DEDUPE_TTL) rescue nil
-    end
-
+  def self.log_custom(err)
     LuxException.add err
-  rescue Sequel::DatabaseError
-    # lux_exceptions table not migrated yet (run `lux db:am`). Skip DB logging
-    # rather than mask the original error with a secondary failure.
   end
 end

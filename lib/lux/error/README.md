@@ -59,6 +59,16 @@ end
 Lux::Error.render(exception)         # full HTML/JSON error page
 Lux::Error.inline(exception)         # inline panel (for embeds)
 Lux::Error.format(exception, html: true, gems: false, message: true)
+
+# --- logging -------------------------------------------------------------
+
+Lux.error.log(exception)             # screen + error log + custom hook
+
+module Lux::ErrorProxy
+  def self.log_custom(error)          # optional app/plugin persistence hook
+    MyExceptionStore.add error
+  end
+end
 ```
 
 ## Resolution order on raise

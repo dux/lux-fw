@@ -29,15 +29,45 @@ describe Lux::Error do
       _(lines[3].start_with?('  /')).must_equal true    # gem line
     end
 
-    it 'returns array marker when no backtrace' do
+    it 'returns string marker when no backtrace' do
       error = StandardError.new('test')
-      _(Lux::Error.format(error)).must_equal ['no backtrace present']
+      _(Lux::Error.format(error)).must_equal 'no backtrace present'
+      _(Lux::Error.format(error, message: true)).must_include '[StandardError] test'
     end
   end
 end
 
 describe 'Lux.error' do
   before { Lux::Current.new('http://testing') }
+
+  def with_error_log_buffer
+    buf = StringIO.new
+    logger = Logger.new(buf)
+    logger.formatter = proc { |_, _, _, msg| "#{msg}\n" }
+    logger.level = Logger::INFO
+
+    prev = Lux.instance_variable_get(:@default_logger)
+    Lux.instance_variable_set(:@default_logger, logger)
+    yield buf
+  ensure
+    Lux.instance_variable_set(:@default_logger, prev)
+  end
+
+  def with_log_custom(custom)
+    prev = Lux::ErrorProxy.method(:log_custom)
+    Lux::ErrorProxy.define_singleton_method(:log_custom, &custom)
+    yield
+  ensure
+    Lux::ErrorProxy.define_singleton_method(:log_custom) { |error| prev.call(error) }
+  end
+
+  def with_debug_mode(value)
+    prev = Lux.mode.debug?
+    Lux.mode.debug = value
+    yield
+  ensure
+    Lux.mode.debug = prev
+  end
 
   describe 'with integer code' do
     it 'returns Lux::Error and sets response status to that code' do
@@ -104,6 +134,95 @@ describe 'Lux.error' do
 
     it 'is raisable: raise Lux.error.not_found raises Lux::Error' do
       _{ raise Lux.error.not_found('x') }.must_raise Lux::Error
+    end
+  end
+
+  describe '.log' do
+    it 'always writes the formatted error to Lux.logger.error' do
+      with_debug_mode(false) do
+        with_error_log_buffer do |buf|
+          error = StandardError.new('boom')
+          error.set_backtrace(["#{Lux.root}/app/models/thing.rb:10:in `run'"])
+
+          Lux.error.log(error)
+
+          _(buf.string).must_include '[StandardError] boom'
+          _(buf.string).must_include './app/models/thing.rb:10'
+        end
+      end
+    end
+
+    it 'writes app caller, error class, and message to Lux.log in debug mode' do
+      with_debug_mode(true) do
+        with_error_log_buffer do |buf|
+          Lux.error.log(StandardError.new('boom'))
+
+          _(buf.string).must_match(/ - StandardError: boom/)
+        end
+      end
+    end
+
+    it 'suppresses the screen log outside debug mode' do
+      with_debug_mode(false) do
+        with_error_log_buffer do |buf|
+          Lux.error.log(StandardError.new('boom'))
+
+          refute buf.string.match?(/ - StandardError: boom/)
+          _(buf.string).must_include '[StandardError] boom'
+        end
+      end
+    end
+
+    it 'runs the custom logger hook with the error' do
+      seen = []
+
+      with_log_custom(proc { |error| seen << error }) do
+        with_error_log_buffer do
+          error = StandardError.new('boom')
+          Lux.error.log(error)
+
+          _(seen).must_equal [error]
+        end
+      end
+    end
+
+    it 'logs the same exception object only once' do
+      seen = []
+
+      with_debug_mode(true) do
+        with_log_custom(proc { |error| seen << error }) do
+          with_error_log_buffer do |buf|
+            error = StandardError.new('boom')
+            error.set_backtrace(["#{Lux.root}/app/models/thing.rb:10:in `run'"])
+
+            Lux.error.log(error)
+            Lux.error.log(error)
+
+            _(buf.string.scan(/ - StandardError: boom/).length).must_equal 1
+            _(buf.string.scan(/\[StandardError\] boom/).length).must_equal 1
+            _(seen).must_equal [error]
+          end
+        end
+      end
+    end
+
+    it 'logs different exception objects separately' do
+      with_error_log_buffer do |buf|
+        Lux.error.log(StandardError.new('one'))
+        Lux.error.log(StandardError.new('two'))
+
+        _(buf.string.scan(/\[StandardError\]/).length).must_equal 2
+      end
+    end
+
+    it 'does not let custom logger failures escape' do
+      with_log_custom(proc { |_error| raise 'custom failed' }) do
+        with_error_log_buffer do |buf|
+          Lux.error.log(StandardError.new('boom'))
+
+          _(buf.string).must_include 'Lux.error.log_custom failed: RuntimeError: custom failed'
+        end
+      end
     end
   end
 end

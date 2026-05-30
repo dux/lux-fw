@@ -2,12 +2,34 @@ require 'test_helper'
 require_relative '../loader'
 
 describe 'error handling with status codes' do
+  def with_error_log_buffer
+    buf = StringIO.new
+    logger = Logger.new(buf)
+    logger.formatter = proc { |_, _, _, msg| "#{msg}\n" }
+
+    prev = Lux.instance_variable_get(:@default_logger)
+    Lux.instance_variable_set(:@default_logger, logger)
+    yield buf
+  ensure
+    Lux.instance_variable_set(:@default_logger, prev)
+  end
+
   describe 'named errors' do
     it 'handles named error code 405' do
       response = GenericApi.render :get_money
       _(response[:success]).must_equal false
       _(response[:error][:messages]).must_include '$ not found'
       _(response[:error][:messages]).must_include '405'
+    end
+
+    it 'does not log controlled API errors' do
+      with_error_log_buffer do |buf|
+        response = GenericApi.render ''
+
+        _(response[:success]).must_equal false
+        _(response[:status]).must_equal 400
+        _(buf.string).must_equal ''
+      end
     end
   end
 
@@ -19,6 +41,20 @@ describe 'error handling with status codes' do
       _(response[:success]).must_equal false
       _(response[:status]).must_equal 500
       _(response[:error][:messages]).must_include 'Error happens'
+    end
+
+    it 'logs unhandled exceptions before rescue_from :all responds' do
+      with_error_log_buffer do |buf|
+        $no_error_print = true
+        response = GenericApi.render :about
+        $no_error_print = false
+
+        _(response[:status]).must_equal 500
+        _(buf.string).must_include '[NameError]'
+        _(buf.string).must_include 'undefined local variable or method'
+      end
+    ensure
+      $no_error_print = false
     end
   end
 

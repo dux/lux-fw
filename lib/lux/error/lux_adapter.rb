@@ -17,16 +17,48 @@ module Lux
   #   raise Lux.error.not_found('user missing')
   #
   # Also exposes `log(exception)` - the canonical hook for capturing
-  # exceptions. Default is a no-op that warns. Plugins (e.g. admin_web)
-  # redefine `Lux::ErrorProxy.log` to send errors to their store.
+  # exceptions. Override `log_custom(exception)` to persist errors elsewhere.
   module ErrorProxy
     extend self
+    LOGGED_FLAG ||= :@_lux_error_logged
+
     HTTP_ERROR_SHORTCUTS.each do |name, code|
       define_method(name) { |msg = nil| Lux.error code, msg }
     end
 
     def log(exception)
-      Lux.log "Lux.error.log: error logger not assigned (#{exception.class}: #{exception.message})"
+      return unless exception
+      already_logged = exception.instance_variable_defined?(LOGGED_FLAG) rescue false
+      return if already_logged
+
+      exception.instance_variable_set(LOGGED_FLAG, true) rescue nil
+
+      begin
+        Lux.logger.error Lux::Error.format(exception, message: true)
+      rescue StandardError
+        nil
+      end
+
+      if Lux.mode.debug?
+        begin
+          Lux.log "#{Lux.app_caller || 'unknown'} - #{exception.class}: #{exception.message}"
+        rescue StandardError
+          nil
+        end
+      end
+
+      begin
+        log_custom(exception)
+      rescue StandardError => custom_error
+        begin
+          Lux.logger.error "Lux.error.log_custom failed: #{custom_error.class}: #{custom_error.message}"
+        rescue StandardError
+          nil
+        end
+      end
+    end
+
+    def log_custom(exception)
     end
   end
 

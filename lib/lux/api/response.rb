@@ -6,7 +6,7 @@ module Lux
       attr_reader :errors
 
       def self.auto_format error
-        Lux.error.log error
+        Lux.error.log error unless error.is_a?(Lux::Api::Error)
 
         code     = client_error?(error) ? 400 : 500
         response = new nil

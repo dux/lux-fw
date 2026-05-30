@@ -60,7 +60,12 @@ module Lux
       # Local app lines start with ./ , gem/global lines keep full path.
       #   format error, html: true, message: true, gems: true
       def format error, opts = {}
-        return ['no backtrace present'] unless error && error.backtrace
+        unless error && error.backtrace
+          lines = []
+          lines << "[#{error.class}] #{error.message}" if error && opts[:message] == true
+          lines << 'no backtrace present'
+          return lines.join($/)
+        end
 
         root = Lux.root.to_s
 

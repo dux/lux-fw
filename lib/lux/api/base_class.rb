@@ -46,6 +46,7 @@ module Lux
         # response serialization run outside the per-action rescue_from. Funnel
         # anything that escapes into the same JSON + logged error shape, so an
         # API request never returns a raw 500 or non-JSON body.
+        Lux.error.log error unless error.is_a?(Lux::Api::Error)
         body = Response.auto_format error
         [body[:status] || 500, { 'Content-Type' => 'application/json' }, [body.to_json]]
       end
@@ -179,6 +180,7 @@ module Lux
         api.execute_call
       rescue => error
         error_print error if opts[:development]
+        Lux.error.log error unless error.is_a?(Lux::Api::Error)
         Response.auto_format error
       end
 

@@ -100,6 +100,7 @@ module Lux
         end
       end
 
+      Lux.error.log error
       return Lux::Error.inline(error)
     end
 
@@ -140,5 +141,4 @@ module Lux
     end
   end
 end
-
 
