@@ -83,7 +83,7 @@ module Lux
     message ||= ::Rack::Utils::HTTP_STATUS_CODES[code] || 'Error'
 
     Lux.current.response.status code
-    Lux.log " Lux.error #{code} at #{Lux.app_caller} - #{message}" if Lux.mode.debug?
+    Lux.log " Lux.error #{code} at #{Lux.app_caller} - #{message}".colorize(:red) if Lux.mode.debug?
 
     Lux::Error.new(message)
   end

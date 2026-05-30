@@ -10,7 +10,7 @@
 #     # method-level: applies only to the next def
 #     opt :name,  String, max: 30
 #     opt :email, type: :email
-#     allow :post                       # this action accepts GET + HEAD + POST
+#     allow :post                       # this action accepts POST only
 #     def create
 #       # current.params already coerced + validated, undeclared keys dropped
 #     end
@@ -20,18 +20,18 @@
 # parser is identical to Lux.schema. Allowed keys per action is the union
 # of class-level and method-level rules; method wins on collision.
 #
-# Verb contract: actions are GET (+ implicit HEAD) by default. An `allow`
+# Verb contract: actions are GET (+ implicit HEAD/OPTIONS) by default. An `allow`
 # line REPLACES the default set with the declared verbs - `allow :post`
 # means POST only (no GET). For both, declare both: `allow :get, :post`.
-# HEAD is implicit only when GET is in the set. `allow :any` (alias `:all`)
-# opts out of the check entirely. A verb not in the set raises 405.
+# HEAD and OPTIONS are implicit only when GET is in the set. `allow :any`
+# (alias `:all`) opts out of the check entirely. A verb not in the set raises 405.
 
 require 'set'
 
 module Lux
   class Controller
     module ParamsDsl
-      ALLOWED_HTTP_VERBS ||= %i(get head post put patch delete trace).freeze
+      ALLOWED_HTTP_VERBS ||= %i(get head options post put patch delete trace).freeze
 
       def self.included base
         base.extend ClassMethods
@@ -80,12 +80,12 @@ module Lux
         end
 
         # Declare the exact HTTP verb set the next def accepts. This REPLACES
-        # the GET + HEAD default - it is not additive. For dual-verb actions,
-        # declare both verbs explicitly. HEAD piggybacks on GET only when GET
-        # is in the set.
+        # the GET + HEAD + OPTIONS default - it is not additive. For dual-verb
+        # actions, declare both verbs explicitly. HEAD and OPTIONS piggyback on
+        # GET only when GET is in the set.
         #
         #   allow :post                # POST only (no GET)
-        #   allow :get, :post          # GET + HEAD + POST
+        #   allow :get, :post          # GET + HEAD + OPTIONS + POST
         #   allow :post, :patch        # POST + PATCH only
         #   allow :any                 # accept every verb (alias: :all)
         #
@@ -148,7 +148,7 @@ module Lux
         # permitted on every verb so error rendering never 405s.
         #
         # When the action declares `allow`, the declared set REPLACES the
-        # default. HEAD is implicit only when GET is in the declared set.
+        # default. HEAD and OPTIONS are implicit only when GET is in the declared set.
         # Returns either a `Set` of verb symbols, or the sentinel `:any` for
         # opt-out actions.
         def allowed_verbs_for action_name
@@ -163,12 +163,23 @@ module Lux
             next unless declared
 
             return :any if declared == [:any]
-            set = Set.new(declared)
-            set << :head if set.include?(:get)
+            set = expand_allowed_verbs(declared)
             return set
           end
 
-          Set[:get, :head]
+          expand_allowed_verbs([:get])
+        end
+
+        def expand_allowed_verbs verbs
+          Set.new.tap do |set|
+            verbs.each do |verb|
+              set << verb
+              if verb == :get
+                set << :head
+                set << :options
+              end
+            end
+          end
         end
 
         # Compose class-level + method-level into one Lux::Schema, with

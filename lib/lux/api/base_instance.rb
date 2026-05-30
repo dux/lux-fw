@@ -58,7 +58,8 @@ module Lux
     def execute_call
       allow_types  = Array(@api.method_opts[:allow] || 'POST')
       request_type = @api.request&.request_method || 'POST'
-      is_allowed   = @api.development || ['POST', *allow_types].include?(request_type)
+      effective_allow_types = allow_types.include?('GET') ? [*allow_types, 'OPTIONS'] : allow_types
+      is_allowed   = @api.development || ['POST', *effective_allow_types].include?(request_type)
 
       if is_allowed
         begin

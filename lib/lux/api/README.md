@@ -143,7 +143,7 @@ endpoint. Private and protected methods are never endpoints.
 | `class_desc` / `class_detail` | apply to whole class |
 | `params do ... end`     | param schema for the next endpoint |
 | `schema_ref :name`      | reference a top-level model schema instead of inline params |
-| `allow :get, :put`      | additional HTTP methods, varargs or array `allow [:get, :put]` (default POST) |
+| `allow :get, :put`      | additional HTTP methods, varargs or array `allow [:get, :put]` (default POST; OPTIONS piggybacks on GET) |
 | `unsafe`                | endpoint skips the class `auth` hook (callable anonymously) |
 | `undocumented`          | endpoint stays callable but is hidden from OpenAPI/Postman/introspect output |
 | `define name do; proc {...}; end` | collection endpoint (at class root) |

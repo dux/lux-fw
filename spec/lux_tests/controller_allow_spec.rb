@@ -1,6 +1,6 @@
 require 'test_helper'
 
-# Default action: GET + HEAD only.
+# Default action: GET + HEAD + OPTIONS.
 class GetDefaultController < Lux::Controller
   def show
     render text: 'show:%s' % lux.request.request_method
@@ -28,6 +28,14 @@ class AllowGetPostController < Lux::Controller
   allow :get, :post
   def upsert
     render text: 'upsert:%s' % lux.request.request_method
+  end
+end
+
+# Explicit POST + OPTIONS.
+class AllowPostOptionsController < Lux::Controller
+  allow :post, :options
+  def preflight
+    render text: 'preflight:%s' % lux.request.request_method
   end
 end
 
@@ -89,7 +97,7 @@ end
 ###
 
 describe 'Lux::Controller allow / HTTP verb enforcement' do
-  describe 'default GET-only' do
+  describe 'default GET' do
     it 'accepts GET' do
       Lux::Current.new('http://test/show')
       GetDefaultController.action(:show)
@@ -100,6 +108,12 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
       Lux::Current.new('http://test/show', method: 'HEAD')
       GetDefaultController.action(:show)
       _(Lux.current.response.body).must_equal 'show:HEAD'
+    end
+
+    it 'accepts OPTIONS (implicit alongside GET)' do
+      Lux::Current.new('http://test/show', method: 'OPTIONS')
+      GetDefaultController.action(:show)
+      _(Lux.current.response.body).must_equal 'show:OPTIONS'
     end
 
     it 'rejects POST with 405' do
@@ -132,6 +146,12 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
 
     it 'rejects HEAD with 405 (no implicit HEAD without :get)' do
       Lux::Current.new('http://test/create', method: 'HEAD')
+      _{ AllowPostController.action(:create) }.must_raise Lux::Error
+      _(Lux.current.response.status).must_equal 405
+    end
+
+    it 'rejects OPTIONS with 405 (no implicit OPTIONS without :get)' do
+      Lux::Current.new('http://test/create', method: 'OPTIONS')
       _{ AllowPostController.action(:create) }.must_raise Lux::Error
       _(Lux.current.response.status).must_equal 405
     end
@@ -182,6 +202,12 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
       _(Lux.current.response.body).must_equal 'upsert:HEAD'
     end
 
+    it 'accepts OPTIONS (implicit because :get is declared)' do
+      Lux::Current.new('http://test/upsert', method: 'OPTIONS')
+      AllowGetPostController.action(:upsert)
+      _(Lux.current.response.body).must_equal 'upsert:OPTIONS'
+    end
+
     it 'accepts POST' do
       Lux::Current.new('http://test/upsert', method: 'POST')
       AllowGetPostController.action(:upsert)
@@ -206,6 +232,14 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
       Lux::Current.new('http://test/replace', method: 'DELETE')
       AllowSplatController.action(:replace)
       _(Lux.current.response.body).must_equal 'replace:DELETE'
+    end
+  end
+
+  describe 'explicit allow :options' do
+    it 'accepts OPTIONS without GET when declared' do
+      Lux::Current.new('http://test/preflight', method: 'OPTIONS')
+      AllowPostOptionsController.action(:preflight)
+      _(Lux.current.response.body).must_equal 'preflight:OPTIONS'
     end
   end
 
@@ -293,7 +327,7 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
         refute_nil raised
         _(raised.message).must_include 'GetDefaultController#show'
         _(raised.message).must_include 'PUT'
-        _(raised.message).must_include 'GET, HEAD'
+        _(raised.message).must_include 'GET, HEAD, OPTIONS'
         _(raised.message).must_include 'allow :put'
       ensure
         Lux.mode.debug = prev

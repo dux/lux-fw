@@ -204,8 +204,8 @@ module Lux
 
       @lux.action = method_name.to_sym
 
-      # fail-fast verb check before any callbacks run. Default is GET + HEAD;
-      # add other verbs per-action via `allow :post, :patch` above the def.
+      # fail-fast verb check before any callbacks run. Default is GET + HEAD
+      # + OPTIONS; add other verbs per-action via `allow :post, :patch`.
       enforce_allowed_verbs!
 
       run_callback :before, @lux.action

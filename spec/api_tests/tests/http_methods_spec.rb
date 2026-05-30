@@ -90,6 +90,11 @@ describe 'HTTP method restrictions' do
       _(response[:success]).must_equal true
     end
 
+    it 'allows OPTIONS when get: specified' do
+      response = HttpTestApi.render :get_allowed, api_host: MockApiHost.new('OPTIONS')
+      _(response[:success]).must_equal true
+    end
+
     it 'allows POST when get: specified (POST always allowed)' do
       response = HttpTestApi.render :get_allowed, api_host: MockApiHost.new('POST')
       _(response[:success]).must_equal true
@@ -103,6 +108,11 @@ describe 'HTTP method restrictions' do
 
     it 'allows GET when [:get, :put] specified' do
       response = HttpTestApi.render :multi_allowed, api_host: MockApiHost.new('GET')
+      _(response[:success]).must_equal true
+    end
+
+    it 'allows OPTIONS when [:get, :put] specified' do
+      response = HttpTestApi.render :multi_allowed, api_host: MockApiHost.new('OPTIONS')
       _(response[:success]).must_equal true
     end
 

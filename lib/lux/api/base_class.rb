@@ -490,12 +490,13 @@ module Lux
       # allow :get
       # allow :get, :put
       # allow [:get, :put]
-      # if defined, access will be allowed via POST + allowed methods
+      # if defined, access will be allowed via POST + allowed methods.
+      # OPTIONS piggybacks on GET when GET is allowed.
       def allow *types
         types = types.flatten.map do |type|
           type = type.to_s.to_sym
 
-          unless %i(get head post put patch delete trace).include?(type)
+          unless %i(get head options post put patch delete trace).include?(type)
             raise ArgumentError.new('"%s" is not allowed http method type' % type)
           end
 

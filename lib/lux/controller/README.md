@@ -4,7 +4,7 @@ HTTP controllers. Rails-shaped (`before`, `before_action`, `render`,
 `action`), but params are declared with the shared `opt` / `params do`
 DSL - identical to `Lux::Api` and `Lux::Schema`.
 
-Actions default to `GET` (plus `HEAD`). To accept other verbs, declare
+Actions default to `GET` (plus `HEAD` and `OPTIONS`). To accept other verbs, declare
 the full verb set with `allow` above the `def` - `allow` is not additive,
 it replaces the default. See [Allowed HTTP verbs](#allowed-http-verbs) below.
 
@@ -114,7 +114,7 @@ render html: '...', cache: 'key/v1'
 
 ## Allowed HTTP verbs
 
-Every action accepts `GET` and `HEAD` by default. An `allow` line REPLACES
+Every action accepts `GET`, `HEAD`, and `OPTIONS` by default. An `allow` line REPLACES
 that default with the verbs it lists - it is not additive. Anything not in
 the set returns `405 Method Not Allowed` (with a developer hint in dev mode).
 
@@ -122,7 +122,7 @@ the set returns `405 Method Not Allowed` (with a developer hint in dev mode).
 allow :post              # POST only (no GET)
 def create; end
 
-allow :get, :post        # GET + HEAD + POST (declare both explicitly)
+allow :get, :post        # GET + HEAD + OPTIONS + POST
 def upsert; end
 
 allow :post, :patch      # POST + PATCH only
@@ -133,8 +133,8 @@ def webhook; end
 ```
 
 `allow` placement mirrors `opt` / `desc`: above the `def` it applies to.
-HEAD piggybacks on GET only when GET is in the declared set. The `:error`
-action is implicitly `:any` so error rendering never 405s.
+HEAD and OPTIONS piggyback on GET only when GET is in the declared set.
+The `:error` action is implicitly `:any` so error rendering never 405s.
 
 The same `allow` word exists in `Lux::Api`, with the inverse default: API
 endpoints default to `POST`, and `allow :get` adds GET on top. Same word,
@@ -177,7 +177,7 @@ Rules:
 * Captures (`:name`) land in `nav.params[:name]`. A `:ref` capture also
   binds `nav.ref` for the resourceful convenience.
 * `allow` still governs verb enforcement - `route` is path-only. No `allow`
-  means GET + HEAD only.
+  means GET + HEAD + OPTIONS only.
 * `ref do` placement is what triggers the `_ref` method rename. A `route`
   above a `def` inside `ref do` follows the method to the `_ref` key.
 * Per-action routes take priority over `routes do` resourceful dispatch.

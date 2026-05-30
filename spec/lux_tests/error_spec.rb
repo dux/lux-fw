@@ -86,6 +86,17 @@ describe 'Lux.error' do
       _(err.message).must_equal 'missing thing'
       _(Lux.current.response.status).must_equal 404
     end
+
+    it 'prints the debug screen error in red' do
+      with_debug_mode(true) do
+        with_error_log_buffer do |buf|
+          Lux.error 404
+
+          _(buf.string).must_include "\e[31m Lux.error 404"
+          _(buf.string).must_include "\e[0m"
+        end
+      end
+    end
   end
 
   describe 'with message only (no code)' do
