@@ -219,6 +219,10 @@ module Lux
         @opt.port
       end
 
+      def proto
+        @opt.proto
+      end
+
       # four modes: bare -> full qs hash; (hash) -> bulk merge (nil values delete);
       # (name) -> read value (falls back to qs_path); (name, value) -> write (nil deletes)
       def qs name=nil, value=:_nil

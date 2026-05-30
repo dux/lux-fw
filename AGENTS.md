@@ -4,6 +4,9 @@ Ruby web framework. Rack + Sequel + PostgreSQL. Sinatra speed,
 Rails-shaped controllers, Hanami-style schemas, **one shared DSL across
 controllers, APIs, models, and schemas**.
 
+Do not program Ruby as Java. Ruby is Ruby, dynamic and adaptive.
+Use minimal code to accomplish desired task, but keep concerns separate allways.
+
 This is the only `AGENTS.md` in the repo. Every subsystem ships a
 `README.md` next to its code with the canonical example, full API, and
 module-specific rules. **Before editing code in a subsystem, read that

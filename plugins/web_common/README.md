@@ -1,7 +1,7 @@
 # Lux.plugin :web_common
 
 The shared web layer for a Lux app, bundled as one plugin. It folds
-together formerly separate plugins - `assets`, `html`,
+together formerly separate plugins - `assets`, `favicon`, `html`,
 `authcog`, `admin_web` - so an app lists a single entry:
 
 ```yaml
@@ -21,6 +21,7 @@ list it after `db`.
 | Area | Provides | Loaded from |
 |------|----------|-------------|
 | assets  | `CdnAsset` (manifest/CDN asset URLs) + `ApplicationHelper` template helpers (`svelte`, `request`, `response`) | `load/assets/` |
+| favicon | `favicon '/icon.svg'` routing DSL - serves the icon at `/favicon.ico` and injects web + `apple-touch-icon` `<link>` tags into `<head>` | `load/favicon.rb` |
 | html    | form / input / table builders plus `HtmlMenu`, `HtmlHelper.paginate`, `HtmlFilter`, timezone helpers | `load/html/` |
 | authcog | `AuthcogController` - central-auth login + hash-callback landing | `lib/authcog_controller.rb` |
 | admin_web | PG-backed exception logger (`LuxException` / `LuxExceptionLog`) and a mountable `/admin` viewer | `lib/`, `mount/` |
@@ -71,6 +72,7 @@ plugins/web_common/
   loader.rb            # authcog + exception-logger wiring, ErrorProxy.log hook
   Hammerfile           # `lux assets:auto` compiler
   load/
+    favicon.rb           # `favicon` routing DSL
     assets/  html/{form,input,table,...}
   lib/
     authcog_controller.rb
