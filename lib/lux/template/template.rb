@@ -62,6 +62,15 @@ module Lux
           raise Lux.error 404, Lux.mode.debug?('404 Not Found') { %[Layout path for #{layout_template} not found. Looked in #{base1} & #{base2}] }
         end
       end
+
+      # Every extension Tilt can render, including engines it has not loaded
+      # yet (those live in its lazy map). Resolving against this - rather than
+      # only the eager template_map - lets .md/.markdown and friends work
+      # natively; Tilt requires the actual engine on the first render.
+      def tilt_extensions
+        mapping = Tilt.default_mapping
+        mapping.template_map.keys | mapping.lazy_map.keys
+      end
     end
 
     ###
@@ -123,7 +132,7 @@ module Lux
         return
       end
 
-      Tilt.default_mapping.template_map.keys.each do |ext|
+      Lux::Template.tilt_extensions.each do |ext|
         test = [template, ext].join('.')
 
         if File.exist?(test)

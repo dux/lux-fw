@@ -8,4 +8,10 @@ class Main::RootController < ApplicationController
   def text
     render text: 'Hello world'
   end
+
+  # auto-renders app/views/main/root/markdown.md via the Tilt CommonMarker
+  # adapter registered in config/initializers/markdown.rb
+  def markdown
+    @title = 'Markdown view demo'
+  end
 end

@@ -8,6 +8,9 @@ Lux.app do
     # call action in a controller
     map text: 'main/root#text'
 
+    # markdown view demo (renders app/views/main/root/markdown.md)
+    map markdown: 'main/root#markdown'
+
     # plain text namespace
     # /foo/bar
     map 'foo' do

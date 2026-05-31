@@ -106,6 +106,18 @@ describe 'Template Helper#render' do
     end
   end
 
+  describe 'extension resolution' do
+    it 'exposes every Tilt extension, including lazy engines like markdown' do
+      exts = Lux::Template.tilt_extensions
+
+      # md/markdown/mkd live in Tilt's lazy map - the resolver must see them
+      # so .md views resolve natively, with the engine loaded on first render.
+      _(exts).must_include 'md'
+      _(exts).must_include 'markdown'
+      _(exts).must_include 'haml'
+    end
+  end
+
   describe 'locals' do
     it 'passes locals to the rendered template' do
       helper = build_helper("#{views}/pages")
