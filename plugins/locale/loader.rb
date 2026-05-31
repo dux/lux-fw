@@ -18,8 +18,9 @@ module ::Lux
 end
 
 # Template helper: = t('users.welcome', name: @user.name)
+# Bare t() returns the current (or default) locale.
 module Lux::Template::Helper
-  def t(key, **opts) = Lux.locale.t(key, **opts)
+  def t(key = nil, **opts) = Lux.locale.t(key, **opts)
 end
 
 # DB-backed store. Apps that don't have a DB (or just want the file backend)

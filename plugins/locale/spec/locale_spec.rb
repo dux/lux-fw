@@ -53,6 +53,12 @@ describe Lux::Locale do
   end
 
   describe '#t' do
+    it 'returns the current locale when called with no key' do
+      expect(Lux.locale.t).to eq(:en)
+      Lux.current.locale = 'de'
+      expect(Lux.locale.t).to eq(:de)
+    end
+
     it 'looks up dotted keys in the YAML file' do
       expect(Lux.locale.t('users.profile.title')).to eq('Profile')
     end
@@ -80,6 +86,89 @@ describe Lux::Locale do
 
     it 'requires a namespace' do
       expect { Lux.locale.t('hi') }.to raise_error(ArgumentError, /namespaced/)
+    end
+  end
+
+  describe '#t file loader' do
+    before do
+      FileUtils.mkdir_p tmp.join('md/legal')
+      File.write tmp.join('md/service.en.md'),       "# Service\n\nWelcome %{name}\n"
+      File.write tmp.join('md/legal/terms.en.md'),   "# Terms EN\n"
+      File.write tmp.join('md/legal/terms.de.md'),   "# Terms DE\n"
+      File.write tmp.join('html/page.en.html'),      "<h1>Page</h1>\n"
+    end
+
+    it 'returns the whole file for a single-segment key' do
+      expect(Lux.locale.t('md:service')).to eq("# Service\n\nWelcome %{name}\n")
+    end
+
+    it 'maps leading segments to folders and the last to the filename' do
+      Lux.current.locale = 'de'
+      expect(Lux.locale.t('md:legal.terms')).to eq("# Terms DE\n")
+    end
+
+    it 'honors an explicit locale: override' do
+      expect(Lux.locale.t('md:legal.terms', locale: :de)).to eq("# Terms DE\n")
+    end
+
+    it 'falls back to the default locale when the file is missing' do
+      Lux.current.locale = 'de'
+      expect(Lux.locale.t('md:service')).to eq("# Service\n\nWelcome %{name}\n")
+    end
+
+    it 'returns [key] when fully missing' do
+      expect(Lux.locale.t('md:unknown')).to eq('[md:unknown]')
+    end
+
+    it 'uses the fallback: arg when nothing matches' do
+      expect(Lux.locale.t('md:unknown', fallback: 'X')).to eq('X')
+    end
+
+    it 'interpolates %{vars} when passed' do
+      expect(Lux.locale.t('md:service', name: 'Joe')).to eq("# Service\n\nWelcome Joe\n")
+    end
+
+    it 'resolves the prefix as the file extension' do
+      expect(Lux.locale.t('html:page')).to eq("<h1>Page</h1>\n")
+    end
+
+    it 'raises on a blank path' do
+      expect { Lux.locale.t('md:') }.to raise_error(ArgumentError, /blank path/)
+    end
+  end
+
+  describe '#t view loader' do
+    let(:views) { Pathname.new(Dir.mktmpdir('lux-views-')) }
+
+    before do
+      Lux.current.var.views_root = views.to_s
+      FileUtils.mkdir_p views.join('main/legal')
+      File.write views.join('main/legal/policy.en.html'), "<h1>Policy EN %{name}</h1>\n"
+      File.write views.join('main/legal/policy.de.html'), "<h1>Policy DE</h1>\n"
+    end
+
+    after { FileUtils.remove_entry views if views.exist? }
+
+    it 'inserts the locale before the extension, rooted at views' do
+      expect(Lux.locale.t('/main/legal/policy.html')).to eq("<h1>Policy EN %{name}</h1>\n")
+    end
+
+    it 'accepts language: as an alias for locale:' do
+      expect(Lux.locale.t('/main/legal/policy.html', language: :de)).to eq("<h1>Policy DE</h1>\n")
+    end
+
+    it 'falls back to the default locale when the file is missing' do
+      Lux.current.locale = 'de'
+      File.delete views.join('main/legal/policy.de.html')
+      expect(Lux.locale.t('/main/legal/policy.html')).to eq("<h1>Policy EN %{name}</h1>\n")
+    end
+
+    it 'interpolates %{vars} when passed' do
+      expect(Lux.locale.t('/main/legal/policy.html', name: 'Joe')).to eq("<h1>Policy EN Joe</h1>\n")
+    end
+
+    it 'returns [key] when fully missing' do
+      expect(Lux.locale.t('/main/legal/missing.html')).to eq('[/main/legal/missing.html]')
     end
   end
 

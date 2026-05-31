@@ -11,6 +11,7 @@ Lux.locale.available = %i[en de]
 
 Lux.locale.t('users.welcome', name: 'Joe')        # "Hi Joe"
 Lux.locale.set('users.welcome', 'Hi %{name}', locale: :en)
+Lux.locale.t                                       # :en (current or default)
 ```
 
 ## Full example
@@ -54,6 +55,57 @@ Lux.locale.before_set { |locale, key, v| v.to_s.strip }
 # Auto-exposed in Lux::Template::Helper
 # = t('users.welcome', name: @user.name)
 ```
+
+## Large texts as files
+
+Multi-paragraph content (terms, legal pages, long emails) doesn't fit the
+one-line flat format. Prefix the key with a file extension to read a whole
+file instead:
+
+```ruby
+Lux.locale.t('md:legal.terms')               # current locale
+Lux.locale.t('md:legal.terms', locale: :de)  # force locale
+```
+
+The prefix is the file extension. The path's leading segments are folders
+and the last is the filename, rooted at `dir/<ext>`:
+
+```
+t('md:service')           ->  ./config/locales/md/service.<locale>.md
+t('md:legal.terms')       ->  ./config/locales/md/legal/terms.<locale>.md
+t('html:email.welcome')   ->  ./config/locales/html/email/welcome.<locale>.html
+```
+
+The entire file is returned raw - no markdown rendering. Render at the call
+site (e.g. the `<s-markdown>` web component):
+
+```ruby
+# = t('md:service').tag('s-markdown')
+```
+
+Same default-locale fallback, `[md:service]` missing marker and `%{var}`
+interpolation as the line lookup. Unlike line keys, a single segment
+(`'md:service'`) is allowed - the namespacing dot is not required.
+
+### Localized files alongside templates
+
+To keep a localized file next to the templates instead of under the locale
+dir, use a `/`-prefixed key. It is rooted at the views dir and the locale is
+inserted before the final extension:
+
+```ruby
+Lux.locale.t('/main/legal/policy.html', language: :en)
+# -> app/views/main/legal/policy.en.html
+```
+
+```
+t('/main/legal/policy.html')  ->  app/views/main/legal/policy.<locale>.html
+t('/emails/welcome.md')       ->  app/views/emails/welcome.<locale>.md
+```
+
+`language:` is accepted as an alias for the `locale:` keyword. The views root
+follows `Lux.current.var.views_root` (default `./app/views`). Same fallback,
+marker and interpolation rules as above.
 
 ## On-disk format
 
