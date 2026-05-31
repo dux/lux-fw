@@ -18,6 +18,11 @@ puts 'Lux v%s (%s)' % [File.read('%s/.version' % LUX_ROOT).strip, LUX_ROOT] unle
 
 require 'lux-hammer'
 
+# Load .env before the first Lux.config read so RACK_ENV/LUX_ENV from dotenv
+# resolves the environment before config is memoized (else the CLI, unlike
+# puma -e <env>, boots development regardless of .env).
+Lux.dotenv
+
 PLUGINS ||= Lux::Plugin.normalize_names(Lux.config[:plugins])
 
 Hammer.run ARGV do

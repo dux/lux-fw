@@ -16,6 +16,14 @@ require 'class-callbacks'
 
 Pry.config.input = Reline
 
+# Give text/web extensions Rack has no mapping for a sane type, otherwise they
+# fall back to application/octet-stream and browsers download them.
+Rack::Mime::MIME_TYPES['.md']          ||= 'text/plain'
+Rack::Mime::MIME_TYPES['.fez']         ||= 'text/plain'
+Rack::Mime::MIME_TYPES['.cjs']         ||= 'text/javascript'
+Rack::Mime::MIME_TYPES['.map']         ||= 'application/json'
+Rack::Mime::MIME_TYPES['.webmanifest'] ||= 'application/manifest+json'
+
 # Overloads required ahead of Lux core so const_missing autoloader (object.rb)
 # and core String/Dir helpers exist before lux/lux.rb runs.
 require_relative '../overload/object'
