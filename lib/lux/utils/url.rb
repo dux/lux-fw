@@ -193,12 +193,13 @@ module Lux
           @opt.path = val.sub /^\//, ''
           return self
         else
-          qs_path = @opt.qs_path.to_a
+          parts = []
+          parts << @opt.locale if @opt.locale
+          parts.concat(@opt.path.to_s.split('/')) unless @opt.path.blank?
+          parts.concat @opt.qs_path.to_a
             .select{ !_1[1].blank? }
             .map{ "#{_1[0]}:#{_1[1]}"}
-            .join('/')
-          qs_path = "/#{qs_path}" unless qs_path.blank?
-          @opt.locale ? "/#{@opt.locale}/#{@opt.path}#{qs_path}" : "/#{@opt.path}#{qs_path}"
+          "/#{parts.join('/')}"
         end
       end
       alias :path= :path

@@ -105,6 +105,14 @@ describe Lux::Utils::Url do
       _(url.path).must_include 'name:a+b'
     end
 
+    it 'renders path-qs without a double slash when there is no regular path' do
+      url = Lux.url('http://auth.lvh.me:3000/domain:lvh.me/port:3000')
+      url.pqs(:domain, "app.#{url.host}")
+      url.pqs(:port, url.port)
+
+      _(url.to_s).must_equal 'http://auth.lvh.me:3000/port:3000/domain:app.auth.lvh.me'
+    end
+
     it 'hash sets the fragment and is chainable' do
       url = Lux.url('/foo')
       assert_same url, url.hash('section')
