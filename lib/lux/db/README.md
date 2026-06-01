@@ -55,6 +55,9 @@ Lux::Db.disconnect_all              # tear down all pools
 # lux db:backup      # SQL dump to ./tmp/db_dump/
 # lux db:restore     # restore from SQL dump
 # lux db:console     # psql console
+# lux db:psql        # psql console alias
+# lux db:check       # database size/table/version info
+# lux db:exec --sql  # execute SQL against configured databases
 # lux db:test:create # recreate test DBs (drop, copy schema from main)
 # lux db:test:drop   # drop test databases only
 ```

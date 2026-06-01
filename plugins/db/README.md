@@ -19,6 +19,9 @@ plugins and helpers in `load/` are then auto-required.
 lux db:am                   # auto-migrate model schemas
 lux db:backup               # back up configured databases
 lux db:restore              # restore from backup
+lux db:check                # print configured database info
+lux db:exec --sql SQL       # execute SQL against configured databases
+lux db:psql                 # open local psql console
 ```
 
 (See `hammer/db_hammer.rb` for the full task list.)

@@ -1,3 +1,4 @@
+require 'shellwords'
 require 'uri'
 
 module LuxDb
@@ -17,7 +18,7 @@ module LuxDb
   # output parsing and never interpolate name into the SQL text. Casting
   # the bound parameter keeps libpq happy when datname is unset.
   def db_exists? name
-    Lux.shell.exec('psql', '-tAc',
+    Lux.shell.exec('psql', '-d', 'postgres', '-tAc',
       "SELECT 1 FROM pg_database WHERE datname = '#{name.to_s.gsub("'", "''")}'") == '1'
   end
 
@@ -47,12 +48,29 @@ module LuxDb
       load file
     end
   end
+
+  def each_configured_db
+    Lux::Db.configured_names.each do |name|
+      url = Lux::Db.url_for(name)
+      yield name, url, db_name_from_url(url)
+    end
+  end
+
+  def check_db(url, db_name)
+    puts "dbname: #{db_name}"
+    Lux.shell 'psql', url, '-c', "SELECT current_database() AS db, pg_size_pretty(pg_database_size(current_database())) AS size, (SELECT count(*) FROM information_schema.tables WHERE table_schema='public') AS public_tables, version() AS version"
+  end
+
+  def exec_sql(url, sql)
+    Lux.shell 'psql', url, '-v', 'ON_ERROR_STOP=1', '-f', '-', stdin_data: sql
+  end
+
+
 end
 
 namespace :db do
   task :info do
     desc 'Show configured databases'
-    needs :env
     proc do |_opts|
       Lux::Db.configured_names.each do |name|
         url = Lux::Db.url_for(name)
@@ -66,19 +84,67 @@ namespace :db do
 
   task :create do
     desc 'Create databases if missing'
-    needs :env
     proc do |_opts|
       Lux::Db.configured_names.each do |name|
         db_name = LuxDb.db_name_from_url(Lux::Db.url_for(name))
 
         if LuxDb.db_exists?(db_name)
-          puts "Database '#{db_name}' already exists".colorize(:yellow)
-        else
-          Lux.shell 'createdb', db_name
-          puts "Database '#{db_name}' created".colorize(:green)
+          puts "Database '#{db_name}' already exists, exiting".colorize(:yellow)
+          exit 0
         end
+
+        Lux.shell 'createdb', db_name
+        puts "Database '#{db_name}' created".colorize(:green)
       end
     end
+  end
+
+
+  task :check do
+    desc 'Print DB info: name, size, public table count, version'
+    needs :env
+    proc do |_opts|
+      LuxDb.each_configured_db do |_name, url, db_name|
+        LuxDb.check_db(url, db_name)
+      end
+    end
+  end
+
+  task :exec do
+    desc 'Run a SQL statement via psql -f (stdin)'
+    needs :env
+    opt :sql, desc: 'SQL to execute (required; use - for stdin)'
+    proc do |opts|
+      sql = opts[:sql].to_s
+      sql = $stdin.read if sql == '-'
+      Lux.shell.die('--sql is required') if sql.strip.empty?
+
+      LuxDb.each_configured_db do |_name, url, _db_name|
+        LuxDb.exec_sql(url, sql)
+      end
+    end
+  end
+
+  task :psql do
+    desc 'Run PSQL console'
+    needs :env
+    proc do |opts|
+      name = (opts[:args].first || :main).to_sym
+      url = Lux::Db.url_for(name)
+
+      unless url
+        puts "Database :#{name} not configured".colorize(:red)
+        exit 1
+      end
+
+      system 'psql', url
+    end
+  end
+
+  task :destroy do
+    desc 'Drop databases (alias for db:drop)'
+    needs :env
+    proc { |_opts| hammer 'db:drop' }
   end
 
   task :drop do
@@ -208,6 +274,7 @@ namespace :db do
     end
   end
 
+
   task :seed do
     desc 'Load seed from ./db/seeds and plugins/*/seeds'
     # needs :env (not :app) so models load inside db:am where DB_MIGRATE=true
@@ -246,17 +313,7 @@ namespace :db do
   task :console do
     desc 'Run PSQL console'
     needs :env
-    proc do |opts|
-      name = (opts[:args].first || :main).to_sym
-      url = Lux::Db.url_for(name)
-
-      unless url
-        puts "Database :#{name} not configured".colorize(:red)
-        exit 1
-      end
-
-      system "psql '%s'" % url
-    end
+    proc { |opts| hammer 'db:psql', *opts[:args] }
   end
 
   task :am do
