@@ -26,12 +26,10 @@ class HtmlForm
   end
 
   def input name, opts = {}
-    opts = opts.dup
-    node = HtmlInput.new(@object, opts)
+    node = HtmlInput.new(@object, opts.dup)
     data = node.render name
     @type = node.type
-    opts[:hint]  ||= node.opts[:hint]
-    opts[:label] ||= node.opts[:label]
+    node.opts.each { |key, value| opts[key] = value unless opts.key?(key) }
     data
   end
 
