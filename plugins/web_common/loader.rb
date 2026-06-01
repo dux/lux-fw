@@ -6,7 +6,7 @@
 #   load/assets   - CdnAsset + ApplicationHelper template helpers
 #   load/favicon  - `favicon` routing DSL (serve /favicon.ico + <head> links)
 #   load/html     - form / input / table / menu / paginate / filter builders
-#   lib/authcog   - central-auth login + landing controller
+#   lib/authcog   - central-auth callback landing controller
 #   lib/lux_*     - PG-backed exception logger (+ mount/ for the /admin viewer)
 #
 # load/**/*.rb is auto-required after this file; only the pieces that must

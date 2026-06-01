@@ -1,7 +1,6 @@
-# Central-auth login + landing for AuthCog. A single controller, mapped once at
-# /authcog, owns both ends of the flow:
+# Central-auth callback landing for AuthCog. A single controller, mapped once
+# at /authcog, exchanges callback hashes for local sessions:
 #
-#   GET /authcog/login            -> redirect the browser to central auth
 #   GET /authcog?callback=<hash>  -> exchange the hash and sign the user in
 #
 # Central auth sends the browser back to /authcog?callback=<40-char-hash>; we
@@ -12,21 +11,15 @@
 #   map 'authcog', 'authcog#call'
 
 class AuthcogController < Lux::Controller
-  def call
-    action lux.route.root == 'login' ? :login : :callback
-  end
-
-  # GET /authcog/login - send the visitor to live central auth. The relying
-  # host/port (this request's own) travel as path segments so central auth can
-  # release the browser back to /authcog?callback=<hash>.
-  def login
-    session[:redirect_after_login] = params[:redirect_to] if params[:redirect_to]
-
-    here = Url.current
+  def self.auth_link here = Url.current
     path = "/domain:#{here.host}"
     path += "/port:#{here.port}" if here.port
 
-    redirect_to "https://auth.authcog.com#{path}"
+    "https://auth.authcog.com#{path}"
+  end
+
+  def call
+    action :callback
   end
 
   # GET /authcog?callback=<hash> - exchange the single-use hash and sign in.

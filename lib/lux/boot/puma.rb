@@ -12,7 +12,7 @@
 # state_path, tmp_restart, logging, worker count) and yields is_prod so the
 # host app can override any directive at parse time. Defaults:
 #
-#   port            ENV['PORT'] || 3000
+#   port            ENV['PUMA_PORT'] || ENV['PORT'] || 3000
 #   threads         1, 32
 #   plugin          :tmp_restart
 #   production      stdout -> ./log, environment production, workers 2
@@ -30,6 +30,8 @@
 
 # Opt-in: only extend Puma::DSL when the host app has already loaded puma.
 # In lux-fw dev (no puma) this file is a no-op so the loader sweep is safe.
+ENV['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] ||= 'YES'
+
 return unless defined?(Puma::DSL)
 
 module Lux
@@ -37,7 +39,7 @@ module Lux
     module PumaDSL
       def lux_boot(&block)
         is_prod   = ENV['RACK_ENV'] == 'production'
-        puma_port = ENV['PORT'] || 3000
+        puma_port = ENV['PUMA_PORT'] || ENV['PORT'] || 3000
 
         plugin       :tmp_restart # restart on touch of tmp/restart.txt
         port          puma_port

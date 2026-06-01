@@ -10,7 +10,6 @@ default:
   plugins:
     - db
     - web_common
-    - oauth
 ```
 
 `web_common` builds on `db` (the exception logger needs Sequel models), so
@@ -23,7 +22,7 @@ list it after `db`.
 | assets  | `CdnAsset` (manifest/CDN asset URLs) + `ApplicationHelper` template helpers (`svelte`, `request`, `response`) | `load/assets/` |
 | favicon | `favicon '/icon.svg'` routing DSL - serves the icon at `/favicon.ico` and injects web + `apple-touch-icon` `<link>` tags into `<head>` | `load/favicon.rb` |
 | html    | form / input / table builders plus `HtmlMenu`, `HtmlHelper.paginate`, `HtmlFilter`, timezone helpers | `load/html/` |
-| authcog | `AuthcogController` - central-auth login + hash-callback landing | `lib/authcog_controller.rb` |
+| authcog | `AuthcogController` - central-auth hash-callback landing | `lib/authcog_controller.rb` |
 | admin_web | PG-backed exception logger (`LuxException` / `LuxExceptionLog`) and a mountable `/admin` viewer | `lib/`, `mount/` |
 
 The detailed per-builder docs live next to the code:
@@ -39,7 +38,7 @@ The detailed per-builder docs live next to the code:
 ```ruby
 Lux do
   routes do
-    map 'authcog', 'authcog#call'    # central-auth login + landing
+    map 'authcog', 'authcog#call'    # central-auth callback landing
     map 'admin',   'admin#call'      # admin viewer (after `lux mount web_common`)
   end
 end
