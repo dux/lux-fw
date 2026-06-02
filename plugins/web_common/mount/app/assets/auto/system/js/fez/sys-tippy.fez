@@ -1,0 +1,145 @@
+<info>
+  <p>Lightweight hover tooltips driven by a <code>tippy="..."</code> attribute on any element. One shared bubble, no dependencies. Prefers top placement and flips to bottom/left/right when space runs out.</p>
+  <p><code>&lt;button tippy="Save changes"&gt;...&lt;/button&gt;</code></p>
+</info>
+
+<demo>
+  <p>
+    <span class="btn" tippy="Tooltip on top by default">tippy attr</span>
+    <span class="btn" tt="Short form, same thing">tt attr</span>
+    <span class="btn" tippy="Wraps onto multiple lines once it passes the max-width, so longer hints stay readable">long text</span>
+  </p>
+  <p>
+    <a href="#" tippy="Works on any element, not just buttons">a link</a>
+    &nbsp;
+    <code tippy="Inline code with a hint">code</code>
+    &nbsp;
+    <input type="text" tippy="Inputs too" placeholder="focusable">
+  </p>
+  <p style="text-align: right">
+    <span class="btn" tippy="Near the right edge - bubble clamps and the arrow still points here">flips at edge</span>
+  </p>
+</demo>
+
+<script>
+  const GAP = 8
+  const ARR = 6
+  const SEL = '[tippy],[tt]'
+  const text = el => el.getAttribute('tippy') || el.getAttribute('tt')
+
+  // active mounted instance; the global listeners below drive it
+  let TIP = null
+
+  // bound once when the module loads; delegation lives here, not per-instance
+  document.addEventListener('mouseover', e => {
+    const t = e.target.closest && e.target.closest(SEL)
+    if (t && TIP) TIP.show(t)
+  })
+  document.addEventListener('mouseout', e => {
+    const t = e.target.closest && e.target.closest(SEL)
+    if (t && TIP) TIP.hide(t)
+  })
+  addEventListener('scroll', () => TIP && TIP.hide(), true)
+
+  // one shared instance, mounted once on ready
+  window.$.ready(() => {
+    if (!document.querySelector('sys-tippy')) document.body.appendChild(document.createElement('sys-tippy'))
+  })
+
+  class {
+    onMount() {
+      TIP = this
+      this.box = this.root.querySelector('.tip')
+      this.txt = this.root.querySelector('.txt')
+      this.arr = this.root.querySelector('.arr')
+    }
+
+    onDestroy() { TIP = null }
+
+    show(t) {
+      if (t === this.target) return
+      this.target = t
+      this.txt.textContent = text(t)
+      this.place()
+    }
+
+    hide(t) {
+      if (t && t !== this.target) return
+      this.box.style.display = 'none'
+      this.target = null
+    }
+
+    // measure target, prefer top, flip when it won't fit, keep arrow on target center
+    place() {
+      const t = this.target
+      if (!t || !t.isConnected || !text(t)) return this.hide()
+      const box = this.box
+      box.style.display = 'block'
+      const r = t.getBoundingClientRect()
+      const bw = box.offsetWidth, bh = box.offsetHeight
+      const vw = innerWidth, vh = innerHeight
+      const fit = { top: r.top, bottom: vh - r.bottom, left: r.left, right: vw - r.right }
+
+      let p = 'top'
+      if (fit.top < bh + GAP) {
+        if (fit.bottom >= bh + GAP) p = 'bottom'
+        else if (fit.right >= bw + GAP) p = 'right'
+        else if (fit.left >= bw + GAP) p = 'left'
+        else p = 'bottom'
+      }
+
+      let x, y
+      if (p == 'top' || p == 'bottom') {
+        x = Math.max(4, Math.min(r.left + r.width / 2 - bw / 2, vw - bw - 4))
+        y = p == 'top' ? r.top - bh - GAP : r.bottom + GAP
+        this.arr.style.left = (r.left + r.width / 2 - x - ARR) + 'px'
+        this.arr.style.top = ''
+      } else {
+        y = Math.max(4, Math.min(r.top + r.height / 2 - bh / 2, vh - bh - 4))
+        x = p == 'left' ? r.left - bw - GAP : r.right + GAP
+        this.arr.style.top = (r.top + r.height / 2 - y - ARR) + 'px'
+        this.arr.style.left = ''
+      }
+
+      box.className = 'tip tip-' + p
+      box.style.left = x + 'px'
+      box.style.top = y + 'px'
+    }
+  }
+</script>
+
+<style>
+  :fez {
+    .tip {
+      position: fixed;
+      display: none;
+      z-index: 999999;
+      max-width: 260px;
+      padding: 6px 9px;
+      border-radius: 4px;
+      background: #2b2b2b;
+      color: #fff;
+      font-size: 12.5px;
+      line-height: 1.4;
+      pointer-events: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+    }
+
+    .arr {
+      position: absolute;
+      width: 0;
+      height: 0;
+      border: 6px solid transparent;
+    }
+
+    .tip-top    .arr { bottom: -6px; border-top-color: #2b2b2b; border-bottom-width: 0; }
+    .tip-bottom .arr { top: -6px; border-bottom-color: #2b2b2b; border-top-width: 0; }
+    .tip-left   .arr { right: -6px; border-left-color: #2b2b2b; border-right-width: 0; }
+    .tip-right  .arr { left: -6px; border-right-color: #2b2b2b; border-left-width: 0; }
+  }
+</style>
+
+<div class="tip tip-top">
+  <span class="txt"></span>
+  <i class="arr"></i>
+</div>

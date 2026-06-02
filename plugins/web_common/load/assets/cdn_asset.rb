@@ -26,6 +26,25 @@ module CdnAsset
     asset_tag name, opts
   end
 
+  # force a <script> tag - use when the type can't be inferred from the
+  # extension (extensionless / query-string urls)
+  #   = Cdn.js 'https://cdn.com/foolib'
+  def js name, opts = {}
+    url name, opts.merge(as: :js)
+  end
+  alias_method :script, :js
+
+  # force a <link rel="stylesheet">
+  #   = Cdn.css 'https://cdn.com/foolib'
+  def css name, opts = {}
+    url name, opts.merge(as: :css)
+  end
+
+  # = CdnAsset.postwind
+  def postwind
+    js 'https://dux.github.io/postwind/src/postwind.js'
+  end
+
   # = CdnAsset.auto :shared, :fez, :app
   def auto *list
     key = 'page-assets-%s-%s' % [Lux::DEPLOY_ID, list.sort.join('-')]

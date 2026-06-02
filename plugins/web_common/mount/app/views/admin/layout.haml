@@ -1,12 +1,8 @@
 !!!
 %html{ lang: :en }
   %head
-    = lux.header.render do |page|
-      = CdnAsset.url 'auto-shared.css'
-      = CdnAsset.url 'auto-shared.js'
-      = CdnAsset.url 'auto-admin.css'
-      = CdnAsset.url 'auto-admin.js'
-      = CdnAsset.url 'auto-fez.js'
+    = lux.header.render do |el|
+      = el.auto :shared, :admin, :fez
       %script{ src: '/_lux_/client.js' }
   %body
     %admin-menu

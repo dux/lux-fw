@@ -141,11 +141,12 @@ module Lux
       # if called twice (same value), but designed to be called exactly
       # once per request from the layout's <head> block.
       #
-      # The optional block is yielded `self` and its return value is
-      # appended after the framework's meta/link tags - used in Haml
-      # layouts to inject asset and font tags.
+      # The optional block is yielded `CdnAsset` (so layouts can call
+      # `el.postwind`, `el.url '...'` etc.) and `self` as a second arg;
+      # its return value is appended after the framework's meta/link tags -
+      # used in Haml layouts to inject asset and font tags.
       def render
-        extra = yield(self) if block_given?
+        extra = yield(CdnAsset, self) if block_given?
 
         apply_robots_header
 

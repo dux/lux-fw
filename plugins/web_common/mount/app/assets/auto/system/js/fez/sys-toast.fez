@@ -1,0 +1,125 @@
+<info>
+  <p>Toast notifications, replacement for the old <code>Info</code> helper. Driven imperatively via the global <code>Toast</code> API (also on <code>$.toast</code>); each call mounts one self-removing <code>sys-toast</code> instance.</p>
+  <ul>
+    <li><code>Toast.ok(msg)</code> / <code>Toast.success(msg)</code></li>
+    <li><code>Toast.info(msg)</code> / <code>Toast.notice(msg)</code></li>
+    <li><code>Toast.warning(msg)</code></li>
+    <li><code>Toast.error(msg)</code> / <code>Toast.alert(msg)</code></li>
+    <li><code>Toast.api(response)</code> - render an API response (error messages or message/data)</li>
+  </ul>
+</info>
+
+<demo>
+  <p>
+    <span class="btn" onclick="Toast.success('Saved')">success</span>
+    <span class="btn" onclick="Toast.info('Heads up')">info</span>
+    <span class="btn" onclick="Toast.warning('Careful')">warning</span>
+    <span class="btn" onclick="Toast.error('Something broke')">error</span>
+  </p>
+</demo>
+
+<script>
+  // messages are queued so arbitrary HTML / quotes pass safely to each new instance
+  const QUEUE = []
+  const ALIAS = { notice: 'info', alert: 'error' }
+
+  function container() {
+    let el = document.getElementById('sys-toast-container')
+    if (!el) {
+      el = document.createElement('div')
+      el.id = 'sys-toast-container'
+      document.body.appendChild(el)
+    }
+    return el
+  }
+
+  window.Toast = window.$.toast = {
+    ok:      msg => Toast.show('success', msg),
+    success: msg => Toast.show('success', msg),
+    info:    msg => Toast.show('info', msg),
+    notice:  msg => Toast.show('info', msg),
+    warning: msg => Toast.show('warning', msg),
+    error:   msg => Toast.show('error', msg),
+    alert:   msg => Toast.show('error', msg),
+
+    show(type, msg) {
+      if (!msg) return
+      QUEUE.push({ type: ALIAS[type] || type, msg: String(msg) })
+      Z(container()).append('<sys-toast></sys-toast>')
+    },
+
+    // accepts an API response object (or JSON string): { error } or { message | data }
+    api(response) {
+      if (!response) return
+      if (typeof response == 'string') response = JSON.parse(response)
+      if (response.error) {
+        Toast.error([].concat(response.error.messages || response.error).join(', '))
+      } else {
+        const msg = response.message || response.data
+        Toast.info(typeof msg == 'object' ? 'Done' : msg)
+      }
+    }
+  }
+
+  // back-compat alias for code that still calls the old window.Info helper
+  window.Info = window.Toast
+
+  class {
+    init() {
+      const job = QUEUE.shift() || {}
+      this.state.type = job.type || 'info'
+      this.state.msg = job.msg || ''
+    }
+
+    onMount() {
+      this.setTimeout(() => this.close(), 4500)
+    }
+
+    close() {
+      this.root.remove()
+    }
+  }
+</script>
+
+<style>
+  body {
+    #sys-toast-container {
+      position: fixed;
+      bottom: 12px;
+      right: 12px;
+      z-index: 999999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+  }
+
+  :fez {
+    .toast {
+      min-width: 280px;
+      max-width: 340px;
+      padding: 14px 16px;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+      line-height: 1.4;
+      word-wrap: break-word;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+      opacity: .95;
+      cursor: pointer;
+      transition: opacity .2s;
+    }
+
+    .toast:hover { opacity: 1; }
+    .toast a { color: #fff; text-decoration: underline; }
+
+    .toast-info    { background: #2f96b4; }
+    .toast-success { background: #51a351; }
+    .toast-error   { background: #bd362f; }
+    .toast-warning { background: #f89406; }
+  }
+</style>
+
+<div class={'toast toast-' + state.type} onclick="fez.close()">
+  {@html state.msg}
+</div>
