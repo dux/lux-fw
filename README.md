@@ -310,6 +310,22 @@ Lux.mode.debug?                        # behavior toggle (debug/reload)
 Lux.runtime.web?                       # process kind (web/cli/rake)
 ```
 
+### Lux::DEPLOY_ID
+
+Stable per-deploy identifier: same value across restarts and across every app
+server of one deploy, changing only when code/assets are redeployed. Use it for
+cache-busting (asset URLs, cache keys, ETags) or to tag logs/metrics by release.
+
+```ruby
+Lux::DEPLOY_ID                         # => "b1114a67" (8-char hash) or your env value
+ENV['DEPLOY_ID']                       # mirrors Lux::DEPLOY_ID exactly
+```
+
+Resolution order (first match wins): explicit `ENV['DEPLOY_ID']` (used verbatim)
+-> git short SHA -> newest `./app` file mtime -> boot time. When derived, the
+result is hashed to 8 chars and written back to `ENV['DEPLOY_ID']`. Set
+`DEPLOY_ID` in CI/containers (where `.git` is usually absent) for a reliable value.
+
 ### Lux::Error
 
 Thin exception class plus raise helpers that also set the response

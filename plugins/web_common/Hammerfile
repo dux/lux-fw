@@ -64,6 +64,46 @@ module LuxAssets
     end
   end
 
+  # Fingerprint public/assets, push each file to the CDN (host app's Cdn
+  # class), then write public/manifest.json mapping source name to its
+  # fingerprinted filename. Filenames come from CdnAsset.hashed_name so the
+  # manifest and runtime CdnAsset.url stay in sync.
+  def upload
+    cdn_url  = Lux.config.production.cdn_root
+    manifest = {}
+    failed   = []
+
+    Thread::Simple.each(Dir.files('./public/assets')) do |file|
+      target         = CdnAsset.hashed_name(file)
+      manifest[file] = target
+      local_path     = "./public/assets/#{file}"
+      remote_key     = "assets/#{target}"
+
+      ok = Cdn.upload(local_path, target, path: 'assets', dev: false)
+      unless ok
+        sleep 1 # retry once
+        ok = Cdn.upload(local_path, target, path: 'assets', dev: false)
+      end
+
+      if ok
+        puts "* #{file} -> #{cdn_url}/#{remote_key}"
+      else
+        failed.push file
+        puts "* FAIL #{file} -> #{cdn_url}/#{remote_key}"
+      end
+    end
+
+    abort "CDN upload failed for: #{failed.join(', ')}" if failed.any?
+
+    File.write('./public/manifest.json', manifest.to_jsonp)
+  end
+
+  # Compile production JS/CSS bundles. rollup.config.js cleans public/assets
+  # and emits the compiled bundles via the app's bun/rollup toolchain.
+  def build
+    system('bun run rollup -c') || abort('asset build failed: bun run rollup -c')
+  end
+
   def get_files(folder, ext)
     root = "./app/assets/auto/#{folder}/#{ext}"
     return [] unless Dir.exist?(root)
@@ -94,6 +134,31 @@ namespace :assets do
     needs :env
     proc do |_opts|
       LuxAssets.auto_assets
+    end
+  end
+
+  task :build do
+    desc 'Compile production JS/CSS bundles (bun run rollup -c)'
+    proc do |_opts|
+      LuxAssets.build
+    end
+  end
+
+  task :upload do
+    desc 'Fingerprint public/assets, upload to the CDN, regenerate manifest.json'
+    needs :env
+    proc do |_opts|
+      LuxAssets.upload
+    end
+  end
+
+  task :deploy do
+    desc 'Full asset pipeline: auto -> build -> upload'
+    needs :env
+    proc do |_opts|
+      hammer 'assets:auto'
+      hammer 'assets:build'
+      hammer 'assets:upload'
     end
   end
 end
