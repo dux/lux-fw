@@ -66,7 +66,7 @@ class AuthcogController < Lux::Controller
   def fetch_identity callback_hash
     # Exchange is scoped to the relying domain: central auth only releases the
     # hash to the same host it was issued for (this request's own host).
-    uri = URI("https://auth.authcog.com/domain:#{Url.current.host}?user=#{callback_hash}")
+    uri = URI("#{self.class.auth_link}?user=#{callback_hash}")
     res = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') do |http|
       http.get(uri.request_uri)
     end

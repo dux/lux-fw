@@ -1,4 +1,6 @@
 module LuxTest
+  TEST_ENV_PREFIX ||= 'LUX_ENV=test RACK_ENV=test'
+
   module_function
 
   def detect_framework
@@ -24,7 +26,7 @@ task :test do
 
     if args.empty?
       say.magenta 'Recreating test database...'
-      sh 'bundle exec lux db:test:create'
+      sh "#{LuxTest::TEST_ENV_PREFIX} bundle exec lux db:test:create"
       say ''
     end
 
@@ -37,6 +39,6 @@ task :test do
       end
 
     say.magenta "Running #{fw}..."
-    sh "RACK_ENV=test bundle exec #{cmd}"
+    sh "#{LuxTest::TEST_ENV_PREFIX} bundle exec #{cmd}"
   end
 end

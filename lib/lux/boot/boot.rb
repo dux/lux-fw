@@ -39,14 +39,12 @@ module Lux
       yield if block_given?
 
       plugins = Lux::Plugin.normalize_names(Lux.config[:plugins])
-      if plugins.any?
-        Lux.plugin(*plugins)
-        Lux.shell.info "Lux plugins: #{plugins.join(', ')}"
-      else
-        Lux.shell.info 'Lux: no plugins'
-      end
+      Lux.plugin(*plugins) if plugins.any?
 
-      puts start_info
+      unless Lux.env.test?
+        Lux.shell.info plugins.any? ? "Lux plugins: #{plugins.join(', ')}" : 'Lux: no plugins'
+        puts start_info
+      end
     end
 
     def booted?
