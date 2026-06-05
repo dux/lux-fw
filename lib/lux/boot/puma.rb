@@ -15,8 +15,8 @@
 #   port            ENV['PUMA_PORT'] || ENV['PORT'] || 3000
 #   threads         1, 32
 #   plugin          :tmp_restart
-#   production      stdout -> ./log, environment production, workers 2
-#   development     stdout -> /dev/null
+#   production      stdout -> ./log, workers 2 (environment derived from RACK_ENV)
+#   development     stdout on-screen (no redirect)
 #
 # When clustered (workers >= 2 after overrides) it installs three hooks:
 #
@@ -38,7 +38,7 @@ module Lux
   module Boot
     module PumaDSL
       def lux_boot(&block)
-        is_prod   = ENV['RACK_ENV'] == 'production'
+        is_prod   = (ENV['LUX_ENV'] || ENV['RACK_ENV']) == 'production'
         puma_port = ENV['PUMA_PORT'] || ENV['PORT'] || 3000
 
         plugin       :tmp_restart # restart on touch of tmp/restart.txt
@@ -48,12 +48,12 @@ module Lux
         state_path    './tmp/puma.%s.state' % puma_port
         threads       1, 32
 
+        # debug/reload are resolved from ENV (set by `lux s` or the deploy unit),
+        # not here. prod runs clustered with file logging; dev/test stay single
+        # and keep stdout on-screen.
         if is_prod
           stdout_redirect './log/puma.log', './log/puma_errors.log'
-          environment 'production'
           workers 2
-        else
-          stdout_redirect '/dev/null'
         end
 
         # let the host app override any directive at parse time (master)

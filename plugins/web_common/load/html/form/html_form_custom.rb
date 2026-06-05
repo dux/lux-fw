@@ -63,6 +63,7 @@ class HtmlForm
     opts[:type]    = :submit
     opts[:class] ||= 'btn btn-primary'
     opts[:style] ||= 'padding-left: 10px'
+    opts[:'data-key'] ||= 'ctrl+s'
 
     opts[:icon] ||= @object&.id ? :floppy_disk : :plus
     name = '<ui-icon name="%s"></ui-icon> %s' % [opts[:icon], name]

@@ -22,16 +22,20 @@ module Lux
   #   Lux::Browser.client_js(:sse)     # -> JS string
   #
   #   # per-request state (in a controller / before-filter)
-  #   lux.browser.app.config.host  = Lux.config.host
-  #   lux.browser.app.config.locale = lux.locale
-  #   lux.browser.app.data.user    = current_user.to_h
+  #   lux.browser.app.cfg.host     = Lux.config.host
+  #   lux.browser.app.cfg.locale   = lux.locale
+  #   lux.browser.app.current.user = current_user.to_h
   #
   #   # in the layout head
   #   != lux.browser.script_tag
   #   # -> <script id="lux-state">window.app ||= {};
-  #         window.app.config ||= {};
-  #         window.app.config.host = "...";
+  #         window.app.cfg = {...};
+  #         window.app.current = {...};
+  #         window.app.page = {};
   #         ...</script>
+  #
+  # Three-bucket convention (cfg / current / page) is pinned in STATE.md.
+  # Custom function globals live under window.app.fn (see web_common assets).
   class Browser
     @modules ||= {}
 
@@ -90,8 +94,8 @@ module Lux
 
     # Any method becomes a top-level node. Chain further for nested keys.
     #
-    #   lux.browser.app.config.host = 'x'    # window.app.config.host = "x"
-    #   lux.browser.foo.bar          = 1     # window.foo.bar          = 1
+    #   lux.browser.app.cfg.host = 'x'       # window.app.cfg.host = "x"
+    #   lux.browser.foo.bar      = 1         # window.foo.bar      = 1
     def method_missing name, *args
       n = name.to_s
       if n.end_with?('=')
@@ -123,20 +127,21 @@ module Lux
     # Emit rule:
     #   * top-level keys (window.app, window.api, ...) get `||= {}` bootstrap
     #     so pjax re-renders preserve untouched buckets.
-    #   * level-2 keys (window.app.config, window.app.data, ...) get an atomic
+    #   * level-2 keys (window.app.cfg, window.app.current, ...) get an atomic
     #     `= JSON(subtree)` assignment - the whole bucket is replaced as one.
     #
-    # When no state has been set, still emits the default namespace bootstrap
-    # (Lux.config.browser_namespace, default 'app') so pjax has a stable target.
+    # The default namespace (Lux.config.browser_namespace, default 'app') is
+    # always emitted, and its volatile `page` bucket is always emitted too
+    # (as `{}` when unset) so a pjax navigation clears the previous page's
+    # payload instead of letting it survive. See STATE.md.
     def script_tag
       ns    = Lux.config[:browser_namespace] || 'app'
       lines = []
 
-      if @data.empty?
-        lines << "window.#{ns} ||= {};"
-      else
-        @data.each { |root, val| emit_root root.to_s, val, lines }
-      end
+      root = (@data[ns] ||= Node.new)
+      root.page if root.is_a?(Node)            # volatile bucket: reset on every nav
+
+      @data.each { |r, val| emit_root r.to_s, val, lines }
 
       %[<script id="lux-state">#{lines.join("\n")}</script>]
     end

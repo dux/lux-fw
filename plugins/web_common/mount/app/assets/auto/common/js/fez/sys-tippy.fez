@@ -22,8 +22,7 @@
 </demo>
 
 <script>
-  const GAP = 8
-  const ARR = 6
+  const GAP = 11
   const SEL = '[tippy],[tt]'
   const text = el => el.getAttribute('tippy') || el.getAttribute('tt')
 
@@ -54,19 +53,33 @@
       this.arr = this.root.querySelector('.arr')
     }
 
-    onDestroy() { TIP = null }
+    onDestroy() { clearTimeout(this._t); TIP = null }
 
     show(t) {
       if (t === this.target) return
       this.target = t
       this.txt.textContent = text(t)
       this.place()
+      this.watch()
     }
 
     hide(t) {
       if (t && t !== this.target) return
+      clearTimeout(this._t)
       this.box.style.display = 'none'
       this.target = null
+    }
+
+    // poll while a target is live; a DOM swap can drop the element without firing
+    // mouseout, which would otherwise leave the bubble orphaned. self-cancels once gone.
+    watch() {
+      clearTimeout(this._t)
+      if (!this.target) return
+      this._t = setTimeout(() => {
+        if (!this.target) return
+        if (!this.target.isConnected) return this.hide()
+        this.watch()
+      }, 200)
     }
 
     // measure target, prefer top, flip when it won't fit, keep arrow on target center
@@ -88,17 +101,22 @@
         else p = 'bottom'
       }
 
+      // reset all edges; placement classes can't be styled (fez scope drops them), so drive the arrow inline
+      const a = this.arr.style
+      a.top = a.bottom = a.left = a.right = ''
       let x, y
       if (p == 'top' || p == 'bottom') {
         x = Math.max(4, Math.min(r.left + r.width / 2 - bw / 2, vw - bw - 4))
         y = p == 'top' ? r.top - bh - GAP : r.bottom + GAP
-        this.arr.style.left = (r.left + r.width / 2 - x - ARR) + 'px'
-        this.arr.style.top = ''
+        a.left = (r.left + r.width / 2 - x) + 'px'
+        a[p == 'top' ? 'bottom' : 'top'] = '-4px'
+        a.transform = 'translateX(-50%) rotate(45deg)'
       } else {
         y = Math.max(4, Math.min(r.top + r.height / 2 - bh / 2, vh - bh - 4))
         x = p == 'left' ? r.left - bw - GAP : r.right + GAP
-        this.arr.style.top = (r.top + r.height / 2 - y - ARR) + 'px'
-        this.arr.style.left = ''
+        a.top = (r.top + r.height / 2 - y) + 'px'
+        a[p == 'left' ? 'right' : 'left'] = '-4px'
+        a.transform = 'translateY(-50%) rotate(45deg)'
       }
 
       box.className = 'tip tip-' + p
@@ -119,23 +137,18 @@
       border-radius: 4px;
       background: #2b2b2b;
       color: #fff;
-      font-size: 12.5px;
+      font-size: 13.5px;
       line-height: 1.4;
       pointer-events: none;
       box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
-    }
 
-    .arr {
-      position: absolute;
-      width: 0;
-      height: 0;
-      border: 6px solid transparent;
+      .arr {
+        position: absolute;
+        width: 9px;
+        height: 9px;
+        background: #2b2b2b;
+      }
     }
-
-    .tip-top    .arr { bottom: -6px; border-top-color: #2b2b2b; border-bottom-width: 0; }
-    .tip-bottom .arr { top: -6px; border-bottom-color: #2b2b2b; border-top-width: 0; }
-    .tip-left   .arr { right: -6px; border-left-color: #2b2b2b; border-right-width: 0; }
-    .tip-right  .arr { left: -6px; border-right-color: #2b2b2b; border-left-width: 0; }
   }
 </style>
 

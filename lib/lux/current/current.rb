@@ -1,5 +1,16 @@
 require 'set'
 
+# Rack's xhr? only matches the legacy X-Requested-With header, which fetch()
+# never sends. Also treat programmatic fetch/XHR as xhr via Sec-Fetch-Dest:
+# browsers set it to 'empty' for fetch/XHR (and 'document' for navigations),
+# and JS can't forge it. Falls back to the legacy header for non-browser clients.
+class Rack::Request
+  def xhr?
+    get_header('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ||
+      get_header('HTTP_SEC_FETCH_DEST') == 'empty'
+  end
+end
+
 module Lux
   class Current
     OPTS ||= Struct.new 'LuxCurrentOpts', :params, :post, :http_method, :session, :cookies, :query_string
@@ -154,13 +165,13 @@ module Lux
       return unless file.class == String
 
       file = file.sub(Lux.root.to_s + '/', '')
-
       file = file.sub './', ''
+      file = file.sub('//', '/')
 
       if @files_in_use.include?(file)
         true
       else
-        Lux.log ' ' + file.sub('//', '/').colorize(:magenta)
+        Lux.log ' ' + file.colorize(:magenta)
 
         @files_in_use.add file
         yield(file) if block_given?

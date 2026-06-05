@@ -43,8 +43,10 @@ class HtmlInput
     if @object && @object.class.respond_to?(:schema) && [Symbol, Array].include?(@name.class)
       schema = @object.class.schema || raise('Lux schema for object "%s" not found' % @object.class)
 
-      detect_type_from_schema
+      # schema meta (eg as: :html) is authoritative; apply it before the
+      # db-type heuristic so detect_type_from_schema's ||= can't clobber it
       apply_schema_rules schema
+      detect_type_from_schema
 
       if @name.is_a?(Symbol) && @object.respond_to?(:db_schema) && !@opts[:as]
         resolve_collection_from_name

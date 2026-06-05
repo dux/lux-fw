@@ -106,39 +106,45 @@ describe Lux::Browser do
       @b ||= Lux::Browser.new
     end
 
-    it 'emits the default bootstrap when no state has been set' do
+    it 'emits the default bootstrap and an empty page bucket when no state has been set' do
       tag = b.script_tag
-      _(tag).must_equal %[<script id="lux-state">window.app ||= {};</script>]
+      _(tag).must_equal %[<script id="lux-state">window.app ||= {};\nwindow.app.page = {};</script>]
     end
 
     it 'level-1 keys get ||= and level-2 keys get full-JSON assignment' do
-      b.app.config.host   = 'http://x'
-      b.app.config.locale = 'en'
+      b.app.cfg.host   = 'http://x'
+      b.app.cfg.locale = 'en'
       tag = b.script_tag
 
       _(tag).must_include 'window.app ||= {};'
-      _(tag).must_include %[window.app.config = {"host":"http://x","locale":"en"};]
+      _(tag).must_include %[window.app.cfg = {"host":"http://x","locale":"en"};]
 
-      assert tag.index('window.app ||=') < tag.index('window.app.config =')
+      assert tag.index('window.app ||=') < tag.index('window.app.cfg =')
+    end
+
+    it 'always emits app.page so a navigation clears the prior page payload' do
+      b.app.cfg.foo = 1
+      tag = b.script_tag
+      _(tag).must_include %[window.app.page = {};]
     end
 
     it 'multiple top-level roots each bootstrap' do
-      b.app.config.foo = 1
-      b.api.url        = '/api'
+      b.app.cfg.foo = 1
+      b.api.url      = '/api'
       tag = b.script_tag
 
       _(tag).must_include 'window.app ||= {};'
-      _(tag).must_include %[window.app.config = {"foo":1};]
+      _(tag).must_include %[window.app.cfg = {"foo":1};]
       _(tag).must_include 'window.api ||= {};'
       _(tag).must_include %[window.api.url = "/api";]
     end
 
     it 'deep chained creation collapses into level-2 JSON' do
-      b.app.data.user.foo.bar = 123
+      b.app.current.user.foo.bar = 123
       tag = b.script_tag
 
       _(tag).must_include 'window.app ||= {};'
-      _(tag).must_include %[window.app.data = {"user":{"foo":{"bar":123}}};]
+      _(tag).must_include %[window.app.current = {"user":{"foo":{"bar":123}}};]
     end
 
     it 'level-2 primitive is emitted as a plain assignment' do
@@ -148,19 +154,19 @@ describe Lux::Browser do
     end
 
     it 'hash leaf is JSON-emitted at level-2 (atomic replace, no per-key unroll)' do
-      b.app.data.user = { id: 42, name: 'Joe' }
+      b.app.current.user = { id: 42, name: 'Joe' }
       tag = b.script_tag
-      _(tag).must_include %[window.app.data = {"user":{"id":42,"name":"Joe"}};]
+      _(tag).must_include %[window.app.current = {"user":{"id":42,"name":"Joe"}};]
     end
 
     it 'escapes </ inside string values so payload cannot break the tag' do
-      b.app.data.danger = "</script><script>x()</script>"
+      b.app.page.danger = "</script><script>x()</script>"
       tag = b.script_tag
       refute_includes tag, '</script><script>'
       _(tag).must_include '<\/script>'
     end
 
-    it 'respects Lux.config.browser_namespace for the empty bootstrap' do
+    it 'respects Lux.config.browser_namespace for the bootstrap' do
       previous = Lux.config[:browser_namespace]
       Lux.config[:browser_namespace] = 'fez'
       _(b.script_tag).must_include 'window.fez ||='

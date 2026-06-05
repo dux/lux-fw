@@ -1,3 +1,7 @@
+// fez runtime must load before any fez component; common ships system
+// components (sys-form/tippy/toast) and is the first bundle, so boot it here
+import 'fez'
+
 (win => {
   const doc = win.document
   const HTML = /^\s*</
@@ -5,6 +9,26 @@
   const isFn = v => typeof v == 'function'
   const arr = v => Array.prototype.slice.call(v)
   const uniq = a => [...new Set(a)]
+
+  // natural display per tag (span->inline, div->block, ...), probed once and cached
+  const DISPLAY_CACHE = {}
+  const defaultDisplay = tag => {
+    tag = tag.toLowerCase()
+    if (!DISPLAY_CACHE[tag]) {
+      const el = doc.createElement(tag)
+      doc.body.appendChild(el)
+      const d = getComputedStyle(el).display
+      el.remove()
+      DISPLAY_CACHE[tag] = d == 'none' ? 'block' : d
+    }
+    return DISPLAY_CACHE[tag]
+  }
+  // reveal: drop the inline display first; if a class still hides it (display:none),
+  // set the tag's natural default inline so it overrides the class.
+  const reveal = el => {
+    el.style.display = ''
+    if (getComputedStyle(el).display == 'none') el.style.display = defaultDisplay(el.tagName)
+  }
 
   const onReady = fn => doc.readyState != 'loading' ? fn() : doc.addEventListener('DOMContentLoaded', fn)
 
@@ -65,9 +89,9 @@
     outerWidth(m) { const e = this[0], s = getComputedStyle(e); return e.offsetWidth + (m ? parseFloat(s.marginLeft) + parseFloat(s.marginRight) : 0) },
     outerHeight(m) { const e = this[0], s = getComputedStyle(e); return e.offsetHeight + (m ? parseFloat(s.marginTop) + parseFloat(s.marginBottom) : 0) },
 
-    show() { return this.each(function () { this.style.display = '' }) },
+    show() { return this.each(function () { reveal(this) }) },
     hide() { return this.each(function () { this.style.display = 'none' }) },
-    toggle(f) { return this.each(function () { this.style.display = f === undefined ? (getComputedStyle(this).display == 'none' ? '' : 'none') : (f ? '' : 'none') }) },
+    toggle(f) { return this.each(function () { (f === undefined ? getComputedStyle(this).display == 'none' : f) ? reveal(this) : this.style.display = 'none' }) },
 
     on(type, sel, fn) {
       const dele = isStr(sel), cb = dele ? fn : sel
@@ -144,6 +168,31 @@
   $.map = (o, fn) => (Array.isArray(o) ? o.map((v, i) => fn(v, i)) : Object.keys(o).map(k => fn(o[k], k))).filter(v => v != null)
   $.extend = Object.assign
 
+  // trailing-edge debounce: fires fn once after `wait` ms of silence
+  $.debounce = (fn, wait) => {
+    let t
+    return function (...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), wait) }
+  }
+
+  // throttle: fires fn at most once per `wait` ms (leading edge)
+  $.throttle = (fn, wait) => {
+    let last = 0, t
+    return function (...a) {
+      const now = Date.now(), gap = wait - (now - last)
+      if (gap <= 0) { clearTimeout(t); t = null; last = now; fn.apply(this, a) }
+      else if (!t) t = setTimeout(() => { last = Date.now(); t = null; fn.apply(this, a) }, gap)
+    }
+  }
+
+  // promise that resolves after `ms`, optionally with a value
+  $.delay = (ms, v) => new Promise(res => setTimeout(() => res(v), ms))
+
+  // wrap fn so it runs at most once; later calls return the first result
+  $.once = fn => {
+    let done, val
+    return function (...a) { if (!done) { done = true; val = fn.apply(this, a) } return val }
+  }
+
   // form-urlencoded with Rails/Zepto nested-bracket serialization
   $.param = (obj, scope) => {
     const out = []
@@ -158,7 +207,7 @@
   $.ajax = o => {
     const type = (o.type || o.method || 'GET').toUpperCase()
     let url = o.url, body
-    const headers = { ...(o.headers || {}) }
+    const headers = { 'x-requested-with': 'XMLHttpRequest', ...(o.headers || {}) }
     if (o.data != null) {
       const enc = isStr(o.data) ? o.data : $.param(o.data)
       if (type == 'GET') url += (url.includes('?') ? '&' : '?') + enc
@@ -177,6 +226,15 @@
   $.get = (url, success) => $.ajax({ type: 'GET', url, success })
   $.post = (url, data, success) => $.ajax({ type: 'POST', url, data, success })
 
+  // load and execute a remote script, jQuery.getScript compatible
+  $.getScript = (url, success) => new Promise((resolve, reject) => {
+    const s = doc.createElement('script')
+    s.src = url
+    s.onload = () => { success?.(); resolve() }
+    s.onerror = reject
+    doc.head.appendChild(s)
+  })
+
   // FNV-1a string hash, returned base36
   $.fnv1 = str => {
     let h = 0x811c9dc5
@@ -191,4 +249,9 @@
   $.ready = onReady
   win.$ = $
   win.Z = $
+
+  // single app namespace: data lands in app.cfg/current/page (server-injected).
+  // framework utilities stay on $ (above); app.fn is the empty namespace that
+  // individual apps register their own app-specific functions into.
+  ;(win.app ||= {}).fn ||= {}
 })(window)

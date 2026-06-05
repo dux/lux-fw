@@ -1,6 +1,9 @@
-# Console-only helpers - defined on Object so they're callable as bare
-# commands at the pry prompt.
-class Object
+# Console-only helpers - defined on the real top-level Object so they're
+# callable as bare commands at the pry prompt. Use ::Object.class_eval rather
+# than `class Object`: this file is loaded through Hammer's string instance_eval
+# (see hammer/builder.rb#evaluate), where a bare `class Object` resolves to the
+# eval target's scope instead of ::Object, so the helpers never reach `main`.
+::Object.class_eval do
   def cp data
     data = JSON.pretty_generate(data.to_hash) if data.respond_to?(:to_hash)
     Clipboard.copy data

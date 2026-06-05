@@ -46,8 +46,8 @@ class UsersController < ApplicationController
     current.csrf_required?   # true for non-GET without Bearer auth
 
     # --- browser state (per-request, emits to window.<root>) -------------
-    current.browser.app.config.host = Lux.config.host
-    current.browser.app.data.user   = @user.to_h
+    current.browser.app.cfg.host     = Lux.config.host
+    current.browser.app.current.user = @user.to_h
     current.browser.script_tag       # <script id="lux-state">...</script>
 
     # --- encrypt / decrypt (per-request key; IP-bound, default 10m TTL) -

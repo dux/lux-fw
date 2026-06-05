@@ -6,6 +6,17 @@
 //   u.delete('t').hash('160s').toString()
 //   $.url().qs('page', 2).relative()        build a link off the current page
 //
+// $.url is dual-purpose (mirrors Ruby's Url('href') instance vs Url.qs(...) class call):
+//   $.url(href) / $.url()                    -> a Url instance; no arg reads the current
+//                                               page. Instance methods chain (return self):
+//                                               $.url().qs('page', 2).relative()
+//   $.url.qs('page', 2)                      -> static shortcut bound to the class; reads
+//                                               the current page and returns a finished
+//                                               string (.relative() baked in), so it equals
+//                                               $.url().qs('page', 2).relative(). Same name
+//                                               as the instance method, different return
+//                                               type - the trailing () picks which you get.
+//
 // One intentional divergence: the '#fragment' is always parsed, even on a url
 // without a '?' (Ruby only parses it when a querystring is present).
 
@@ -257,8 +268,7 @@ class Url {
   }
 }
 
+// $.url(href) builds an instance; the statics ride on the same function object so
+// $.url.qs(...) etc. resolve to the class methods (see header for the dual call shape).
 $.url = url => new Url(url)
-
-// window.Url is callable - `Url()` / `Url(href)` -> instance - and carries the statics
-window.Url = url => new Url(url)
-'current host root locale subdomain qs pqs toggle prepareQs escape unescape'.split(' ').forEach(m => window.Url[m] = Url[m].bind(Url))
+'current host root locale subdomain qs pqs toggle prepareQs escape unescape'.split(' ').forEach(m => $.url[m] = Url[m].bind(Url))

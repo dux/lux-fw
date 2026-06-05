@@ -52,7 +52,9 @@ module Lux
 
         def status_of plugin_name, src, dst, rel
           return :missing unless File.symlink?(dst) || dst.exist?
-          return :local unless File.symlink?(dst)
+          # Real file in place: a byte-identical copy is one we manage
+          # (:copied); anything else is a user file we leave alone (:local).
+          return same_content?(src, dst) ? :copied : :local unless File.symlink?(dst)
 
           target = resolve_symlink(dst)
           expected = src.cleanpath
@@ -90,6 +92,22 @@ module Lux
           puts 'local    %s %s' % [Output.yellow(display(entry.dst).ljust(60)), Output.dim('(plugin: %s)' % entry.plugin)]
         end
 
+        # Copy the plugin source into the app as a real file (deploy mode).
+        # preserve: true keeps the source mode, mirroring rsync --executability.
+        def copy_file entry
+          FileUtils.mkdir_p(entry.dst.dirname)
+          File.unlink(entry.dst) if File.symlink?(entry.dst) || entry.dst.exist?
+          FileUtils.cp(entry.src, entry.dst, preserve: true)
+          puts 'copied   %s %s' % [display(entry.dst).ljust(60), Output.dim('(plugin: %s)' % entry.plugin)]
+        end
+
+        # Content equality ignoring trailing whitespace at the end of the file,
+        # so a copy that differs only by a final newline still reads as same.
+        def same_content? src, dst
+          return false unless File.file?(dst)
+          File.read(src.to_s).rstrip == File.read(dst.to_s).rstrip
+        end
+
         def display path
           str = path.to_s.sub(Lux.root.to_s + '/', '')
           idx = str.rindex('plugins/')
@@ -115,21 +133,33 @@ module Lux
           end
         end
 
-        # Apply this plugin's mount/ entries. Silent on :ok; creates missing/
-        # stale/broken links; warns on :local conflicts. Returns Entry list.
-        def mount!
+        # Apply this plugin's mount/ entries. mode :symlink (default) drives
+        # every entry toward a symlink - including reconverting :copied real
+        # files back to links; mode :copy writes real-file copies instead.
+        # Silent on healthy entries (:ok / :copied); warns on :local conflicts.
+        # Returns Entry list.
+        def mount! mode: :symlink
           mounts.map do |src, dst|
             rel = dst.relative_path_from(Lux.root)
             entry = Entry.new(plugin: name, src: src, dst: dst, rel: rel, status: Linker.status_of(name, src, dst, rel))
-            case entry.status
-            when :ok then entry
-            when :missing, :stale, :broken
-              Linker.create_link(entry)
-              entry.status = :linked
-              entry
-            when :local
-              Linker.warn_local(entry)
-              entry
+            if mode == :copy
+              case entry.status
+              when :copied then entry
+              when :local  then Linker.warn_local(entry); entry
+              else # :ok (symlink), :missing, :stale, :broken
+                Linker.copy_file(entry)
+                entry.status = :copied
+                entry
+              end
+            else
+              case entry.status
+              when :ok then entry
+              when :local then Linker.warn_local(entry); entry
+              else # :missing, :stale, :broken, :copied -> (re)create symlink
+                Linker.create_link(entry)
+                entry.status = :linked
+                entry
+              end
             end
           end
         end
@@ -158,9 +188,10 @@ module Lux
 
       # === CLI orchestrators ==================================================
 
-      def apply plugin_name = nil
-        results = plugin_refs(plugin_name).flat_map(&:mount!)
-        report_summary results
+      def apply plugin_name = nil, mode: :symlink
+        pruned  = prune_orphans plugin_name
+        results = plugin_refs(plugin_name).flat_map { |p| p.mount!(mode: mode) }
+        report_summary results, pruned
         results
       end
 
@@ -216,7 +247,7 @@ module Lux
 
         entries.each { |e| puts format_entry(e) }
 
-        unhealthy = entries.reject { |e| e.status == :ok }
+        unhealthy = entries.reject { |e| %i[ok copied].include?(e.status) }
 
         if unhealthy.empty?
           puts '%s healthy mount(s)' % Output.green(entries.size.to_s)
@@ -247,7 +278,49 @@ module Lux
         result
       end
 
+      # Walks Lux.root and removes broken symlinks that point into a
+      # plugins/<name>/mount/ tree whose source file no longer exists (the
+      # plugin dropped the file). Restricted to `plugin_name` when given.
+      # These orphans are invisible to mount! because it only iterates the
+      # sources that still exist. Returns removed dst paths.
+      def prune_orphans plugin_name = nil
+        owner = plugin_name ? Regexp.escape(plugin_name.to_s) : '[^/]+'
+        filter = %r{/plugins/(#{owner})/mount/}
+        removed = []
+        Find.find(Lux.root.to_s) do |path|
+          if File.symlink?(path)
+            target = Linker.resolve_symlink(Pathname.new(path)).to_s
+            if (m = filter.match(target)) && !File.exist?(target)
+              File.unlink(path)
+              puts 'removed  %s %s' % [Output.yellow(Linker.display(Pathname.new(path)).ljust(60)), Output.dim('(dead link, plugin: %s)' % m[1])]
+              removed << path
+            end
+            next
+          end
+          Find.prune if File.directory?(path) && path != Lux.root.to_s && SCAN_SKIP_DIRS.include?(File.basename(path))
+        end
+        prune_empty_dirs removed.map { |p| File.dirname(p) }
+        removed
+      end
+
       private
+
+      # Remove the directory shells left behind after pruning links. mount!
+      # materializes parent dirs as real folders via mkdir_p, so a plugin that
+      # drops every file under a subtree leaves empty dirs. Walk upward from
+      # each parent until a non-empty dir or Lux.root. Deepest-first so a child
+      # is cleared before its parent is tested. Dir.rmdir only removes empty
+      # dirs, so dirs holding real files (or a stray .DS_Store) are left alone.
+      def prune_empty_dirs dirs
+        root = Lux.root.to_s
+        dirs.uniq.sort_by { |d| -d.length }.each do |dir|
+          while dir.start_with?(root) && dir != root && Dir.exist?(dir) && (Dir.entries(dir) - %w[. ..]).empty?
+            Dir.rmdir(dir)
+            puts 'rmdir    %s' % Output.dim(Linker.display(Pathname.new(dir)))
+            dir = File.dirname(dir)
+          end
+        end
+      end
 
       def plugin_refs plugin_name
         names = plugin_name ? [plugin_name.to_s] : Lux::Plugin.normalize_names(Lux.config[:plugins])
@@ -264,14 +337,32 @@ module Lux
       end
 
       def format_entry e
-        color = e.status == :ok ? :green : :yellow
+        color = %i[ok copied].include?(e.status) ? :green : :yellow
         '  %-9s %-12s %s' % [e.status.to_s.colorize(color), e.plugin, Linker.display(e.dst)]
       end
 
-      def report_summary results
+      # Per-status change line prints only when something actually changed
+      # (linked/local/removed) - mount stays quiet when every entry is already
+      # healthy (:ok / :copied). The bottom info line always reports how many
+      # files are linked vs copied from plugins. copy_file/create_link already
+      # print one line per change, so steady states stay silent.
+      def report_summary results, pruned = []
+        steady  = %i[ok copied]
+        changed = results.reject { |e| steady.include?(e.status) }
+        unless changed.empty? && pruned.empty?
+          by_status = changed.group_by(&:status).transform_values(&:size)
+          by_status[:removed] = pruned.size if pruned.any?
+          puts Output.dim(by_status.map { |k, v| '%s=%d' % [k, v] }.join(' '))
+        end
         return if results.empty?
-        by_status = results.group_by(&:status).transform_values(&:size)
-        puts Output.dim(by_status.map { |k, v| '%s=%d' % [k, v] }.join(' '))
+        linked  = results.count { |e| %i[ok linked].include?(e.status) }
+        copied  = results.count { |e| e.status == :copied }
+        plugins = results.map(&:plugin).uniq.size
+        parts = []
+        parts << '%d linked' % linked if linked > 0
+        parts << '%d copied' % copied if copied > 0
+        parts = ['0 linked'] if parts.empty?
+        puts Output.dim('%s from %d plugin%s' % [parts.join(', '), plugins, ('s' if plugins != 1)])
       end
     end
   end

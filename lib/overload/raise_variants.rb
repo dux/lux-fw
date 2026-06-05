@@ -21,11 +21,12 @@ class Object
     from = from.sub(Lux.root.to_s+'/', './').split(':in ').first
     header = '--- START (%s) %s - %s ---' % [klass, from, Lux.current.request.url]
     if ['Lux::Hash', 'Hash'].include?(what.class.to_s)
-      puts header
-      puts what.to_jsonp
-      puts '--- END ---'
+      $stderr.puts header
+      $stderr.puts what.to_jsonp
+      $stderr.puts '--- END ---'
     else
-      ap [header, what, '--- END ---']
+      # STDERR keeps rr/LOG on the same stream as Lux.log; STDOUT is redirected to /dev/null in dev
+      $stderr.puts [header, what, '--- END ---'].ai
     end
   end
 
@@ -48,7 +49,7 @@ class Object
         # throttle clear-screen to once per second across requests
         if now - LUX_LOG_CLEAR_LAST[0] >= 1.0
           LUX_LOG_CLEAR_LAST[0] = now
-          print "\e[H\e[2J"
+          $stderr.print "\e[H\e[2J"
         end
       end
       raise_log_style what

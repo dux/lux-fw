@@ -21,7 +21,7 @@ Differentiators. The places lux is ahead of Sinatra/Roda/Hanami, not just at par
 * **SSE streaming + cross-worker pub/sub.** `response.sse(:channel, ...)` + `Lux::Browser::Channel` with optional PG
   LISTEN/NOTIFY broker for fan-out across Puma workers. ~150 LOC end-to-end (`lib/lux/response/lib/sse.rb`,
   `lib/lux/browser/channel/`). Sinatra/Roda need plugins, Rails carries the weight of ActionCable.
-* **Per-request browser state composer.** `lux.browser.app.config.host = ...` emits a deduped `<script>` tag; pairs with
+* **Per-request browser state composer.** `lux.browser.app.cfg.host = ...` emits a deduped `<script>` tag; pairs with
   the `Lux::Browser.client_js` bundler for the framework client lib (csrf, fetch, sse). Nothing else in Ruby has this
   shape.
 * **Custom reloader that skips `Gem.path`** - addresses the Rails "reload-degradation" complaint head-on

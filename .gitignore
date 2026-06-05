@@ -6,3 +6,4 @@
 tmp.rb
 Gemfile.lock
 package-lock.json
+*.tmp.*

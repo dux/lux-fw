@@ -30,7 +30,7 @@ module LuxAssets
       end
 
       if data[0]
-        file = "./app/assets/auto-#{folder}.js"
+        file = "./app/assets/auto-#{folder}.tmp.js"
         info.push file
         File.write(file, data.join("\n\n"))
       end
@@ -55,7 +55,7 @@ module LuxAssets
           #{data.join("\n")}
           }
         DATA
-        file = "./app/assets/auto-#{folder}.scss"
+        file = "./app/assets/auto-#{folder}.tmp.scss"
         info.push file
         File.write(file, css)
       end
@@ -100,8 +100,11 @@ module LuxAssets
 
   # Compile production JS/CSS bundles. rollup.config.js cleans public/assets
   # and emits the compiled bundles via the app's bun/rollup toolchain.
+  # NODE_PRESERVE_SYMLINKS: rollup.config.js is itself a plugin mount symlink
+  # pointing into the gem; without this the resolver follows it to the gem
+  # realpath and fails to find rollup-plugin-* in the app's node_modules.
   def build
-    system('bun run rollup -c') || abort('asset build failed: bun run rollup -c')
+    system({ 'NODE_PRESERVE_SYMLINKS' => '1' }, 'bun run rollup -c') || abort('asset build failed: bun run rollup -c')
   end
 
   def get_files(folder, ext)
@@ -146,7 +149,8 @@ namespace :assets do
 
   task :upload do
     desc 'Fingerprint public/assets, upload to the CDN, regenerate manifest.json'
-    needs :env
+    # :app (not :env) so the host app's Cdn class is autoloaded for the upload.
+    needs :app
     proc do |_opts|
       LuxAssets.upload
     end
@@ -154,7 +158,8 @@ namespace :assets do
 
   task :deploy do
     desc 'Full asset pipeline: auto -> build -> upload'
-    needs :env
+    # :app so the upload step can reach the host app's Cdn class.
+    needs :app
     proc do |_opts|
       hammer 'assets:auto'
       hammer 'assets:build'

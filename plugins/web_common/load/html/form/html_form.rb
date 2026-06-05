@@ -18,6 +18,11 @@ class HtmlForm
     @opts[:class]    = [@opts[:class], 'lux-form'].compact.join(' ')
 
     setup_object if @object
+
+    # map done: to data-done for any /api/ form (object-bound or action-string)
+    if @opts[:action].to_s.start_with?('/api/')
+      @opts['data-done'] = @opts.delete(:done) || :refresh
+    end
   end
 
   def push data
@@ -106,9 +111,5 @@ class HtmlForm
     end
 
     @opts[:action] = '/api/' + @opts[:action] if @opts[:action] && @opts[:action][0,1] != '/'
-
-    if @opts[:action].to_s.start_with?('/api/')
-      @opts['data-done'] = @opts.delete(:done) || :refresh
-    end
   end
 end

@@ -29,15 +29,16 @@ Lux.browser.client_js(:sse, :api)                         # core + listed
 
 # --- INSTANCE-LEVEL: per-request state (controller / before-filter) ---
 
-lux.browser.app.config.host    = Lux.config.host
-lux.browser.app.config.locale  = lux.locale
-lux.browser.app.data.user      = lux.user&.to_h
-lux.browser.app.data.user.foo  = 'bar'                    # deep chain ok
-lux.browser.app.config[:flag]  = true                     # bracket form
-lux.browser.api.url            = '/api'                   # multiple top-level namespaces
+lux.browser.app.cfg.host       = Lux.config.host
+lux.browser.app.cfg.locale     = lux.locale
+lux.browser.app.current.user   = lux.user&.to_h
+lux.browser.app.current.user.foo = 'bar'                  # deep chain ok
+lux.browser.app.cfg[:flag]     = true                     # bracket form
+lux.browser.app.page.title     = 'Home'                   # cleared on next nav
+lux.browser.api.url            = '/api'                   # extra top-level namespace
 
 # Read-back / debug:
-lux.browser.app.config.host                               # "..."
+lux.browser.app.cfg.host                                  # "..."
 lux.browser.to_h                                          # full nested hash
 
 # --- EMIT in the layout head (Haml example) ---
@@ -45,32 +46,38 @@ lux.browser.to_h                                          # full nested hash
 # ->
 #   <script id="lux-state">
 #     window.app ||= {};
-#     window.app.config = {"host":"...","locale":"en","flag":true};
-#     window.app.data = {"user":{...,"foo":"bar"}};
+#     window.app.cfg = {"host":"...","locale":"en","flag":true};
+#     window.app.current = {"user":{...,"foo":"bar"}};
+#     window.app.page = {"title":"Home"};
 #     window.api ||= {};
 #     window.api.url = "/api";
 #   </script>
 ```
 
+The three `app` buckets (`cfg` / `current` / `page`) are the canonical home
+for all server-injected client state; custom function globals live under
+`app.fn`. See [STATE.md](./STATE.md).
+
 ## Emit rule
 
 * **Level 1** (root namespaces: `window.app`, `window.api`) - `||= {}`
   bootstrap so pjax-driven re-renders preserve untouched buckets.
-* **Level 2** (`window.app.config`, `window.app.data`, ...) - atomic
+* **Level 2** (`window.app.cfg`, `window.app.current`, ...) - atomic
   JSON assignment of the entire subtree below the level-2 key.
 * **Deep chains** collapse into the level-2 JSON.
-* **Empty state** still emits `<script id="lux-state">window.<ns> ||= {};</script>`
-  so pjax has a stable target. Default `ns` is `app`; override via
-  `Lux.config.browser_namespace`.
+* **Default namespace** (`Lux.config.browser_namespace`, default `app`) is
+  always emitted, and its volatile `app.page` bucket is always emitted too
+  (as `{}` when unset) so each navigation clears the prior page's payload.
 * **`</` in string values is escaped to `<\/`** so the payload can't
   break out of the surrounding `<script>` tag.
 
 ## Pjax granularity
 
 Updates are atomic at the level-2 bucket. If a new page sets
-`window.app.config`, an untouched `window.app.data` survives. Inside a
+`window.app.cfg`, an untouched `window.app.current` survives. Inside a
 bucket it's a full replace - no per-key diff. Group state into level-2
-buckets that ship as a unit.
+buckets that ship as a unit. `app.page` is the exception: it is reset on
+every render, so it never carries state across navigations.
 
 ## Security
 
