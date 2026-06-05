@@ -174,6 +174,32 @@ after the plugin loads.
 `current` reads `Lux.current.locale` (typically set by `Nav` from the URL
 prefix). Falls back to `default`. Unknown locale -> `Lux::Locale::Unknown`.
 
+## Translated columns (`pg_translations`)
+
+Ships with this plugin: a Sequel plugin that turns any `_t` JSONB column into
+a localized reader. Resolves through `Lux.locale.current` / `Lux.locale.default`,
+so it only works where the locale plugin is loaded.
+
+Apply per-model:
+
+```ruby
+class Product < ApplicationModel
+  plugin :pg_translations
+end
+```
+
+```ruby
+# schema:  name_t  :jsonb
+record.name_t      # { "en" => "Hello", "hr" => "Bok" }  (raw hash)
+record.name        # "Hello"  (current locale, fallback to default)
+```
+
+* `Model.t_columns` lazily scans `db_schema` for `_t` columns.
+* The first read of `name` (for `name_t`) defines a real reader method on the
+  class via `method_missing` - no `method_missing` cost on later calls.
+* Resolution: `data[Lux.locale.current]` if present (non-blank), else
+  `data[Lux.locale.default]`, else `nil`. Empty string counts as missing.
+
 ## Notes
 
 * The in-process file cache invalidates on file `mtime` change, so dev
