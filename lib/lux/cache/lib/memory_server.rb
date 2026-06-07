@@ -5,6 +5,9 @@ module Lux
       # leak keys that were written with a TTL and never read again.
       SWEEP_EVERY ||= 256
 
+      # sentinel for "key absent" so fetch can cache a real nil/false value
+      MISS ||= Object.new
+
       def initialize
         @lock = Mutex.new
         @ram_cache = {}
@@ -37,9 +40,22 @@ module Lux
         end
       end
 
+      # honor a cached nil/false: check key presence, not truthiness, so a
+      # block that legitimately returns nil is stored and not re-run.
       def fetch key, ttl=nil
-        data = get key
-        return data if data
+        hit = @lock.synchronize do
+          if (expires_at = @ttl_cache[key]) && expires_at < Time.now.to_i
+            @ram_cache.delete key
+            @ttl_cache.delete key
+            MISS
+          elsif @ram_cache.key?(key)
+            @ram_cache[key]
+          else
+            MISS
+          end
+        end
+
+        return hit unless hit.equal?(MISS)
         set(key, yield, ttl)
       end
 

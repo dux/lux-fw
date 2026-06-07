@@ -108,6 +108,18 @@ describe Lux::Cache do
       _(calls).must_equal 1
     end
 
+    it 'caches a nil result (yields only once)' do
+      calls = 0
+      2.times { cache.fetch('k') { calls += 1; nil } }
+      _(calls).must_equal 1
+    end
+
+    it 'caches a false result (yields only once)' do
+      calls = 0
+      2.times { cache.fetch('k') { calls += 1; false } }
+      _(calls).must_equal 1
+    end
+
     it 'returns value written via #write (no Marshal mismatch)' do
       cache.write('k', { foo: 1 })
       result = cache.fetch('k') { { foo: 999 } }

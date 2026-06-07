@@ -150,7 +150,10 @@ class Lux::Application::Nav
       value =
         if ref && seg && [name, name.pluralize, abbr&.to_s].include?(seg)
           ref
-        elsif abbr && (v = Lux.current.params[abbr]).present?
+        elsif abbr && (v = Lux.current.params[abbr]).is_a?(String) && v.present?
+          # only the `abbr:ref` path-qs form yields a ref here; a nested form hash
+          # (e.g. params[:doc] from a `doc[...]` POST when abbr == model name) is
+          # not a ref and must not reach find()
           v
         end
 

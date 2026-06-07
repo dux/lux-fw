@@ -1,0 +1,16 @@
+:ruby
+  # = f.row :{{object}}_ref, as: :dialog, class: {{klass}}, path: '/admin/{{objects}}/select_dialog'
+  @{{objects}} = {{klass}}.order(:name).xlike(params[:q], :name).page
+
+%h3.mb-3 Select {{object}}
+
+.mb-3
+  %ui-search
+
+%table.table.table-condensed
+  %tr
+    %th {{klass}} name
+  - for el in @{{objects}}
+    %tr.hover{ :onclick=>"Dialog.callback(#{el.id}, '#{el.name}')" }
+      %td= el.name
+

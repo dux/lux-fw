@@ -23,6 +23,7 @@ require_relative 'lib/schema_define'
 # core defines class+instance helpers; dataset_methods provides the x*
 # query primitives used by dataset_scopes, so order matters within ext/.
 require_relative 'ext/core'
+require_relative 'ext/cache'
 require_relative 'ext/dataset_methods'
 require_relative 'ext/dataset_scopes'
 require_relative 'ext/find_precache'

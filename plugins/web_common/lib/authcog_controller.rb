@@ -1,3 +1,5 @@
+require 'net/http'
+
 # Central-auth callback landing for AuthCog. A single controller, mapped once
 # at /authcog, exchanges callback hashes for local sessions:
 #

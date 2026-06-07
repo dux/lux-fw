@@ -31,6 +31,18 @@ module Lux
       end
     end
 
+    # Run a block with info/debug logging muted - errors (level >= ERROR) still
+    # log - then restore the previous level. Used by db:am to hide SQL noise.
+    #   Lux.mode.silent { ... }
+    def silent
+      logger = Lux.logger
+      prev   = logger.level
+      logger.level = Logger::ERROR
+      yield
+    ensure
+      logger.level = prev if logger
+    end
+
     def initialize env_name
       @env_key   = case env_name.to_s
                    when 'production' then :prod

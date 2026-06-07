@@ -25,8 +25,8 @@ task :test do
     error "No test framework found. Add 'rspec' or 'minitest' to your Gemfile." unless fw
 
     if args.empty?
-      say.magenta 'Recreating test database...'
-      sh "#{LuxTest::TEST_ENV_PREFIX} bundle exec lux db:test:create"
+      say.magenta 'Rebuilding test database from schema...'
+      sh "#{LuxTest::TEST_ENV_PREFIX} bundle exec lux db:test:am"
       say ''
     end
 

@@ -1,0 +1,11 @@
+= link_to 'Show', @{{object}}.path, :style=>'float:right;', :class=>'no-pjax btn btn-default btn-xs'
+
+%h1= @{{object}}.name
+%h4 by #{@{{object}}.creator.as_admin_link}
+
+%br
+= bs_tabs @{{object}}
+
+%br
+
+= yield

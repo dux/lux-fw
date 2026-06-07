@@ -40,6 +40,11 @@ class Sequel::Model
   end
 
   module InstanceMethods
+    # primary key accessor; all lux models key on the :ref column
+    def ref
+      self[:ref]
+    end
+
     def key namespace = nil
       v = "%s/%s" % [self.class, self[:ref]]
       namespace ? "#{v}/#{namespace}" : v

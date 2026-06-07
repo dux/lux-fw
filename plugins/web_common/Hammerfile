@@ -167,3 +167,37 @@ namespace :assets do
     end
   end
 end
+
+namespace :docker do
+  task :build do
+    desc 'lux pack, then build the production image from the packed tree'
+    opt :tag, alias: :t, type: :string, default: 'latest', desc: 'image tag'
+    proc do |opts|
+      hammer 'pack'
+      # Context is the pack output: symlinks (./.gems) are flattened to real
+      # files there, so `docker build .` would break on them.
+      sh "docker build --target production -t #{File.basename(Dir.pwd)}:#{opts[:tag]} ./tmp/lux-app-cache"
+    end
+  end
+
+  task :local do
+    desc 'docker compose up (base + local override)'
+    proc do |_opts|
+      sh 'docker compose -f compose.yaml -f compose.local.yaml up'
+    end
+  end
+
+  task :staging do
+    desc 'docker compose up -d (base + staging override)'
+    proc do |_opts|
+      sh 'docker compose -f compose.yaml -f compose.staging.yaml up -d'
+    end
+  end
+
+  task :prod do
+    desc 'docker compose up -d (base + prod override)'
+    proc do |_opts|
+      sh 'docker compose -f compose.yaml -f compose.prod.yaml up -d'
+    end
+  end
+end

@@ -1,0 +1,15 @@
+:ruby
+  @{{objects}} = {{klass}}.desc.xlike(params[:q], :name).page
+
+%h2.mb-4
+  {{objects.capitalize}}
+  &sdot;
+  .badge{ onclick: Api('{{objects}}/create', name: 'New {{object}}').follow } + add
+
+.mb-4
+  %ui-search
+
+= table @{{objects}} do |t|
+  - t.href {|el| el.admin_path }
+  - t.id
+  - t.col :name

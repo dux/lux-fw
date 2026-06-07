@@ -6,6 +6,10 @@ module Lux
 
     CONNECTIONS ||= {}
 
+    # loggers attached to every connection on connect (populated by ext/logger).
+    # connections are lazy, so we cannot attach at plugin-load time.
+    CONNECTION_LOGGERS ||= []
+
     DEFAULT_CONFIG ||= {
       max_connections: 5,
       pool_timeout: 5,
@@ -38,6 +42,7 @@ module Lux
             "yaml: db.#{name}: postgres://localhost/dbname"
           ]
         end
+        url = resolve_test_url(name, url)
         begin
           connect(url)
         rescue Sequel::DatabaseConnectionError => e
@@ -86,10 +91,7 @@ module Lux
         url = url_for(name)
         next unless url
 
-        if Lux.env.test?
-          url = test_db_url(url)
-          ensure_test_db(name, url)
-        end
+        url = resolve_test_url(name, url)
 
         begin
           CONNECTIONS[name] = connect(url)
@@ -134,11 +136,31 @@ module Lux
         db.extension :pg_array, :pg_json
       end
 
+      CONNECTION_LOGGERS.each { |l| db.loggers << l }
+
       db
     end
 
     def test_db_url(url)
       url.sub(/\/([^\/]+)$/) { "/#{$1}_test" }
+    end
+
+    # In test env, point a connection at its <db>_test sibling and ensure that
+    # sibling exists. Shared by the lazy `connection` path and the eager `boot!`
+    # path so both resolve the same database - otherwise a model that connects
+    # lazily (e.g. a factory insert before the first request) binds to the
+    # non-test DB while boot! would have used <db>_test.
+    #
+    # CLI/rake tasks are excluded: db:test:am and friends manage the _test
+    # database itself (drop/create/migrate), so they must operate on the literal
+    # configured DB and never hold an open connection into _test.
+    def resolve_test_url(name, url)
+      return url unless Lux.env.test?
+      return url if Lux.runtime.task_runner?
+
+      test_url = test_db_url(url)
+      ensure_test_db(name, test_url)
+      test_url
     end
 
     def db_name_from_url(url)

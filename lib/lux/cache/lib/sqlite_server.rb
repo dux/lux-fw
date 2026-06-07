@@ -42,8 +42,17 @@ module Lux
         end
       end
 
+      # honor a cached nil/false: decide on row presence + validity, not on
+      # the decoded value's truthiness, so a block returning nil is stored.
       def fetch key, ttl = nil
-        self.get(key) || self.set(key, yield, ttl)
+        row = @cache.where(key: key).first
+
+        if row && row[:valid_to] >= Time.now
+          Marshal.load Base64.decode64 row[:value]
+        else
+          self.delete(key) if row
+          self.set(key, yield, ttl)
+        end
       end
 
       def delete key

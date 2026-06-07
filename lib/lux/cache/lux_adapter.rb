@@ -11,7 +11,8 @@ module Lux
   def cache key=nil
     if block_given?
       raise ArgumentError.new('Cache key not given') unless key
-      VARS[key] ||= yield
+      # presence check, not ||=, so a block returning nil/false is memoized once
+      VARS.key?(key) ? VARS[key] : (VARS[key] = yield)
     else
       CACHE_SERVER
     end

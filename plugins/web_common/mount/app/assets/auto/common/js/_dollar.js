@@ -203,7 +203,9 @@ import 'fez'
     return out.join('&')
   }
 
-  // fetch-based $.ajax with a Zepto-shaped callback contract (success(data, xhr) / complete(xhr))
+  // XMLHttpRequest-based $.ajax with a Zepto-shaped callback contract:
+  // success(data, xhr) / complete(xhr) / error(xhr). Returns the xhr synchronously
+  // (old Zepto behaviour) so `const xhr = $.get(...)` works; for a promise, use fetch().
   $.ajax = o => {
     const type = (o.type || o.method || 'GET').toUpperCase()
     let url = o.url, body
@@ -214,13 +216,17 @@ import 'fez'
       else if (o.contentType == 'json' || o.dataType == 'json') { body = JSON.stringify(o.data); headers['content-type'] = 'application/json' }
       else { body = enc; headers['content-type'] = 'application/x-www-form-urlencoded' }
     }
-    return fetch(url, { method: type, headers, body, credentials: 'same-origin' })
-      .then(res => res.text().then(txt => {
-        const xhr = { responseText: txt, status: res.status, statusText: res.statusText, getResponseHeader: n => res.headers.get(n) }
-        if (o.success) o.success((res.headers.get('content-type') || '').includes('json') ? JSON.parse(txt || 'null') : txt, xhr)
-        o.complete?.(xhr)
-      }))
-      .catch(err => { o.error?.(err); o.complete?.({ responseText: '', status: 0, getResponseHeader: () => null }) })
+    const xhr = new XMLHttpRequest()
+    xhr.open(type, url, true)
+    for (const k in headers) xhr.setRequestHeader(k, headers[k])
+    xhr.onload = () => {
+      const txt = xhr.responseText
+      if (o.success) o.success((xhr.getResponseHeader('content-type') || '').includes('json') ? JSON.parse(txt || 'null') : txt, xhr)
+      o.complete?.(xhr)
+    }
+    xhr.onerror = () => { o.error?.(xhr); o.complete?.(xhr) }
+    xhr.send(body)
+    return xhr
   }
 
   $.get = (url, success) => $.ajax({ type: 'GET', url, success })

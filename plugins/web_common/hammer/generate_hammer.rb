@@ -17,7 +17,9 @@ module LuxGenerate
   def generate object=nil, objects=nil
     raise Hammer::Error, './generate [object singular]' unless object
 
-    template_dir = 'config/templates'
+    # Templates ship with the web_common plugin; an app may override them
+    # by dropping its own ./config/templates dir.
+    template_dir = Dir.exist?('config/templates') ? 'config/templates' : File.join(__dir__, 'generate')
     raise Hammer::Error, "Lux::Template dir #{template_dir} is not accessible" unless Dir.exist?(template_dir)
 
     tpl_desc = {
@@ -34,9 +36,9 @@ module LuxGenerate
     puts "Plural    : #{objects.colorize(:yellow)}"
 
     templates = {}
-    for el in Dir["./#{template_dir}/*.*"].map { |file| file.split('/').last }
+    for el in Dir[File.join(template_dir, '*.*')].map { |file| file.split('/').last }
       begin
-        data = parse_vars(File.read("#{template_dir}/#{el}"), object, objects)
+        data = parse_vars(File.read(File.join(template_dir, el)), object, objects)
       rescue
         puts '-'
         puts "File error: #{el.colorize(:red)}: #{$!.message}"

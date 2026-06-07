@@ -17,12 +17,19 @@ module Lux
         @server = Dalli::Client.new(servers, namespace: namespace, compress: true, expires_in: 24.hours)
       end
 
+      # memcached/Dalli cannot tell a stored nil from a missing key, so a
+      # cached nil/false would be re-computed every time. Store nil as a
+      # sentinel and translate it back transparently on every read path.
+      NIL_MARK ||= '__lux_cache_nil__'
+
       def set key, data, ttl = nil
-        @server.set key, data, ttl
+        @server.set key, (data.nil? ? NIL_MARK : data), ttl
+        data
       end
 
       def get key
-        @server.get key
+        val = @server.get key
+        val == NIL_MARK ? nil : val
       end
 
       def delete key
@@ -30,11 +37,15 @@ module Lux
       end
 
       def get_multi *args
-        @server.get_multi *args
+        @server.get_multi(*args).transform_values { |v| v == NIL_MARK ? nil : v }
       end
 
-      def fetch key, ttl = nil, &block
-        @server.fetch key, ttl, &block
+      def fetch key, ttl = nil
+        raw = @server.get key
+        return (raw == NIL_MARK ? nil : raw) unless raw.nil?
+        value = yield
+        set key, value, ttl
+        value
       end
 
       def clear

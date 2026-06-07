@@ -24,8 +24,11 @@ logger.formatter = proc do |severity, datetime, progname, msg|
 end
 
 if ENV['RAKE_ENV'] != 'test' || ENV['DB_LOG'] == 'true'
+  # connections are created lazily, so register the logger to be attached on
+  # connect; also cover any connection already open at this point.
+  Lux::Db::CONNECTION_LOGGERS << logger
   Lux::Db.connections.each do |db|
-    db.loggers << logger
+    db.loggers << logger unless db.loggers.include?(logger)
   end
 
   if Lux.mode.debug?

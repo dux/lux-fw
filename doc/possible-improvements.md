@@ -52,7 +52,7 @@ Present and working, but shallow compared to what the equivalent ecosystem ships
   in templates. Good for app code; missing model-attribute and validation-message conventions Rails has.
 * **JSON content negotiation by default** (`params_dsl.rb:114`, `controller.rb:211`) - request body sniffing flips the
   response content type. Works; the equivalent on outbound (force JSON for `Accept: application/json`) is partial.
-* **CLI generators** (`bin/cli/generate_hammer.rb`) - reads `./config/templates/*` and writes files interactively.
+* **CLI generators** (`plugins/web_common/hammer/generate_hammer.rb`) - reads bundled `generate/*` templates (or app override `./config/templates/*`) and writes files interactively.
   Enough to bootstrap a file; not a real scaffold (no `lux generate resource User` that emits controller + spec + route
   + schema + admin view in one shot).
 * **Health probe** at `/<mount>/sys/health`. Returns `{ ok: true, schema_version: ... }`; lacks dependency checks

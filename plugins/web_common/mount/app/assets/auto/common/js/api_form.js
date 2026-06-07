@@ -75,10 +75,15 @@ class ApiForm {
 
       if (!(this.form.attr('silent') || this.form.attr('data-silent'))) Toast.api(this.response)
 
-      if (xhr.status == 200) {
+      if (xhr.status == 200 && !this.response.error) {
         let func = this.form.data('done') || 'refresh'
 
-        if (func[0] == '#' || func[0] == '/') {
+        if (func[0] == '/') {
+          // done is a path: swap REF for the created/updated ref, then navigate
+          const ref = this.response.meta.ref || this.response.data.ref
+          Pjax.load(func.replaceAll('REF', ref))
+          return
+        } else if (func[0] == '#') {
           this.opts = func
           func = 'refresh'
         } else if (func.includes('=>')) {
@@ -114,6 +119,7 @@ ApiForm.on('before', function () {
 
 ApiForm.on('after', function () {
   if (this.disable_button) this.disable_button()
+  if (this.response?.error) return
   // swap in a success block if the form provided one
   const success = this.form.find('div.success')[0]
   if (success) this.form.html(success.innerHTML)

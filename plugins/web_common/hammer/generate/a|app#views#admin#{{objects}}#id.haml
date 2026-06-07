@@ -1,0 +1,16 @@
+%h1
+  = @{{object}}.name
+  &sdot;
+  ID:
+  = @{{object}}.id
+
+%hr
+
+.row
+  .col
+    .form
+      = form @{{object}} do |f|
+        = f.row :name
+        = f.submit
+
+  .col

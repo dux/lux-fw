@@ -65,6 +65,30 @@ module LuxDb
     Lux.shell 'psql', url, '-v', 'ON_ERROR_STOP=1', '-f', '-', stdin_data: sql
   end
 
+  # Force-rebuild every <db>_test from the model schema: drop, create, then run
+  # db:am against the _test sibling (DB_<NAME> override points it there). Schema
+  # comes from the lux_schema model definitions, so test DBs always match the
+  # code - no dependency on a migrated main DB.
+  #
+  # The spawned db:am carries LUX_SKIP_TEST_DB so it migrates the _test DB only
+  # and does not recurse back into this rebuild.
+  def migrate_test_dbs
+    Lux::Db.configured_names.each do |name|
+      url = Lux::Db.url_for(name)
+      next unless url
+
+      test_db  = db_name_from_url(url) + '_test'
+      test_url = url.sub(/\/[^\/]+$/, "/#{test_db}")
+
+      Lux.shell 'dropdb', '--if-exists', test_db
+      Lux.shell 'createdb', test_db
+
+      Lux.shell 'bundle', 'exec', 'lux', 'db:am', 'y',
+        env: { "DB_#{name.to_s.upcase}" => test_url, 'LUX_SKIP_TEST_DB' => 'true' }
+
+      puts "Test database '#{test_db}' rebuilt from schema".colorize(:green)
+    end
+  end
 
 end
 
@@ -226,32 +250,11 @@ namespace :db do
   end
 
   namespace :test do
-    task :create do
-      desc 'Recreate test DBs (drop if exists, copy schema from main, run db:am if main missing)'
+    task :am do
+      desc 'Force-rebuild test DBs (<db>_test) from the model schema'
       needs :env
       proc do |_opts|
-        Lux::Db.configured_names.each do |name|
-          url = Lux::Db.url_for(name)
-          source_db = LuxDb.db_name_from_url(url)
-          test_db = source_db + '_test'
-
-          if LuxDb.db_exists?(test_db)
-            Lux.shell 'dropdb', test_db
-            puts "Test database '#{test_db}' dropped".colorize(:yellow)
-          end
-
-          unless LuxDb.db_exists?(source_db)
-            puts "Main database '#{source_db}' missing, creating and running db:am".colorize(:yellow)
-            Lux.shell 'createdb', source_db
-            hammer 'db:am'
-          end
-
-          Lux.shell 'createdb', test_db
-          # shell mode for pipe + redirect; values are shellescaped.
-          Lux.shell 'pg_dump --schema-only --no-owner --no-privileges %s | psql -q %s > /dev/null 2>&1' %
-            [source_db.shellescape, test_db.shellescape], shell: true
-          puts "Test database '#{test_db}' created (schema from #{source_db})".colorize(:green)
-        end
+        LuxDb.migrate_test_dbs
       end
     end
 
@@ -341,6 +344,11 @@ namespace :db do
       end
 
       LuxDb.load_migrate_file './db/after.rb', external: true
+
+      # after main migrates, rebuild the _test siblings from the same schema.
+      # dev-only; the guard stops the spawned db:am (which targets a _test DB)
+      # from recursing back into here.
+      LuxDb.migrate_test_dbs if Lux.env.dev? && !ENV['LUX_SKIP_TEST_DB']
     end
   end
 end

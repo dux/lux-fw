@@ -67,21 +67,25 @@ class AutoMigrate
       return if @applied.include?(klass)
       @applied << klass
 
-      schema = Lux.schema(klass)
+      # mute the per-statement SQL logger; migration's own puts output stays
+      Lux.mode.silent do
+        schema = Lux.schema(klass)
 
-      am = new(klass.db)
-      am.table klass, schema.rules do |f|
-        schema.db_schema.each do |field, type, opts|
-          f.send type, field, opts
+        am = new(klass.db)
+        am.table klass, schema.rules do |f|
+          schema.db_schema.each do |field, type, opts|
+            f.send type, field, opts
+          end
+
+          schema.db_rules.each do |args|
+            f.db_rule *args
+          end
         end
 
-        schema.db_rules.each do |args|
-          f.db_rule *args
-        end
+        klass.db.schema(klass.to_s.tableize, reload: true)
+        klass.set_dataset(klass.to_s.tableize.to_sym)
       end
 
-      klass.db.schema(klass.to_s.tableize, reload: true)
-      klass.set_dataset(klass.to_s.tableize.to_sym)
       klass
     end
   end

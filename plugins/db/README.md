@@ -33,6 +33,30 @@ change; in production, CI, or any non-TTY run it applies them automatically so
 deploys roll unattended. Set `AutoMigrate.auto_confirm = true` to skip the dev
 prompts too.
 
+## Test databases
+
+Each configured database has a `<db>_test` sibling - a mechanical `_test`
+suffix on the name, nothing else. When `Lux.env.test?`, the connection loader
+(`Lux::Db.connection` / `boot!`) resolves every connection to that sibling, so
+the test suite and any test-env request hit `<db>_test`, never the dev/prod DB.
+
+This switch is skipped for CLI task runners (`Lux.runtime.task_runner?` - the
+`lux`/`rake` binaries), because those tasks *manage* the `_test` database and
+must operate on the literal DB without holding a connection into the sibling
+they drop and recreate.
+
+```
+lux db:am          # migrate main; in dev, then rebuild every <db>_test from schema
+lux db:test:am     # force-rebuild <db>_test from the model schema only (drop, create, db:am)
+lux db:test:drop   # drop the <db>_test databases
+lux test           # rebuild <db>_test, then run rspec/minitest (auto-detected)
+```
+
+Test DBs are built straight from the model definitions (`lux_schema`) via
+`db:am`, so they always match the code - there is no clone-from-main step. The
+spawned inner `db:am` carries `LUX_SKIP_TEST_DB=true` so it migrates the `_test`
+DB without recursing back into the rebuild.
+
 ## Ref linking
 
 `Sequel::Plugins::RefLinker` (see `plugins/_ref_linker.rb`) is the single
