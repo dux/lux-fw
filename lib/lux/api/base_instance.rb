@@ -71,16 +71,18 @@ module Lux
           # controlled error raised via error "message", ignore
           response.error error.message
         rescue => error
-          # uncontrolled error, should be logged
-          Lux::Api.error_print error if @api.development
-          Lux.error.log error
+          # any other error -> render its message as json; the class is kept in
+          # meta for diagnostics. Class only matters for logging: real server
+          # faults are logged, expected client/validation faults are not.
+          Lux.error.log error unless Lux::Api::Response.client_error?(error)
 
           block = RESCUE_FROM[error.class] || RESCUE_FROM[:all]
 
           if block
             instance_exec error, &block
           else
-            response.error error.message, status: 500
+            response[:error_class] = error.class.name
+            response.error error.message, status: 400
           end
         end
 

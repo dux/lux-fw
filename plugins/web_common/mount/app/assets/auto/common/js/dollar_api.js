@@ -1,6 +1,6 @@
 // thin wrapper over $.ajax POST to /api/*, returning a chainable response handler.
-// silent by default: nothing is shown unless you ask for it via .info().
-//   Api(path, opts)                    execute silently (no success or error info)
+// silent by default for success; a server error response always surfaces as a toast.
+//   Api(path, opts)                    silent on success, but shows server errors
 //   Api(path, opts).info()             execute with info notification (success and errors)
 //   Api(path, opts).silent()           explicit silent (the default)
 //   Api(path, opts).topInfo()          silent save + flash the top progress bar
@@ -108,13 +108,14 @@ ApiResponse.define({
     return this
   },
 
-  // execute on error (suppressed while silent)
+  // execute on error; a server error response always surfaces, even when silent.
+  // callers that want to handle errors themselves pass a custom .error(fn).
   error(err) {
-    if (!this.is_silent) Info.api(this.response)
+    Info.api(this.response)
     return this
   },
 
-  // force silence (default), suppressing error info too
+  // force silence (default): suppresses success info, but not server errors
   silent() {
     this.is_silent = true
     return this

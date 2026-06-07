@@ -179,7 +179,6 @@ module Lux
         api = api_class.new action, **opts
         api.execute_call
       rescue => error
-        error_print error if opts[:development]
         Lux.error.log error unless error.is_a?(Lux::Api::Error)
         Response.auto_format error
       end

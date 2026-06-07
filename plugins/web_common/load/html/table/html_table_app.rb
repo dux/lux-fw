@@ -88,6 +88,16 @@ class AppTable < HtmlTable
     end
   end
 
+  def as_avatar opts
+    opts[:width] ||= 50
+    opts[:title] ||= ''
+
+    proc do |o|
+      target = opts[:field] ? o.send(opts[:field]) : o
+      target.d_avatar(size: 32).wrap(:div, style: 'margin: -3px 0 -13px;')
+    end
+  end
+
   def as_scope_link opts
     proc do |o|
       el = o.send(opts[:field])

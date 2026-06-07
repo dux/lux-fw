@@ -14,12 +14,14 @@ module Lux
         response.render
       end
 
-      # Client/request faults (param validation, malformed JSON body, bad
-      # multipart) map to 400; anything else is an unexpected server error -> 500.
+      # Client/request faults (param validation, model validation, malformed
+      # JSON body, bad multipart) are expected - they map to 400 and are not
+      # logged as server errors. Anything else is an unexpected server error.
       def self.client_error? error
         return true if error.is_a?(Lux::Api::Error)
         name = error.class.name.to_s
-        name == 'JSON::ParserError' || name.start_with?('Rack::')
+        # Lux::Policy::Error = authorization denial; an expected 4xx, not a server 500
+        %w[JSON::ParserError Sequel::ValidationFailed Lux::Policy::Error].include?(name) || name.start_with?('Rack::')
       end
 
       ###
