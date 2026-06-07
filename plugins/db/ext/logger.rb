@@ -2,6 +2,8 @@ require 'logger'
 
 logger = Logger.new STDOUT
 logger.formatter = proc do |severity, datetime, progname, msg|
+  next nil if Lux.mode.silent
+
   elms = msg.split(/\(|s\)\s/, 3)
   time = (elms[1].to_f * 1000).round(1)
   formated = " DB: #{elms[2].to_s.colorize(:cyan)} (#{time} ms, #{Lux.app_caller})"
@@ -23,7 +25,7 @@ logger.formatter = proc do |severity, datetime, progname, msg|
   nil
 end
 
-if ENV['RAKE_ENV'] != 'test' || ENV['DB_LOG'] == 'true'
+if Lux.mode.debug? || ENV['DB_LOG'] == 'true'
   # connections are created lazily, so register the logger to be attached on
   # connect; also cover any connection already open at this point.
   Lux::Db::CONNECTION_LOGGERS << logger

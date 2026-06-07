@@ -31,16 +31,26 @@ module Lux
       end
     end
 
-    # Run a block with info/debug logging muted - errors (level >= ERROR) still
-    # log - then restore the previous level. Used by db:am to hide SQL noise.
-    #   Lux.mode.silent { ... }
-    def silent
-      logger = Lux.logger
-      prev   = logger.level
-      logger.level = Logger::ERROR
-      yield
-    ensure
-      logger.level = prev if logger
+    # Mute framework chatter (per-statement DB log, Lux.shell.info); errors
+    # still surface. Forms:
+    #   Lux.mode.silent              # => current state (bool)
+    #   Lux.mode.silent true         # set persistently (false restores)
+    #   Lux.mode.silent { ... }      # mute for the block, then restore previous
+    #   Lux.mode.silent(false) { }   # un-mute for the block, then restore
+    def silent value = nil
+      if block_given?
+        prev    = @silent
+        @silent = value.nil? ? true : !!value
+        begin
+          yield
+        ensure
+          @silent = prev
+        end
+      elsif value.nil?
+        @silent == true
+      else
+        @silent = !!value
+      end
     end
 
     def initialize env_name
@@ -51,6 +61,7 @@ module Lux
                    end
       @overrides = {}
       @from_env  = {}
+      @silent    = false
 
       FLAGS.each do |name, spec|
         raw = ENV[spec[:env]]

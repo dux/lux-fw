@@ -80,7 +80,6 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | `web_common`      | Shared web layer: html builders, assets, authcog controller, PG exception logger + `/admin` | [README](./plugins/web_common/README.md) |
 | `locale`          | Small, namespaced translation lookup with dotted keys              | [README](./plugins/locale/README.md) |
 | `oauth`           | Oauth interface (facebook, github, google, linkedin, slack, ...)   | [README](./plugins/oauth/README.md) |
-| `auto_controller` | Convention-based routing + template auto-finding                   | [README](./plugins/auto_controller/README.md) |
 | `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks)         | [README](./plugins/job_runner/README.md) |
 | `lux_logger`      | Database-backed structured logger                                  | [README](./plugins/lux_logger/README.md) |
 

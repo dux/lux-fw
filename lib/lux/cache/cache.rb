@@ -44,7 +44,7 @@ module Lux
       ttl = ttl[:ttl] || ttl[:expires_at] if ttl.is_hash?
       ttl = ttl.to_i if ttl
       key = generate_key key
-      Lux.log { %[ Cache.write "#{key}", at: #{Lux.app_caller}].colorize(:yellow) }
+      Lux.log { %[ Cache.write "#{key}", at: #{Lux.app_caller}].colorize(:yellow) } if Lux.mode.debug?
       @server.set(key, data, ttl)
     end
     alias :set :write
@@ -83,7 +83,7 @@ module Lux
       data = @server.fetch(key, opt.ttl) do
         yield_value = nil
         opt.speed = Lux.speed { yield_value = yield }
-        Lux.log { " #{log_key_name}, at: #{Lux.app_caller}".colorize(:yellow) }
+        Lux.log { " #{log_key_name}, at: #{Lux.app_caller}".colorize(:yellow) } if Lux.mode.debug?
         yield_value
       end
 

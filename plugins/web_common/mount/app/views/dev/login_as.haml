@@ -1,0 +1,27 @@
+:ruby
+  raise 'Nope' unless Lux.env.dev?
+
+= center 800 do
+  .mt-5
+    %h1.mb-1
+      Login as
+      - if user
+        %small
+          &sdot;
+          = user.email
+
+          - if user.is_admin?
+            &sdot;
+            %ui-btn{ href: '/admin' } admin
+
+    .mb-5
+
+    %ui-search
+
+    .mb-5
+
+    = table (@users = User.desc(:updated_at).search.page) do |t|
+      - t.href {|user| Lux.env.dev? ? UserSession.login_link(user) : UserSession.sudo_login_link(user) }
+      - t.col as: :avatar
+      - t.col :full_name
+      - t.col :is_admin?, as: :boolean

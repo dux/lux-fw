@@ -150,7 +150,7 @@ describe Lux::Shell do
 
   describe 'output helpers' do
     it '.info writes to STDERR' do
-      err = capture_stderr { Lux.shell.info 'hi' }
+      err = capture_stderr { Lux.mode.silent(false) { Lux.shell.info 'hi' } }
       _(err).must_match(/hi/)
     end
 
@@ -160,7 +160,7 @@ describe Lux::Shell do
     end
 
     it '.info accepts arrays' do
-      err = capture_stderr { Lux.shell.info(['a', 'b']) }
+      err = capture_stderr { Lux.mode.silent(false) { Lux.shell.info(['a', 'b']) } }
       _(err).must_match(/a.*b/m)
     end
   end

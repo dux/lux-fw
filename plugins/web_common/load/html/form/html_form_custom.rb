@@ -130,7 +130,7 @@ module ApplicationHelper
       builder.render &block
     rescue Lux::Policy::Error => e
       msg = e.message.split(' - ')[0]
-      return msg.tag 'ui-info', { type: :error }
+      return msg.tag 'ui-info', type: :error
     end
   end
 

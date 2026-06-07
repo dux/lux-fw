@@ -6,6 +6,10 @@ Bundler.require
 
 require_relative '../lib/lux-fw'
 
+# Mute per-statement DB log + Lux.shell.info chatter for the suite. Set before
+# the first Lux.config access below so even boot-time info stays quiet.
+Lux.mode.silent true
+
 Lux.config.secret         = ENV['SECRET']
 Lux.config.host           = 'http://test'
 Lux.config.compile_assets = false

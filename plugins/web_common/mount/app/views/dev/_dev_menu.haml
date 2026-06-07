@@ -1,0 +1,11 @@
+- if Lux.env.dev?
+  .typo-main.flex{ style: 'position: fixed; z-index: 1; right: 5px; bottom: 10px; gap: 7px;' }
+    - if user&.can&.admin?
+      %ui-btn{ size: :xs, type: :danger, href: '/admin' }
+        A
+    %ui-btn{ size: :xs, type: :danger, href: '/login_as' }
+      L
+    %ui-btn{ size: :xs, type: :danger, href: '/design' }
+      D
+    %ui-btn{ size: :xs, type: :danger, onclick: "Pjax.load('#{request.path}#{params[:debug] ? "" : "?debug=render" }', { history: false })", 'data-key': 'F2' }
+      R

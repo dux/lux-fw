@@ -30,6 +30,7 @@ module Lux
       return if @booted
       @booted = true
 
+      require_env!
       Lux.init_env
       Lux.dotenv
       bundler_require!
@@ -49,6 +50,13 @@ module Lux
 
     def booted?
       @booted == true
+    end
+
+    # Refuse to boot without an explicit environment. Both vars empty means
+    # the host forgot to set it - fail loud rather than silently assuming dev.
+    def require_env!
+      return unless ENV['LUX_ENV'].to_s.empty? && ENV['RACK_ENV'].to_s.empty?
+      Lux.shell.die 'RACK_ENV or LUX_ENV not defined'
     end
 
     # Run `Bundler.require :default, <env>` once, so the host doesn't have

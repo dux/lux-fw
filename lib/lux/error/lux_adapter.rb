@@ -33,10 +33,15 @@ module Lux
 
       exception.instance_variable_set(LOGGED_FLAG, true) rescue nil
 
-      begin
-        Lux.logger.error Lux::Error.format(exception, message: true)
-      rescue StandardError
-        nil
+      # Lux::Error / Lux::Api::Error are deliberate HTTP control-flow signals
+      # (403/404/422...), not bugs - don't dump a backtrace for them. Mirrors
+      # the API layer's `unless is_a?(Lux::Api::Error)` guards and IGNORE list.
+      unless expected_http_error?(exception)
+        begin
+          Lux.logger.error Lux::Error.format(exception, message: true)
+        rescue StandardError
+          nil
+        end
       end
 
       if Lux.mode.debug?
@@ -59,6 +64,13 @@ module Lux
     end
 
     def log_custom(exception)
+    end
+
+    # Deliberate HTTP errors raised via `Lux.error CODE` (and the API
+    # equivalent) - control flow, not crashes worth a backtrace dump.
+    def expected_http_error?(exception)
+      exception.is_a?(Lux::Error) ||
+        (defined?(Lux::Api::Error) && exception.is_a?(Lux::Api::Error))
     end
   end
 

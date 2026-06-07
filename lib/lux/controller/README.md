@@ -222,6 +222,42 @@ tries `<name>_ref.haml` then falls back to `<name>.haml`.
 | `timeout(seconds)` | per-action timeout |
 | `current` / `lux` / `params` / `nav` / `session` / `user` / `request` / `response` | lifecycle delegates |
 
+## Convention routing - `Lux::Controller::Auto`
+
+`include Lux::Controller::Auto` turns a controller into a convention-routed
+one: instead of writing an action per URL, the mixin maps `nav.path` to a
+template under `cattr.template_root` (default `./app/views`), keyed by
+`cattr.layout`. Lives in core (`lib/lux/controller/auto.rb`).
+
+```ruby
+class MainController < FrontendController
+  include Lux::Controller::Auto
+  layout :main
+
+  # optional - runs before auto_render
+  filter do
+    filter :spaces do
+      filter :ref do ... end          # /spaces/:ref/*
+    end
+  end
+end
+```
+
+The mixin supplies a `call` that runs `filter`, then `auto_render` unless a
+filter already wrote the body. Key pieces:
+
+* `call` - entry point: `filter` then `auto_render`. Override for full control.
+* `auto_render` - renders the `cattr.layout` + `nav.path` template
+  (`app/views/<layout>/<path>.{haml,md,erb}`, or `.../root.*`), else raises 404.
+* `auto_find_template(path)` - resolves a path array to a template, or nil.
+* `auto_export_var(name, ref, can = nil)` - loads a model by ref, optional
+  policy check, sets `@object` and `@<name>`.
+* `filter` - two shapes share the name. With no args it is the entry hook that
+  runs the class-level `filter do |mount_on| ... end` block. With segments
+  (`filter :seg do ... end`) it is a `nav.path` matcher that descends one
+  segment per nesting level, so filters read like the URL; a filter that
+  renders or redirects sets the body and skips `auto_render`.
+
 ## See also
 
 * [`../schema/README.md`](../schema/README.md) - the `opt` line parser

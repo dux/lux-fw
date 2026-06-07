@@ -94,6 +94,7 @@ class AppTable < HtmlTable
 
     proc do |o|
       target = opts[:field] ? o.send(opts[:field]) : o
+      next '' unless target.respond_to?(:d_avatar)
       target.d_avatar(size: 32).wrap(:div, style: 'margin: -3px 0 -13px;')
     end
   end

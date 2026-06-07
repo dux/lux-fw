@@ -124,6 +124,7 @@ module Lux
     # Status output to STDERR (magenta). STDOUT stays clean for piping.
     # Accepts a string or an array of strings.
     def info text
+      return if Lux.mode.silent
       if text.is_a?(Array)
         text.each { |line| info line }
       else

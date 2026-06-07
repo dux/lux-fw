@@ -1,0 +1,9 @@
+!!!
+%html{ lang: 'en' }
+  %head
+    = lux.header.render do |el|
+      = el.auto :common, :shared
+  %body
+    .pjax#main
+      = render '/dev/_dev_menu'
+      = yield
