@@ -1,10 +1,10 @@
 # Convention-based routing mixin for controllers.
 #
-# Include it; Auto supplies a `call` that runs `filter` then renders the template
-# matching cattr.layout + nav.path:
+# Mixed into every controller by default (see controller.rb). Path filters run
+# automatically each action (Controller#action); `auto` renders the template
+# matching cattr.layout + nav.path. Including it explicitly is harmless:
 #
 #   class MainController < FrontendController
-#     include Lux::Controller::Auto    # usually via ControllerAutoLoader
 #     layout :main
 #
 #     filter do                  # optional - runs before auto_render
@@ -12,9 +12,9 @@
 #     end
 #   end
 #
-# Override `call` for full control. `auto_render` renders cattr.layout + nav.path;
-# `filter` is the entry hook and the nav.path matcher. Model loading by ref now
-# lives on `nav.load_models` (db plugin).
+# Override `auto` for full control. `auto_render` renders cattr.layout + nav.path;
+# `filter` runs automatically per action as the nav.path matcher. Model loading
+# by ref now lives on `nav.load_models` (db plugin).
 module Lux
   class Controller
     module Auto
@@ -28,7 +28,8 @@ module Lux
       module ClassMethods
         # Class-level `filter do |mount_on| ... end` - the static counterpart to
         # the runtime `filter :seg do ... end` matcher, in the spirit of `before do`.
-        # Stores the block; the instance-level #filter (invoked by #call) runs it.
+        # Stores the block; the instance-level #filter (invoked automatically
+        # each action by Controller#action) runs it.
         def filter &block
           @auto_filter = block if block
           @auto_filter
@@ -36,18 +37,19 @@ module Lux
       end
 
       # Default entry point for convention-routed controllers (mounted via
-      # `call 'main#call'`). Runs #filter, then renders the cattr.layout + nav.path
-      # template unless a filter already rendered or redirected.
-      def call
-        filter
-        auto_render unless lux.response.body?
+      # `call 'main#auto'`). Filters already ran automatically (Controller#action),
+      # so this just renders the cattr.layout + nav.path template unless a filter
+      # already rendered or redirected.
+      def auto
+        auto_render
       end
 
       # Two call shapes share this name:
       #
-      #   filter                       Entry hook invoked by #call. Runs the
-      #                                class-level `filter do |mount_on| ... end`
-      #                                block (mount_on = cattr.layout) when one is
+      #   filter                       Invoked automatically each action by
+      #                                Controller#action. Runs the class-level
+      #                                `filter do |mount_on| ... end` block
+      #                                (mount_on = cattr.layout) when one is
       #                                defined; a no-op otherwise. Override with
       #                                `def filter` on the controller and call
       #                                `super` to keep the class-level block.
@@ -60,7 +62,7 @@ module Lux
       #                                several segments to match in one step
       #                                (`filter :admin, :users`). A filter that
       #                                renders or redirects sets the response
-      #                                body, so #call then skips auto_render.
+      #                                body, so the action is then skipped.
       #     filter :spaces do        # /spaces/*
       #       filter :ref do         # /spaces/:ref/*
       #         filter :admin do ... end   # /spaces/:ref/admin
@@ -112,6 +114,8 @@ module Lux
       # The 404 flows through the app error sink, which renders the error template
       # at the layout root (e.g. app/views/main/error.haml).
       def auto_render
+        return if lux.response.body?
+
         path = [template_dir] + nav.path
         if tpl = auto_find_template(path)
           render tpl

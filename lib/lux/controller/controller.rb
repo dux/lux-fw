@@ -4,12 +4,18 @@
 require 'erb'
 require_relative '../current/lifecycle'
 require_relative './params_dsl'
+require_relative './auto_controller'
 
 module Lux
   class Controller
     include ClassCallbacks
     include Lifecycle
     include ParamsDsl
+
+    # Convention routing ships on every controller: `filter` (entry hook +
+    # nav.path matcher) and `auto` (filter then auto_render). Mount it with
+    # `call 'main#auto'`; define actions/routes for explicit dispatch instead.
+    include Auto
 
     DEFAULT_ERROR_TEMPLATE ||= ERB.new(Lux.fw_root.join('assets/controller/error_page.html.erb').read)
 
@@ -188,7 +194,7 @@ module Lux
 
     # action(:show)
     # action(:select', ['users'])
-    def action method_name, args: [], ivars: {}
+    def action method_name, args: [], ivars: {}, resourceful: false
       if method_name.blank?
         raise ArgumentError.new('Controller action called with blank action name argument')
       end
@@ -224,9 +230,14 @@ module Lux
           # filtered/coerced set. No-op when no opts are declared.
           validate_action_params!
 
+          # Convention nav.path filters run automatically for every action - the
+          # class-level `filter do ... end` block, a no-op unless declared. A
+          # filter that renders or redirects sets the body, skipping the action.
+          filter
+
           unless lux.response.body?
             # if action not found
-            if respond_to?(method_name)
+            if respond_to?(method_name) && (!resourceful || app_defined_action?(method_name))
               send method_name, *args
             else
               action_missing method_name
@@ -475,6 +486,16 @@ module Lux
           @lux.render_cache = key
         end
       end
+    end
+
+    # Resourceful dispatch takes the action name straight from the URL, so only
+    # methods the app defined on a controller subclass are reachable - never
+    # framework instance methods (auto, filter, flash, error, timeout,
+    # respond_to, ...) or inherited Object/Kernel methods. Explicit
+    # `controller#action` routing passes resourceful: false and bypasses this.
+    def app_defined_action? name
+      owner = method(name).owner
+      owner.is_a?(Class) && owner < Lux::Controller
     end
 
     def action_missing name

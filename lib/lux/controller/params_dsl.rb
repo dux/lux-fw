@@ -227,7 +227,7 @@ module Lux
       # with 405 when the request method is not in the per-action allow set.
       # Skips when the response body is already set - a prior route has
       # already responded, so this controller is a no-op and must not 405
-      # the in-flight response (e.g. catch-all `call 'main#call'` running
+      # the in-flight response (e.g. catch-all `call 'main#auto'` running
       # after an earlier `map 'api', ...` completed).
       def enforce_allowed_verbs!
         return if lux.response.body?

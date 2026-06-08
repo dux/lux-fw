@@ -251,14 +251,14 @@ tries `<name>_ref.haml` then falls back to `<name>.haml`.
 
 ## Convention routing - `Lux::Controller::Auto`
 
-`include Lux::Controller::Auto` turns a controller into a convention-routed
-one: instead of writing an action per URL, the mixin maps `nav.path` to a
-template under `cattr.template_root` (default `./app/views`), keyed by
-`cattr.layout`. Lives in core (`lib/lux/controller/auto_controller.rb`).
+Mixed into every controller by default (see `controller.rb`), so any controller
+can be convention-routed: instead of writing an action per URL, it maps
+`nav.path` to a template under `cattr.template_root` (default `./app/views`),
+keyed by `cattr.layout`. Lives in core (`lib/lux/controller/auto_controller.rb`);
+mount it with `call 'main#auto'`.
 
 ```ruby
 class MainController < FrontendController
-  include Lux::Controller::Auto
   layout :main
 
   # optional - runs before auto_render
@@ -270,10 +270,10 @@ class MainController < FrontendController
 end
 ```
 
-The mixin supplies a `call` that runs `filter`, then `auto_render` unless a
-filter already wrote the body. Key pieces:
+It supplies an `auto` that runs `filter`, then `auto_render` unless a filter
+already wrote the body. Key pieces:
 
-* `call` - entry point: `filter` then `auto_render`. Override for full control.
+* `auto` - entry point: `filter` then `auto_render`. Override for full control.
 * `auto_render` - renders the `views` (default layout name) + `nav.path` template
   (`app/views/<views>/<path>.{haml,md,erb}`, or `.../root.*`), else raises 404.
 * `auto_find_template(path)` - resolves a path array to a template, or nil.

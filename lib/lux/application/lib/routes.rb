@@ -283,6 +283,7 @@ module Lux
         end
 
         opts   ||= {}
+        resourceful = action.nil?                       # URL-derived action, not explicit controller#action
         action ||= resourceful_action(lux.route.path)
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
@@ -301,7 +302,7 @@ module Lux
           # All instance variables set on the Application instance (e.g. in before
           # filters or route blocks) are copied into the controller instance. This
           # allows routes to share data with controllers without explicit passing.
-          object.action action.to_sym, ivars: instance_variables_hash
+          object.action action.to_sym, ivars: instance_variables_hash, resourceful: resourceful
         end
 
         throw :done if lux.response.body?
