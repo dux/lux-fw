@@ -15,7 +15,9 @@ hang off `current` / `lux` / `params` / `nav` etc. inside the action.
 
 ```ruby
 class BoardsController < ApplicationController
-  layout :application
+  layout :application                          # layout file + default for views/helper
+  views  :boards                               # view subfolder, else falls back to layout
+  helper :boards                               # helper module, else falls back to layout
   template_root './apps/admin/views'           # override default ./app/views
 
   before { @user = User.current or Lux.error.unauthorized }
@@ -101,6 +103,31 @@ class BoardsController < ApplicationController
   end
 end
 ```
+
+## Layout, views and helper
+
+Three independent knobs decide what gets rendered, each defaulting to the
+`layout` name so you only set what differs:
+
+| macro          | controls                                  | default       |
+|----------------|-------------------------------------------|---------------|
+| `layout :main` | layout file wrapping the page             | -             |
+| `views :main`  | view subfolder under `template_root`      | layout name   |
+| `helper :main` | helper module mixed into the template     | layout name   |
+
+This lets two controllers share one layout but render from different view
+roots without duplicating templates:
+
+```ruby
+class BarController < AppController
+  layout :main     # main layout file + (default) MainHelper
+  views  :bar      # renders from app/views/bar/...
+  helper :baz      # use BazHelper instead of MainHelper
+end
+```
+
+A `render` target containing a slash (`render 'shared/widget'`) skips the
+`views` subfolder and resolves straight under `template_root`.
 
 ## Render shortcut quick-reference
 
@@ -247,8 +274,8 @@ The mixin supplies a `call` that runs `filter`, then `auto_render` unless a
 filter already wrote the body. Key pieces:
 
 * `call` - entry point: `filter` then `auto_render`. Override for full control.
-* `auto_render` - renders the `cattr.layout` + `nav.path` template
-  (`app/views/<layout>/<path>.{haml,md,erb}`, or `.../root.*`), else raises 404.
+* `auto_render` - renders the `views` (default layout name) + `nav.path` template
+  (`app/views/<views>/<path>.{haml,md,erb}`, or `.../root.*`), else raises 404.
 * `auto_find_template(path)` - resolves a path array to a template, or nil.
 * `auto_export_var(name, ref, can = nil)` - loads a model by ref, optional
   policy check, sets `@object` and `@<name>`.

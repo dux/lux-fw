@@ -66,7 +66,7 @@ module Lux
       # The 404 flows through the app error sink, which renders the error template
       # at the layout root (e.g. app/views/main/error.haml).
       def auto_render
-        path = [cattr.layout] + nav.path
+        path = [template_dir] + nav.path
         if tpl = auto_find_template(path)
           render tpl
         else

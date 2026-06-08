@@ -17,8 +17,11 @@ module Lux
     # string is template, symbol is method pointer and lambda is lambda
     cattr :layout, class: true
 
-    # define helper contest, by defult derived from class name
-    # cattr :helper, class: true
+    # view subfolder under template_root; `views :foo` overrides, else layout name
+    cattr :views, class: true
+
+    # helper module context; `helper :foo` overrides, else layout name
+    cattr :helper, class: true
 
     # custom template root instead calcualted one
     cattr :template_root, default: './app/views', class: true
@@ -254,7 +257,7 @@ module Lux
 
       if lux.nav.format.to_s == 'json' || request.content_type.to_s.include?('json')
         render json: { status: @status, error: @error.message }
-      elsif template_file_exists?(build_template_path('error', cattr.layout))
+      elsif template_file_exists?(build_template_path('error', template_dir))
         render :error
       else
         render html: self.class.default_error_page(@status, @error)
@@ -360,7 +363,9 @@ module Lux
     def render_template opt
       run_callback :before_render, @lux.action
 
-      helper_name = opt.layout || @lux.layout || cattr.layout
+      layout_name  = opt.layout || @lux.layout || cattr.layout
+      view_dir     = cattr.views  || layout_name
+      helper_name  = cattr.helper || layout_name
       local_helper = self.helper helper_name
 
       # Template path comes from the action name verbatim (including `_ref`
@@ -370,11 +375,11 @@ module Lux
       # a dedicated one when they want. Explicit `render template: 'X'` skips
       # the fallback.
       template = (opt.template || @lux.action).to_s.sub(/^\//, '')
-      page_template = build_template_path(template, helper_name)
+      page_template = build_template_path(template, view_dir)
 
       if !opt.template && template.end_with?('_ref') && !template_file_exists?(page_template)
         template = template.sub(/_ref$/, '')
-        page_template = build_template_path(template, helper_name)
+        page_template = build_template_path(template, view_dir)
       end
       Lux.current.var['views_root'] ||= cattr.template_root
       Lux.current.var.root_template_path = page_template.sub(%r{/[\w]+$}, '')
@@ -429,14 +434,21 @@ module Lux
       Lux.cache.fetch *args, &block
     end
 
-    # Build a "<template_root>/<helper>/<name>" path (or "<template_root>/<name>"
+    # View subfolder under template_root. `views :foo` overrides it; otherwise it
+    # follows the layout name. Used by the :error action and auto_render, which
+    # have no per-render layout option.
+    def template_dir
+      cattr.views || @lux.layout || cattr.layout
+    end
+
+    # Build a "<template_root>/<dir>/<name>" path (or "<template_root>/<name>"
     # when the name already contains a slash). No extension - extension probing
     # lives in template_file_exists? and Lux::Template.compile_template.
-    def build_template_path template, helper_name
+    def build_template_path template, dir
       if template.include?('/')
         [cattr.template_root, template].join('/')
       else
-        [cattr.template_root, helper_name, template].compact.join('/')
+        [cattr.template_root, dir, template].compact.join('/')
       end
     end
 
