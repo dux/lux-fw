@@ -17,8 +17,9 @@ end
 describe 'Lux::Application::Nav#load_models' do
   REF1 ||= 'd' * 16
 
+  # No extract_ref! here on purpose: load_models classifies refs itself.
   def nav_for path
-    Lux::Current.new("http://example.com#{path}").nav.tap(&:extract_ref!)
+    Lux::Current.new("http://example.com#{path}").nav
   end
 
   it 'matches the segment before the ref by abbr (/pro/<ref>)' do
