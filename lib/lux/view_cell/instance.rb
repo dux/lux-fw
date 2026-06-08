@@ -67,7 +67,7 @@ module Lux
     private
 
     def _development?
-      Lux.respond_to?(:env) ? Lux.env.dev? : (ENV['RACK_ENV'] == 'development')
+      Lux.respond_to?(:env) ? Lux.env.dev? : (ENV['LUX_ENV'] == 'development')
     end
   end
 end

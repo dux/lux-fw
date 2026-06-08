@@ -38,7 +38,7 @@ enterprise backend through the same DSL.
 
 `require 'lux-fw'` loads the framework only - no `.env`, no
 `config.yaml`, no plugin loaders, no DB connect. App boot is one
-explicit call: `Lux.boot!`. It resolves `LUX_ENV` / `RACK_ENV`, loads
+explicit call: `Lux.boot!`. It resolves `LUX_ENV`, loads
 `.env*`, runs `Bundler.require`, reads `config/config.yaml`, and fires
 every configured plugin's loader (DB connect, exception logger, etc).
 Idempotent.

@@ -28,20 +28,20 @@ describe Lux::Environment do
       saved.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
     end
 
-    it 'prefers LUX_ENV over RACK_ENV' do
-      with_env('LUX_ENV' => 'production', 'RACK_ENV' => 'test') do
+    it 'reads LUX_ENV' do
+      with_env('LUX_ENV' => 'production') do
         _(Lux::Environment.resolve_name).must_equal 'production'
       end
     end
 
-    it 'falls back to RACK_ENV when LUX_ENV is empty' do
-      with_env('LUX_ENV' => '', 'RACK_ENV' => 'test') do
-        _(Lux::Environment.resolve_name).must_equal 'test'
+    it "defaults to 'development' when LUX_ENV is empty" do
+      with_env('LUX_ENV' => '') do
+        _(Lux::Environment.resolve_name).must_equal 'development'
       end
     end
 
-    it "defaults to 'development' when neither is set" do
-      with_env('LUX_ENV' => nil, 'RACK_ENV' => nil) do
+    it "defaults to 'development' when LUX_ENV is unset" do
+      with_env('LUX_ENV' => nil) do
         _(Lux::Environment.resolve_name).must_equal 'development'
       end
     end

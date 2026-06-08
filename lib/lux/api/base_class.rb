@@ -15,7 +15,7 @@ module Lux
           Struct.new(:header, :status).new({}, 200)
         )
 
-        data = auto_mount api_host: api_host, development: ENV['RACK_ENV'] == 'development'
+        data = auto_mount api_host: api_host, development: ENV['LUX_ENV'] == 'development'
 
         # 302 redirect sentinel: auto_mount returned { _redirect: '/path' }
         if data.is_hash? && data[:_redirect]

@@ -1,8 +1,11 @@
 module Lux
   def init_env
-    rack_env = ENV['RACK_ENV'].to_s
-    ENV['LUX_ENV'] = rack_env if ENV['LUX_ENV'].to_s.empty? && !rack_env.empty?
-    ENV['LUX_ENV'].to_s
+    lux_env = ENV['LUX_ENV'].to_s
+    lux_env = 'development' if lux_env.empty?
+    # LUX_ENV is the source of truth; mirror into RACK_ENV so external
+    # gems (puma, rack middleware) resolve the same environment.
+    ENV['LUX_ENV'] = ENV['RACK_ENV'] = lux_env
+    lux_env
   end
 
   # get config hash pointer or die if key provided and not found
@@ -20,7 +23,7 @@ module Lux
   #   .env.<env>         - per-environment defaults
   #   .env               - shared defaults
   #
-  # Env name resolves from LUX_ENV, then RACK_ENV, then 'development'.
+  # Env name resolves from LUX_ENV, defaulting to 'development'.
   # Returns the list of files actually loaded.
   def dotenv
     require 'dotenv' unless defined?(Dotenv)

@@ -52,11 +52,11 @@ module Lux
       @booted == true
     end
 
-    # Refuse to boot without an explicit environment. Both vars empty means
-    # the host forgot to set it - fail loud rather than silently assuming dev.
+    # Refuse to boot without an explicit environment. Empty means the host
+    # forgot to set it - fail loud rather than silently assuming dev.
     def require_env!
-      return unless ENV['LUX_ENV'].to_s.empty? && ENV['RACK_ENV'].to_s.empty?
-      Lux.shell.die 'RACK_ENV or LUX_ENV not defined'
+      return unless ENV['LUX_ENV'].to_s.empty?
+      Lux.shell.die 'LUX_ENV not defined'
     end
 
     # Run `Bundler.require :default, <env>` once, so the host doesn't have
@@ -69,7 +69,7 @@ module Lux
       return if ENV['LUX_SKIP_BUNDLER_REQUIRE']
 
       @bundler_required = true
-      Bundler.require :default, (ENV['LUX_ENV'] || ENV['RACK_ENV'] || 'development').to_sym
+      Bundler.require :default, (ENV['LUX_ENV'] || 'development').to_sym
     end
 
     def set_defaults

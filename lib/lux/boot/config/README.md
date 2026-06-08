@@ -85,11 +85,11 @@ end
 Lux.dotenv     # loads, returns list of files actually loaded
 # load order (most specific wins, Dotenv.load is non-destructive):
 #   .env.<env>.local  ->  .env.local  ->  .env.<env>  ->  .env
-# Env name resolves from LUX_ENV, then RACK_ENV, defaulting to 'development'.
+# Env name resolves from LUX_ENV, defaulting to 'development'.
 
 # --- env name ----------------------------------------------------------
 
-Lux.init_env   # resolve and freeze LUX_ENV from RACK_ENV if not set; returns it
+Lux.init_env   # resolve LUX_ENV (default development), mirror into RACK_ENV; returns it
 ```
 
 ## Plugin config

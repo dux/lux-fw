@@ -1,5 +1,5 @@
 module LuxTest
-  TEST_ENV_PREFIX ||= 'LUX_ENV=test RACK_ENV=test'
+  TEST_ENV_PREFIX ||= 'LUX_ENV=test'
 
   module_function
 

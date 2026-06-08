@@ -15,7 +15,7 @@
 #   port            ENV['PUMA_PORT'] || ENV['PORT'] || 3000
 #   threads         1, 32
 #   plugin          :tmp_restart
-#   production      stdout -> ./log, workers 2 (environment derived from RACK_ENV)
+#   production      stdout -> ./log, workers 2 (environment derived from LUX_ENV)
 #   development     stdout on-screen (no redirect)
 #
 # When clustered (workers >= 2 after overrides) it installs three hooks:
@@ -38,7 +38,7 @@ module Lux
   module Boot
     module PumaDSL
       def lux_boot(&block)
-        is_prod   = (ENV['LUX_ENV'] || ENV['RACK_ENV']) == 'production'
+        is_prod   = ENV['LUX_ENV'] == 'production'
         puma_port = ENV['PUMA_PORT'] || ENV['PORT'] || 3000
 
         plugin       :tmp_restart # restart on touch of tmp/restart.txt

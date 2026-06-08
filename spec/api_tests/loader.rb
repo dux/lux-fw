@@ -1,4 +1,4 @@
-ENV['RACK_ENV'] = 'test'
+ENV['LUX_ENV'] = 'test'
 
 require 'test_helper'
 require_relative './lib/blank'

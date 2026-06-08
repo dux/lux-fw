@@ -1,4 +1,4 @@
-ENV['RACK_ENV'] = 'test'
+ENV['LUX_ENV'] = 'test'
 ENV['SECRET']   = 'test-secret'
 
 require 'bundler'

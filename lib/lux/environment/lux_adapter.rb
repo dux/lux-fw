@@ -2,7 +2,7 @@
 # Lux.mode    - behavior toggles (debug/reload)
 # Lux.runtime - runtime kind (web/cli/rake)
 #
-# Env name resolution: ENV['LUX_ENV'] || ENV['RACK_ENV'] || 'development'.
+# Env name resolution: ENV['LUX_ENV'] || 'development'.
 # See Lux::Environment.resolve_name.
 #
 # Lux.env.to_s            # 'development'

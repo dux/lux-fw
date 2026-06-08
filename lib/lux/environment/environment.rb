@@ -3,11 +3,10 @@ module Lux
     ENVS          ||= %w(development production test).freeze
     TEST_BINARIES ||= %w(rspec minitest m).freeze
 
-    # Resolve the active env name. LUX_ENV wins over RACK_ENV; both empty
-    # falls back to 'development' so quick-hack scripts work without setup.
+    # Resolve the active env name from LUX_ENV; empty falls back to
+    # 'development' so quick-hack scripts work without setup.
     def self.resolve_name
       raw = ENV['LUX_ENV'].to_s
-      raw = ENV['RACK_ENV'].to_s if raw.empty?
       raw.empty? ? 'development' : raw
     end
 

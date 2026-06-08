@@ -21,7 +21,7 @@ Lux.env.dev?             # alias for development?
 Lux.env == :prod         # accepts :dev / :prod / :test and strings
 Lux.env(:prod)           # same: Lux.env(:prod) -> bool
 
-# Set via RACK_ENV or LUX_ENV. Defaults to 'development'.
+# Set via LUX_ENV. Defaults to 'development'.
 
 # --- Lux.mode: behavior toggles -----------------------------------------
 

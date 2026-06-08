@@ -97,15 +97,16 @@ describe Lux::Boot::Config do
     end
   end
 
-  it 'initializes LUX_ENV from RACK_ENV when LUX_ENV is empty' do
+  it 'defaults LUX_ENV to development when empty and mirrors it into RACK_ENV' do
     old_lux_env = ENV['LUX_ENV']
     old_rack_env = ENV['RACK_ENV']
 
     ENV['LUX_ENV'] = ''
-    ENV['RACK_ENV'] = 'test'
+    ENV.delete('RACK_ENV')
 
-    _(Lux.init_env).must_equal 'test'
-    _(ENV['LUX_ENV']).must_equal 'test'
+    _(Lux.init_env).must_equal 'development'
+    _(ENV['LUX_ENV']).must_equal 'development'
+    _(ENV['RACK_ENV']).must_equal 'development'
   ensure
     ENV['LUX_ENV'] = old_lux_env
     ENV['RACK_ENV'] = old_rack_env

@@ -13,10 +13,9 @@ task :server do
     port = (opts[:port] || ENV['PORT'] || 3000).to_i
     ENV['PORT'] = port.to_s
 
-    # env: -e wins, else inherit. Export both so the framework (LUX_ENV) and
-    # puma (RACK_ENV) resolve the same environment.
-    if env = (opts[:env] || ENV['LUX_ENV'] || ENV['RACK_ENV'])
-      ENV['LUX_ENV'] = ENV['RACK_ENV'] = env
+    # env: -e wins, else inherit the current LUX_ENV.
+    if env = (opts[:env] || ENV['LUX_ENV'])
+      ENV['LUX_ENV'] = env
     end
 
     # high (dev) ports default debug + reload on; -d / -r force them off.
@@ -30,7 +29,7 @@ task :server do
     # rename the terminal window/tab (ghostty, iterm2) for the server's lifetime
     print "\e]0;#{File.basename(Dir.pwd)} lux web\a" if $stdout.tty?
 
-    envs = %w(LUX_ENV RACK_ENV LUX_DEBUG LUX_RELOAD).map { |k| "#{k}=#{ENV[k]}" }.join(' ')
+    envs = %w(LUX_ENV LUX_DEBUG LUX_RELOAD).map { |k| "#{k}=#{ENV[k]}" }.join(' ')
     base = "#{envs} bundle exec puma"
 
     if opts[:rerun]
