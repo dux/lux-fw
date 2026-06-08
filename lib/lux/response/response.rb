@@ -342,11 +342,11 @@ module Lux
       body data[2].first, status: data[0]
     end
 
+    private
+
     def is_bot?
       current.request.user_agent.to_s.include?('Googlebot')
     end
-
-    private
 
     # Persist flash into session, but only if it has content or needs clearing.
     # Avoids dirtying the session on every request just to write an empty flash hash.

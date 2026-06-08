@@ -52,6 +52,8 @@ module Lux
       @booted == true
     end
 
+    private
+
     # Refuse to boot without an explicit environment. Empty means the host
     # forgot to set it - fail loud rather than silently assuming dev.
     def require_env!

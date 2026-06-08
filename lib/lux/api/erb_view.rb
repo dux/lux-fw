@@ -103,6 +103,8 @@ module Lux
         end
       end
 
+      private
+
       def sample_body params
         return nil if params.nil? || params.empty?
         sample = {}

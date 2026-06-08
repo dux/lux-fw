@@ -16,13 +16,15 @@ class Lux::Type::CurrencyCodeType < Lux::Type
     validate
   end
 
+  def db_schema
+    [:string, { limit: 3 }]
+  end
+
+  private
+
   def validate
     raise TypeError.new('Currency code must be exactly 3 characters') unless @value.length == 3
     raise TypeError.new(error_for(:unallowed_characters_error)) unless @value =~ /^[A-Z]{3}$/
     raise TypeError.new('Currency code "%s" is not valid' % @value) unless CURRENCIES.include?(@value)
-  end
-
-  def db_schema
-    [:string, { limit: 3 }]
   end
 end

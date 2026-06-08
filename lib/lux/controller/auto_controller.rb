@@ -13,8 +13,8 @@
 #   end
 #
 # Override `call` for full control. `auto_render` renders cattr.layout + nav.path;
-# `filter` is the entry hook and the nav.path matcher; `auto_export_var` loads a
-# model by ref.
+# `filter` is the entry hook and the nav.path matcher. Model loading by ref now
+# lives on `nav.load_models` (db plugin).
 module Lux
   class Controller
     module Auto
@@ -41,52 +41,6 @@ module Lux
       def call
         filter
         auto_render unless lux.response.body?
-      end
-
-      # Find a template by path under cattr.template_root (default ./app/views).
-      # Tries /path.{haml,md,erb} then /path/root.{...}; returns the path or nil.
-      #   auto_find_template(['main', 'notes'])  ->  '/main/notes' or nil
-      def auto_find_template path
-        root     = cattr.template_root
-        path     = path.flatten.map { _1.to_s.gsub('-', '_') }
-        tpl_root = '/' + path.join('/')
-
-        AUTO_PATH_CACHE[tpl_root] = nil if Lux.env.dev?
-        AUTO_PATH_CACHE[tpl_root] ||= begin
-          for check in [tpl_root, "#{tpl_root}/root"]
-            for ext in AUTO_EXTS
-              return check if File.exist?("#{root}#{check}.#{ext}")
-            end
-          end
-          nil
-        end
-      end
-
-      # Render the template matching cattr.layout + nav.path, or raise a 404.
-      # The 404 flows through the app error sink, which renders the error template
-      # at the layout root (e.g. app/views/main/error.haml).
-      def auto_render
-        path = [template_dir] + nav.path
-        if tpl = auto_find_template(path)
-          render tpl
-        else
-          base = '/' + path.join('/')
-          exts = AUTO_EXTS.map { |e| ".#{e}" }.join(', ')
-          raise Lux.error.not_found Lux.mode.debug?('Not Found') { "No template found, looked for #{base}{#{exts}} and #{base}/root{#{exts}}" }
-        end
-      end
-
-      # Find a model by ref, optionally policy-check, set @object and @<name>.
-      #   auto_export_var :task, params[:t], :read
-      def auto_export_var name, ref, can = nil
-        name = name.to_s.singularize
-
-        if @object = name.classify.constantize.find(ref)
-          @object = @object.can.send("#{can}!") if can
-          instance_variable_set "@#{name}".to_sym, @object
-        else
-          raise Lux.error.not_found "Object not found"
-        end
       end
 
       # Two call shapes share this name:
@@ -131,6 +85,41 @@ module Lux
         @filter_depth += segments.length
         instance_eval(&block)
         @filter_depth -= segments.length
+      end
+
+      private
+
+      # Find a template by path under cattr.template_root (default ./app/views).
+      # Tries /path.{haml,md,erb} then /path/root.{...}; returns the path or nil.
+      #   auto_find_template(['main', 'notes'])  ->  '/main/notes' or nil
+      def auto_find_template path
+        root     = cattr.template_root
+        path     = path.flatten.map { _1.to_s.gsub('-', '_') }
+        tpl_root = '/' + path.join('/')
+
+        AUTO_PATH_CACHE[tpl_root] = nil if Lux.env.dev?
+        AUTO_PATH_CACHE[tpl_root] ||= begin
+          for check in [tpl_root, "#{tpl_root}/root"]
+            for ext in AUTO_EXTS
+              return check if File.exist?("#{root}#{check}.#{ext}")
+            end
+          end
+          nil
+        end
+      end
+
+      # Render the template matching cattr.layout + nav.path, or raise a 404.
+      # The 404 flows through the app error sink, which renders the error template
+      # at the layout root (e.g. app/views/main/error.haml).
+      def auto_render
+        path = [template_dir] + nav.path
+        if tpl = auto_find_template(path)
+          render tpl
+        else
+          base = '/' + path.join('/')
+          exts = AUTO_EXTS.map { |e| ".#{e}" }.join(', ')
+          raise Lux.error.not_found Lux.mode.debug?('Not Found') { "No template found, looked for #{base}{#{exts}} and #{base}/root{#{exts}}" }
+        end
       end
     end
   end

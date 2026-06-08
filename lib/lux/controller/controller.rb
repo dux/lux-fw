@@ -130,6 +130,23 @@ module Lux
         end
       end
 
+      # Self-contained HTML error page (no template lookup). Fallback used by the
+      # default Lux::Controller#error action when the app has no error template;
+      # can be called directly from a custom :error to wrap the framework chrome
+      # around your own content.
+      def default_error_page status, error
+        name      = ::Rack::Utils::HTTP_STATUS_CODES[status] || 'Error'
+        message   = error.message.to_s.gsub('<', '&lt;').gsub('>', '&gt;')
+        show_dev  = Lux.mode.debug?
+        backtrace = (show_dev && error.respond_to?(:backtrace) && error.backtrace) ?
+                    error.backtrace.first(40).join("\n").gsub('<', '&lt;').gsub('>', '&gt;') : nil
+        color     = status >= 500 ? '#dc2626' : status >= 400 ? '#d97706' : '#374151'
+
+        DEFAULT_ERROR_TEMPLATE.result(binding)
+      end
+
+      private
+
       # Move per-action metadata (opts + verb allows + routes snapshotted by
       # method_added when the inner def fired) from the pre-rename key to the
       # `_ref` key, so params validation, verb enforcement and the global
@@ -152,21 +169,6 @@ module Lux
             entry[:action] = to
           end
         end
-      end
-
-      # Self-contained HTML error page (no template lookup). Fallback used by the
-      # default Lux::Controller#error action when the app has no error template;
-      # can be called directly from a custom :error to wrap the framework chrome
-      # around your own content.
-      def default_error_page status, error
-        name      = ::Rack::Utils::HTTP_STATUS_CODES[status] || 'Error'
-        message   = error.message.to_s.gsub('<', '&lt;').gsub('>', '&gt;')
-        show_dev  = Lux.mode.debug?
-        backtrace = (show_dev && error.respond_to?(:backtrace) && error.backtrace) ?
-                    error.backtrace.first(40).join("\n").gsub('<', '&lt;').gsub('>', '&gt;') : nil
-        color     = status >= 500 ? '#dc2626' : status >= 400 ? '#d97706' : '#374151'
-
-        DEFAULT_ERROR_TEMPLATE.result(binding)
       end
 
     end

@@ -170,18 +170,6 @@ module Lux
           expand_allowed_verbs([:get])
         end
 
-        def expand_allowed_verbs verbs
-          Set.new.tap do |set|
-            verbs.each do |verb|
-              set << verb
-              if verb == :get
-                set << :head
-                set << :options
-              end
-            end
-          end
-        end
-
         # Compose class-level + method-level into one Lux::Schema, with
         # method rules winning on collision. Walks the ancestor chain so
         # subclasses inherit parent params/opt declarations.
@@ -217,6 +205,20 @@ module Lux
           end
 
           Lux::Schema.new(nil, define: Lux::Schema::Define.new(combined_rules))
+        end
+
+        private
+
+        def expand_allowed_verbs verbs
+          Set.new.tap do |set|
+            verbs.each do |verb|
+              set << verb
+              if verb == :get
+                set << :head
+                set << :options
+              end
+            end
+          end
         end
       end
 

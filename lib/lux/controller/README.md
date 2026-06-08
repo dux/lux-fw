@@ -254,7 +254,7 @@ tries `<name>_ref.haml` then falls back to `<name>.haml`.
 `include Lux::Controller::Auto` turns a controller into a convention-routed
 one: instead of writing an action per URL, the mixin maps `nav.path` to a
 template under `cattr.template_root` (default `./app/views`), keyed by
-`cattr.layout`. Lives in core (`lib/lux/controller/auto.rb`).
+`cattr.layout`. Lives in core (`lib/lux/controller/auto_controller.rb`).
 
 ```ruby
 class MainController < FrontendController
@@ -277,8 +277,6 @@ filter already wrote the body. Key pieces:
 * `auto_render` - renders the `views` (default layout name) + `nav.path` template
   (`app/views/<views>/<path>.{haml,md,erb}`, or `.../root.*`), else raises 404.
 * `auto_find_template(path)` - resolves a path array to a template, or nil.
-* `auto_export_var(name, ref, can = nil)` - loads a model by ref, optional
-  policy check, sets `@object` and `@<name>`.
 * `filter` - two shapes share the name. With no args it is the entry hook that
   runs the class-level `filter do |mount_on| ... end` block. With segments
   (`filter :seg do ... end`) it is a `nav.path` matcher that descends one

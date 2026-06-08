@@ -341,30 +341,6 @@ module Lux
         end
       end
 
-      private
-
-      def define_single_action(name, http_methods = nil, &block)
-        allow(*Array(http_methods)) if http_methods
-        func = class_exec(&block)
-        raise 'Define block has to return a Proc object' unless func.is_a?(Proc)
-
-        # snapshot annotations/desc/etc that were set up immediately before
-        # this define call, register the endpoint under :member when inside
-        # `ref do`, otherwise under :collection
-        type = @method_type == :member ? :member : :collection
-        set type, name, @@opts
-        @@opts = {}
-
-        # wire up the method body. define_method fires method_added; the
-        # @in_define_action guard skips it so our just-captured opts and this
-        # registration are left intact.
-        @in_define_action = true
-        self.define_method(name, func)
-        @in_define_action = false
-      end
-
-      public
-
       # Groups member ("ref") actions. Every method defined inside the block
       # (public AND private) is renamed to `<name>_ref` after the block ends,
       # so collection actions can keep the un-suffixed names. The renamed
@@ -627,6 +603,26 @@ module Lux
       end
 
       private
+
+      def define_single_action(name, http_methods = nil, &block)
+        allow(*Array(http_methods)) if http_methods
+        func = class_exec(&block)
+        raise 'Define block has to return a Proc object' unless func.is_a?(Proc)
+
+        # snapshot annotations/desc/etc that were set up immediately before
+        # this define call, register the endpoint under :member when inside
+        # `ref do`, otherwise under :collection
+        type = @method_type == :member ? :member : :collection
+        set type, name, @@opts
+        @@opts = {}
+
+        # wire up the method body. define_method fires method_added; the
+        # @in_define_action guard skips it so our just-captured opts and this
+        # registration are left intact.
+        @in_define_action = true
+        self.define_method(name, func)
+        @in_define_action = false
+      end
 
       def set_callback name, block
         name = [name, @method_type || :all].join('_').to_sym

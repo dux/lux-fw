@@ -73,6 +73,8 @@ module Lux
           'x-accel-buffering' => 'no',
         }
       end
+
+      private_class_method :stream, :serve, :headers_js, :headers_html, :headers_sse
     end
   end
 end

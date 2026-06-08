@@ -157,6 +157,7 @@ module Lux
     def resolve_test_url(name, url)
       return url unless Lux.env.test?
       return url if Lux.runtime.task_runner?
+      return url unless url.to_s.start_with?('postgres')
 
       test_url = test_db_url(url)
       ensure_test_db(name, test_url)

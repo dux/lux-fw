@@ -5,7 +5,7 @@ class AdminController < FrontendController
 
   allow :get
   def call
-    auto_export_var lux.route.root, nav.ref, :update if nav.ref
+    nav.load_models.each { |o| o.can.update! }
     tpl = auto_find_template nav.path
     render tpl
   end

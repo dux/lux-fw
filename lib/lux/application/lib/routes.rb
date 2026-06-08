@@ -352,6 +352,8 @@ module Lux
         end
       end
 
+      private
+
       # Resourceful action resolution from the remaining route cursor path.
       #
       # Rules:

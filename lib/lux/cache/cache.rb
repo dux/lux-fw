@@ -166,6 +166,8 @@ module Lux
       @server.get key.to_s
     end
 
+    private
+
     def log_get name
       return unless Lux.mode.debug?
 

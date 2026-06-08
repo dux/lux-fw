@@ -66,6 +66,8 @@ module Lux
     def log_custom(exception)
     end
 
+    private
+
     # Deliberate HTTP errors raised via `Lux.error CODE` (and the API
     # equivalent) - control flow, not crashes worth a backtrace dump.
     def expected_http_error?(exception)

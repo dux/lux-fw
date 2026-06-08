@@ -154,6 +154,24 @@ module Lux
       define_method(:app_rescue_from) { |error| instance_exec(error, &block) }
     end
 
+    # full page render — returns response hash
+    # Lux.app.new('/').render_page.body
+    def render_page
+      out  = @response_render ||= render_base
+      body = out[2].join('')
+      body = JSON.parse body if out[1]['content-type'].index('/json')
+
+      {
+        body:    body,
+        time:    out[1]['x-lux-speed'],
+        status:  out[0],
+        session: lux.session.hash,
+        headers: out[1]
+      }.to_lux_hash
+    end
+
+    private
+
     # Default fallback when no controller-level :error and no Lux.app rescue_from
     # are defined. Renders the Lux-branded error page.
     def rescue_from err
@@ -192,22 +210,6 @@ module Lux
       end
 
       lux.response.render
-    end
-
-    # full page render — returns response hash
-    # Lux.app.new('/').render_page.body
-    def render_page
-      out  = @response_render ||= render_base
-      body = out[2].join('')
-      body = JSON.parse body if out[1]['content-type'].index('/json')
-
-      {
-        body:    body,
-        time:    out[1]['x-lux-speed'],
-        status:  out[0],
-        session: lux.session.hash,
-        headers: out[1]
-      }.to_lux_hash
     end
 
     # internall call to resolve the routes. Per-action `route` annotations

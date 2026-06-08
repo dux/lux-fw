@@ -86,6 +86,8 @@ module Lux
         items << value unless items.include?(value)
         items.join(', ')
       end
+
+      private_class_method :preflight?, :resolve_origin, :format_list, :vary_with
     end
   end
 end
