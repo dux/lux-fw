@@ -1,6 +1,4 @@
 class AdminController < FrontendController
-  include Lux::Controller::Auto
-
   layout :admin
 
   allow :get

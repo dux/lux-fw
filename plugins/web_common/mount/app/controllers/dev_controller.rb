@@ -1,6 +1,4 @@
 class DevController < FrontendController
-  include Lux::Controller::Auto
-
   layout :dev
 
   before do
