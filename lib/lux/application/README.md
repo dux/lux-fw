@@ -115,8 +115,36 @@ Coming from Rails:
 | `map 'foo' do ... end`  | match `/foo` | enter scope, block at request time |
 | `map '/abs/:var' => 'foo#bar'` | absolute path with capture | explicit |
 | `map [:foo, :bar] => 'root'` | match either | `RootController` |
+| `map 'a', 'foo', x: 1`  | match `/a`   | `FooController`, sets `@x = 1` |
 | `call 'foo#bar'`        | none (unconditional) | explicit |
 | `call -> { [200, {}, ['OK']] }` | none | return Rack tuple |
+
+## Passing data to controllers
+
+Instance variables set on the Application instance - in a `before` callback or
+inside a `map ... do` scope block - are copied into the controller before the
+action runs:
+
+```ruby
+map 'admin' do
+  @org = Org[nav.ref]        # available as @org in Admin::* controllers
+  map 'users', 'admin/users'
+end
+```
+
+A trailing opts hash on `map` / `call` is the inline shorthand for the same:
+
+```ruby
+map 'users', 'admin/users', foo: :bar      # -> @foo = :bar
+```
+
+`:only` and `:except` are **reserved** in that hash - they gate the action
+rather than becoming ivars (404 if the resolved action isn't allowed):
+
+```ruby
+map 'users', 'admin/users', only: [:index], foo: :bar
+# gated to :index, and @foo = :bar
+```
 
 ## Resourceful action resolution
 

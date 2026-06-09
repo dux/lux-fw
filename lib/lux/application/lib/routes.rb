@@ -116,6 +116,12 @@ module Lux
       # map adm: :admin
       # ```
       #
+      # A trailing opts hash is forwarded to `call`: `:only`/`:except` gate the
+      # action, any other key is set as an ivar on the controller.
+      # ```
+      # map 'users', 'admin/users', foo: :bar   # -> @foo = :bar in the controller
+      # ```
+      #
       # Resourceful examples (after `nav.path(:ref) { ... }` canonicalization):
       # ```
       # /admin                       -> :index
@@ -127,7 +133,7 @@ module Lux
       # /admin/users/123/edit        -> :edit
       # /admin/users/foo/bar         -> :foo    (trailing segments past action ignored)
       # ```
-      def map route_object = nil, target = nil, &block
+      def map route_object = nil, target = nil, opts = nil, &block
         return if lux.response.body?
 
         # Block form: map 'admin' do ... end
@@ -179,7 +185,7 @@ module Lux
         if match_value.is_a?(Array)
           match_value.each do |m|
             if route_match?(m)
-              lux.route.with_scope(1) { catch(:done) { call target_value } }
+              lux.route.with_scope(1) { catch(:done) { call target_value, nil, opts } }
             end
           end
           return
@@ -187,7 +193,7 @@ module Lux
 
         # Standard match
         if route_match?(match_value)
-          lux.route.with_scope(1) { catch(:done) { call target_value } }
+          lux.route.with_scope(1) { catch(:done) { call target_value, nil, opts } }
         end
       end
 
@@ -302,7 +308,12 @@ module Lux
           # All instance variables set on the Application instance (e.g. in before
           # filters or route blocks) are copied into the controller instance. This
           # allows routes to share data with controllers without explicit passing.
-          object.action action.to_sym, ivars: instance_variables_hash, resourceful: resourceful
+          #
+          # Route opts beyond :only/:except are merged in as ivars on top, so
+          # `map 'users', 'admin/users', foo: :bar` sets @foo = :bar.
+          ivars = instance_variables_hash
+          opts.each { |k, v| ivars["@#{k}"] = v unless [:only, :except].include?(k) }
+          object.action action.to_sym, ivars: ivars, resourceful: resourceful
         end
 
         throw :done if lux.response.body?
