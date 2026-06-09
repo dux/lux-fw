@@ -7,3 +7,4 @@ tmp.rb
 Gemfile.lock
 package-lock.json
 *.tmp.*
+.DS_Store
