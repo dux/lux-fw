@@ -1,7 +1,3 @@
-// fez runtime must load before any fez component; common ships system
-// components (sys-form/tippy/toast) and is the first bundle, so boot it here
-import 'fez'
-
 (win => {
   const doc = win.document
   const HTML = /^\s*</
