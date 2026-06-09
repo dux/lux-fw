@@ -27,6 +27,7 @@ drift from the running code. Pick the one that matches your tooling:
 | `<%= absolute("#{mount_on}/sys/schema") %>` | Canonical introspection JSON. Lists every API class, action, param spec, declared HTTP verbs, `unsafe` flag, and error codes. The single source of truth that all other generators consume. | Bespoke clients, code generators, custom tool builders |
 | `<%= absolute("#{mount_on}/sys/openapi") %>` | OpenAPI 3 specification derived from the schema. | Swagger UI, Redoc, openapi-generator |
 | `<%= absolute("#{mount_on}/sys/postman") %>` | Postman 2.1 collection. | Postman, Insomnia, Bruno |
+| `<%= absolute("#{mount_on}/sys/hammer") %>` | Ready-to-run lux-hammer CLI client (Ruby source). | `gem install lux-hammer`, then `curl ... > Hammerfile` |
 | `<%= absolute("#{mount_on}/sys/web") %>` | Interactive browser explorer. | Humans poking at the API |
 | `<%= absolute("#{mount_on}/sys/health") %>` | Liveness probe (`{ ok: true }`). | Uptime checks, k8s readiness |
 | `<%= absolute("#{mount_on}/sys/AGENTS.md") %>` | This document. | Re-fetch latest agent guide |

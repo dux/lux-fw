@@ -7,6 +7,25 @@ module Lux
     class SysApi < Lux::Api
       class_desc 'Lux::Api system endpoints: introspection, schema export, health.'
 
+      # action -> one-line description, also the source for the /sys/ index.
+      ENDPOINTS ||= {
+        schema:  'Canonical introspection JSON',
+        openapi: 'OpenAPI 3 spec',
+        postman: 'Postman 2.1 collection',
+        hammer:  'lux-hammer CLI client (Ruby source)',
+        web:     'Interactive browser explorer',
+        agents:  'AGENTS.md for LLMs',
+        health:  'Liveness probe'
+      }.freeze
+
+      allow :get
+      desc 'Plain-text index of the system endpoints (served at /<mount>/sys/).'
+      define :index do
+        proc do
+          response('text/plain; charset=utf-8') { sys_index }
+        end
+      end
+
       allow :get
       desc 'Raw introspection schema (single source of truth for all generators).'
       define :schema do
@@ -33,6 +52,16 @@ module Lux
         proc do
           response('application/json') do
             JSON.pretty_generate(Lux::Api::OpenapiSchema.new(@api, mount_on: derive_mount_on).openapi)
+          end
+        end
+      end
+
+      allow :get
+      desc 'lux-hammer CLI client (Ruby), generated from the introspection schema. Pipe to a Hammerfile: curl .../sys/hammer > Hammerfile.'
+      define :hammer do
+        proc do
+          response('text/plain; charset=utf-8') do
+            Lux::Api::HammerSchema.new(@api, mount_on: derive_mount_on).hammer
           end
         end
       end
@@ -72,6 +101,27 @@ module Lux
 
       private
 
+      # Right-justified nav of every system endpoint, with absolute URLs built
+      # from the current request (scheme/host/mount) so the links work as-is
+      # regardless of where the API is mounted or behind which host.
+      def sys_index
+        req   = @api.request
+        base  = req ? "#{req.scheme}://#{req.host_with_port}" : ''
+        mount = derive_mount_on
+        name_w = ENDPOINTS.keys.map { |k| k.length }.max
+
+        rows = ENDPOINTS.map do |action, desc|
+          ["#{base}#{mount}/sys/#{action}", action.to_s, desc]
+        end
+        url_w = rows.map { |url, _, _| url.length }.max
+
+        lines = ["#{req && req.host} API - system endpoints", '']
+        rows.each do |url, action, desc|
+          lines << '  %s   %s   %s' % [action.rjust(name_w), url.ljust(url_w), desc]
+        end
+        lines.join("\n") + "\n"
+      end
+
       # Recover the actual mount prefix from the live request path. With
       # per-class mount_on this matches the dispatching class, even when
       # multiple APIs are mounted at different roots.
@@ -79,8 +129,8 @@ module Lux
         path = @api.request&.path
         return '/api' unless path
 
-        # "/api/sys/schema" -> "/api"
-        prefix = path.split('/sys/').first.to_s
+        # "/api/sys/schema" -> "/api"; also the bare index "/api/sys" -> "/api"
+        prefix = path.split(%r{/sys(?:/|\z)}).first.to_s
         prefix.empty? ? '/api' : prefix
       end
     end

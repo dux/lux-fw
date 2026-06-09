@@ -62,6 +62,13 @@ module Lux
         @db_rules.push args
       end
 
+      # reference a registered/stored schema by name inside a field declaration:
+      #   user schema(:user)   -> field validated by the :user schema
+      # checks API-registered refs first, then global named schemas (raises if none)
+      def schema name
+        Lux::Schema::REFS[name.to_s.underscore] || Lux.schema(name)
+      end
+
       # if method undefined, call set method
       # age Integer -> set :age, type: :integer
       def method_missing field, *args, &block

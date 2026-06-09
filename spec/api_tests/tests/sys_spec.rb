@@ -106,6 +106,18 @@ describe 'Lux::Api::SysApi endpoints' do
     _(op.keys).must_include :post
   end
 
+  it 'hammer returns a runnable lux-hammer client' do
+    host = SysMockApiHost.new(path: '/api/sys/hammer', method: 'GET')
+    src  = Lux::Api::SysApi.render(:hammer, api_host: host)
+
+    _(src).must_be_kind_of String
+    _(src).must_include "BASE  ||= 'http://example.com'"   # base url from request
+    _(src).must_include 'def api_post'                     # shared helper present
+    _(src).must_include 'namespace :company do'            # one namespace per api
+    _(src).must_include 'task :show do'                    # member action -> task
+    _(src).must_include '/api/company/#{ref}/show'         # :ref interpolated
+  end
+
   it 'web (no file) returns index.html shell' do
     host = SysMockApiHost.new(path: '/api/sys/web', method: 'GET')
     html = Lux::Api::SysApi.render(:web, api_host: host)
@@ -199,6 +211,17 @@ describe 'Lux::Api rack call' do
     _(status).must_equal 200
     _(headers['Content-Type']).must_equal 'application/json'
     _(body.first).must_match(/\A\{/)
+  end
+
+  it 'serves the bare /sys index as a text nav with absolute URLs' do
+    ApplicationApi.mount_on '/api'
+    status, headers, body = Lux::Api.call(rack_env(path: '/api/sys'))
+    _(status).must_equal 200
+    _(headers['Content-Type']).must_match(/\Atext\/plain/)
+    text = body.first
+    _(text).must_include 'http://example.com/api/sys/schema'   # current url, no double /sys
+    _(text).must_include 'http://example.com/api/sys/hammer'
+    _(text.include?('/sys/sys/')).must_equal false
   end
 
   it 'serves sys/web with Content-Type text/html' do

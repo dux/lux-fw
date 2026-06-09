@@ -24,29 +24,52 @@ module Lux
 
       private
 
-      # collect model schemas for documented APIs that opt in by defining
-      # self.api_schema (returning a Lux::Schema). Keyed by api_schema_ref so
-      # per-method entries can $ref into here without duplicating field lists.
-      #
-      # TODO: api_schema / api_schema_ref are read here but no DSL defines them
-      # yet (no class in lib/ or plugins/ declares them), so this block is inert
-      # until a class defines self.api_schema. Wire up a DSL or drop this path.
-      # Tracked alongside schema_ref (base_class.rb).
+      # The single documented place for every schema the API references:
+      # explicitly registered refs (schema :name, ...) plus every model-type
+      # param discovered across documented actions. ref/id is stripped - it
+      # travels in the URL, never the body, so it is never part of a schema.
       def schemas
         out = {}
+        Lux::Schema::REFS.each { |name, schema| out[name] = strip_pk(schema.rules) }
 
-        Lux::Api.documented.each do |klass|
-          next if klass.to_s == 'Lux::Api::SysApi'
-          next unless klass.respond_to?(:api_schema) && klass.respond_to?(:api_schema_ref)
-
-          name = klass.api_schema_ref.to_s
-          next if name.empty? || out.key?(name)
-
-          rules = klass.api_schema.rules rescue nil
-          out[name] = rules if rules
+        each_model_param do |schema|
+          next unless schema.klass
+          out[schema.klass.to_s.underscore] ||= strip_pk(schema.rules)
         end
 
         out.empty? ? nil : out
+      end
+
+      # ref/id is never part of a documented object schema
+      def strip_pk rules
+        rules.reject { |k, _| %i(ref id).include?(k) }
+      end
+
+      # yield every model-type param schema used by documented (non-sys) APIs
+      def each_model_param
+        Lux::Api.documented.each do |klass|
+          next if klass.to_s == 'Lux::Api::SysApi'
+          %i(collection member).each do |type|
+            (klass.opts[type] || {}).each_value do |mopts|
+              (mopts[:params] || {}).each_value do |o|
+                yield o[:model] if o[:type].to_s == 'model' && o[:model].is_a?(Lux::Schema)
+              end
+            end
+          end
+        end
+      end
+
+      # Serialize a params hash for output: a model field's raw Lux::Schema is
+      # replaced by a name ref into the schemas map (named) or inlined
+      # (anonymous nested), so no Lux::Schema object ever leaks into the JSON.
+      def serialize_params params
+        return nil unless params
+        params.transform_values do |o|
+          next o unless o[:type].to_s == 'model' && o[:model].is_a?(Lux::Schema)
+          base = o.reject { |k, _| k == :model }
+          o[:model].klass ? base.merge(schema: o[:model].klass.to_s.underscore)
+                          : base.merge(fields: strip_pk(o[:model].rules))
+        end
       end
 
       def apis mount_on
@@ -119,7 +142,7 @@ module Lux
             http:       (['POST'] | Array(cleaned[:allow])),
             desc:       cleaned[:desc],
             detail:     cleaned[:detail],
-            params:     cleaned[:params],
+            params:     serialize_params(cleaned[:params]),
             schema_ref: schema_ref
           }.compact
         end

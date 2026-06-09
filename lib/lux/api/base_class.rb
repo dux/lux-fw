@@ -128,6 +128,8 @@ module Lux
             @@after_auto_mount.call parts, opts if @@after_auto_mount
 
             opts[:class] = parts.shift
+            # bare /<mount>/sys -> text index of the reserved system endpoints
+            parts = ['index'] if parts.empty? && opts[:class] == 'sys'
             parts
           end
 
@@ -577,6 +579,27 @@ module Lux
       # propagate to Lux::Schema
       def model name, &block
         Lux.schema name, &block
+      end
+
+      # Register a named schema for params blocks and document it centrally.
+      #   schema :foo, some_schema     # explicit name + Lux::Schema
+      #   schema :user, User.schema    # alias a model schema
+      #   schema User                  # shortcut -> schema :user, User.schema
+      # Reference later with `schema(:user)` (or `User.schema`) inside params.
+      # ref/id is stripped: a referenced object is validated by its content.
+      def schema name, schema_obj = nil
+        if schema_obj.nil?                       # lux shortcut: schema User
+          raise ArgumentError, 'schema(:name, schema) or schema(ModelClass)' unless name.respond_to?(:schema)
+          schema_obj = name.schema
+          name       = name.to_s.split('::').last
+        end
+
+        unless schema_obj.is_a?(Lux::Schema)
+          raise ArgumentError, 'schema must be a Lux::Schema, got %s' % schema_obj.class
+        end
+
+        key = name.to_s.underscore
+        Lux::Schema::REFS[key] = schema_obj.except(:ref, :id).as(key)
       end
 
       # `def` inside an API class is always a plain Ruby helper - it is never

@@ -1,6 +1,7 @@
 module Lux
   class Schema
     SCHEMA_STORE ||= {}
+    REFS         ||= {}   # named schemas referenced by API params - the one documented place
 
     attr_reader :klass, :opts
 
@@ -35,6 +36,13 @@ module Lux
       keys = keys.map(&:to_sym)
       filtered = rules.reject { |k, _| keys.include?(k) }
       self.class.new(nil, define: Define.new(filtered))
+    end
+
+    # tag this schema with a documentation name (used by API introspection to
+    # list it once in the schemas map and reference it from params by name)
+    def as name
+      @klass = name.to_s
+      self
     end
 
     # validates any instance object with hash variable interface
