@@ -5,6 +5,11 @@ module Lux
 
     attr_reader :klass, :opts
 
+    # set by the db plugin when a model registers its schema (Lux.schema name,
+    # type: :model); lets nested model validation reach back to the model's
+    # api_schema. nil for ad-hoc / derived schemas.
+    attr_accessor :model_klass
+
     # accepts dsl block to define schema
     # or define: keyword for internal use (only/except)
     def initialize name, opts = nil, define: nil, &block
@@ -52,6 +57,11 @@ module Lux
       @errors = {}
       options ||= {}
 
+      # input validation (API params, nested model fields) coerces types and
+      # filters keys but does not enforce presence - mandatory columns are the
+      # model/DB's job on save. Pass required: false to skip required errors.
+      @skip_required = options[:required] == false
+
       strip_undefined_keys! if options[:strict] && object.is_hash?
 
       @schema.rules.each do |field, raw_opts|
@@ -96,8 +106,9 @@ module Lux
     end
 
     # returns field, db_type, db_opts
+    # virtual fields are model setters, not columns - skipped so db:am ignores them
     def db_schema
-      @schema.rules.map do |field, opts|
+      @schema.rules.reject { |_, opts| opts[:virtual] }.map do |field, opts|
         type, db_opts = Lux::Type.load(opts[:type]).new(nil, opts).db_field
         db_opts[:array] = true if opts[:array]
         [field, type, db_opts]
@@ -219,6 +230,7 @@ module Lux
     end
 
     def add_required_error field, value, opts
+      return if @skip_required
       return unless opts[:required] && value.nil?
       msg = opts[:required].class == TrueClass ? "is required" : opts[:required]
       add_error field, msg, opts

@@ -2,11 +2,19 @@
 #   Sequel::Model.plugin :lux_schema
 
 module Sequel::Plugins::LuxSchema
+  # audit columns are populated by the before_save filters
+  # (plugins/db/plugins/before_save_filters.rb), never by the client, so
+  # api_schema drops them. This is the single home for the list.
+  AUDIT_COLUMNS = %i[created_at updated_at creator_ref updater_ref].freeze
+
   module ClassMethods
     def schema name = nil, &block
       name ||= self
       name = name.to_s.underscore.singularize
       value = Lux.schema name, type: :model, &block
+
+      # let nested model validation resolve back to this model (-> api_schema)
+      value.model_klass = self
 
       # Replay enum declarations captured by the `enum` DSL keyword onto
       # this Sequel model. The collection_ref hash lets the meta[:collection]
@@ -31,6 +39,13 @@ module Sequel::Plugins::LuxSchema
       end
 
       value
+    end
+
+    # API-facing schema: the model schema without framework-managed audit
+    # columns. Override in an app model to exclude more (e.g.
+    # `super.except(:internal_field)`).
+    def api_schema
+      (Lux.schema?(self) || schema).except(*AUDIT_COLUMNS)
     end
   end
 

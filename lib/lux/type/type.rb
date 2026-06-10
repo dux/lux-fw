@@ -35,7 +35,8 @@ module Lux
       :req,
       :required,
       :type,
-      :values
+      :values,
+      :virtual
     ]
 
     attr_reader :opts

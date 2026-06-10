@@ -25,4 +25,23 @@ describe Lux::Schema do
       _(db_rules).must_equal [[:timestamps]]
     end
   end
+
+  describe 'virtual fields' do
+    VirtualSchema ||= Lux.schema do
+      name
+      full_name virtual: true
+    end
+
+    it 'keeps virtual fields in rules but excludes them from db_schema' do
+      _(VirtualSchema.rules.key?(:full_name)).must_equal true
+      _(VirtualSchema.db_schema.map(&:first)).wont_include :full_name
+      _(VirtualSchema.db_schema.map(&:first)).must_include :name
+    end
+
+    it 'still validates/coerces a virtual field' do
+      data = { name: 'a', full_name: 123 }
+      VirtualSchema.validate(data)
+      _(data[:full_name]).must_equal '123'   # coerced to string
+    end
+  end
 end

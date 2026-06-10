@@ -5,8 +5,14 @@ class Lux::Type::ModelType < Lux::Type
     errors = {}
     schema = opts[:model].is_a?(Lux::Schema) ? opts[:model] : Lux.schema(opts[:model])
 
-    # by default models in schems are strict true (remove undefined keys)
-    schema.validate value, strict: true do |field, error|
+    # When the field references a real model, validate against its api_schema
+    # (audit columns excluded) and skip required: the values live on the row, so
+    # partial/embedded input must not demand every column. Ad-hoc nested schemas
+    # (no backing model) keep their declared required rules.
+    model_backed = schema.model_klass.respond_to?(:api_schema)
+    schema = schema.model_klass.api_schema if model_backed
+
+    schema.validate value, strict: true, required: !model_backed do |field, error|
       errors[field] = error
     end
 
