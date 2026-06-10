@@ -33,7 +33,6 @@ Gem::Specification.new 'lux-fw' do |gem|
 
   # class and method attributes
   # gem.add_dependency 'clean-annotations'
-  gem.add_dependency 'class-cattr'
   gem.add_dependency 'class-callbacks'
 
   # mail sending ruby gold
