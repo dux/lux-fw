@@ -14,14 +14,6 @@
 
 require 'digest'
 
-# -- authcog --------------------------------------------------------------
-# Single controller, routed by the app as `map 'authcog', 'authcog#call'`.
-require_relative 'lib/authcog_controller'
-
-# -- admin_web / exception logger ----------------------------------------
-require_relative 'lib/lux_exception'
-require_relative 'lib/lux_exception_log'
-
 # Persist framework-internal `Lux.error.log` calls into the LuxException table.
 module Lux::ErrorProxy
   def self.log_custom(err)

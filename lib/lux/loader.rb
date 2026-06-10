@@ -107,7 +107,7 @@ String.inflections do |inflect|
   inflect.uncountable 'media'
   inflect.irregular 'criterion', 'criteria'
   inflect.irregular 'axis', 'axes'
-  inflect.irregular 'leaf', 'leaves'
+  inflect.irregular 'leave', 'leaves'
   inflect.irregular 'focus', 'focuses'
 end
 
