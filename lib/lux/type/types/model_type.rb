@@ -2,6 +2,11 @@ class Lux::Type::ModelType < Lux::Type
   def coerce
     value(&:to_h)
 
+    # remember what the client actually sent: schema params are partial input,
+    # so only these keys get coerced and returned (Schema#validate would
+    # otherwise inject every absent field as nil/default and clobber stored
+    # columns on update)
+    given  = @value.keys.map(&:to_s)
     errors = {}
     schema = opts[:model].is_a?(Lux::Schema) ? opts[:model] : Lux.schema(opts[:model])
 
@@ -16,7 +21,8 @@ class Lux::Type::ModelType < Lux::Type
       errors[field] = error
     end
 
-    @value.delete_if { |_, v| v.respond_to?(:empty?) && v.empty? }
+    # keep only the fields the client sent, now type-coerced
+    @value.select! { |k, _| given.include?(k.to_s) }
 
     raise TypeError.new errors.to_json if errors.keys.first
   end

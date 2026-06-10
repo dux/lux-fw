@@ -50,6 +50,14 @@ module Lux
       self
     end
 
+    # force every field optional (clears `required`), mutating in place.
+    # rebuilds rules with fresh opt hashes so a derived api/param schema can be
+    # made lenient without touching the source model schema it was copied from.
+    def set_all_optional!
+      @schema = Define.new(rules.transform_values { |o| o.merge(required: false) })
+      self
+    end
+
     # validates any instance object with hash variable interface
     # it also coerces values
     def validate object, options = nil

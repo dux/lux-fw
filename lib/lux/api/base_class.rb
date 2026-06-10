@@ -582,15 +582,15 @@ module Lux
       end
 
       # Register a named schema for params blocks and document it centrally.
-      #   schema :foo, some_schema     # explicit name + Lux::Schema
-      #   schema :user, User.schema    # alias a model schema
-      #   schema User                  # shortcut -> schema :user, User.schema
-      # Reference later with `schema(:user)` (or `User.schema`) inside params.
-      # ref/id is stripped: a referenced object is validated by its content.
+      #   schema :foo, some_schema       # explicit name + Lux::Schema
+      #   schema :user, User.api_schema  # alias a model api schema
+      #   schema User                    # shortcut -> schema :user, User.api_schema
+      # Reference later with `schema(:user)` inside params. ref/id is stripped:
+      # a referenced object is validated by its content.
       def schema name, schema_obj = nil
         if schema_obj.nil?                       # lux shortcut: schema User
-          raise ArgumentError, 'schema(:name, schema) or schema(ModelClass)' unless name.respond_to?(:schema)
-          schema_obj = name.schema
+          raise ArgumentError, 'schema(:name, schema) or schema(ModelClass)' unless name.respond_to?(:api_schema)
+          schema_obj = name.api_schema
           name       = name.to_s.split('::').last
         end
 
