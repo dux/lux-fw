@@ -27,6 +27,9 @@ page = Lux.render.get('/search',
 page = Lux.render.post('/api/v1/users/create', post: { name: 'Dux' })
 page = Lux.render.delete('/api/v1/users/123', session: { user_id: 1 })
 
+# authenticate as a user via bearer token (shortcut for the Authorization header)
+page = Lux.render.get('/dashboard', bearer: 'rejotl@gmail.com')
+
 # accepted opts:
 #   method:        :get / :post / :put / :patch / :delete  (set by the shortcut)
 #   params:        shorthand for query_string (get) or post (others)
@@ -35,7 +38,8 @@ page = Lux.render.delete('/api/v1/users/123', session: { user_id: 1 })
 #   body:          raw string body
 #   session:       initial session contents
 #   cookies:       initial cookies
-#   headers:       env-style (HTTP_AUTHORIZATION etc.)
+#   headers:       hash, request headers ('Authorization' => ..., mapped to HTTP_*)
+#   bearer:        string, shortcut for headers: { 'Authorization' => "Bearer <token>" }
 
 # --- controller render (skips routing, runs the controller directly) ---
 

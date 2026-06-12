@@ -250,6 +250,18 @@ module Sequel::Plugins::RefLinker
   # ------------------------------------------------------------------
 
   module InstanceMethods
+    # Build a child instance already linked back to self via its *_ref column.
+    # Mirrors Rails' `parent.children.build`; reuses RefLinker.assign so any
+    # shape the plugin understands (scalar / poly) is wired up automatically.
+    #   realm.build(:provider)              -> Provider.new(realm_ref: realm.ref)
+    #   realm.build(:provider, name: 'X')   -> same, with extra attributes
+    def build name, attrs = {}
+      klass = name.to_s.singularize.classify.constantize
+      child = klass.new(attrs)
+      Sequel::Plugins::RefLinker.assign(child, self)
+      child
+    end
+
     # Set parent. Accepts a model instance OR a pre-formatted "Class/ref"
     # string. Always writes the polymorphic columns (parent_key OR
     # parent_model+parent_ref OR parent_type+parent_ref) - never a typed

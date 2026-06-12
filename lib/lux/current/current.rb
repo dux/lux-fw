@@ -13,7 +13,7 @@ end
 
 module Lux
   class Current
-    OPTS ||= Struct.new 'LuxCurrentOpts', :params, :post, :http_method, :session, :cookies, :query_string
+    OPTS ||= Struct.new 'LuxCurrentOpts', :params, :post, :http_method, :session, :cookies, :query_string, :headers, :bearer
 
     # set to true if user is admin and you want him to be able to clear caches in production
     attr_accessor :can_clear_cache
@@ -46,7 +46,7 @@ module Lux
 
       @opt = OPTS.new
       if opts.keys.length > 0
-        @opt = OPTS.new **opts.slice(:params, :post, :session, :cookies, :query_string).merge(
+        @opt = OPTS.new **opts.slice(:params, :post, :session, :cookies, :query_string, :headers, :bearer).merge(
           opts.key?(:method) ? { http_method: opts[:method] } : {}
         )
         if @opt.post
@@ -60,6 +60,15 @@ module Lux
 
       @request.env['REQUEST_METHOD'] = @opt.http_method.to_s.upcase if @opt.http_method
       @request.cookies.merge @opt.cookies if @opt.cookies
+
+      @opt.headers.or({}).each do |k, v|
+        key = k.to_s.upcase.tr('-', '_')
+        key = "HTTP_#{key}" unless key.start_with?('HTTP_') || %w[CONTENT_TYPE CONTENT_LENGTH].include?(key)
+        @request.env[key] = v
+      end
+
+      # shortcut: bearer: 'token' -> Authorization: Bearer token
+      @request.env['HTTP_AUTHORIZATION'] = "Bearer #{@opt.bearer}" if @opt.bearer
 
       prepare_params
 
@@ -238,6 +247,8 @@ module Lux
     def prepare_params
       @params = (request_params.dup || {}).to_lux_hash
       @params.merge! @opt.query_string if @opt.query_string
+      # `params:` is the GET shorthand for query_string (for POST it feeds the body, see line ~54)
+      @params.merge! @opt.params if @opt.params && request.request_method == 'GET'
 
       # remove empty parametars in GET request
       if request.request_method == 'GET'
