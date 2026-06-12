@@ -163,6 +163,19 @@ describe Lux do
     end
   end
 
+  describe '.logger' do
+    it 'does not write the default logger to screen in test' do
+      previous = Lux.instance_variable_get(:@default_logger)
+      Lux.remove_instance_variable(:@default_logger)
+
+      output = capture_stderr { Lux.logger.error 'hidden test error' }
+
+      _(output).must_equal ''
+    ensure
+      Lux.instance_variable_set(:@default_logger, previous)
+    end
+  end
+
   describe '.config' do
     it 'returns a config object' do
       _(Lux.config.respond_to?(:[])).must_equal true

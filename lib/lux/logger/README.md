@@ -16,7 +16,7 @@ Lux.logger.warn  'careful'
 Lux.logger.error 'broken'
 Lux.logger.debug 'details'
 
-# Default destination: dev = STDERR @ :info, prod = ./log/error.log @ :error.
+# Default destination: dev = STDERR @ :info, test = IO::NULL, prod = ./log/error.log @ :error.
 # Set log level via Lux.config.log_level (:info / :error).
 
 # --- casual logging ---------------------------------------------------
