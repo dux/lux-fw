@@ -4,6 +4,8 @@
 # `Ref.load("ast-abc...")`. Apps may also reopen Ref to override `klass` or
 # `public_link` if they need richer behaviour.
 
+require 'securerandom'
+
 module Lux
 module Utils
 module Ref
@@ -25,7 +27,7 @@ module Ref
   # Ref.generate(16, uppercase: true) -> 16-char mixed-case+digits
   def generate length = 16, uppercase: false
     keys = uppercase ? MIXEDCASE_KEYS : LOWERCASE_KEYS
-    Array.new(length) { keys[rand(keys.length)] }.join
+    Array.new(length) { keys[SecureRandom.random_number(keys.length)] }.join
   end
 
   # Ref.register(:ast, Asset)
