@@ -32,7 +32,7 @@ class ApplicationApi < Lux::Api
     # expected client faults (validation, permission, guest writes) aren't bugs -
     # return as JSON, don't persist. logging is guarded so a failed write (e.g. a
     # demo user tripping the guest hook inside the logger) can't escape and dump a trace.
-    client = Lux::Api::Response.client_error? error
+    client = error.is_a?(Lux::Error) || Lux::Api::Response.client_error?(error)
     Lux.error.log(error) rescue nil unless client
 
     response[:error_class] = error.class.name

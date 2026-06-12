@@ -79,6 +79,16 @@ describe 'error handling with status codes' do
       $no_error_print = false
       _(response[:status]).must_equal 500
     end
+
+    it 'returns 404 for missing API classes' do
+      response = ApplicationApi.render :show, class: 'missing'
+      _(response[:status]).must_equal 404
+    end
+
+    it 'returns 404 for missing API actions' do
+      response = GenericApi.render :missing
+      _(response[:status]).must_equal 404
+    end
   end
 
   describe 'error details' do

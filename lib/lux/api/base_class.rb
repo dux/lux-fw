@@ -171,7 +171,7 @@ module Lux
             begin
               "Lux::Api::#{klass}".constantize
             rescue NameError
-              return error 'API class "%s" not found' % klass
+              raise Lux::Api::NotFound, 'API class "%s" not found' % klass
             end
           end
         else
@@ -180,6 +180,8 @@ module Lux
 
         api = api_class.new action, **opts
         api.execute_call
+      rescue Lux::Api::NotFound => error
+        response_error error.message, status: 404
       rescue => error
         Lux.error.log error unless error.is_a?(Lux::Api::Error)
         Response.auto_format error
@@ -211,9 +213,9 @@ module Lux
 
       # show and render single error in class error format
       # usually when API class not found
-      def response_error text
+      def response_error text, status: nil
         out = Response.new nil
-        out.error text
+        out.error text, status: status
         out.render
       end
 

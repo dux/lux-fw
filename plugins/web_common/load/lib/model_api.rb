@@ -14,27 +14,16 @@ class ModelApi < ApplicationApi
   end
 
   def self.generate name, desc: nil, detail: nil
-    ref_key = model_schema = nil
-
-    # schema-linking is best-effort: a model that can't be resolved by name
-    # (irregular plural - declare `model_class`) still gets the action, just
-    # without auto schema params, instead of crashing class load.
-    begin
-      model        = model_class
-      ref_key      = model.to_s.underscore
-      model_schema = [:create, :update].include?(name) && model.api_schema
-    rescue NameError
-    end
-
     object_name = to_s.sub(/Api$/, '').tableize.singularize.humanize.downcase
     desc ||= '%s %s' % [name.to_s.capitalize, object_name]
 
-    # collection action for :create, member action for the rest. The endpoint
-    # body just forwards to the matching generated_* helper.
+    # No schema-based param filtering: generated_create/update assign any incoming
+    # field that has a matching setter (respond_to? "field="), so virtual attributes
+    # (encrypted/jsonb helpers like Provider#data=) are not stripped before the
+    # action runs - the setter check is the only gate.
     body = proc do
       self.desc   desc   if desc
       self.detail detail if detail
-      params { set "#{ref_key}?", schema(ref_key) } if model_schema
       proc { send('generated_%s' % name) }
     end
 
@@ -46,7 +35,7 @@ class ModelApi < ApplicationApi
     base = self.class.model_class
 
     if @api.id
-      unless @object = base.find(@api.id)
+      unless @object = base[@api.id]
         error 'Object %s[%s] is not found' % [base, @api.id]
       end
     else
@@ -138,31 +127,8 @@ class ModelApi < ApplicationApi
 
   ###
 
-  # Mass-assignment whitelist from api_schema: only declared schema fields plus
-  # explicit domain-model setters (virtual fields like Doc#name=) are assignable;
-  # stray params are dropped. Sequel column setters live in an anonymous module and
-  # base setters (ref=, current=) live on ApplicationModel, so neither is exposed.
-  # Returns nil when the model has no schema, so callers fall back to legacy
-  # "assign anything with a setter".
-  def assignable_fields
-    schema = self.class.model_class.api_schema rescue nil
-    return unless schema.respond_to?(:rules) && schema.rules
-
-    fields = schema.rules.keys.map(&:to_sym)
-    object_params.each_key do |k|
-      sym = k.to_sym
-      next if fields.include?(sym)
-      owner = @object.respond_to?(:"#{sym}=") ? @object.method(:"#{sym}=").owner : nil
-      fields << sym if owner.is_a?(Class) && owner < ApplicationModel
-    end
-    fields
-  end
-
   def generated_create
-    allowed = assignable_fields
-
     for k, v in object_params
-      next if allowed && !allowed.include?(k.to_sym)
       v = nil if v.blank?
       @object.send("#{k}=", v) if @object.respond_to?("#{k}=")
     end
@@ -185,8 +151,6 @@ class ModelApi < ApplicationApi
   def generated_update
     error "Object not found" unless @object
 
-    allowed = assignable_fields
-
     # toggle array or hash field presence
     # toggle__field__value = 0 | 1
     for key, value in object_params
@@ -198,11 +162,10 @@ class ModelApi < ApplicationApi
         # toggle__foo = 'bar'
         parts = key.split('toggle__')
         field = parts[1].to_sym
-        # toggles allowed only on schema fields
-        next if allowed && !allowed.include?(field)
         db_type = @object.db_schema.dig(field, :db_type)
-
         value = value.to_i if db_type.to_s.include?('int')
+
+        next unless @object.respond_to?("#{field}=")
 
         if @object[field].class.to_s.include?('Array')
           # array field
@@ -225,10 +188,7 @@ class ModelApi < ApplicationApi
         next
       end
 
-      # drop anything not declared in api_schema
-      next if allowed && !allowed.include?(key.to_sym)
-
-      value = nil if value.blank?
+      value = nil if value.class == String && value.blank?
       m = "#{key}=".to_sym
 
       if @object.respond_to?(m)

@@ -3,6 +3,9 @@ module Lux
     class Error < StandardError
     end
 
+    class NotFound < Error
+    end
+
     ANNOTATIONS   ||= {}
     RESCUE_FROM   ||= {}
     OPTS          ||= { api: {} }
@@ -67,6 +70,8 @@ module Lux
           parse_annotations    unless response.error?
           authenticate_request unless response.error?
           resolve_api_body     unless response.error?
+        rescue Lux::Api::NotFound => error
+          response.error error.message, status: 404
         rescue Lux::Api::Error => error
           # controlled error raised via error "message", ignore
           response.error error.message
@@ -82,7 +87,7 @@ module Lux
             instance_exec error, &block
           else
             response[:error_class] = error.class.name
-            response.error error.message, status: 400
+            response.error error.message, status: 500
           end
         end
 
@@ -121,7 +126,7 @@ module Lux
       type = @ref ? :member : :collection
 
       unless self.class.opts.dig(type, @api.action)
-        raise Lux::Api::Error, "Api method #{type}:#{@api.action} not found"
+        raise Lux::Api::NotFound, "Api method #{type}:#{@api.action} not found"
       end
 
       method_name = @ref ? "#{@api.action}_ref" : @api.action.to_s
@@ -129,7 +134,7 @@ module Lux
       # belt-and-braces: never dispatch to a method that became private/protected
       # after registration (e.g. via `private :name` flip post-def)
       if self.class.private_method_defined?(method_name) || self.class.protected_method_defined?(method_name)
-        raise Lux::Api::Error, "Api method #{type}:#{@api.action} not found"
+        raise Lux::Api::NotFound, "Api method #{type}:#{@api.action} not found"
       end
 
       # execute before "in the wild"
