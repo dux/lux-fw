@@ -16,7 +16,8 @@ module's `README.md`.** Links are in the tables below.
 
 * Inside `module Lux`, `Hash` lexically resolves to `Lux::Hash`. Use
   `obj.is_hash?` (from `lib/overload/object.rb`) or fully-qualified
-  `::Hash`. Same for any `Lux::<CoreClass>` alias.
+  `::Hash`. Same for any `Lux::<CoreClass>` / gem-name alias - notably
+  `Mail` resolves to `Lux::Mail`, so write `::Mail` for the gem.
 * Use `FOO ||=` for module-level constants, not `FOO =`.
 * End files with newline. No trailing spaces on blank lines.
 * ASCII only - `-` not `—`, `*` not `•`. No emojis unless asked.
@@ -55,7 +56,7 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | `Lux::Render`          | Render pages, controllers, templates, cells from anywhere  | [README](./lib/lux/render/README.md) |
 | `Lux::Template`        | Template rendering via Tilt (HAML, ERB, ...)               | [README](./lib/lux/template/README.md) |
 | `Lux::ViewCell`        | Reusable view components with their own templates          | [README](./lib/lux/view_cell/README.md) |
-| `Lux::Mailer`          | Mail composition + template rendering (over `mail`)        | [README](./lib/lux/mailer/README.md) |
+| `Lux::Mail`            | Inbound + outbound mail: `Sender` (compose/send) + `Inbox` (`on_receive` event, IMAP `mail:pull`) | [README](./lib/lux/mail/README.md) |
 | `Lux::Cache`           | Uniform cache API across memory/memcached/sqlite/null      | [README](./lib/lux/cache/README.md) |
 | `Lux::Db`              | Sequel multi-DB connection management                      | [README](./lib/lux/db/README.md) |
 | `Lux::Browser`         | Server-side composer for `window.Lux` client + per-request state | [README](./lib/lux/browser/README.md) |
