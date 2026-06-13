@@ -1,0 +1,115 @@
+:ruby
+  raise 'Not available' unless Lux.env.dev?
+
+  models = SchemaMap.export
+  edges  = models.flat_map do |m|
+    m[:relations].map { |r| { from: m[:model], to: r[:to], field: r[:field], kind: r[:kind] } }
+  end
+
+.schema-page
+  %h2
+    DB schema
+    %span.schema-count= "#{models.size} models"
+
+  #schema-map{ data: { edges: edges.to_json } }
+    - models.each do |m|
+      .schema-card{ id: "card-#{m[:model]}" }
+        .schema-card__head
+          %strong= m[:model]
+          - if m[:abbr]
+            %span.schema-abbr= m[:abbr]
+          %span.schema-table= m[:table]
+        .schema-card__fields
+          - m[:fields].each do |f|
+            %div{ class: "schema-field#{' is-fk' if f[:fk]}" }
+              %span.schema-fname= f[:name]
+              %span.schema-ftype= f[:type]
+              - if f[:required]
+                %span.schema-flag.is-req{ title: 'required' } *
+              - if f[:unique]
+                %span.schema-flag.is-uniq{ title: 'unique' } U
+        - if m[:audit].any?
+          %details.schema-audit
+            %summary= "audit (#{m[:audit].size})"
+            - m[:audit].each do |f|
+              .schema-field.is-dim
+                %span.schema-fname= f[:name]
+                %span.schema-ftype= f[:type]
+
+:css
+  .schema-page { padding: 20px 24px; }
+  .schema-page h2 { font: 600 18px/1.3 ui-sans-serif, system-ui, sans-serif; margin: 0 0 16px; }
+  .schema-count { margin-left: 8px; font-size: 12px; font-weight: 400; color: #9aa0a6; }
+  #schema-map { position: relative; display: flex; flex-wrap: wrap; gap: 36px 60px; align-items: flex-start; }
+  .schema-card { position: relative; z-index: 1; width: 240px; background: #fff; border: 1px solid #d9dce1; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.05); font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .schema-card__head { display: flex; align-items: baseline; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #eceef1; background: #f7f8fa; border-radius: 8px 8px 0 0; }
+  .schema-card__head strong { font-size: 13px; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .schema-abbr { font-size: 10px; color: #b06b00; background: #fff3da; border: 1px solid #ffe2ad; padding: 0 4px; border-radius: 4px; }
+  .schema-table { margin-left: auto; font-size: 11px; color: #b0b5bb; }
+  .schema-card__fields { padding: 4px 0; }
+  .schema-field { display: flex; align-items: center; gap: 6px; padding: 2px 10px; }
+  .schema-field.is-fk .schema-fname { color: #e3654a; }
+  .schema-fname { flex: 1; color: #2b2f33; }
+  .schema-ftype { color: #9aa0a6; }
+  .schema-flag { font-size: 10px; line-height: 1; padding: 1px 3px; border-radius: 3px; }
+  .schema-flag.is-req { color: #c0392b; }
+  .schema-flag.is-uniq { color: #2d7d46; border: 1px solid #bfe3c9; }
+  .schema-audit { border-top: 1px dashed #eceef1; }
+  .schema-audit summary { cursor: pointer; padding: 4px 10px; color: #b0b5bb; font-size: 11px; }
+  .schema-field.is-dim, .schema-field.is-dim .schema-fname { color: #c2c7cc; }
+  .schema-arrows { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 2; }
+
+:javascript
+  (function () {
+    var NS = 'http://www.w3.org/2000/svg';
+
+    function rectOf(map, name) {
+      var el = document.getElementById('card-' + name);
+      if (!el) return null;
+      var base = map.getBoundingClientRect(), r = el.getBoundingClientRect();
+      var x = r.left - base.left + map.scrollLeft, y = r.top - base.top + map.scrollTop;
+      return { cx: x + r.width / 2, cy: y + r.height / 2, w: r.width, h: r.height };
+    }
+
+    // where the line from rect center toward (tx,ty) crosses the rect border
+    function edge(rect, tx, ty) {
+      var dx = tx - rect.cx, dy = ty - rect.cy;
+      if (!dx && !dy) return { x: rect.cx, y: rect.cy };
+      var s = Math.min((rect.w / 2) / Math.abs(dx || 1e-6), (rect.h / 2) / Math.abs(dy || 1e-6));
+      return { x: rect.cx + dx * s, y: rect.cy + dy * s };
+    }
+
+    function draw() {
+      var map = document.getElementById('schema-map');
+      if (!map) return;
+      var prev = map.querySelector('svg.schema-arrows');
+      if (prev) prev.remove();
+
+      var svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('class', 'schema-arrows');
+      svg.setAttribute('width', map.scrollWidth);
+      svg.setAttribute('height', map.scrollHeight);
+      svg.innerHTML = '<defs><marker id="schema-ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">' +
+                      '<path d="M0,0 L7,3 L0,6 Z" fill="#e3654a"/></marker></defs>';
+
+      JSON.parse(map.dataset.edges || '[]').forEach(function (e) {
+        var a = rectOf(map, e.from), b = rectOf(map, e.to);
+        if (!a || !b || e.from === e.to) return;
+        var p1 = edge(a, b.cx, b.cy), p2 = edge(b, a.cx, a.cy);
+        var path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', 'M' + p1.x + ',' + p1.y + ' L' + p2.x + ',' + p2.y);
+        path.setAttribute('stroke', '#e3654a');
+        path.setAttribute('stroke-width', '1.5');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('marker-end', 'url(#schema-ah)');
+        svg.appendChild(path);
+      });
+      map.appendChild(svg);
+    }
+
+    var t;
+    if (document.readyState !== 'loading') draw();
+    else document.addEventListener('DOMContentLoaded', draw);
+    window.addEventListener('load', draw);
+    window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(draw, 120); });
+  })();

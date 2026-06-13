@@ -90,7 +90,37 @@ module Lux
         lines.join($/)
       end
 
+      # Dev-only "Copy for LLM" button. A hidden textarea carries an
+      # LLM-ready paste (NAME: DATA lines); the button copies it. Returns ''
+      # outside dev, so it can be dropped straight into any error template.
+      def copy_button error, status = nil
+        return '' unless Lux.env.dev?
+
+        payload = copy_payload(error, status).gsub('&', '&amp;').gsub('<', '&lt;')
+        HtmlTag.span do |n|
+          n.button 'Copy for LLM', class: 'btn', style: 'cursor: pointer;',
+            onclick: "navigator.clipboard.writeText(this.nextElementSibling.value);this.innerText='Copied!'"
+          n.tag :textarea, payload, style: 'display:none;'
+        end
+      end
+
       private
+
+      # LLM-ready error paste, one "NAME: DATA" per line.
+      def copy_payload error, status = nil
+        lines = []
+        lines << "URL: #{current_url}" if current_url
+        if status
+          name = ::Rack::Utils::HTTP_STATUS_CODES[status.to_i] || 'Error'
+          lines << "STATUS: #{status} #{name}".strip
+        end
+        lines << "MESSAGE: #{error.message}"
+        if error.respond_to?(:backtrace) && error.backtrace
+          bt = error.backtrace.first(40).map { |line| line.sub(Lux.root.to_s, '.') }.join($/)
+          lines << "BACKTRACE:\n#{bt}"
+        end
+        lines.join($/)
+      end
 
       # Current request URL if available, nil in non-HTTP contexts.
       def current_url

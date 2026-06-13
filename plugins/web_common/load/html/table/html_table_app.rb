@@ -63,10 +63,12 @@ class AppTable < HtmlTable
   def as_boolean opts
     opts[:width] ||= 100
     opts[:align] ||= :center
+    opts[:true]  ||= 'Yes'
+    opts[:false]  ||= '-'
 
     proc do |o|
       base = opts[:proc] ? opts[:proc].call(o) : o.send(opts[:field])
-      base ? 'Yes'.wrap(:span, style: 'color:#080') : '-'
+      base ? opts[:true].wrap(:span, style: 'color:#080') : opts[:false]
     end
   end
 
