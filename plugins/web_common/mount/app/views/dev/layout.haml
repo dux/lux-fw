@@ -1,9 +1,23 @@
+:ruby
+  @files = Dir
+    .files('app/views/dev')
+    .reject {|f| f.start_with?('_') }
+    .map {|f| f.split('.').first }
+  @files -= ['layout', 'root']
+
 !!!
 %html{ lang: 'en' }
   %head
     = lux.header.render do |el|
-      = el.auto :common, :shared
+      = el.auto :common, :shared, :main
   %body
     .pjax#main
       = render '/dev/_dev_menu'
-      = yield
+      .m-5
+        .mb-5
+          .btn{ href: '/' } /
+          .btn{ href: '/dev' } /dev
+          - for file in @files
+            .btn{ href: "/dev/#{file}" }= file
+
+        = yield

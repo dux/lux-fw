@@ -21,7 +21,7 @@
     .mb-5
 
     = table (@users = User.desc(:updated_at).search.page) do |t|
-      - t.href {|user| Lux.env.dev? ? UserSession.login_link(user) : UserSession.sudo_login_link(user) }
+      - t.onclick {|user| UserSession.login_link(user) }
       - t.col as: :avatar
       - t.col :full_name
       - t.col :is_admin?, as: :boolean

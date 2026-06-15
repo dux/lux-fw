@@ -10,6 +10,7 @@
   %h2
     DB schema
     %span.schema-count= "#{models.size} models"
+    %a.schema-reset{ href: '#', title: 'clear saved positions' } reset
 
   #schema-map{ data: { edges: edges.to_json } }
     - models.each do |m|
@@ -40,9 +41,10 @@
   .schema-page { padding: 20px 24px; }
   .schema-page h2 { font: 600 18px/1.3 ui-sans-serif, system-ui, sans-serif; margin: 0 0 16px; }
   .schema-count { margin-left: 8px; font-size: 12px; font-weight: 400; color: #9aa0a6; }
+  .schema-reset { margin-left: 10px; font-size: 11px; font-weight: 400; color: #6b9bd1; cursor: pointer; }
   #schema-map { position: relative; display: flex; flex-wrap: wrap; gap: 36px 60px; align-items: flex-start; }
   .schema-card { position: relative; z-index: 1; width: 240px; background: #fff; border: 1px solid #d9dce1; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.05); font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .schema-card__head { display: flex; align-items: baseline; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #eceef1; background: #f7f8fa; border-radius: 8px 8px 0 0; }
+  .schema-card__head { display: flex; align-items: baseline; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #eceef1; background: #f7f8fa; border-radius: 8px 8px 0 0; cursor: move; user-select: none; }
   .schema-card__head strong { font-size: 13px; font-family: ui-sans-serif, system-ui, sans-serif; }
   .schema-abbr { font-size: 10px; color: #b06b00; background: #fff3da; border: 1px solid #ffe2ad; padding: 0 4px; border-radius: 4px; }
   .schema-table { margin-left: auto; font-size: 11px; color: #b0b5bb; }
@@ -62,6 +64,13 @@
 :javascript
   (function () {
     var NS = 'http://www.w3.org/2000/svg';
+    var KEY = 'schema-map-pos', store = {};
+    try { store = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+
+    function save(card) {
+      store[card.id] = { x: parseFloat(card.style.left) || 0, y: parseFloat(card.style.top) || 0 };
+      try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {}
+    }
 
     function rectOf(map, name) {
       var el = document.getElementById('card-' + name);
@@ -107,9 +116,68 @@
       map.appendChild(svg);
     }
 
+    // turn the flex layout into absolute coords (once) so cards can be dragged
+    function freeze(map) {
+      var base = map.getBoundingClientRect();
+      var cards = [].slice.call(map.querySelectorAll('.schema-card'));
+      var pos = cards.map(function (c) {
+        var r = c.getBoundingClientRect();
+        return { x: r.left - base.left + map.scrollLeft, y: r.top - base.top + map.scrollTop };
+      });
+      var maxB = 0;
+      cards.forEach(function (c, i) {
+        var s = store[c.id] || pos[i];
+        c.style.position = 'absolute';
+        c.style.margin = '0';
+        c.style.left = s.x + 'px';
+        c.style.top = s.y + 'px';
+        maxB = Math.max(maxB, s.y + c.offsetHeight);
+      });
+      map.style.minHeight = (maxB + 40) + 'px';
+    }
+
+    function startDrag(e) {
+      var head = e.target.closest('.schema-card__head');
+      if (!head) return;
+      e.preventDefault();
+      var card = head.closest('.schema-card');
+      var sx = e.clientX, sy = e.clientY;
+      var ox = parseFloat(card.style.left) || 0, oy = parseFloat(card.style.top) || 0;
+      card.style.zIndex = 10;
+      function move(ev) {
+        card.style.left = Math.max(0, ox + ev.clientX - sx) + 'px';
+        card.style.top = Math.max(0, oy + ev.clientY - sy) + 'px';
+        draw();
+      }
+      function up() {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        card.style.zIndex = '';
+        save(card);
+        draw();
+      }
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    }
+
+    function init() {
+      var map = document.getElementById('schema-map');
+      if (!map || map.dataset.frozen) return;
+      map.dataset.frozen = '1';
+      freeze(map);
+      map.addEventListener('mousedown', startDrag);
+      var reset = document.querySelector('.schema-reset');
+      if (reset) reset.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        try { localStorage.removeItem(KEY); } catch (e) {}
+        location.reload();
+      });
+      draw();
+    }
+
     var t;
     if (document.readyState !== 'loading') draw();
     else document.addEventListener('DOMContentLoaded', draw);
-    window.addEventListener('load', draw);
+    window.addEventListener('load', init);
     window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(draw, 120); });
   })();
