@@ -138,6 +138,31 @@ module Lux
       lc
     end
 
+    # Resolve the locale for a web request and remember it across pages
+    # that carry no URL prefix ("silent" translated pages).
+    #
+    # Precedence:
+    #   1. /XX URL prefix     - explicit choice, peeled off nav.path by
+    #                           Nav#locale, and stored in the session
+    #   2. session[:locale]   - last explicitly used locale
+    #   3. default
+    #
+    # Sets and returns Lux.current.locale (string). Writes the session only
+    # on an explicit URL choice, so a plain visitor gets no needless cookie.
+    def detect
+      allowed = available.map(&:to_s)
+      session = Lux.current.session
+
+      # Nav#locale peels /XX off the path only when the block returns truthy
+      url_locale = Lux.current.nav.locale { |seg| seg.to_s.downcase if allowed.include?(seg.to_s.downcase) }
+
+      locale = (url_locale || session[:locale]).to_s
+      locale = default.to_s unless allowed.include?(locale)   # guard nil / stale session value
+
+      session[:locale]   = locale if url_locale && session[:locale] != locale  # remember last explicit choice
+      Lux.current.locale = locale
+    end
+
     # Flag image URL for a language code, served from flagcdn.com. Uses the
     # `locale` (country) field from LANGUAGES, where the language maps to its
     # country (en -> gb, ja -> jp, ...); unknown codes pass through unchanged.
