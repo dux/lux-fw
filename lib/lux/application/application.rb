@@ -203,7 +203,11 @@ module Lux
         if respond_to?(:app_rescue_from)
           app_rescue_from err
         elsif klass && klass.method_defined?(:error)
-          klass.action :error, ivars: { '@error' => err, '@status' => status }
+          # Dispatch :error in the same scope the failed action ran in. @error/
+          # @status are set above and the router exported @realm/@object/... onto
+          # this instance (load_models ivars:true), so passing the full ivar set
+          # mirrors the normal `call` dispatch and the rescue_from -> map branch.
+          klass.action :error, ivars: instance_variables_hash
         else
           rescue_from err
         end
