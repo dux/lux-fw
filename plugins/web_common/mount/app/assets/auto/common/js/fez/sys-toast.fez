@@ -64,6 +64,16 @@
   // back-compat alias for code that still calls the old window.Info helper
   window.Info = window.Toast
 
+  // server flash arrives as data on window.app.flash (set per request by
+  // header.render); show it as toasts on full load and every pjax navigation.
+  // pjax re-runs <head> scripts on nav, so window.app.flash refreshes each time.
+  document.addEventListener('pjax:render', () => {
+    const flash = window.app && window.app.flash
+    if (!flash) return
+    for (const type in flash) window.Info && window.Info[type] && window.Info[type](flash[type])
+    delete window.app.flash
+  })
+
   class {
     init() {
       const job = QUEUE.shift() || {}

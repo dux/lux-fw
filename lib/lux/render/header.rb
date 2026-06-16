@@ -34,19 +34,11 @@ module Lux
         @site_name = app
       end
 
-      # Per-request JS bootstrap state. Populate it (`window[:user] = ...`)
-      # and emit it via #window_script. #render only guarantees `window.app`
-      # exists (before any bundle); the data itself is emitted inside the page
-      # body (pjax region) so it refreshes on navigation.
+      # Per-request JS bootstrap state. Populate it (`window[:user] = ...`);
+      # #render emits it into <head> as part of the window.app bootstrap. Pjax
+      # re-runs <head> inline scripts on navigation, so it refreshes per page.
       def window
         @window
-      end
-
-      # <script> that merges the accumulated #window data into window.app.
-      # Place it inside the pjax-swapped region so it re-runs on navigation.
-      def window_script
-        return '' if @window.empty?
-        %[<script>window.app = Object.assign(window.app || {}, #{@window.to_jsonp});</script>]
       end
 
       # -- meta / title / description ------------------------------------
@@ -183,11 +175,13 @@ module Lux
 
         out  = meta_tags.sort
         out += @links
-        # Guarantee window.app exists before any bundle loads, so component
-        # code can drop defensive `window.app ||= {}` guards. Per-request
-        # data is assigned later, in the page body.
+        # Bootstrap window.app before any bundle loads (so component code can
+        # drop defensive `window.app ||= {}` guards) and merge in the per-request
+        # #window data. Pjax re-runs <head> inline scripts on navigation (see
+        # Pjax.setPageBody), so this refreshes on every page change.
         boot = ['window.app = window.app || {};']
         boot.push 'window.DEV = true;' if Lux.env.dev?
+        boot.push "Object.assign(window.app, #{@window.to_jsonp});" unless @window.empty?
         out.push %[<script>#{boot.join(' ')}</script>]
         out.push extra if extra
 

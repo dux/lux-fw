@@ -168,20 +168,49 @@ $.api = window.Api = (path, opts = {}) => {
   return execHash
 }
 
+// snake_case + naive pluralize for the api resource: Space -> spaces,
+// BankAccount -> bank_accounts, Company -> companies. Irregular plurals use
+// the explicit two-arg prepare(path, data) form below.
+const resource = klass => {
+  const s = String(klass).replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase()
+  if (/[^aeiou]y$/.test(s)) return s.replace(/y$/, 'ies')
+  if (/(s|x|z|ch|sh)$/.test(s)) return `${s}es`
+  return `${s}s`
+}
+
 // bind a record to its api path; returns the SAME object with non-enumerable
 // helpers, so it stays clean in Object.keys/JSON but gains chainable api calls.
-// path is prefixed with /api unless it already starts with '/'.
-//   const o = $.api.prepare('tasks/' + task.ref, task)
-//   o.update({ name: 'x' }).done(fn)
-//   o.destroy().follow('/tasks')
-//   o.send('archive', { reason: 'y' })
-$.api.prepare = (path, data = {}) => {
+//   $.api.prepare(task)                 -> path from task.klass + task.ref
+//   $.api.prepare('tasks/' + ref, data) -> explicit path (irregulars / custom)
+//   o.update({ name: 'x' }).done(fn); o.destroy().follow('/tasks'); o.send('archive', {...})
+$.api.prepare = (a, b) => {
+  const data = b === undefined ? a : b
+  if (!data || typeof data != 'object' || Object.prototype.hasOwnProperty.call(data, 'update')) return data
+  let path = b === undefined ? `${resource(data.klass)}/${data.ref}` : a
   if (path[0] != '/') path = `/api/${path}`
   const send = (method, opts = {}) => Api(`${path}/${method}`, opts)
   Object.defineProperties(data, {
-    update: { value: opts => send('update', opts) },
+    update:  { value: opts => send('update', opts) },
     destroy: { value: () => send('destroy') },
-    send: { value: send }
+    delete:  { value: () => send('destroy') },
+    send:    { value: send }
   })
   return data
 }
+
+// default record wrapping: server-exported records reach the client as plain
+// JSON on window.app (the header.render bootstrap). Walk it and give every
+// { klass, ref } object the api helpers above, so update/destroy work out of
+// the box - no per-app wrapping. pjax:render fires on boot and every nav (head
+// scripts re-run, so freshly-assigned records get re-wrapped). Idempotent;
+// skips DOM nodes / non-plain objects and is depth-bounded.
+const wrapRecords = (obj, depth) => {
+  if (!obj || typeof obj != 'object' || obj.nodeType || depth > 6) return
+  if (!Array.isArray(obj) && obj.constructor != Object) return
+  for (const key in obj) {
+    const val = obj[key]
+    if (val && typeof val == 'object' && val.klass && val.ref) $.api.prepare(val)
+    wrapRecords(val, depth + 1)
+  }
+}
+document.addEventListener('pjax:render', () => wrapRecords(window.app, 0))
