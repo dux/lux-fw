@@ -14,7 +14,10 @@ module Lux
         # and would silently invalidate the entire cache.
         namespace = ENV['MEMCACHE_NAMESPACE']
         namespace = Digest::MD5.hexdigest(Lux.root.to_s)[0,6] if namespace.to_s.empty?
-        @server = Dalli::Client.new(servers, namespace: namespace, compress: true, expires_in: 24.hours)
+        # memcached is localhost-only here, so Marshal's deserialization risk
+        # doesn't apply; opt in explicitly to silence Dalli's default warning
+        # and keep full Ruby-object round-tripping (JSON would mangle symbols/Time/models).
+        @server = Dalli::Client.new(servers, namespace: namespace, compress: true, expires_in: 24.hours, serializer: Marshal)
       end
 
       # memcached/Dalli cannot tell a stored nil from a missing key, so a

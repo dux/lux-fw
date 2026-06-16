@@ -30,7 +30,23 @@ module Lux
       def initialize app = nil
         @meta      = {}
         @links     = []
+        @window    = {}
         @site_name = app
+      end
+
+      # Per-request JS bootstrap state. Populate it (`window[:user] = ...`)
+      # and emit it via #window_script. #render only guarantees `window.app`
+      # exists (before any bundle); the data itself is emitted inside the page
+      # body (pjax region) so it refreshes on navigation.
+      def window
+        @window
+      end
+
+      # <script> that merges the accumulated #window data into window.app.
+      # Place it inside the pjax-swapped region so it re-runs on navigation.
+      def window_script
+        return '' if @window.empty?
+        %[<script>window.app = Object.assign(window.app || {}, #{@window.to_jsonp});</script>]
       end
 
       # -- meta / title / description ------------------------------------
@@ -167,6 +183,12 @@ module Lux
 
         out  = meta_tags.sort
         out += @links
+        # Guarantee window.app exists before any bundle loads, so component
+        # code can drop defensive `window.app ||= {}` guards. Per-request
+        # data is assigned later, in the page body.
+        boot = ['window.app = window.app || {};']
+        boot.push 'window.DEV = true;' if Lux.env.dev?
+        out.push %[<script>#{boot.join(' ')}</script>]
         out.push extra if extra
 
         if Lux.current.no_cache?

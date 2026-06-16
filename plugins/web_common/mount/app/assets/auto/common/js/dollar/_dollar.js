@@ -225,8 +225,33 @@
     return xhr
   }
 
-  $.get = (url, success) => $.ajax({ type: 'GET', url, success })
-  $.post = (url, data, success) => $.ajax({ type: 'POST', url, data, success })
+  // $.get / $.post return a small chainable result: .done/.error/.always plus
+  // .json/.text response coercion. An inline success callback still works, and
+  // .xhr / .abort() keep the old "returns the XHR" callers working. $.ajax
+  // itself is unchanged (still returns the XHR) for option-style callers.
+  const ajaxProxy = (opts, success) => {
+    const cbs = { done: [], error: [], always: [] }
+    if (success) cbs.done.push(success)
+    const xhr = $.ajax({
+      ...opts,
+      success: (data, x) => cbs.done.forEach(f => f(data, x)),
+      error: x => cbs.error.forEach(f => f(x)),
+      complete: x => cbs.always.forEach(f => f(x)),
+    })
+    const p = {
+      done: f => (cbs.done.push(f), p),
+      error: f => (cbs.error.push(f), p),
+      always: f => (cbs.always.push(f), p),
+      json: f => (cbs.done.push((d, x) => f(typeof d == 'string' ? JSON.parse(d) : d, x)), p),
+      text: f => (cbs.done.push((d, x) => f(x.responseText, x)), p),
+      abort: () => (xhr.abort(), p),
+      xhr,
+    }
+    return p
+  }
+
+  $.get = (url, success) => ajaxProxy({ type: 'GET', url }, success)
+  $.post = (url, data, success) => ajaxProxy({ type: 'POST', url, data }, success)
 
   // load and execute a remote script, jQuery.getScript compatible
   $.getScript = (url, success) => new Promise((resolve, reject) => {

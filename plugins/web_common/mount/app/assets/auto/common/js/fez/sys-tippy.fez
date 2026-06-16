@@ -29,21 +29,25 @@
   // active mounted instance; the global listeners below drive it
   let TIP = null
 
+  // mount the single shared bubble on first use. mounting at module load races
+  // Fez registration: $.ready fires synchronously when the DOM is already loaded
+  // and appends <sys-tippy> before the class lands in Fez.index, crashing on connect.
+  function tip() {
+    if (TIP) return TIP
+    if (!document.querySelector('sys-tippy, .fez-sys-tippy')) document.body.appendChild(document.createElement('sys-tippy'))
+    return TIP
+  }
+
   // bound once when the module loads; delegation lives here, not per-instance
   document.addEventListener('mouseover', e => {
     const t = e.target.closest && e.target.closest(SEL)
-    if (t && TIP) TIP.show(t)
+    if (t) tip()?.show(t)
   })
   document.addEventListener('mouseout', e => {
     const t = e.target.closest && e.target.closest(SEL)
     if (t && TIP) TIP.hide(t)
   })
   addEventListener('scroll', () => TIP && TIP.hide(), true)
-
-  // one shared instance, mounted once on ready
-  window.$.ready(() => {
-    if (!document.querySelector('sys-tippy')) document.body.appendChild(document.createElement('sys-tippy'))
-  })
 
   class {
     onMount() {

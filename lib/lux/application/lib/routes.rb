@@ -109,6 +109,13 @@ module Lux
       # * Class              - that controller, resourceful action
       # * Class with action  - [Class, :action]
       #
+      # A single 'controller#action' string with no left side has nothing to
+      # match against, so it dispatches unconditionally - identical to `call`:
+      # ```
+      # map 'foo#bar'   == call 'foo#bar'   # always runs FooController#bar
+      # map 'foo', 'foo#bar'                # runs only when cursor root is 'foo'
+      # ```
+      #
       # Equivalent forms:
       # ```
       # map 'adm' do; map 'admin'; end
@@ -144,11 +151,12 @@ module Lux
           return
         end
 
-        # Error rescue blocks historically used `map 'promo#app_error'` as a
-        # shorthand for `call`; keep that side-channel behavior without making
-        # normal one-argument routes unconditional.
-        if target.nil? && !route_object.is_hash? && instance_variable_defined?(:@error)
-          return catch(:done) { call route_object }
+        # Single explicit 'controller#action' string has no left side to match,
+        # so it is a pure dispatch - identical to `call`. The match forms
+        # (`map 'foo', 'foo#bar'`, `map foo: 'foo#bar'`) still gate on the route
+        # cursor below. Also covers the `map 'promo#app_error'` rescue_from shorthand.
+        if target.nil? && route_object.is_a?(String) && route_object.include?('#') && !route_object.end_with?('#')
+          return catch(:done) { call route_object, nil, opts }
         end
 
         # Normalize into [match_value, target_value]

@@ -27,7 +27,7 @@ task :server do
     TCPServer.new('0.0.0.0', port).close
 
     # rename the terminal window/tab (ghostty, iterm2) for the server's lifetime
-    print "\e]0;#{File.basename(Dir.pwd)} lux web\a" if $stdout.tty?
+    print "\e]0;lux: #{File.basename(Dir.pwd)}\a" if $stdout.tty?
 
     envs = %w(LUX_ENV LUX_DEBUG LUX_RELOAD).map { |k| "#{k}=#{ENV[k]}" }.join(' ')
     base = "#{envs} bundle exec puma"

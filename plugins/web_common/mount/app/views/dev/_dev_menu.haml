@@ -7,5 +7,5 @@
       L
     %ui-btn{ size: :xs, type: :danger, href: '/dev/css' }
       D
-    %ui-btn{ size: :xs, type: :danger, onclick: "Pjax.load('#{request.path}#{params[:debug] ? "" : "?debug=render" }', { history: false })", 'data-key': 'F2' }
+    %ui-btn{ size: :xs, type: :danger, href:  params[:debug] ? request.path : "?debug=render", 'data-key': 'F2' }
       R

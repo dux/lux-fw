@@ -69,9 +69,6 @@ module LuxDb
   # db:am against the _test sibling (DB_<NAME> override points it there). Schema
   # comes from the lux_schema model definitions, so test DBs always match the
   # code - no dependency on a migrated main DB.
-  #
-  # The spawned db:am carries LUX_SKIP_TEST_DB so it migrates the _test DB only
-  # and does not recurse back into this rebuild.
   def migrate_test_dbs
     Lux::Db.configured_names.each do |name|
       url = Lux::Db.url_for(name)
@@ -84,7 +81,7 @@ module LuxDb
       Lux.shell 'createdb', test_db
 
       Lux.shell 'bundle', 'exec', 'lux', 'db:am', 'y',
-        env: { "DB_#{name.to_s.upcase}" => test_url, 'LUX_SKIP_TEST_DB' => 'true' }
+        env: { "DB_#{name.to_s.upcase}" => test_url }
 
       puts "Test database '#{test_db}' rebuilt from schema".colorize(:green)
     end
@@ -344,11 +341,6 @@ namespace :db do
       end
 
       LuxDb.load_migrate_file './db/after.rb', external: true
-
-      # after main migrates, rebuild the _test siblings from the same schema.
-      # dev-only; the guard stops the spawned db:am (which targets a _test DB)
-      # from recursing back into here.
-      LuxDb.migrate_test_dbs if Lux.env.dev? && !ENV['LUX_SKIP_TEST_DB']
     end
   end
 end

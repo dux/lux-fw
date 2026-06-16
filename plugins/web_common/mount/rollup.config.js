@@ -45,6 +45,18 @@ class Config {
             { find: /^fez$/, replacement: `${process.cwd()}/node_modules/fez/dist/fez.js` },
           ]
         }),
+        // chain fez's own sourcemap (dist/fez.js.map -> src/fez/*) so app stack
+        // traces resolve into fez source instead of the minified bundle
+        {
+          name: 'chain-fez-sourcemap',
+          load(id) {
+            if (!/fez[\/\\]dist[\/\\]fez\.js$/.test(id)) return null
+            return {
+              code: fs.readFileSync(id, 'utf8'),
+              map: JSON.parse(fs.readFileSync(id + '.map', 'utf8')),
+            }
+          }
+        },
         coffee({ include: /\.coffee$/ }),
         svelte({
           compilerOptions: {
