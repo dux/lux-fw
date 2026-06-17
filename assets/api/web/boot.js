@@ -27,6 +27,27 @@
     openapi_url: sysBase + '/openapi'
   };
 
+  // ---- clipboard ---------------------------------------------------------
+  // Generic copy primitive. Clipboard API in secure contexts, execCommand
+  // fallback on plain-HTTP hosts (e.g. lvh.me) where navigator.clipboard is
+  // undefined. Returns a promise so callers can await it.
+  function luxCopyFallback(text) {
+    const a = document.createElement('textarea');
+    a.value = text;
+    document.body.appendChild(a);
+    a.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(a);
+  }
+
+  window.luxCopy = function (text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).catch(() => luxCopyFallback(text));
+    }
+    luxCopyFallback(text);
+    return Promise.resolve();
+  };
+
   // ---- markdown ----------------------------------------------------------
   // Minimal markdown for desc / detail strings authored in Ruby. Escapes
   // first, then re-applies a small set of inline transforms. No block

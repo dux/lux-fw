@@ -48,8 +48,7 @@ module Lux
         HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|
           if error && Lux.mode.debug?
             plain = format(error, message: true).gsub('&', '&amp;').gsub('<', '&lt;')
-            n.button 'Copy', class: 'btn', style: 'float: right;',
-              onclick: "navigator.clipboard.writeText(this.nextElementSibling.value);this.innerText='Copied'"
+            n.button 'Copy', class: 'btn', style: 'float: right;', onclick: copy_onclick
             n.tag :textarea, plain, style: 'display:none;'
             n.push format(error, html: true, message: true)
           end
@@ -98,13 +97,19 @@ module Lux
 
         payload = copy_payload(error, status).gsub('&', '&amp;').gsub('<', '&lt;')
         HtmlTag.span do |n|
-          n.button 'Copy for LLM', class: 'btn', style: 'cursor: pointer;',
-            onclick: "navigator.clipboard.writeText(this.nextElementSibling.value);this.innerText='Copied!'"
+          n.button 'Copy for LLM', class: 'btn', style: 'cursor: pointer;', onclick: copy_onclick
           n.tag :textarea, payload, style: 'display:none;'
         end
       end
 
       private
+
+      # Onclick for the textarea-sibling copy buttons. Delegates to the app-wide
+      # $.copyText helper, which copies via execCommand and so works on plain-HTTP
+      # dev hosts (e.g. lvh.me) where navigator.clipboard is undefined.
+      def copy_onclick
+        "$.copyText(this.nextElementSibling.value);this.innerText='Copied!'"
+      end
 
       # LLM-ready error paste, one "NAME: DATA" per line.
       def copy_payload error, status = nil

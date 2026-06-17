@@ -111,9 +111,45 @@ mail:
       ssl: true            # optional, default true
 ```
 
+## Cloudflare transports
+
+Both directions ship a Cloudflare adapter (Cloudflare Email Service, public
+beta as of 2026).
+
+### Send - `Lux::Mail::CloudflareDelivery`
+
+A `mail`-gem delivery method; pick it per app, secrets stay in the app:
+
+```ruby
+Mail.defaults do
+  delivery_method Lux::Mail::CloudflareDelivery,
+    account_id: Lux.secrets.cloudflare.account_id,
+    api_token:  Lux.secrets.cloudflare.api_token
+end
+```
+
+POSTs a flat `{from, to, subject, html, text}` body to the CES REST API. The
+send path is still beta - override `:api_url` if your dashboard differs.
+
+### Receive - `Lux::Mail::CloudflareInbound`
+
+Set up Email Routing -> a Worker that POSTs each message to an app route; that
+route hands the payload to the adapter, which normalizes it (raw MIME or
+postal-mime fields) and fires the shared `on_receive`:
+
+```ruby
+# config/init/ - register the handler once
+Lux::Mail::Inbox.on_receive { |mail, _type| SupportTicket.intake(mail) if mail.verified }
+
+# the route the Worker hits
+Lux::Mail::CloudflareInbound.receive(params)
+```
+
 ## See also
 
 * [`./sender.rb`](./sender.rb) - outbound, `on_deliver` pre-delivery hook
 * [`./inbox.rb`](./inbox.rb) - inbound event + IMAP pull
+* [`./cloudflare_delivery.rb`](./cloudflare_delivery.rb) - CES REST send
+* [`./cloudflare_inbound.rb`](./cloudflare_inbound.rb) - CF Email Worker webhook -> Inbox
 * [`../../../bin/cli/mail_hammer.rb`](../../../bin/cli/mail_hammer.rb) - `mail:pull`
 * [`../template/README.md`](../template/README.md) - the rendering engine

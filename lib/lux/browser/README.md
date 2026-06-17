@@ -5,10 +5,21 @@ Two roles in one class:
 1. **Class-level** - server-side composer for the `window.Lux` client
    surface. Subsystems register JS modules; the composed bundle is served
    at `/_lux_/*.js` (a reserved framework path).
-2. **Instance-level** - per-request state accumulator, accessed via
-   `lux.browser`. Chain-set arbitrary nested keys; emit as a `<script>`
-   tag in the page head. Lands as `window.<root>` (separate namespace
-   from `window.Lux` on purpose).
+2. **Instance-level** - the master per-request object, accessed via
+   `lux.browser` (instantiated by `Lux::Current#browser`). It owns the
+   browser-facing pieces:
+
+   | call | returns |
+   |------|---------|
+   | `lux.browser.header` | `Lux::Browser::Header` - the `<head>` builder |
+   | `lux.browser.window` | a plain `Hash`, exported onto the client `window` |
+   | `lux.browser.window_script` | the `<script>` that writes the window hash (emitted by `header.render`) |
+   | `lux.browser.bundle(*mods)` | composed client JS bundle |
+   | `lux.browser.channel(name)` | SSE channel publisher (same as `Lux.channel`) |
+   | `lux.browser.publish(name, data)` | broadcast on a channel |
+
+   `header` is its own class; `window` is just a Hash. `lux.header` is a
+   pointer to `lux.browser.header`.
 
 ## Full example
 
@@ -27,63 +38,69 @@ Lux.browser.client_js(:sse, :api)                         # core + listed
 #   /_lux_/client.js?modules=sse,api  -> just those
 #   /_lux_/<name>.js                  -> core + that one (404 if unknown)
 
-# --- INSTANCE-LEVEL: per-request state (controller / before-filter) ---
+# --- INSTANCE-LEVEL: per-request (controller / before-filter) ---
 
-lux.browser.app.cfg.host       = Lux.config.host
-lux.browser.app.cfg.locale     = lux.locale
-lux.browser.app.current.user   = lux.user&.to_h
-lux.browser.app.current.user.foo = 'bar'                  # deep chain ok
-lux.browser.app.cfg[:flag]     = true                     # bracket form
-lux.browser.app.page.title     = 'Home'                   # cleared on next nav
-lux.browser.api.url            = '/api'                   # extra top-level namespace
+# header (<head> builder)
+lux.browser.header.title       'Home'
+lux.browser.header.description  'short summary'
 
-# Read-back / debug:
-lux.browser.app.cfg.host                                  # "..."
-lux.browser.to_h                                          # full nested hash
+# window - a plain Hash, unrestricted; set whatever you want. The :app bucket
+# is pre-seeded, so controllers can accumulate into it incrementally:
+lux.browser.window[:app][:cfg]     = { host: Lux.config.host, locale: lux.locale }
+lux.browser.window[:app][:current] = { user: lux.user&.to_h }
+lux.browser.window[:api]           = { url: '/api' }    # extra top-level key
 
-# --- EMIT in the layout head (Haml example) ---
-#   != lux.browser.script_tag
-# ->
+# channel (SSE publish) / bundle (client bundle)
+lux.browser.channel(:notifications).push(message: 'Hello')
+lux.browser.publish(:notifications, message: 'Hello')   # same thing, shorthand
+lux.browser.bundle(:sse)                                # core + sse bundle
+
+# --- EMIT in the layout head ---
+# lux.browser.header.render emits window_script for you, so a single call in
+# the layout %head emits both the head tags and the window bootstrap (do NOT
+# also call window_script yourself - one emitter, one #lux-state tag):
+#
+#   = lux.browser.header.render do |el|
+#     = el.postwind
+#
+# the window part renders as:
 #   <script id="lux-state">
-#     window.app ||= {};
-#     window.app.cfg = {"host":"...","locale":"en","flag":true};
-#     window.app.current = {"user":{...,"foo":"bar"}};
-#     window.app.page = {"title":"Home"};
-#     window.api ||= {};
-#     window.api.url = "/api";
+#     window.app = window.app || {};
+#     window.app.page = {};
+#     Object.assign(window.app, {"cfg":{...},"current":{...}});
+#     Object.assign(window, {"api":{"url":"/api"}});
 #   </script>
 ```
 
-The three `app` buckets (`cfg` / `current` / `page`) are the canonical home
-for all server-injected client state; custom function globals live under
-`app.fn`. See [STATE.md](./STATE.md).
+## Export rule
 
-## Emit rule
+`window_script` is deliberately tiny:
 
-* **Level 1** (root namespaces: `window.app`, `window.api`) - `||= {}`
-  bootstrap so pjax-driven re-renders preserve untouched buckets.
-* **Level 2** (`window.app.cfg`, `window.app.current`, ...) - atomic
-  JSON assignment of the entire subtree below the level-2 key.
-* **Deep chains** collapse into the level-2 JSON.
-* **Default namespace** (`Lux.config.browser_namespace`, default `app`) is
-  always emitted, and its volatile `app.page` bucket is always emitted too
-  (as `{}` when unset) so each navigation clears the prior page's payload.
-* **`</` in string values is escaped to `<\/`** so the payload can't
-  break out of the surrounding `<script>` tag.
+* `window.app = window.app || {};` - the one guaranteed bootstrap, so bundles
+  can drop defensive `window.app ||= {}` guards.
+* `window.app.page = {};` - the volatile `page` bucket is reset on every render,
+  so a pjax navigation never inherits the previous page's payload.
+* `Object.assign(window.app, <hash[:app]>)` - the `:app` key is **merged** into
+  `window.app`, so `cfg`/`current` persist across pjax and the `page` reset
+  survives unless your `app` provides its own `page`.
+* `Object.assign(window, <other keys>)` - any non-`app` top-level keys are
+  assigned onto the client `window` directly.
+* `</` in string values is escaped to `<\/` so a payload can't break out of the
+  surrounding `<script>` tag.
 
-## Pjax granularity
+Note: non-`app` keys land on the **global** `window` (`window[:api]` ->
+`window.api`). Use namespaced roots and avoid native window names
+(`name`, `location`, `status`, `top`, `length`, ...).
 
-Updates are atomic at the level-2 bucket. If a new page sets
-`window.app.cfg`, an untouched `window.app.current` survives. Inside a
-bucket it's a full replace - no per-key diff. Group state into level-2
-buckets that ship as a unit. `app.page` is the exception: it is reset on
-every render, so it never carries state across navigations.
+The `app.cfg` / `app.current` / `app.page` split is a convention (see
+[STATE.md](./STATE.md)), not enforced by the framework - it's just how you
+structure `window[:app]`.
 
 ## Security
 
-Don't ship secrets via `lux.browser` - everything you set is visible in
-the page source. The framework-injected `Lux.csrf` (from `core.js`)
-lives under `window.Lux`, not `window.app`.
+Don't ship secrets via `lux.browser.window` - everything is visible in the
+page source. The framework-injected `Lux.csrf` (from `core.js`) lives under
+`window.Lux`, not `window.app`.
 
 ## API
 
@@ -95,18 +112,18 @@ lives under `window.Lux`, not `window.app`.
 | `Lux.browser.client_js(*names)` | composed JS string; no args = all modules |
 | `Lux.browser.modules` | `[Symbol]` |
 | `Lux.browser.registered?(name)` | Boolean |
-| `Lux.browser.publish(channel, data)` | broadcast to SSE subscribers (`Lux.subscribe` on client) |
 | `Lux.browser` | the class itself (lets you say `Lux.browser.register ...`) |
 
 ### Instance-level (per-request)
 
 | call | notes |
 |------|-------|
-| `lux.browser.<root>.<key>...= value` | chained setter; auto-creates parents |
-| `lux.browser.<root>.<key>[k] = value` | bracket setter at any depth |
-| `lux.browser.<root>.<key>` | read; returns value or a fresh Node |
-| `lux.browser.script_tag` | renders the `<script id="lux-state">...</script>` |
-| `lux.browser.to_h` | deep-hash representation |
+| `lux.browser.header` | `Lux::Browser::Header` - `<head>` builder (also `lux.header`) |
+| `lux.browser.window` | plain `Hash`, exported onto the client `window` |
+| `lux.browser.window_script` | renders the `<script id="lux-state">...</script>` (emitted by `header.render`) |
+| `lux.browser.bundle(*mods)` | composed client JS string (delegates to `client_js`) |
+| `lux.browser.channel(name)` | SSE channel publisher (same as `Lux.channel`) |
+| `lux.browser.publish(name, data)` | shorthand for `channel(name).push(data)`; from jobs use `Lux.channel(name).push(data)` |
 
 ## See also
 

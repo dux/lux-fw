@@ -9,11 +9,17 @@ module Lux
   #    composed bundle served at /_lux_/*.js. This is the framework client lib
   #    (csrf, fetch, sse, ...).
   #
-  # 2) Instance-level: per-request state accumulator, accessed via lux.browser.
-  #    Chain-set arbitrary nested keys; emit as a <script> tag in the page
-  #    head. Lands as window.<root> = {...} on the client. Separate window
-  #    namespace from window.Lux on purpose; the user owns it (app config,
-  #    bootstrap data, anything pjax wants to read).
+  # 2) Instance-level: the master per-request object, accessed via lux.browser
+  #    (instantiated by Lux::Current#browser). It owns the browser-facing pieces:
+  #
+  #      lux.browser.header           -> Lux::Browser::Header (<head> builder)
+  #      lux.browser.window           -> Hash exported onto the client `window`
+  #      lux.browser.window_script    -> <script> that writes the window hash
+  #      lux.browser.bundle(:sse)     -> composed client JS bundle
+  #      lux.browser.channel(:foo)    -> SSE channel publisher (== Lux.channel)
+  #
+  #    Header stays its own class; window is just a Hash. lux.header is a pointer
+  #    to lux.browser.header.
   #
   # Example:
   #
@@ -21,21 +27,10 @@ module Lux
   #   Lux::Browser.register :sse, file: 'assets/lux/sse.js'
   #   Lux::Browser.client_js(:sse)     # -> JS string
   #
-  #   # per-request state (in a controller / before-filter)
-  #   lux.browser.app.cfg.host     = Lux.config.host
-  #   lux.browser.app.cfg.locale   = lux.locale
-  #   lux.browser.app.current.user = current_user.to_h
-  #
-  #   # in the layout head
-  #   != lux.browser.script_tag
-  #   # -> <script id="lux-state">window.app ||= {};
-  #         window.app.cfg = {...};
-  #         window.app.current = {...};
-  #         window.app.page = {};
-  #         ...</script>
-  #
-  # Three-bucket convention (cfg / current / page) is pinned in STATE.md.
-  # Custom function globals live under window.app.fn (see web_common assets).
+  #   # per-request (in a controller / before-filter)
+  #   lux.browser.header.title          'My page'
+  #   lux.browser.window[:app]        = { cfg: { host: Lux.config.host } }
+  #   lux.browser.channel(:notifications).push(message: 'Hello')
   class Browser
     @modules ||= {}
 
@@ -52,16 +47,6 @@ module Lux
 
       def registered? name
         @modules.key?(name.to_sym)
-      end
-
-      # Broadcast `data` on logical channel `name` to all SSE subscribers.
-      # Delegates to Lux::Browser::Channel - when the PG broker is running
-      # this fans out across every Puma worker; otherwise it's in-process.
-      #
-      #   Lux.browser.publish :notifications, message: 'Hello'
-      #   Lux.browser.publish "user:#{u.id}", type: :inbox, count: 3
-      def publish name, data
-        Lux::Browser::Channel[name].push(data)
       end
 
       def client_js *names
@@ -86,141 +71,69 @@ module Lux
       end
     end
 
-    # -- instance-level: per-request state -----------------------------------
-
-    def initialize
-      @data = {}
-    end
-
-    # Any method becomes a top-level node. Chain further for nested keys.
+    # -- instance-level: the master per-request object -----------------------
     #
-    #   lux.browser.app.cfg.host = 'x'       # window.app.cfg.host = "x"
-    #   lux.browser.foo.bar      = 1         # window.foo.bar      = 1
-    def method_missing name, *args
-      n = name.to_s
-      if n.end_with?('=')
-        @data[n.chomp('=')] = args.first
-      elsif args.empty?
-        @data[n] ||= Node.new
-      else
-        super
-      end
+    # One per request (Lux::Current#browser). Lazily builds the parts below.
+
+    # HTML <head> builder. Memoised, with a back-reference to this browser so
+    # Header#render emits *this* request's window_script. lux.browser.header and
+    # the lux.header pointer share one instance per request.
+    def header
+      @header ||= Header.new.tap { |h| h.browser = self }
     end
 
-    def respond_to_missing? _name, _include_private = false
-      true
-    end
-
-    def [] key
-      @data[key.to_s]
-    end
-
-    def []= key, value
-      @data[key.to_s] = value
-    end
-
-    # Deep hash representation. Useful for tests / debugging.
-    def to_h
-      deep_hash @data
-    end
-
-    # Emit rule:
-    #   * top-level keys (window.app, window.api, ...) get `||= {}` bootstrap
-    #     so pjax re-renders preserve untouched buckets.
-    #   * level-2 keys (window.app.cfg, window.app.current, ...) get an atomic
-    #     `= JSON(subtree)` assignment - the whole bucket is replaced as one.
+    # Per-request state exported onto the client `window`. A plain Hash with
+    # unrestricted access - set whatever you want, then emit via #window_script.
+    # The `:app` bucket is pre-seeded (it's the namespace window_script merges
+    # into window.app), so you can write into it without a guard:
     #
-    # The default namespace (Lux.config.browser_namespace, default 'app') is
-    # always emitted, and its volatile `page` bucket is always emitted too
-    # (as `{}` when unset) so a pjax navigation clears the previous page's
-    # payload instead of letting it survive. See STATE.md.
-    def script_tag
-      ns    = Lux.config[:browser_namespace] || 'app'
-      lines = []
+    #   lux.browser.window[:app][:user] = current_user.export   # -> window.app.user
+    #   lux.browser.window[:app][:cfg]  = { host: Lux.config.host }
+    #   lux.browser.window[:foo]        = 123                    # -> window.foo (global)
+    def window
+      @window ||= { app: {} }
+    end
 
-      root = (@data[ns] ||= Node.new)
-      root.page if root.is_a?(Node)            # volatile bucket: reset on every nav
+    # Emit the window hash as a <script> tag. Two guarded lines run first:
+    # `window.app` is bootstrapped so bundles can drop defensive guards, and
+    # its volatile `page` bucket is reset so a pjax navigation never inherits
+    # the previous page's payload. The `:app` key is then *merged* into
+    # window.app (so cfg/current persist and the page reset survives unless app
+    # provides its own page); any other top-level keys are assigned onto window.
+    def window_script
+      app  = window[:app] || window['app']
+      rest = window.reject { |k, _| k.to_s == 'app' }
 
-      @data.each { |r, val| emit_root r.to_s, val, lines }
+      lines = ['window.app = window.app || {};', 'window.app.page = {};']
+      lines << "Object.assign(window.app, #{js_safe(app)});" if app && !app.empty?
+      lines << "Object.assign(window, #{js_safe(rest)});"    unless rest.empty?
 
       %[<script id="lux-state">#{lines.join("\n")}</script>]
     end
 
+    # Composed framework client JS (delegates to the class-level bundler).
+    #   lux.browser.bundle        -> all modules
+    #   lux.browser.bundle(:sse)  -> core + sse
+    def bundle *mods
+      self.class.client_js(*mods)
+    end
+
+    # SSE channel publisher by name - same handle as the module-level
+    # Lux.channel(name).
+    def channel name
+      Channel[name]
+    end
+
+    # Broadcast `data` on channel `name` (convenience for channel(name).push).
+    def publish name, data
+      Channel[name].push(data)
+    end
+
     private
 
-    def deep_hash node
-      node.each_with_object({}) do |(k, v), h|
-        h[k] = v.is_a?(Node) ? v.to_h : v
-      end
-    end
-
-    # Root (level-1): bootstrap with `||= {}` then assign each level-2 child.
-    # A level-1 primitive (e.g. lux.browser.foo = 1) skips the bootstrap and
-    # is emitted as one assignment.
-    def emit_root name, value, lines
-      target = "window.#{name}"
-
-      if value.is_a?(Node)
-        lines << "#{target} ||= {};"
-        value.each do |sub_key, sub_value|
-          serialised = sub_value.is_a?(Node) ? sub_value.to_h : sub_value
-          lines << "#{target}.#{sub_key} = #{js_safe(serialised)};"
-        end
-      else
-        lines << "#{target} = #{js_safe(value)};"
-      end
-    end
-
-    # Escape </ to <\/ so a value containing a closing-script sequence can't
-    # break out of the surrounding <script> tag.
+    # Escape </ to <\/ so a string value can't break out of the <script> tag.
     def js_safe value
-      JSON.generate(value).gsub('</', '<\/')
-    end
-
-    # Auto-vivifying node. Same method_missing semantics as Browser itself.
-    # `each` and friends are defined explicitly so method_missing doesn't
-    # capture them as new keys when the framework iterates internally.
-    class Node
-      def initialize
-        @data = {}
-      end
-
-      def each &block
-        @data.each(&block)
-      end
-
-      def [] key
-        @data[key.to_s]
-      end
-
-      def []= key, value
-        @data[key.to_s] = value
-      end
-
-      def to_h
-        @data.each_with_object({}) do |(k, v), h|
-          h[k] = v.is_a?(Node) ? v.to_h : v
-        end
-      end
-
-      def empty?
-        @data.empty?
-      end
-
-      def method_missing name, *args
-        n = name.to_s
-        if n.end_with?('=')
-          @data[n.chomp('=')] = args.first
-        elsif args.empty?
-          @data[n] ||= Node.new
-        else
-          super
-        end
-      end
-
-      def respond_to_missing? _name, _include_private = false
-        true
-      end
+      value.to_json.gsub('</', '<\/')
     end
   end
 end

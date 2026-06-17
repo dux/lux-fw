@@ -2,7 +2,8 @@
 
 In-process pub/sub channels by name. Backbone for the SSE streams
 served at the baked-in `/_lux_/stream` endpoint. Publish from anywhere on
-the server with `Lux.browser.publish`; subscribe from the client with
+the server with `Lux.channel(name).push(data)` (or, in a request,
+`lux.browser.publish(name, data)`); subscribe from the client with
 `Lux.subscribe`.
 
 Nested under `Lux::Browser` because the only consumer today is the
@@ -14,8 +15,8 @@ SSE writer (`response/lib/sse.rb`) which fans messages out to the
 ```ruby
 # --- publish from anywhere (jobs, callbacks, actions, defer'd threads) ---
 
-Lux.browser.publish :notifications, message: 'Hello'
-Lux.browser.publish "user:#{user.id}", type: :inbox, count: 3
+Lux.channel(:notifications).push(message: 'Hello')
+Lux.channel("user:#{user.id}").push(type: :inbox, count: 3)
 
 # Strings, hashes, arrays, numbers - anything JSON-serialisable. Strings pass
 # through verbatim; everything else is JSON.generate-d before sending.
@@ -63,7 +64,7 @@ the SSE writer to attach and detach a queue per client.
 ## How it works
 
 * `Lux::Browser::Channel` keeps a `name -> [Queue, ...]` registry guarded by a Mutex.
-* `Lux.browser.publish(name, data)` fans `data` out to every queue currently
+* `Lux.channel(name).push(data)` fans `data` out to every queue currently
   subscribed to `name` (or, with the broker on, via PG NOTIFY).
 * `/_lux_/stream` opens a `text/event-stream` response, attaches a queue
   to each requested channel, yields formatted SSE frames until the client
@@ -137,7 +138,8 @@ Lux::Browser::Channel::PgBroker::PG_CHANNEL  # "lux_channel"
 
 | call | returns | notes |
 |------|---------|-------|
-| `Lux.browser.publish(name, data)` | nil | broadcast to all subscribers of `name` |
+| `Lux.channel(name).push(data)` | nil | broadcast to all subscribers of `name` |
+| `lux.browser.publish(name, data)` | nil | same, in a request context |
 | `Lux::Browser::Channel.channels` | `[String]` | active channel names |
 | `Lux::Browser::Channel.subscriber_count(name)` | Integer | |
 | `Lux::Browser::Channel.reset!` | nil | drop every subscriber (tests only) |

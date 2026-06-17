@@ -23,7 +23,7 @@
     async copyLink() {
       const url = location.origin + location.pathname + '#' + this.anchor()
       try {
-        await navigator.clipboard.writeText(url)
+        await window.luxCopy(url)
         history.replaceState(null, '', '#' + this.anchor())
         this.state.copied = true
         setTimeout(() => { this.state.copied = false }, 1200)

@@ -19,6 +19,6 @@ describe Lux::Error do
     _(html).must_include 'URL: '
     _(html).must_include 'class="btn"'
     _(html).must_include '<textarea'
-    _(html).must_include 'navigator.clipboard.writeText'
+    _(html).must_include '$.copyText'
   end
 end

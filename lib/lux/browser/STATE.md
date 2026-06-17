@@ -1,11 +1,17 @@
 # Client state convention: `window.app`
 
-Status: accepted (2026-06-03)
+Status: accepted (2026-06-03), updated 2026-06-17
 
-All server-injected client state lives under a single root, `window.app`,
-split into three level-2 buckets. This is the only place page data belongs -
-do not park request data on ad-hoc `window.*` globals or inside library
-namespaces.
+Server-injected client state is exported by `lux.browser.window` - a plain
+Hash assigned onto the client `window` by `lux.browser.window_script`. The framework
+guarantees only two lines (`window.app = window.app || {};` and
+`window.app.page = {};`); everything else is just the hash you set. The
+structure below is a **convention**, not enforced machinery - it's how you
+shape `window[:app]`.
+
+By convention all page data lives under a single root, `window.app`, split
+into three buckets - do not park request data on ad-hoc `window.*` globals or
+inside library namespaces.
 
 `window.app` is also the home for custom function globals, under
 `window.app.fn` (`app.fn.Api`, `app.fn.Toast`, `app.fn.ApiForm`, ...). So the
@@ -19,33 +25,33 @@ old `window.X` names as back-compat aliases.
 |-----------------|-----------------------------------------|----------------------------------------------------|
 | `app.cfg`       | static app config: host, locale, deploy id, feature flags | set once; **survives** navigations until re-set |
 | `app.current`   | session / identity: `current.user`, permissions | survives until it actually changes (login/logout) |
-| `app.page`      | the current page's payload              | **replaced on every navigation**; never carries over |
+| `app.page`      | the current page's payload              | **reset every render** by `export`; never carries over |
 
 Mirrors the server vocabulary: `app.current.user` <-> `lux.current.user`.
 
-## Why three, and why these lifetimes
+## Lifetimes
 
-Emit is atomic per level-2 bucket (see [README](./README.md) "Emit rule"):
-a bucket the new render sets is replaced wholesale; a bucket it does *not*
-set survives on the client across a pjax swap. That gives us exactly two
-persistence classes for free:
+`window_script` resets `window.app.page = {};` on every render, then **merges**
+`window[:app]` into `window.app` (`Object.assign(window.app, ...)`):
 
-* `cfg` and `current` are usually unset on a normal page render, so they
-  **persist** - no need to re-ship config/identity on every pjax hop.
-* `page` is volatile: it must **not** persist, or page B would read page A's
-  leftovers. To guarantee this, `script_tag` always emits `app.page`
-  (as `{}` when the render set nothing), so each navigation overwrites and
-  clears the previous page's payload. This is the one bucket name the
-  framework knows about by name.
+* `cfg` / `current` you set are merged in; the ones you do **not** set survive
+  from an earlier render, so config/identity **persist** across pjax hops.
+* `page` is reset to `{}` first, so it is wiped every render; whatever your
+  `app` provides under `page` wins over the reset.
+* `page` is volatile by design: page B never reads page A's leftovers.
+
+Non-`app` top-level keys (`window[:api] = {...}`) are assigned onto the global
+`window` instead - reserve them to namespaces, avoid native window names.
 
 ## Usage
 
 ```ruby
 # server (controller / before-filter)
-lux.browser.app.cfg.host      = Lux.config.host
-lux.browser.app.cfg.deploy_id = Lux::DEPLOY_ID
-lux.browser.app.current.user  = lux.user&.to_h
-lux.browser.app.page.title    = 'Home'           # cleared on next navigation
+lux.browser.window[:app] = {
+  cfg:     { host: Lux.config.host, deploy_id: Lux::DEPLOY_ID },
+  current: { user: lux.user&.to_h },
+  page:    { title: 'Home' },            # reset on next navigation
+}
 ```
 
 ```js
@@ -59,9 +65,9 @@ window.app.fn.Toast('saved')
 window.Toast('saved')                            // back-compat alias, same fn
 ```
 
-Root namespace is `Lux.config.browser_namespace` (default `app`). Other
-top-level roots (`lux.browser.api.url` -> `window.api`) still work for cases
-that genuinely need a separate global, but app/page data belongs in `app`.
+Other top-level keys (`lux.browser.window[:api] = { url: '/api' }` ->
+`window.api`) work for cases that genuinely need a separate global, but
+app/page data belongs in `app`.
 
 ## Rules
 

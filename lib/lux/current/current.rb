@@ -203,16 +203,15 @@ module Lux
       '127.0.0.1'
     end
 
-    # Per-request browser-state accumulator. Chain-set keys land in window.<root>
-    # via `lux.browser.script_tag` in the layout. See lib/lux/browser/.
+    # Master per-request browser object: header / window / export / channel.
+    # See lib/lux/browser/.
     def browser
       @browser ||= Lux::Browser.new
     end
 
-    # Per-request HTML <head> builder. Chain-set title/meta/links, then
-    # emit via `lux.header.render` in the layout. See lib/lux/render/header.rb.
+    # Pointer to lux.browser.header (same instance per request).
     def header
-      @header ||= Lux::Render::Header.new
+      browser.header
     end
 
     def bearer_token

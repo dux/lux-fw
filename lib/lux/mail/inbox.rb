@@ -55,6 +55,13 @@ module Lux
           nil
         end
 
+        # Parse a raw RFC822 string into a Message. Handy for inbound webhooks
+        # that forward the original MIME (e.g. a Cloudflare Email Worker posting
+        # message.raw) rather than pre-parsed fields.
+        def parse(raw)
+          parse_rfc822 raw
+        end
+
         private
 
         def build_message(data)

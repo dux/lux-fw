@@ -446,7 +446,7 @@ ${JSON.stringify(body, null, 2)}`
 
     async copy() {
       try {
-        await navigator.clipboard.writeText(this.snippet())
+        await window.luxCopy(this.snippet())
         this.state.copied = true
         setTimeout(() => { this.state.copied = false; this.refresh() }, 1200)
       } catch (e) {}

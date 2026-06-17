@@ -74,19 +74,20 @@ lux render /admin -s user_id=1 -i            # session + full info hash
 
 ## Page `<head>` builder
 
-`Lux::Render::Header` is the per-request `<head>` builder, reached as
-`lux.header` (memoized on `Lux.current`). Chain-set title / meta / links,
-then emit via `lux.header.render` in the layout's `%head` block.
+The `<head>` builder moved to `Lux::Browser::Header`, reached as
+`lux.browser.header` (or the `lux.header` pointer). Chain-set title / meta /
+links, then emit via `lux.browser.header.render` in the layout's `%head` block.
+See [`../browser/README.md`](../browser/README.md).
 
 ```ruby
-lux.header.title       'My page'
-lux.header.description 'short summary'
-lux.header.canonical   'https://example.com/page'
+lux.browser.header.title       'My page'
+lux.browser.header.description 'short summary'
+lux.browser.header.canonical   'https://example.com/page'
 ```
 
 ```haml
 %head
-  = lux.header.render do |page|
+  = lux.browser.header.render do |page|
     = asset 'main.css'
 ```
 

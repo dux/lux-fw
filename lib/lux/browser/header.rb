@@ -1,14 +1,15 @@
 module Lux
-  module Render
+  class Browser
     # HTML <head> builder. One instance per request, lazily created by
-    # Lux::Current#header. Accumulates meta tags, links and flags via a
-    # chained DSL, then emits the head HTML via #render.
+    # Lux::Browser#header (reached as lux.browser.header, or lux.header).
+    # Accumulates meta tags, links and flags via a chained DSL, then emits
+    # the head HTML via #render.
     #
     # Usage:
-    #   lux.header.title       'My page'
-    #   lux.header.description 'short summary'
-    #   lux.header.canonical   'https://example.com/page'
-    #   = lux.header.render do |page|
+    #   lux.browser.header.title       'My page'
+    #   lux.browser.header.description 'short summary'
+    #   lux.browser.header.canonical   'https://example.com/page'
+    #   = lux.browser.header.render do |page|
     #     = asset 'main.css'
     #
     # Setter/getter conflation: most attribute methods double as readers
@@ -27,18 +28,13 @@ module Lux
       DEFAULT_VIEWPORT       ||= 'width=device-width, initial-scale=1'
       DEFAULT_OG_TYPE        ||= 'website'
 
+      # Set by Lux::Browser#header so #render emits that browser's window_script.
+      attr_accessor :browser
+
       def initialize app = nil
         @meta      = {}
         @links     = []
-        @window    = {}
         @site_name = app
-      end
-
-      # Per-request JS bootstrap state. Populate it (`window[:user] = ...`);
-      # #render emits it into <head> as part of the window.app bootstrap. Pjax
-      # re-runs <head> inline scripts on navigation, so it refreshes per page.
-      def window
-        @window
       end
 
       # -- meta / title / description ------------------------------------
@@ -175,14 +171,14 @@ module Lux
 
         out  = meta_tags.sort
         out += @links
-        # Bootstrap window.app before any bundle loads (so component code can
-        # drop defensive `window.app ||= {}` guards) and merge in the per-request
-        # #window data. Pjax re-runs <head> inline scripts on navigation (see
-        # Pjax.setPageBody), so this refreshes on every page change.
-        boot = ['window.app = window.app || {};']
-        boot.push 'window.DEV = true;' if Lux.env.dev?
-        boot.push "Object.assign(window.app, #{@window.to_jsonp});" unless @window.empty?
-        out.push %[<script>#{boot.join(' ')}</script>]
+        # Window bootstrap before any bundle loads (so component code can drop
+        # defensive `window.app ||= {}` guards). The per-request window hash is
+        # owned by lux.browser; emit it here via #window_script - the single
+        # emitter, so layouts must not also call it. Pjax re-runs <head> inline
+        # scripts on navigation (see Pjax.setPageBody), so this refreshes on
+        # every page change.
+        out.push %[<script>window.DEV = true;</script>] if Lux.env.dev?
+        out.push (browser || Lux.current.browser).window_script
         out.push extra if extra
 
         if Lux.current.no_cache?

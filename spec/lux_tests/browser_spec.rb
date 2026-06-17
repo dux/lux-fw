@@ -68,126 +68,110 @@ describe Lux::Browser do
 
   # ----- instance-level: per-request state ------------------------------
 
-  describe 'per-request state' do
+  describe '#window' do
     def b
       @b ||= Lux::Browser.new
     end
 
-    it 'auto-creates nested nodes on chained access' do
-      b.app.config.host = 'http://x'
-      b.app.config.locale = 'en'
-      _(b.to_h).must_equal('app' => { 'config' => { 'host' => 'http://x', 'locale' => 'en' } })
+    it 'is a plain hash with unrestricted access' do
+      _(b.window).must_be_kind_of Hash
+      b.window[:app] = { cfg: { host: 'http://x' } }
+      b.window[:foo] = 123
+      _(b.window).must_equal(app: { cfg: { host: 'http://x' } }, foo: 123)
     end
 
-    it 'supports bracket assignment at any depth' do
-      b.app.config[:host] = 'http://x'
-      b.app.data[:user]   = { id: 42 }
-      _(b.to_h).must_equal('app' => {
-        'config' => { 'host' => 'http://x' },
-        'data'   => { 'user' => { id: 42 } }   # leaf is untouched, JSON normalises later
-      })
+    it 'pre-seeds the :app bucket so window[:app] is ready to write' do
+      _(Lux::Browser.new.window[:app]).must_equal({})
+      b.window[:app][:user] = { id: 1 }
+      _(b.window).must_equal(app: { user: { id: 1 } })
     end
 
-    it 'symbol and string keys read the same' do
-      b.app.config[:host] = 'http://x'
-      _(b.app.config['host']).must_equal 'http://x'
-      _(b.app.config[:host]).must_equal 'http://x'
-    end
-
-    it 'supports multiple top-level namespaces' do
-      b.app.x = 1
-      b.api.y = 2
-      _(b.to_h).must_equal('app' => { 'x' => 1 }, 'api' => { 'y' => 2 })
+    it 'is memoised so successive reads see the same hash' do
+      b.window[:a] = 1
+      _(b.window[:a]).must_equal 1
     end
   end
 
-  describe '#script_tag' do
+  describe '#window_script' do
     def b
       @b ||= Lux::Browser.new
     end
 
-    it 'emits the default bootstrap and an empty page bucket when no state has been set' do
-      tag = b.script_tag
-      _(tag).must_equal %[<script id="lux-state">window.app ||= {};\nwindow.app.page = {};</script>]
+    it 'emits the guard + page reset when the window hash is empty' do
+      _(b.window_script).must_equal %[<script id="lux-state">window.app = window.app || {};\nwindow.app.page = {};</script>]
     end
 
-    it 'level-1 keys get ||= and level-2 keys get full-JSON assignment' do
-      b.app.cfg.host   = 'http://x'
-      b.app.cfg.locale = 'en'
-      tag = b.script_tag
+    it 'merges :app into window.app and assigns other keys onto window' do
+      b.window[:app] = { cfg: { host: 'http://x' } }
+      b.window[:foo] = 1
+      tag = b.window_script
 
-      _(tag).must_include 'window.app ||= {};'
-      _(tag).must_include %[window.app.cfg = {"host":"http://x","locale":"en"};]
+      _(tag).must_include 'window.app = window.app || {};'
+      _(tag).must_include 'window.app.page = {};'
+      _(tag).must_include %[Object.assign(window.app, {"cfg":{"host":"http://x"}});]
+      _(tag).must_include %[Object.assign(window, {"foo":1});]
 
-      assert tag.index('window.app ||=') < tag.index('window.app.cfg =')
+      # page reset precedes the app merge, so app's own page (if any) wins
+      assert tag.index('window.app.page = {};') < tag.index('Object.assign(window.app')
     end
 
-    it 'always emits app.page so a navigation clears the prior page payload' do
-      b.app.cfg.foo = 1
-      tag = b.script_tag
-      _(tag).must_include %[window.app.page = {};]
+    it 'keeps window.app.page = {} when :app is set without a page key' do
+      b.window[:app] = { cfg: { host: 'x' } }
+      tag = b.window_script
+      _(tag).must_include 'window.app.page = {};'
+      refute_includes tag, 'Object.assign(window, '   # no non-app keys
     end
 
-    it 'multiple top-level roots each bootstrap' do
-      b.app.cfg.foo = 1
-      b.api.url      = '/api'
-      tag = b.script_tag
-
-      _(tag).must_include 'window.app ||= {};'
-      _(tag).must_include %[window.app.cfg = {"foo":1};]
-      _(tag).must_include 'window.api ||= {};'
-      _(tag).must_include %[window.api.url = "/api";]
-    end
-
-    it 'deep chained creation collapses into level-2 JSON' do
-      b.app.current.user.foo.bar = 123
-      tag = b.script_tag
-
-      _(tag).must_include 'window.app ||= {};'
-      _(tag).must_include %[window.app.current = {"user":{"foo":{"bar":123}}};]
-    end
-
-    it 'level-2 primitive is emitted as a plain assignment' do
-      b.app.greeting = 'hi'
-      tag = b.script_tag
-      _(tag).must_include %[window.app.greeting = "hi";]
-    end
-
-    it 'hash leaf is JSON-emitted at level-2 (atomic replace, no per-key unroll)' do
-      b.app.current.user = { id: 42, name: 'Joe' }
-      tag = b.script_tag
-      _(tag).must_include %[window.app.current = {"user":{"id":42,"name":"Joe"}};]
+    it 'always emits the page reset so a navigation clears the prior page payload' do
+      b.window[:foo] = 1
+      _(b.window_script).must_include 'window.app.page = {};'
     end
 
     it 'escapes </ inside string values so payload cannot break the tag' do
-      b.app.page.danger = "</script><script>x()</script>"
-      tag = b.script_tag
+      b.window[:danger] = "</script><script>x()</script>"
+      tag = b.window_script
       refute_includes tag, '</script><script>'
       _(tag).must_include '<\/script>'
     end
+  end
 
-    it 'respects Lux.config.browser_namespace for the bootstrap' do
-      previous = Lux.config[:browser_namespace]
-      Lux.config[:browser_namespace] = 'fez'
-      _(b.script_tag).must_include 'window.fez ||='
+  describe '#bundle' do
+    it 'delegates to the class-level client_js bundler' do
+      _(Lux::Browser.new.bundle(:core)).must_include 'Lux.fetch'
+    end
+  end
+
+  describe 'header.render bootstrap' do
+    it 'emits the window bootstrap via window_script' do
+      previous = Lux.config[:app]
+      Lux.config[:app] = { name: 'T' }.to_lux_hash
+      c = Lux::Current.new Rack::MockRequest.env_for('/')
+      html = c.browser.header.render
+      _(html).must_include 'window.app = window.app || {};'
+      _(html).must_include '<script id="lux-state">'
     ensure
-      Lux.config[:browser_namespace] = previous
+      Lux.config[:app] = previous
     end
   end
 
   describe 'Lux.current#browser' do
-    it 'exposes a per-request instance' do
+    it 'is the master per-request object with header + window' do
       env = Rack::MockRequest.env_for('/')
       c = Lux::Current.new env
       _(c.browser).must_be_kind_of Lux::Browser
-      c.browser.app.config.x = 1
-      _(c.browser.to_h).must_equal('app' => { 'config' => { 'x' => 1 } })
+      _(c.browser.header).must_be_kind_of Lux::Browser::Header
+      _(c.browser.window).must_be_kind_of Hash
+      c.browser.window[:app] = { x: 1 }
+      _(c.browser.window).must_equal(app: { x: 1 })
     end
 
-    it 'is memoised per Current' do
+    it 'memoises, points lux.header at lux.browser.header, and back-refs the browser' do
       env = Rack::MockRequest.env_for('/')
       c = Lux::Current.new env
       _(c.browser.object_id).must_equal c.browser.object_id
+      _(c.browser.window.object_id).must_equal c.browser.window.object_id
+      _(c.header.object_id).must_equal c.browser.header.object_id
+      _(c.browser.header.browser).must_equal c.browser
     end
   end
 end

@@ -45,10 +45,11 @@ class UsersController < ApplicationController
     current.csrf_valid?      # checks request _csrf / X-CSRF-Token
     current.csrf_required?   # true for non-GET without Bearer auth
 
-    # --- browser state (per-request, emits to window.<root>) -------------
-    current.browser.app.cfg.host     = Lux.config.host
-    current.browser.app.current.user = @user.to_h
-    current.browser.script_tag       # <script id="lux-state">...</script>
+    # --- browser (master per-request: header / window / channel) ---------
+    current.browser.header.title 'Home'
+    current.browser.window[:app] = { cfg: { host: Lux.config.host },
+                                     current: { user: @user.to_h } }
+    current.browser.window_script       # <script id="lux-state">...</script>
 
     # --- encrypt / decrypt (per-request key; IP-bound, default 10m TTL) -
     token = current.encrypt(@user.id)
@@ -89,7 +90,7 @@ end
 | `session`         | `Lux::Current::Session` | JWT-encrypted session |
 | `params`          | `Lux::Hash` | request params (coerced if `opt` declared) |
 | `var`             | `Lux::Hash` | request-scoped bag (`current[:k]` shortcut) |
-| `browser`         | `Lux::Browser` | per-request client-state accumulator |
+| `browser`         | `Lux::Browser` | master per-request object: `header` / `window` / `export` / `channel` |
 | `locale`          | symbol/string | i18n hook |
 | `env`             | hash | Rack env |
 | `ip`              | string | client IP |
