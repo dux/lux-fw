@@ -89,7 +89,10 @@ module Lux
 
     # main render called by Lux.call
     def render_base
-      run_callback :before, lux.nav.path
+      # catch :done so an app-level before-filter can redirect/halt via
+      # redirect_to (which throws :done); without it the throw escapes to the
+      # rescue below and render_error downgrades the 302 to 500.
+      catch(:done) { run_callback :before, lux.nav.path }
 
       if Lux.mode.reload? && Lux.runtime.web?
         Lux::Reloader.run

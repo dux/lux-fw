@@ -37,14 +37,14 @@ unless File.exist?('./app/lib/user_session.rb')
     end
 
     # login magic link (mailers, cross-host, dev/admin login-as)
-    def login_link user, prefix = nil, ttl: nil
+    def login_link user, path: nil, ttl: nil
       ref = user.is_a?(String) ? user : user.ref
-      '%s?user_hash=%s' % [prefix || '/', Lux::Utils::Crypt.encrypt(ref, ttl: ttl || 1.year)]
+      '%s?user_hash=%s' % [path || '/', Lux::Utils::Crypt.encrypt(ref, ttl: ttl || 1.hour)]
     end
 
     # admins only: start a sudo overlay
-    def sudo_login_link user, path = nil
-      '%s?sudo_as=%s' % [path || '/', Lux::Utils::Crypt.encrypt(user.ref, ttl: 1.hour)]
+    def sudo_login_link user, path: nil
+      '%s?sudo_as=%s' % [path || '/', Lux::Utils::Crypt.encrypt(user.ref, ttl: 1.minute)]
     end
 
     # dedicated logout URL; the /log-off route (authcog#log_off) verifies + ends the session
@@ -111,10 +111,10 @@ unless File.exist?('./app/lib/user_session.rb')
       user = User.take(ref) or return redirect_to('/', error: 'User cant be loaded')
       session[USER_REF] = user.ref
       User.current = user
-      resolve_redirect(params[:silent] ? nil : 'User %s loaded' % user.email)
-    rescue => err
-      Lux.error.log err
-      redirect_to '/', error: 'User can not be loaded'
+      redirect_to request.path, info: 'Loged in as %s' % user.email
+    # rescue => err
+    #   Lux.error.log err
+    #   redirect_to '/', error: 'User can not be loaded'
     end
 
     def resolve_bearer bearer
