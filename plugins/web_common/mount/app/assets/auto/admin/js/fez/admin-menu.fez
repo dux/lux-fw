@@ -3,7 +3,10 @@
     init() {
       this.topLinks = []
       this.topLinks.push(`<a onclick="Api('users/log_off').follow('/')">log off</a>`)
-      this.topLinks.push(`<ui-avatar src="${app.user.avatar}" size="22" href="/admin/users/${app.user.ref}" size="26"></ui-avatar>`)
+      // host apps expose the current user under app.current.user (app.user is a legacy fallback)
+      const user = (app.current && app.current.user) || app.user
+      if (user)
+        this.topLinks.push(`<ui-avatar src="${user.avatar}" size="22" href="/admin/users/${user.ref}" size="26"></ui-avatar>`)
     }
   }
 </script>

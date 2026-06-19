@@ -1,22 +1,46 @@
 - # Per-job detail. URL: /admin/plugins/lux_jobs/show?name=<job_name>
 - # `name` is the JOBS[] key (not a DB ref), so query param is used.
+- # Styles ship inline (lj-* classes); see root.haml for the rationale.
+
+:css
+  .lj-back { display: inline-block; margin-bottom: 12px; color: #2563eb; text-decoration: none; font-size: 14px; }
+  .lj-back:hover { text-decoration: underline; }
+  .lj-table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  .lj-table th { text-align: left; padding: 8px 12px; border-bottom: 1px solid #f0f0f0; color: #6b7280; font-weight: 600; white-space: nowrap; vertical-align: top; }
+  .lj-table td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  .lj-table.lj-kv th { width: 150px; }
+  .lj-st { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #e5e7eb; color: #374151; }
+  .lj-st-ok   { background: #d1fae5; color: #047857; }
+  .lj-st-run  { background: #dbeafe; color: #1d4ed8; }
+  .lj-st-wait { background: #fef3c7; color: #92400e; }
+  .lj-st-err  { background: #fee2e2; color: #b91c1c; }
+  .lj-form { margin-top: 24px; max-width: 720px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; }
+  .lj-form h3 { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
+  .lj-form textarea { width: 100%; min-height: 90px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font: 13px ui-monospace, Menlo, monospace; box-sizing: border-box; }
+  .lj-btn { display: inline-block; margin-top: 10px; padding: 8px 16px; border: 1px solid #2563eb; border-radius: 6px; background: #2563eb; color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .lj-btn:hover { filter: brightness(.95); }
+  .lj-result { margin-top: 10px; font-size: 14px; }
+  .lj-result.success { color: #047857; }
+  .lj-result.error { color: #b91c1c; }
+  .lj-log { margin-top: 12px; max-height: 460px; overflow-y: auto; padding: 12px 14px; border-radius: 8px; background: #0f172a; color: #cbd5e1; font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .lj-log .lj-line { white-space: pre-wrap; word-break: break-word; padding: 1px 0; }
+  .lj-log .lj-line.error { color: #fca5a5; }
+  .lj-log .lj-line .lj-time { color: #64748b; margin-right: 10px; }
 
 - name = lux.params[:name].to_s
 - job_info = LuxJob::JOBS[name.to_sym]
 - if !job_info
   %h1 Job not found: #{name}
-  %p
-    %a{ href: '/admin/plugins/lux_jobs' } &larr; Back to Dashboard
+  %a.lj-back{ href: '/admin/plugins/lux_jobs' } &larr; Back to Dashboard
 - else
   - db_job  = LuxJob.first(name: name)
   - lines   = LuxJob.tail_log(name: name, lines: 1000)
   - last_id = LuxJob.last_log_id(name: name)
 
-  %p
-    %a.back{ href: '/admin/plugins/lux_jobs' } &larr; Back to Dashboard
+  %a.lj-back{ href: '/admin/plugins/lux_jobs' } &larr; Back to Dashboard
   %h1 Job: #{name}
 
-  %table
+  %table.lj-table.lj-kv{ style: 'max-width: 720px;' }
     %tr
       %th Schedule
       %td
@@ -30,21 +54,22 @@
     - if db_job
       %tr
         %th Status
-        %td{ class: LuxJob.status_css(db_job.status) }= db_job.status
+        %td
+          %span{ class: LuxJob.status_css(db_job.status) }= db_job.status
       %tr
         %th Last Run
         %td
           - if db_job.updated_at
             #{db_job.updated_at.strftime('%Y-%m-%d %H:%M:%S')} (#{LuxJob.time_relative(db_job.updated_at)})
           - else
-            -
+            \-
       %tr
         %th Next Run
         %td
           - if db_job.run_at
             #{db_job.run_at.strftime('%Y-%m-%d %H:%M:%S')} (#{LuxJob.time_relative(db_job.run_at)})
           - else
-            -
+            \-
       %tr
         %th Response
         %td= db_job.response
@@ -55,27 +80,29 @@
       %tr
         %td{ colspan: 2 } No database record (job not yet initialized)
 
-  .add-job
+  .lj-form
     %h3 Add Job to Queue
     %textarea#payload{ placeholder: '{"key": "value"} or leave empty' }
-    %button#trigger-btn Add Job
-    #trigger-result
+    %button#trigger-btn.lj-btn Add Job
+    #trigger-result.lj-result
 
   %h2
     %a{ href: "/api/lux_jobs/log?name=#{name}&format=text", target: '_blank', style: 'color: inherit;' }
       Log (last 1000 entries)
-  .log-box#log-box{ data: { last_id: last_id, job: name } }
+  .lj-log#log-box{ data: { last_id: last_id, job: name } }
     - if lines.empty?
-      .line No log entries for this job
+      .lj-line No log entries for this job
     - else
       - lines.each do |line|
         - parsed = LuxJob.parse_log_line(line)
-        .line{ class: ('error' if line.include?('ERROR')) }
-          %span.time= LuxJob.time_ago(parsed[:time])
+        .lj-line{ class: ('error' if line.include?('ERROR')) }
+          %span.lj-time= LuxJob.time_ago(parsed[:time])
           = parsed[:message]
 
   :javascript
-    (function() {
+    // pjax runs response scripts before morphing the new DOM in; defer wiring to
+    // the next frame so trigger-btn / log-box exist (else the swap throws + hard-reloads)
+    requestAnimationFrame(function() {
       var jobName = #{name.to_json};
       var btn     = document.getElementById('trigger-btn');
       var input   = document.getElementById('payload');
@@ -87,7 +114,7 @@
         if (raw) {
           try { opts = JSON.parse(raw); }
           catch (e) {
-            result.className = 'result error';
+            result.className = 'lj-result error';
             result.textContent = 'Invalid JSON: ' + e.message;
             return;
           }
@@ -102,14 +129,14 @@
           var data = await resp.json();
           if (resp.ok && data && (data.ok || (data.data && data.data.ok))) {
             var ref = (data.data && data.data.ref) || data.ref;
-            result.className = 'result success';
+            result.className = 'lj-result success';
             result.textContent = 'Job added: ' + ref;
           } else {
-            result.className = 'result error';
+            result.className = 'lj-result error';
             result.textContent = 'Error: ' + ((data && (data.error || (data.data && data.data.error))) || 'Unknown error');
           }
         } catch (e) {
-          result.className = 'result error';
+          result.className = 'lj-result error';
           result.textContent = 'Request failed: ' + e.message;
         }
       });
@@ -139,4 +166,4 @@
           }
         } catch (e) { console.error('poll error:', e); }
       }, 3000);
-    })();
+    });

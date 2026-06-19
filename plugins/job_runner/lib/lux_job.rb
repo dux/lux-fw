@@ -301,9 +301,15 @@ class LuxJob < ApplicationModel
       past ? "#{val} ago" : "in #{val}"
     end
 
+    # self-contained pill classes; styles ship inline with the dashboard views
     def status_css(status)
-      return '' unless status
-      "status-#{status.downcase.gsub(/\s+/, '-')}"
+      case status
+      when 'Done'                         then 'lj-st lj-st-ok'
+      when 'Running'                      then 'lj-st lj-st-run'
+      when 'Scheduled'                    then 'lj-st lj-st-wait'
+      when 'Failed', 'Permanently failed' then 'lj-st lj-st-err'
+      else 'lj-st'
+      end
     end
 
     # Matches the standard Logger format: "[YYYY-MM-DDTHH:MM:SS.sss #pid] LEVEL -- : message"
