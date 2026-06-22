@@ -133,7 +133,8 @@ module Lux
 
     # Escape </ to <\/ so a string value can't break out of the <script> tag.
     def js_safe value
-      value.to_json.gsub('</', '<\/')
+      out = Lux.env.dev? ? value.to_jsonp : value.to_json
+      out.gsub('<', '&lt;').gsub('>', '&rt;')
     end
   end
 end

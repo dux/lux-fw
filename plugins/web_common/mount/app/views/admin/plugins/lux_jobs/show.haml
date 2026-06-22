@@ -145,7 +145,9 @@
       var box = document.getElementById('log-box');
       if (!box) return;
       var lastId = box.dataset.lastId || '';
-      setInterval(async function() {
+      // $.setInterval clears any prior timer under this name, so repeated pjax
+      // visits replace the poller instead of stacking a new one each time
+      $.setInterval('luxJobsPoll', async function() {
         try {
           var resp = await fetch('/api/lux_jobs/poll', {
             method: 'POST',

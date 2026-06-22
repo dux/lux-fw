@@ -30,7 +30,7 @@
   .lj-log .lj-line.error { color: #fca5a5; }
   .lj-log .lj-line .lj-time { color: #64748b; margin-right: 10px; }
 
-%h1 LuxJob Dashboard
+%h1.mb-4 LuxJob Dashboard
 
 %h2 Registered Jobs
 .lj-card
@@ -55,12 +55,12 @@
         %td #{row[:timeout]}s
         %td
           - if row[:db]&.updated_at
-            #{row[:db].updated_at.strftime('%Y-%m-%d %H:%M:%S')} (#{LuxJob.time_relative(row[:db].updated_at)})
+            #{LuxJob.time_relative(row[:db].updated_at)}
           - else
             \-
         %td
           - if row[:db]&.run_at
-            #{row[:db].run_at.strftime('%Y-%m-%d %H:%M:%S')} (#{LuxJob.time_relative(row[:db].run_at)})
+            #{LuxJob.time_relative(row[:db].run_at)}
           - else
             \-
         %td
@@ -68,9 +68,9 @@
             %span{ class: LuxJob.status_css(row[:db].status) }= row[:db].status
           - else
             \-
-        %td= row[:db]&.response.to_s[0, 50].presence || '-'
+        %td= row[:db]&.response.to_s[0, 20].presence || '-'
 
-%h2 Recent Log (last 100 entries)
+%h2.mt-8 Recent Log (last 100 entries)
 .lj-log#log-box{ data: { last_id: last_id, job: '' } }
   - if recent.empty?
     .lj-line No log entries yet
@@ -90,7 +90,9 @@
     var lastId = box.dataset.lastId || '';
     var job    = box.dataset.job || '';
 
-    setInterval(async function() {
+    // $.setInterval clears any prior timer under this name, so repeated pjax
+    // visits replace the poller instead of stacking a new one each time
+    $.setInterval('luxJobsPoll', async function() {
       try {
         var body = { name: job || null };
         var resp = await fetch('/api/lux_jobs/poll', {

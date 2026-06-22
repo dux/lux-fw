@@ -10,7 +10,7 @@
       = cell.admin_helper.full_left_menu
       .flex-1.min-w-0
         .pjax#admin.typo-system
-          = base_js
+          = render '/dev/_dev_menu'
 
           - if @important_info
             .flash.flash-warn.center{ style: 'margin-bottom: 0; border-top: none; font-size: 120%; padding-bottom: 11px;' }
