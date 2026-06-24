@@ -27,7 +27,12 @@ class HtmlInput
   end
 
   def tag(*args, **attrs, &block)
-    HtmlTag.render_root(self, *args, **attrs, &block)
+    if args.empty? && attrs.empty? && block.nil?
+      # no-arg form: return a chainable proxy so `tag.div { |n| ... }` works
+      HtmlTag::Proxy.new(self)
+    else
+      HtmlTag.render_root(self, *args, **attrs, &block)
+    end
   end
 
   # .render :name          # @object.name

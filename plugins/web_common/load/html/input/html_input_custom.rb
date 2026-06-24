@@ -90,6 +90,7 @@ class HtmlInput
 
   def as_file
     @opts[:type] = 'file'
+    @opts[:onchange] ||= "$.pub('file-picked', this)"
     @opts.tag(:input)
   end
 

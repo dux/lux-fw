@@ -1,6 +1,7 @@
 // App-level $/Z helpers ported from the apps' Zepto `_zepto_app.coffee` so the
 // dollar shim is the single source and old Zepto can be dropped. Only helpers the
-// dollar core (`dollar/_dollar.js`) and `dollar/dollar_plugins.js` don't already
+// dollar core (`dollar/_dollar.js`), `dollar/dollar_func.js` and
+// `dollar/dollar_class.js` don't already
 // provide live here. Bundled after `dollar/*`, so the core $ already exists.
 
 const $ = window.$

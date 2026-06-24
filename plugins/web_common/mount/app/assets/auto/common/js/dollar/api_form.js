@@ -161,13 +161,15 @@ ApiForm.on('error', function (response) {
   }
 })
 
-// default - reload via Pjax
+// default - reload via Pjax; close the topmost dialog first so a form opened in a
+// modal (e.g. the new-document dialog) dismisses itself on success
 ApiForm.on('refresh', function (response, path) {
   path = path || ''
   if (path[0] == '/') {
     const ref = response.meta.ref || response.data.ref
     path = path.replaceAll('REF', ref)
   }
+  if (window.Dialog?.isOpen()) Dialog.close()
   Pjax.refresh(path)
 })
 
