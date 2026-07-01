@@ -188,9 +188,13 @@ module Lux
 
       # === CLI orchestrators ==================================================
 
-      def apply plugin_name = nil, mode: :symlink
+      def apply plugin_name = nil, mode: :symlink, git_rm: false
         pruned  = prune_orphans plugin_name
         results = plugin_refs(plugin_name).flat_map { |p| p.mount!(mode: mode) }
+        if mode == :symlink
+          write_git_exclude
+          git_untrack results if git_rm
+        end
         report_summary results, pruned
         results
       end
@@ -261,6 +265,11 @@ module Lux
 
       SCAN_SKIP_DIRS ||= %w[node_modules dist build tmp .next .git coverage].freeze
 
+      # Markers around the managed region in .git/info/exclude. The block is
+      # rebuilt on every `lux mount` (symlink mode); anything outside it is kept.
+      GIT_EXCLUDE_HEADER ||= '# lux mount - exclude symlinks'
+      GIT_EXCLUDE_FOOTER ||= '# lux mount - end'
+
       # Walks Lux.root and returns [[path, raw_target], ...] for every symlink
       # whose target is NOT inside any plugins/<name>/mount/ tree. Skips the
       # SCAN_SKIP_DIRS subtrees. Public for reuse from external tooling.
@@ -320,6 +329,76 @@ module Lux
             dir = File.dirname(dir)
           end
         end
+      end
+
+      # Rebuild the managed block in .git/info/exclude so the machine-specific
+      # plugin symlinks (their targets embed the ruby version + gem hash) never
+      # surface as repo changes. Lists every plugin mount symlink regardless of
+      # which plugin `apply` was scoped to, preserves any other content in the
+      # file, and is a no-op outside a git working tree.
+      def write_git_exclude
+        exclude = git_info_exclude_path or return
+
+        links = list.select { |e| %i[ok linked].include?(e.status) }
+                    .map { |e| '/' + e.dst.relative_path_from(Lux.root).to_s }
+                    .uniq.sort
+
+        kept = exclude.exist? ? strip_managed_block(exclude.read.lines.map(&:chomp)) : []
+        kept.pop while kept.last == ''
+
+        unless links.empty?
+          kept << '' unless kept.empty?
+          kept.concat [GIT_EXCLUDE_HEADER, *links, GIT_EXCLUDE_FOOTER]
+        end
+
+        exclude.dirname.mkpath
+        exclude.write(kept.empty? ? '' : kept.join("\n") + "\n")
+        puts Output.dim('excluded %d symlinked file(s) in .git/info/exclude' % links.size) unless links.empty?
+      end
+
+      # Drop the HEADER..FOOTER region (inclusive) so the block can be rebuilt
+      # idempotently; a header with no footer (legacy/truncated) drops to EOF.
+      def strip_managed_block lines
+        out, skip = [], false
+        lines.each do |line|
+          if line == GIT_EXCLUDE_HEADER then skip = true; next end
+          if skip
+            skip = false if line == GIT_EXCLUDE_FOOTER
+            next
+          end
+          out << line
+        end
+        out
+      end
+
+      # Path to <git-dir>/info/exclude for Lux.root, following a `.git` *file*
+      # (worktrees/submodules use "gitdir: <path>"). nil when not a git repo.
+      def git_info_exclude_path
+        dot_git = Lux.root.join('.git')
+        git_dir =
+          if dot_git.directory?
+            dot_git
+          elsif dot_git.file? && (ref = dot_git.read[/^gitdir:\s*(.+)$/, 1])
+            ref = Pathname.new(ref.strip)
+            ref.absolute? ? ref : Lux.root.join(ref).cleanpath
+          end
+        git_dir&.directory? ? git_dir.join('info', 'exclude') : nil
+      end
+
+      # Untrack the plugin mount symlinks (git rm --cached) so the exclude block
+      # can take over - files stay on disk and are recreated by mount. Opt-in via
+      # `lux mount --git-rm`: a one-time cleanup, idempotent, no-op outside a git
+      # repo. Only symlink entries (never :local real files). Does not commit.
+      def git_untrack results
+        return unless git_info_exclude_path
+        root = Lux.root.to_s
+        candidates = results.select { |e| %i[ok linked].include?(e.status) }
+                            .map { |e| e.dst.relative_path_from(Lux.root).to_s }
+        return if candidates.empty?
+        tracked = IO.popen(['git', '-C', root, 'ls-files', '-z', '--', *candidates], &:read).split("\x0")
+        return puts(Output.dim('git rm: no tracked mount symlinks')) if tracked.empty?
+        system('git', '-C', root, 'rm', '--cached', '--quiet', '--', *tracked)
+        puts Output.dim('git rm --cached: untracked %d mount symlink(s); commit to finalize' % tracked.size)
       end
 
       def plugin_refs plugin_name

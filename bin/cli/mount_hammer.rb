@@ -8,6 +8,7 @@ task :mount do
   opt :list,   alias: :l, type: :boolean, default: false, desc: 'List all plugin mount entries and their status'
   opt :copy,   alias: :c, type: :boolean, default: false, desc: 'Copy plugin files into the app as real files instead of symlinks (self-contained deploy/Docker)'
   opt :clean,                type: :boolean, default: false, desc: 'Restore symlinks: reconvert copied files back to plugin symlinks'
+  opt :git_rm,               type: :boolean, default: false, desc: 'Untrack mount symlinks (git rm --cached) so .git/info/exclude ignores them; commit to finalize'
 
   proc do |opts|
     if opts[:list]
@@ -17,9 +18,9 @@ task :mount do
     elsif opts[:copy]
       Lux::Plugin::Mount.apply opts[:args].first, mode: :copy
     elsif opts[:clean]
-      Lux::Plugin::Mount.apply opts[:args].first, mode: :symlink
+      Lux::Plugin::Mount.apply opts[:args].first, mode: :symlink, git_rm: opts[:git_rm]
     else
-      Lux::Plugin::Mount.apply opts[:args].first
+      Lux::Plugin::Mount.apply opts[:args].first, git_rm: opts[:git_rm]
     end
   end
 end
