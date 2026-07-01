@@ -13,7 +13,7 @@ module LuxPack
 
   # Includes are copied wholesale (no per-dir git filter), so strip VCS/build
   # junk that local gem checkouts under ./.gems drag along.
-  INCLUDE_EXCLUDES ||= %w[.git .gitignore node_modules tmp log coverage .DS_Store]
+  INCLUDE_EXCLUDES ||= %w[.git .gitignore node_modules tmp log coverage .DS_Store .build DerivedData]
 
   def build dest: DEFAULT_DEST, includes: [], dry: false
     raise Hammer::Error, 'not a git repo (no ./.git)' unless Dir.exist?('.git')
@@ -22,11 +22,17 @@ module LuxPack
     files = `git ls-files -z`.split("\x0").reject(&:empty?)
     raise Hammer::Error, 'git ls-files returned nothing' if files.empty?
 
+    # Drop tracked paths missing from the working tree (e.g. a file deleted
+    # mid-refactor but not yet committed); rsync -L can't stat them and would
+    # abort the whole deploy.
+    missing, files = files.partition { |f| !File.exist?(f) }
+
     AUTO_INCLUDES.each { |p| includes |= [p] if Dir.exist?(p) }
     includes.select! { |p| File.exist?(p) }
 
     puts 'Pack -> %s'         % dest.colorize(:yellow)
     puts 'Tracked files : %s' % files.size.to_s.colorize(:yellow)
+    puts 'Skipped (gone): %s' % missing.size.to_s.colorize(:red) if missing.any?
     puts 'Includes      : %s' % (includes.empty? ? '-' : includes.join(', ')).colorize(:yellow)
 
     return puts('(dry run, nothing written)'.colorize(:light_black)) if dry
