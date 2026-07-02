@@ -31,6 +31,10 @@
   const sib = (e, prop, until) => { const o = []; let n = e[prop]; while (n) { if (until && n.matches(until)) break; o.push(n); n = n[prop] } return o }
   const ups = (e, until) => { const o = []; let p = e.parentElement; while (p) { if (until && p.matches(until)) break; o.push(p); p = p.parentElement } return o }
 
+  const ONS = Symbol('on')   // per-node list of {ev, key, h} bindings
+  // "keydown.nfc" -> ['keydown','nfc'];  ".nfc" -> ['','nfc'];  "keydown" -> ['keydown','']
+  const evkey = tok => { const i = tok.indexOf('.'); return i < 0 ? [tok, ''] : [tok.slice(0, i), tok.slice(i + 1)] }
+
   const frag = a => {
     if (a instanceof D) return [...a]
     if (a.nodeType) return [a]
@@ -93,9 +97,34 @@
       const dele = isStr(sel), cb = dele ? fn : sel
       const h = dele ? function (ev) { const t = ev.target.closest(sel); if (t && this.contains(t)) cb.call(t, ev) } : cb
       if (dele) cb.__d = h
-      return this.each(function () { type.split(/\s+/).forEach(t => this.addEventListener(t, h)) })
+      return this.each(function () {
+        const reg = (this[ONS] ||= [])
+        type.split(/\s+/).forEach(tok => {
+          const [ev, ns] = evkey(tok)
+          const key = ns || $.fnv1((dele ? sel + '\x00' : '') + String(cb))   // explicit .name, else source hash
+          if (reg.some(e => e.ev == ev && e.key == key)) return                // one handler per node + event + key
+          reg.push({ ev, key, h })
+          this.addEventListener(ev, h)
+        })
+      })
     },
-    off(type, fn) { return this.each(function () { type.split(/\s+/).forEach(t => this.removeEventListener(t, fn.__d || fn)) }) },
+    off(type, fn) {
+      const target = fn && (fn.__d || fn)
+      return this.each(function () {
+        const reg = this[ONS] || []
+        type.split(/\s+/).forEach(tok => {
+          const [ev, ns] = evkey(tok)
+          if (target && ev) this.removeEventListener(ev, target)   // also covers one()/handlers not bound via on()
+          for (let i = reg.length - 1; i >= 0; i--) {
+            const e = reg[i]
+            if ((!ev || e.ev == ev) && (!ns || e.key == ns) && (!target || e.h == target)) {
+              this.removeEventListener(e.ev, e.h)
+              reg.splice(i, 1)
+            }
+          }
+        })
+      })
+    },
     one(type, sel, fn) {
       const dele = isStr(sel), cb = dele ? fn : sel, self = this
       const h = function (ev) { const t = dele ? ev.target.closest(sel) : this; if (dele && !(t && this.contains(t))) return; self.off(type, h); cb.call(t, ev) }
