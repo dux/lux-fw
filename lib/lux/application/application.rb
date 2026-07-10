@@ -110,7 +110,9 @@ module Lux
       # Vanilla OPTIONS (no preflight) gets the canned allow+cache reply.
       # Preflight (OPTIONS + Access-Control-Request-Method) flows through so
       # `response.cors` in a before/action can answer it. See Lux::Response::Cors.
-      if request_method == 'OPTIONS' && !lux.request.env['HTTP_ACCESS_CONTROL_REQUEST_METHOD']
+      # A before-hook that already set the body owns the response (e.g. WebDAV
+      # OPTIONS needs its own DAV/allow headers) - do not overwrite it.
+      if request_method == 'OPTIONS' && !lux.request.env['HTTP_ACCESS_CONTROL_REQUEST_METHOD'] && !lux.response.body?
         return [204, {
           'allow' => Lux.config[:request_options] || 'OPTIONS, GET, HEAD, POST',
           'cache-control' => 'max-age=604800',
@@ -128,7 +130,9 @@ module Lux
 
       # CSRF: enforce for non-safe verbs that aren't Bearer-authenticated.
       # Opt-out per-app via Lux.config.csrf = false. See Lux::Current#csrf.
-      if Lux.config[:csrf] != false && lux.csrf_required? && !lux.csrf_valid?
+      # Responses already produced by a before-hook are exempt (e.g. WebDAV
+      # PROPFIND is Basic-authed and sessionless - not CSRF-vulnerable).
+      if Lux.config[:csrf] != false && !lux.response.body? && lux.csrf_required? && !lux.csrf_valid?
         raise Lux.error.forbidden 'CSRF token missing or invalid'
       end
 
