@@ -1,7 +1,7 @@
 require 'test_helper'
 
 # Slice 1 of the string escaping lifecycle migration
-# (.air/plans/string-escaping-lifecycle.plan.md): store-raw / escape-on-output.
+# (doc/string-escaping-lifecycle.plan.md): store-raw / escape-on-output.
 # HTML text output escapes only `<`; `.unsafe` opts a value out of escaping while
 # keeping <script>/<style> neutralized unless explicitly allowed.
 describe 'String#unsafe / Lux::Utils::SafeString / haml escape' do
