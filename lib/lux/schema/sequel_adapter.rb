@@ -23,15 +23,22 @@ module Sequel::Plugins::LuxSchema
       klass = self
       value.enums.each do |e|
         e[:collection_ref][:klass] = klass if e[:collection_ref]
-        klass.enum(
-          e[:name],
+        enum_opts = {
           field:    e[:field],
           method:   e[:method],
-          default:  e[:default],
           values:   e[:values],
           helpers:  e[:helpers],
           validate: e[:validate]
-        )
+        }
+        # forward default only when meaningful: a declared default wins,
+        # optional (`enum :foo?`) enums read blank as blank, required ones
+        # keep the first-key fallback
+        if !e[:default].nil?
+          enum_opts[:default] = e[:default]
+        elsif e[:required] == false
+          enum_opts[:default] = nil
+        end
+        klass.enum e[:name], **enum_opts
       end
 
       if ENV['DB_MIGRATE'] == 'true' && defined?(AutoMigrate)

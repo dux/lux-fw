@@ -62,10 +62,13 @@ class Sequel::Model
       values = raw_values.inject({}.to_lux_hash) { |h, (k,v)| h[caster.call(k)] = v; h }
 
       # Default falls back to the first declared key, so a blank column
-      # transparently reads as the first enum value (Array, Hash, and
-      # block-builder shapes all behave the same).
-      opts[:default] = caster.call(opts[:default]) if opts[:default]
-      opts[:default] ||= values.keys.first
+      # transparently reads as the first enum value. Pass an explicit
+      # `default: nil` to keep blank columns blank (optional enums).
+      if opts.key?(:default)
+        opts[:default] = caster.call(opts[:default]) if opts[:default]
+      else
+        opts[:default] = values.keys.first
+      end
 
       values.define_singleton_method(:for_select) do
         map { |k, v| [k, v.is_a?(Hash) ? v[:name] : v] }

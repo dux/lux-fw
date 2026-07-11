@@ -2322,6 +2322,22 @@ describe 'plugins/db/schema_define.rb – enum DSL' do
       _(w.mood).must_equal 'Happy'
     end
 
+    it 'reads blank required enum as its default key' do
+      DB[:enum_widgets].delete
+      DB[:enum_widgets].insert(ref: new_ref, status_sid: nil, level_id: 1)
+      w = EnumWidget.first
+      _(w.status_sid).must_equal 'a'
+      _(w.status).must_equal 'Active'
+    end
+
+    it 'keeps blank optional (`enum :mood?`) column blank' do
+      DB[:enum_widgets].delete
+      DB[:enum_widgets].insert(ref: new_ref, status_sid: 'a', level_id: 1)
+      w = EnumWidget.first
+      _(w.mood_sid).must_be_nil
+      _(w.mood).must_be_nil
+    end
+
     it 'auto-wires meta[:collection] to Klass.<plural>' do
       rule  = Lux.schema(:enum_widget).rules[:status_sid]
       proc_ = rule[:meta][:collection]

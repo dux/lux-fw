@@ -113,6 +113,7 @@ module Lux
           field:          col,
           method:         meth,
           default:        opts[:default],
+          required:       required,
           values:         raw,
           helpers:        opts.fetch(:helpers, :both),
           validate:       opts.fetch(:validate, true),
