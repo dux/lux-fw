@@ -50,6 +50,26 @@ class String
       .gsub(/<(\/?style)/i,'&lt;\1')
   end
 
+  # Mark a string for raw (unescaped) HTML output. Inverse of the default
+  # escape-on-output: `= value` escapes `<`, `= value.unsafe` renders raw.
+  # <script>/<style> stay neutralized unless explicitly allowed, so opting a
+  # value out of escaping never silently re-enables those two.
+  #   str.unsafe               # raw, <script>/<style> still escaped
+  #   str.unsafe(script: true) # also allow <script>
+  #   str.unsafe(style: true)  # also allow <style>
+  #   str.unsafe(true)         # allow both
+  # Returns a Lux::Utils::SafeString (answers html_safe?) - see haml_escape.rb.
+  def unsafe allow_all = false, script: false, style: false
+    script ||= allow_all
+    style  ||= allow_all
+
+    out = self
+    out = out.gsub(/<(\/?script)/i, '&lt;\1') unless script
+    out = out.gsub(/<(\/?style)/i,  '&lt;\1') unless style
+
+    Lux::Utils::SafeString.new(out)
+  end
+
   # simple markdown
   def as_html
     self
