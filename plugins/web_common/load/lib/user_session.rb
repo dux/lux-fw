@@ -33,6 +33,14 @@ module UserSession
     end
   end
 
+  def api_key_user api_key
+    return unless api_key
+
+    user = User.find_by(api_key: api_key)
+    sleep 0.2 unless user
+    user
+  end
+
   # login magic link (mailers, cross-host, dev/admin login-as).
   # subdomain: builds an absolute link on that subdomain of the current host.
   def login_link user, path: nil, ttl: nil, subdomain: nil
@@ -167,7 +175,7 @@ module UserSession
     if Lux.env.dev? && bearer.include?('@')
       User.current = User.find_by(email: bearer)
     elsif User.columns.include?(:api_key)
-      Lux.logger.error "Bad bearer token: #{bearer}" unless User.current = User.find_by(api_key: bearer)
+      Lux.logger.error "Bad bearer token: #{bearer}" unless User.current = api_key_user(bearer)
     end
   end
 
