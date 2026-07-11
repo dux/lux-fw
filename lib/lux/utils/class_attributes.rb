@@ -70,7 +70,12 @@ module Lux
         invalid = opts.keys - SUPPORTED
         raise ::ArgumentError, 'Invalid argument :%s, supported: %s' % [invalid.first, SUPPORTED.join(', ')] if invalid.first
 
-        Proxy.new(klass).send('%s=' % name, opts[:default])
+        # seed the default only on first declaration - re-declaring (e.g. a plugin
+        # include hook firing again after set_dataset) must not wipe a value the
+        # class body already set (abbr/icon set before `schema do` under db:am)
+        unless klass.instance_variable_defined?('@cattr_%s' % name)
+          Proxy.new(klass).send('%s=' % name, opts[:default])
+        end
       end
     end
   end
