@@ -50,7 +50,7 @@ Lux::Db.disconnect_all              # tear down all pools
 # lux db:create      # create databases if missing
 # lux db:drop        # drop all (blocked in production)
 # lux db:reset       # drop, create, auto migrate
-# lux db:am [y]      # auto-migrate schema (y to auto-confirm drops); in dev also rebuilds <db>_test
+# lux db:am         # auto-migrate schema (drops removed cols; --ask to confirm); in dev also rebuilds <db>_test
 # lux db:seed        # reset + load seeds from ./db/seeds/
 # lux db:backup      # SQL dump to ./tmp/db_dump/
 # lux db:restore     # restore from SQL dump

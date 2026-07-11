@@ -80,7 +80,7 @@ module LuxDb
       Lux.shell 'dropdb', '--if-exists', test_db
       Lux.shell 'createdb', test_db
 
-      Lux.shell 'bundle', 'exec', 'lux', 'db:am', 'y',
+      Lux.shell 'bundle', 'exec', 'lux', 'db:am',
         env: { "DB_#{name.to_s.upcase}" => test_url }
 
       puts "Test database '#{test_db}' rebuilt from schema".colorize(:green)
@@ -317,13 +317,15 @@ namespace :db do
   end
 
   task :am do
-    desc 'Automigrate schema (pass y to auto-confirm column drops: db:am y)'
+    desc 'Automigrate schema (drops removed columns by default; --ask to confirm each)'
     needs :env
+    opt :ask, type: :boolean, desc: 'Prompt before dropping columns (default: drop without asking)'
     proc do |opts|
       ENV['DB_MIGRATE'] = 'true' unless ENV['DB_MIGRATE'] == 'true'
 
       # AutoMigrate is auto-loaded by `Lux.plugin :db` (see plugins/db/migrate/auto_migrate.rb).
-      AutoMigrate.auto_confirm = opts[:args].first == 'y'
+      # Column drops apply automatically; --ask restores the interactive y/N confirmation.
+      AutoMigrate.auto_confirm = !opts[:ask]
 
       DB.run %[DROP TABLE IF EXISTS lux_tests;]
       DB.run %[CREATE TABLE lux_tests (int_array integer[] default '{}');]

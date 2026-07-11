@@ -28,10 +28,9 @@ lux db:psql                 # open local psql console
 
 Note: `db:am` applies the model schema to the database - including dropping
 columns the model no longer declares and running `safe: false` (lossy) type
-conversions. In an interactive dev shell it prompts before each destructive
-change; in production, CI, or any non-TTY run it applies them automatically so
-deploys roll unattended. Set `AutoMigrate.auto_confirm = true` to skip the dev
-prompts too.
+conversions. These apply automatically by default. Pass `--ask` (`lux db:am
+--ask`) to confirm each destructive change interactively in a dev TTY;
+production, CI, and non-TTY runs always apply unattended regardless.
 
 ## Test databases
 
