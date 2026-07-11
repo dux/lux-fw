@@ -1,0 +1,100 @@
+!!!
+%html{ lang: 'hr' }
+  %head
+    %meta{ charset: 'UTF-8' }
+    %title= @pdf_title || 'PDF Document'
+    / Paged.js paginates the page into real A4 boxes - on screen (preview) and in
+    / headless Chrome (PdfGenerator). Same engine both sides => identical output.
+    / window.pagedReady is the signal PdfGenerator waits on before printing.
+    :javascript
+      window.PagedConfig = {
+        auto: true,
+        after () {
+          window.pagedReady = true
+          // Title (and thus the download filename) follows the document's H1.
+          const h1 = document.querySelector('h1')
+          if (h1) document.title = h1.textContent.trim()
+          // The toolbar lives on <html> (outside .pagedjs_pages) so Paged.js never
+          // chunks it into a page. The headless generator removes #pdf-dl before
+          // printing, so it never lands in the PDF.
+          if (!document.querySelector('#pdf-dl')) {
+            const a = document.createElement('a')
+            a.id = 'pdf-dl'
+            a.textContent = 'Preuzmi PDF'
+            a.href = location.pathname.replace(/\/$/, '') + '.pdf'
+            a.setAttribute('download', (document.title || 'dokument') + '.pdf')
+            a.style.cssText = 'position:fixed;right:20px;top:20px;z-index:9999;' +
+              'background:#111;color:#fff;padding:10px 16px;border-radius:8px;' +
+              'font:600 13px sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.3)'
+            document.documentElement.appendChild(a)
+          }
+        }
+      }
+    %script{ src: 'https://unpkg.com/pagedjs@0.4.3/dist/paged.polyfill.js' }
+    %style
+      :plain
+        @page {
+          size: A4;
+          margin: 18mm 15mm;
+          @top-left     { content: string(doc-title); font-size: 8pt; color: #999; }
+          @bottom-right { content: "Stranica " counter(page) " / " counter(pages); font-size: 8pt; color: #999; }
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10pt; line-height: 1.4; color: #222; }
+        h1 { font-size: 14pt; margin-bottom: 8px; string-set: doc-title content(); }
+        h2 { font-size: 12pt; margin-bottom: 6px; }
+        h3 { font-size: 11pt; margin-bottom: 4px; }
+        .header { display: flex; justify-content: space-between; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #333; }
+        .header-left { flex: 1; }
+        .header-right { text-align: right; }
+        .header .company { font-size: 12pt; font-weight: bold; }
+        .header .meta { font-size: 10pt; color: #555; }
+        .section { margin-bottom: 14px; }
+        .section-title { font-size: 10pt; font-weight: bold; background: #f0f0f0; padding: 4px 8px; margin-bottom: 6px; border-left: 3px solid #333; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 10pt; }
+        /* Firefox + Paged.js can't start a multi-page <table> partway down a page -
+           it bumps the whole table to the next page. Making table/thead/tbody block
+           lets the row list fragment like normal blocks; each <tr> is a fixed-layout
+           table so columns stay aligned. Chrome paginates identically. */
+        table, thead, tbody { display: block; }
+        tr { display: table; width: 100%; table-layout: fixed; border-collapse: collapse; break-inside: avoid; }
+        th, td { padding: 4px 6px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f5f5f5; font-weight: bold; border-bottom: 2px solid #999; }
+        .num { text-align: right; width: 110px; }
+        .col-n { width: 40px; }
+        .center { text-align: center; }
+        tr.total td { font-weight: bold; border-top: 2px solid #333; border-bottom: none; }
+        .row { display: flex; margin-bottom: 3px; }
+        .row .label { width: 200px; color: #555; }
+        .row .value { flex: 1; font-weight: bold; }
+        .signatures { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
+        .signature-line { width: 200px; text-align: center; }
+        .signature-line .line { border-top: 1px solid #333; margin-bottom: 4px; margin-top: 40px; }
+        .signature-line .role { font-size: 10pt; color: #555; }
+        .page-break { break-before: page; }
+        .text-sm { font-size: 10pt; }
+        .text-gray-500 { color: #777; }
+        .bold { font-weight: bold; }
+    / Screen-only preview chrome. Paged.js skips [media~='screen'] stylesheets, so
+    / these rules survive (rules inside the processed <style> above get stripped).
+    / Gives the Google-Docs look: gray canvas, white A4 sheets centered in a column.
+    %style{ media: 'screen' }
+      :plain
+        html, body { background: #e8e8ea !important; }
+        .pagedjs_pages {
+          display: flex !important;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          padding: 28px 16px 56px;
+          /* Preview-only zoom; print media (the PDF) is unaffected. zoom reflows,
+             so page gaps stay correct - unlike transform: scale. */
+          zoom: 1.2;
+        }
+        .pagedjs_page {
+          background: #fff;
+          box-shadow: 0 2px 14px rgba(0, 0, 0, .18);
+          margin: 0 !important;
+        }
+  %body
+    = yield

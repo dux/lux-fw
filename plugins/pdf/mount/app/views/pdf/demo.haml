@@ -1,0 +1,43 @@
+/ Demo PDF - the 60-row table flows across pages to prove pagination, the
+/ running header (document title) and the page counter in the footer.
+%h1 Demo dokument - vise stranica
+.header
+  .header-left
+    .company Rudex d.o.o.
+    .meta Ulica grada Vukovara 1, 10000 Zagreb
+  .header-right
+    .meta Datum: 30.06.2026.
+    .meta Dokument: DEMO-001
+
+.section
+  .section-title Stavke
+  %table
+    %thead
+      %tr
+        %th.col-n #
+        %th Opis stavke
+        %th.num Kolicina
+        %th.num Cijena
+        %th.num Iznos
+    %tbody
+      - total = 0
+      - 60.times do |i|
+        - amount = (i + 1) * 12_34
+        - total += amount
+        %tr
+          %td.col-n= i + 1
+          %td= "Usluga / artikl broj #{i + 1}"
+          %td.num= i + 1
+          %td.num= format_money(12_34)
+          %td.num= format_money(amount)
+      %tr.total
+        %td{ colspan: 4 } Ukupno
+        %td.num= format_money(total)
+
+.signatures
+  .signature-line
+    .line
+    .role Sastavio
+  .signature-line
+    .line
+    .role Odobrio
