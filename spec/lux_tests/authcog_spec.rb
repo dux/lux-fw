@@ -1,5 +1,5 @@
 require 'test_helper'
-require_relative '../../plugins/web_common/lib/authcog_controller'
+require_relative '../../plugins/web_common/load/lib/authcog_controller'
 
 describe AuthcogController do
   it 'builds auth link with development port' do
