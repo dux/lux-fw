@@ -200,6 +200,12 @@ record.name        # "Hello"  (current locale, fallback to default)
 * Resolution: `data[Lux.locale.current]` if present (non-blank), else
   `data[Lux.locale.default]`, else `nil`. Empty string counts as missing.
 
+This is the read side. The matching write side is the `:translated` schema type
+(`Lux::Type::TranslatedType`), which coerces incoming values into the same
+`{ locale => text }` jsonb shape - a bare string lands under `Lux.current.locale`,
+and editing a single locale drops the stale siblings so they can be re-translated.
+See [`../../lib/lux/type/README.md`](../../lib/lux/type/README.md).
+
 ## Notes
 
 * The in-process file cache invalidates on file `mtime` change, so dev
@@ -213,4 +219,4 @@ record.name        # "Hello"  (current locale, fallback to default)
 
 * [`../../lib/lux/current/README.md`](../../lib/lux/current/README.md) - `Lux.current.locale`
 * [`../../lib/lux/application/README.md`](../../lib/lux/application/README.md) - `Nav#locale` (URL prefix)
-* [`../../lib/lux/type/README.md`](../../lib/lux/type/README.md) - `Lux::Type::LocaleType`
+* [`../../lib/lux/type/README.md`](../../lib/lux/type/README.md) - `Lux::Type::LocaleType`, `Lux::Type::TranslatedType`

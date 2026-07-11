@@ -63,6 +63,7 @@ Located in [`lib/lux/type/types/`](./types).
 | `:label`     | String  | enum-friendly |
 | `:point` / `:simple_point` | Array(Float, Float) | lat/lon |
 | `:hash`      | Hash    | passes through |
+| `:translated` | Hash(locale => text) | jsonb; bare string → current locale; prunes stale locales when a single one changes |
 | `:image`     | upload  | works with `plugins/web_common` html form |
 | `:model`     | nested schema | set automatically by `name do ... end` |
 
@@ -91,6 +92,11 @@ end
 # Use anywhere:
 opt :age, type: :positive_integer, allow_zero: true
 ```
+
+Inside `coerce`, a type also sees `stored_value` - the value currently persisted for
+that field (from the Sequel `:dirty` baseline). It is `nil` for new rows, param-hash
+validation and nested schemas. Types that need to merge or prune against prior state
+(e.g. `:translated`) compare the incoming value to `stored_value`.
 
 ## Translations
 

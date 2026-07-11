@@ -39,7 +39,7 @@ module Lux
       :virtual
     ]
 
-    attr_reader :opts
+    attr_reader :opts, :stored_value
 
     LOAD_CACHE ||= {}
 
@@ -91,14 +91,15 @@ module Lux
       end
     end
 
-    def initialize value, opts = {}, &block
+    def initialize value, opts = {}, stored: nil, &block
       value = value.strip if value.is_a?(String)
 
       opts.keys.each { |key| self.class.allowed_opt?(key) }
 
-      @value = value
-      @opts  = opts
-      @block = block
+      @value        = value
+      @opts         = opts
+      @stored_value = stored   # value currently persisted; prune/merge types compare against it
+      @block        = block
     end
 
     # raw value, one should use get

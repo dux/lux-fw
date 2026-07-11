@@ -38,7 +38,7 @@ set :name, type: String, max: 30           # explicit
 
 Field-name suffix `?` marks optional. Type vocabulary is any built-in
 (`String`, `Integer`, `Boolean`, ...) or a named `Lux::Type` (`:email`,
-`:url`, `:uuid`, `:slug`, `:locale`, ...). **When generating params code
+`:url`, `:uuid`, `:slug`, `:locale`, `:translated`, ...). **When generating params code
 anywhere, use this DSL.** Don't invent per-controller validators.
 
 ## Core modules - `lib/lux/<name>/`

@@ -209,7 +209,7 @@ module Lux
     # coerce a single value through its type class
     def coerce_value field, value, opts
       klass = Lux::Type.load(opts[:type])
-      check = klass.new value, opts
+      check = klass.new value, opts, stored: (opts[:array] ? nil : stored_value(field))
       check.db_value
     rescue TypeError => e
       if e.message[0] == '{'
@@ -221,6 +221,15 @@ module Lux
       end
     rescue JSON::ParserError => e
       add_error field, e.message, opts
+    end
+
+    # previously stored (DB) value of a field, for types that prune/merge against
+    # prior state (e.g. :translated). nil for new rows, param hashes and nested
+    # schemas - only a persisted Sequel record (dirty plugin) carries a baseline.
+    def stored_value field
+      return nil unless @object.respond_to?(:initial_value)
+      return nil if @object.respond_to?(:new?) && @object.new?
+      @object.initial_value(field)
     end
 
     # adds error to hash, prefixing with field name if message starts lowercase
