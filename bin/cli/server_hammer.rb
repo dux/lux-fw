@@ -30,7 +30,8 @@ task :server do
     print "\e]0;lux: #{File.basename(Dir.pwd)}\a" if $stdout.tty?
 
     envs = %w(LUX_ENV LUX_DEBUG LUX_RELOAD).map { |k| "#{k}=#{ENV[k]}" }.join(' ')
-    base = "#{envs} bundle exec puma"
+    puma_cfg = File.exist?('config/puma.rb') ? '-C config/puma.rb' : ''
+    base = "#{envs} bundle exec puma #{puma_cfg}".squeeze(' ')
 
     if opts[:rerun]
       sh "find #{LUX_ROOT} . -name *.rb | entr -r #{base} -p #{port}"

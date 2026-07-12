@@ -17,6 +17,7 @@ module UserSession
 
   USER_REF      = :user_ref
   SUDO_USER_REF = :sudo_user_ref
+  API_KEY_CACHE_TTL ||= 1.hour
 
   def resolve
     if bearer = current.bearer_token
@@ -33,12 +34,31 @@ module UserSession
     end
   end
 
-  def api_key_user api_key
+  # Load a user by API key. Caches key -> ref; cache hits reload via User.find(ref).
+  # Sleeps 200ms on a miss to slow down brute-force guessing.
+  def api_key_load api_key
     return unless api_key
 
+    cache_key = api_key_cache_key(api_key)
+    if ref = Lux.cache.get(cache_key)
+      if user = User.find(ref)
+        return user if user.api_key == api_key
+      end
+      Lux.cache.delete cache_key
+    end
+
     user = User.find_by(api_key: api_key)
-    sleep 0.2 unless user
+    unless user
+      sleep 0.2
+      return nil
+    end
+
+    Lux.cache.set cache_key, user.ref, API_KEY_CACHE_TTL.to_i
     user
+  end
+
+  def api_key_user api_key
+    api_key_load api_key
   end
 
   # login magic link (mailers, cross-host, dev/admin login-as).
@@ -175,13 +195,17 @@ module UserSession
     if Lux.env.dev? && bearer.include?('@')
       User.current = User.find_by(email: bearer)
     elsif User.columns.include?(:api_key)
-      Lux.logger.error "Bad bearer token: #{bearer}" unless User.current = api_key_user(bearer)
+      Lux.logger.error "Bad bearer token: #{bearer}" unless User.current = api_key_load(bearer)
     end
   end
 
   def load_user_by_ref ref
     User.current = User.take(ref)
     current.can_clear_cache ||= true if User.current && (Lux.env.dev? || User.current.can.admin?)
+  end
+
+  def api_key_cache_key api_key
+    "api-key-ref:#{Digest::SHA256.hexdigest(api_key)}"
   end
 
   def resolve_redirect info = nil

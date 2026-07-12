@@ -7,7 +7,7 @@ class ApplicationApi < Lux::Api
 
   auth do |bearer|
     bearer ||= params[:api_key]
-    User.current ||= UserSession.api_key_user(bearer)
+    User.current ||= UserSession.api_key_load(bearer)
   end
 
   before do |opts|
