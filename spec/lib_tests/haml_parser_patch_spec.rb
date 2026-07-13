@@ -48,4 +48,14 @@ describe 'Haml parser patch (Tailwind classes)' do
     # attribute escaper entity-encodes & in the HTML source; DOM class is still [&_b]:...
     _(render('%div.[&_b]:text-amber x')).must_equal '<div class="[&amp;_b]:text-amber">x</div>'
   end
+
+  it 'does not treat inline = output as part of the class' do
+    _(render('.flex-1= "hello"')).must_equal '<div class="flex-1">hello</div>'
+    nested = render(".flex.gap-3\n  .flex-1= \"a\"\n  .w-24= \"b\"")
+    _(nested).must_include '<div class="flex gap-3">'
+    _(nested).must_include '<div class="flex-1">a</div>'
+    _(nested).must_include '<div class="w-24">b</div>'
+    _(nested).wont_include 'flex-1='
+    _(nested).wont_include 'w-24='
+  end
 end

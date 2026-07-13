@@ -77,6 +77,12 @@ module Haml
             i += 1
           when '.'
             break
+          when '=', ?~, ?&, ?<, ?>
+            break
+          when '!'
+            break if i.positive? && segment_started?(list, i)
+          when '/'
+            break if slash_ends_class?(list, i)
           when /\s/, ?{, ?(, ?[
             break
           else
@@ -84,6 +90,16 @@ module Haml
           end
         end
         i
+      end
+
+      def segment_started?(list, i)
+        prev = list[i - 1]
+        prev != '.' && prev != '#'
+      end
+
+      def slash_ends_class?(list, i)
+        nxt = list[i + 1]
+        nxt.nil? || nxt =~ /\s/ || nxt == '=' || nxt == '~' || nxt == '&'
       end
 
       def append_class!(attributes, segment)
