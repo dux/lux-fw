@@ -7,6 +7,7 @@ require 'as-duration'
 require 'json'
 require 'jwt'
 require 'haml'
+require_relative './render/haml_parser_patch' # Tailwind-friendly .class / #id parsing only
 require 'rack'
 require 'sequel'
 require 'pry'
