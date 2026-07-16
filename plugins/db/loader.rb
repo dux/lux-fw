@@ -8,7 +8,6 @@
 #   ext/      - direct Sequel::Model class/instance/dataset extensions
 #   plugins/  - Sequel plugins (loaded for later `plugin :name` registration)
 #   migrate/  - schema migration runtime (used by `lux db:am`)
-#   wip/      - experimental, not part of the public surface
 
 Sequel::Model.require_valid_table = false if Lux.runtime.rake?
 
@@ -44,7 +43,3 @@ require_relative 'plugins/composite_primary_keys'
 # --- migrate/ : schema migration runtime -------------------------------
 require_relative 'migrate/auto_create_tables'
 require_relative 'migrate/auto_migrate'
-
-# --- wip/ : experimental -----------------------------------------------
-require_relative 'wip/sequel_table'
-require_relative 'wip/sqlite_model'

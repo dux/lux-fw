@@ -161,7 +161,6 @@ plugins/db/
   migrate/                   # schema migration runtime (used by `lux db:am`)
     auto_create_tables.rb
     auto_migrate.rb
-  wip/                       # experimental
   hammer/
     db_hammer.rb             # `lux db:*` CLI tasks
 ```
