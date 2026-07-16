@@ -54,6 +54,17 @@ describe HtmlTable do
       html = t.render
 
       expect(html).to include('width: 200px')
+      expect(html).to include('<colgroup>')
+      expect(html).to include('data-cols=')
+    end
+
+    it 'adds column with min_width' do
+      t = HtmlTable.new(scope)
+      t.col :name, min_width: 180
+      html = t.render
+
+      expect(html).to include('min-width: 180px')
+      expect(html).not_to include('width="180"')
     end
 
     it 'adds column with align shorthand' do

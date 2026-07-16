@@ -64,9 +64,13 @@ module CdnAsset
 
   private
 
-  # newest asset mtime, for dev cache-busting in reload mode
+  # newest asset mtime, for dev cache-busting in reload mode.
+  # Include public/assets so a rebuild (e.g. after a gem dist update) invalidates
+  # browser caches even when app/assets sources were not touched.
   def get_time_stamp
-    Dir['./app/assets/**/*'].map { |f| File.mtime(f).to_i rescue 0 }.max || 0
+    (
+      Dir['./app/assets/**/*'] + Dir['./public/assets/**/*']
+    ).map { |f| File.mtime(f).to_i rescue 0 }.max || 0
   end
 
   # read manifest from disk, cache once per process. Maps source name to its

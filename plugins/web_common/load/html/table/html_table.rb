@@ -54,8 +54,18 @@ class HtmlTable
 
     prepare_as_blocks
 
+    # data-cols fingerprint: forces a new <table> node when column set/widths
+    # change across pjax morphs (avoids Firefox fixed-layout width cache).
+    table_key = @cols.map { |c| [c[:field], c[:title], c[:width], c[:min_width]].join(':') }.join('|')
+
     HtmlTag.div(class: 'app-table') do |n|
-      n.table(class: @opts[:class]) do |n|
+      n.table(class: @opts[:class], 'data-cols': table_key) do |n|
+        n.colgroup do |n|
+          for opts in @cols
+            render_col n, opts
+          end
+        end
+
         n.thead do |n|
           n.tr do |n|
             for opts in @cols
@@ -75,11 +85,26 @@ class HtmlTable
 
   private
 
+  def col_style opts
+    style = []
+    style.push 'width: %dpx' % opts[:width] if opts[:width]
+    style.push 'min-width: %dpx' % opts[:min_width] if opts[:min_width]
+    style
+  end
+
+  def render_col n, opts
+    style = col_style(opts)
+    if style.first
+      n.col style: style.join('; ')
+    else
+      n.col
+    end
+  end
+
   def render_th n, opts
     th_opts = {}
 
-    style = []
-    style.push 'width: %dpx' % opts[:width] if opts[:width]
+    style = col_style(opts)
 
     if align = opts[:align]
       case align
@@ -119,7 +144,9 @@ class HtmlTable
       tr_opts[:onclick] = @onclick.call object
     end
 
-    allowed = [:id, :class, :href, :style, :width, :align, :onclick]
+    # Do not put HTML width= on <td> — Firefox table-layout:fixed treats it
+    # inconsistently after morph. Column widths live on <col>/<th> only.
+    allowed = [:id, :class, :href, :style, :align, :onclick]
 
     n.tr(**tr_opts.slice(*allowed)) do |n|
       for opts in @cols
