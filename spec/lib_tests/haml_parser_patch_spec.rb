@@ -38,6 +38,14 @@ describe 'Haml parser patch (Tailwind classes)' do
     _(render('%div#sidebar.bg-[#fff] x')).must_equal '<div class="bg-[#fff]" id="sidebar">x</div>'
   end
 
+  it 'stops id at whitespace so trailing text with dots is not part of the id' do
+    attrs = parse_classes('%span#nfc-node ili prislonite...')
+    _(attrs['id']).must_equal 'nfc-node'
+    _(attrs['class']).must_be_nil
+    _(render('%span#nfc-node ili prislonite NFC karticu za prijavu...'))
+      .must_equal '<span id="nfc-node">ili prislonite NFC karticu za prijavu...</span>'
+  end
+
   it 'allows slash and important modifiers in dot classes' do
     _(render('%div.w-1/2 x')).must_equal '<div class="w-1/2">x</div>'
     _(render('%div.!text-red x')).must_equal '<div class="!text-red">x</div>'

@@ -42,6 +42,25 @@ describe 'GeoExtract' do
       _(Lux.type(:simple_point, '45.815,15.982')).must_equal [45.815, 15.982]
     end
 
+    it 'converts float array' do
+      _(Lux.type(:simple_point, [45.815, 15.982])).must_equal [45.815, 15.982]
+    end
+
+    it 'converts string array' do
+      _(Lux.type(:simple_point, ['37.84006', '-119.54339'])).must_equal [37.84006, -119.54339]
+    end
+
+    # JS/form often posts arrays as objects with string indices
+    it 'converts indexed hash from JSON form params' do
+      _(Lux.type(:simple_point, { '0' => '37.84006', '1' => '-119.54339' }))
+        .must_equal [37.84006, -119.54339]
+    end
+
+    it 'converts lat/lon hash' do
+      _(Lux.type(:simple_point, { lat: 37.84, lon: -119.54 }))
+        .must_equal [37.84, -119.54]
+    end
+
     it 'converts Google Maps link' do
       url = 'https://www.google.com/maps/place/Zagreb/@45.815,15.982,12z'
       _(Lux.type(:simple_point, url)).must_equal [45.815, 15.982]

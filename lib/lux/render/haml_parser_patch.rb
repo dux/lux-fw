@@ -22,9 +22,7 @@ module Haml
 
             i += 1
             start = i
-            while i < list.length && list[i] != '.'
-              i += 1
-            end
+            i = scan_id_segment(list, i)
             attributes[ID_KEY] = list[start...i] if i > start
           else
             break
@@ -45,9 +43,7 @@ module Haml
             break unless id_delimiter?(list, i)
 
             i += 1
-            while i < list.length && list[i] != '.'
-              i += 1
-            end
+            i = scan_id_segment(list, i)
           else
             break
           end
@@ -58,6 +54,23 @@ module Haml
       def id_delimiter?(list, i)
         prev = i.positive? ? list[i - 1] : nil
         prev != '[' && prev != '-'
+      end
+
+      # IDs stop at whitespace and attribute/action delimiters so inline text
+      # after e.g. `%span#nfc-node hello...` is not swallowed (trailing `.`
+      # in that text would otherwise trip the illegal_element check).
+      def scan_id_segment(list, i)
+        while i < list.length
+          case list[i]
+          when '.', /\s/, '{', '(', '[', '=', ?~, ?&, ?<, ?>, '!'
+            break
+          when '/'
+            break if slash_ends_class?(list, i)
+          else
+            i += 1
+          end
+        end
+        i
       end
 
       def scan_class_segment(list, i)
