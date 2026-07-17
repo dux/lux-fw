@@ -36,7 +36,8 @@ class HtmlForm
 
     node  = input(name, opts)
     label = opts[:label]
-    label ||= (name.is_a?(Array) ? name[1] : name).to_s.humanize.sub(/\ss?id$/, '')
+    # humanize operation_ref → "Operation ref"; strip trailing id/sid/ref suffixes
+    label ||= (name.is_a?(Array) ? name[1] : name).to_s.humanize.sub(/\s(s?id|ref)$/i, '')
 
     { node: node, label: label }
   end

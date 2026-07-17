@@ -23,7 +23,10 @@ class AppTable < HtmlTable
         o.path
       end
     end
-    onclick { |o| "Pjax.load('%s');" % block.call(o) }
+    onclick do |o|
+      path = block.call(o)
+      path.present? ? "Pjax.load('%s');" % path : nil
+    end
   end
 
   def dialog &block
