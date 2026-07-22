@@ -111,9 +111,11 @@ class AutoMigrate
     load_current_state
 
     if block_given?
+      @deferred_indexes = []
       yield self
       normalize_fields
       sync_schema
+      @deferred_indexes.uniq.each { |field| add_index_for field }
     end
   end
 
@@ -136,7 +138,9 @@ class AutoMigrate
     when :unlogged
       set_table_unlogged
     when :add_index
-      add_index_for name
+      # columns are created in sync_schema, after the schema block runs -
+      # index the field once they exist (fixes no-op indexes on fresh tables)
+      (@deferred_indexes ||= []) << name
     when :foreign_key
       add_foreign_key name
     else
@@ -312,6 +316,9 @@ class AutoMigrate
       else
         create_column field, type, opts, db_type
       end
+
+      # index rule must run for both paths - freshly created columns too
+      db_rule(:add_index, field) if opts[:index]
     end
   end
 
@@ -341,7 +348,6 @@ class AutoMigrate
     alter_text_conversion field, type, current
     alter_null_constraint field, opts, current
     alter_default field, type, opts, current
-    db_rule(:add_index, field) if opts[:index]
   end
 
   # Convert between scalar <-> array column types
