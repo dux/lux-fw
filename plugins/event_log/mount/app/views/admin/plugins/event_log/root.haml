@@ -1,0 +1,44 @@
+:ruby
+  # Event log list. URL: /admin/plugins/event_log
+  # Rendered by the host's AdminController via auto_find_template; data is
+  # looked up inline (no plugin controller for GET).
+
+  @prefix = '/admin/plugins/event_log'
+  @tag    = lux.params[:tag]
+  @days   = lux.params[:days] || '7'
+  @since  = @days == 'all' ? nil : @days.to_i.days.ago
+
+  @list = LuxEventLog.order(Sequel.desc(:created_at))
+  @list = @list.xwhere('created_at >= ?', @since) if @since
+  @list = @list.where_all(@tag, :tags) if @tag
+
+  @top_tags = @list.all_tags limit: 15
+  @total    = @list.count
+
+  def self.trim str, len = 120
+    str.length > len ? CGI.escapeHTML(str[0, len]) + '&hellip;' : CGI.escapeHTML(str)
+  end
+
+.flex.items-center.justify-between.mb-4
+  %h1.h1 Event log
+  .text-sm.text-slate-500.bg-white.rounded.shadow-sm.px-3.py-1 total: #{@total}
+
+.flex.flex-wrap.items-center.gap-2.mb-3
+  %span.text-sm.text-slate-500.w-15 Range:
+  %filter-btn{ filter: 'days', value: '1' } 1d
+  %filter-btn{ filter: 'days', value: '7', default: true } 7d
+  %filter-btn{ filter: 'days', value: '30' } 30d
+  %filter-btn{ filter: 'days', value: '365' } 1y
+  %filter-btn{ filter: 'days', value: 'all' } all
+
+- if @top_tags.first
+  .flex.flex-wrap.items-center.gap-2.mb-4
+    %span.text-sm.text-slate-500.w-15 Tags:
+    - for tag in @top_tags
+      %filter-btn{ filter: 'tag', value: tag[:name] }= '%s (%s)' % [tag[:name], tag[:cnt]]
+
+= table @list, not_found: 'no events' do |t|
+  - t.col :created_at, title: 'When', as: :ago, width: 130
+  - t.col(title: 'Tags', width: 260) { |o| o.tags.map { |tag| { class: 'badge', href: '%s?tag=%s' % [@prefix, CGI.escape(tag)], onclick: 'event.stopPropagation()' }.tag(:a, CGI.escapeHTML(tag)) }.join(' ') }
+  - t.col(title: 'Data', width: 200) { |o| CGI.escapeHTML(o.data.to_s) }
+  - t.col(title: 'JSON') { |o| trim(o.json_data.to_json) }
