@@ -72,7 +72,9 @@ end
 # The GET pages (list + show) are rendered directly via Lux::Template.render
 # in this spec; show.haml handles the inline toggle itself when the request
 # carries a `?toggle=<uid>` param.
-require_relative '../loader.rb'
+# Load through the plugin system - it sweeps load/**/*.rb (models + the
+# table/paginate view helpers); a bare require of loader.rb loads none of it.
+Lux::Plugin.load File.expand_path('..', __dir__)
 
 # Initialise the application so the per-action route registry is reachable
 # via Lux.render. The GET pages would be rendered by the host's
@@ -92,10 +94,12 @@ describe 'exception_logger admin flow' do
 
   def render_view path, params: {}
     Lux::Current.new('http://test%s' % path, query_string: params)
+    # :html mixes in HtmlHelper (paginate); ApplicationHelper (table) comes free
+    scope = Lux::Template::Helper.new self, :html
     # show.haml's inline toggle path calls redirect_to, which `throw :done`.
     # The host controller wraps render with catch(:done); mirror that here.
     catch :done do
-      Lux::Template.render(self, '%s%s' % [VIEWS_ROOT, path])
+      Lux::Template.render(scope, '%s%s' % [VIEWS_ROOT, path])
     end
   end
 
@@ -119,11 +123,12 @@ describe 'exception_logger admin flow' do
     _(body).must_include 'RuntimeError'
     _(body).must_include 'total: 1'
 
-    # 4. show page renders details + the Open/Resolved toggle
+    # 4. show page renders details + the resolve toggle (unresolved state:
+    #    "Open" badge + "Mark resolved" button)
     body = render_view '/admin/plugins/exception_logger/show', params: { uid: exep.uid }
     _(body).must_include 'Backtrace'
     _(body).must_include 'Open'
-    _(body).must_include 'Resolved'
+    _(body).must_include 'Mark resolved'
     _(body).must_include 'something blew up'
 
     # 5. Hitting the show page with `?toggle=<uid>` flips is_resolved inline
