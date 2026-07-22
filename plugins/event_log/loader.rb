@@ -12,3 +12,4 @@
 # into the host app. The dashboard then lives at /admin/plugins/event_log.
 
 require_relative 'lib/lux_event_log'
+require_relative 'lib/lux_event_log_view'

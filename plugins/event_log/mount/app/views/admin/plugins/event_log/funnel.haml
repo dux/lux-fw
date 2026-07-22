@@ -1,0 +1,86 @@
+:ruby
+  # Funnel over an ordered tag list.
+  # URL: /admin/plugins/event_log/funnel?tags=visit,signup,purchase
+  # Rendered by the host's AdminController via auto_find_template; data is
+  # looked up inline (no plugin controller for GET). The URL fully encodes
+  # the funnel, so a bookmark/link acts as a saved funnel.
+
+  @prefix = '/admin/plugins/event_log'
+
+  @current_path = LuxEventLogView.apply lux   # handles ?save_as / ?forget
+  @saved_views  = LuxEventLogView.order(:name).all
+
+  @tags   = (lux.params[:tags] || '').split(',').map(&:strip).reject(&:empty?)
+  @days   = lux.params[:days] || '30'
+  @since  = @days == 'all' ? nil : @days.to_i.days.ago
+  @from   = (Date.parse(lux.params[:from]) rescue nil)
+  @to     = (Date.parse(lux.params[:to])   rescue nil)
+  @unique = lux.params[:unique].to_s.strip
+  @unique = nil if @unique.empty?
+
+  # explicit from/to window wins over the days preset
+  since = (@from || @to) ? @from : @since
+  till  = @to ? @to + 1 : nil
+
+  @steps = @tags.length >= 2 ? LuxEventLog.funnel(@tags, since: since, till: till, unique: @unique) : nil
+
+%p.mb-3
+  %a.text-sm.text-blue-600.hover:underline{ href: "#{@prefix}/" } &larr; Back
+
+.flex.items-center.justify-between.mb-4
+  %h1.h1 Funnel
+  .flex.items-center.gap-3
+    %button.text-sm.text-blue-600.hover:underline.cursor-pointer{ type: 'button', onclick: "var n = prompt('Save this funnel as:'); if (n) Pjax.qs('save_as', n)" } Save funnel
+    .text-sm.text-slate-500.bg-white.rounded.shadow-sm.px-3.py-1= @unique ? "unique by #{CGI.escapeHTML @unique}" : 'event counts'
+
+- if @saved_views.first
+  .flex.flex-wrap.items-center.gap-2.mb-3
+    %span.text-sm.text-slate-500.w-15 Saved:
+    - for v in @saved_views
+      %span.inline-flex.items-center
+        %a.badge{ class: v.path == @current_path ? 'badge-success' : nil, href: v.path }= CGI.escapeHTML v.name
+        %a.text-xs.text-slate-400.hover:text-red-600.ml-1.cursor-pointer{ onclick: "Pjax.qs('forget', #{v.name.to_json})" } &times;
+
+.mb-3
+  %input.w-full.text-sm.border.border-slate-200.rounded.bg-white.px-3.py-2{ type: 'text', value: @tags.join(', '), placeholder: 'ordered tags, comma separated: visit, signup, purchase', onkeydown: "if (event.key == 'Enter') Pjax.qs('tags', this.value)" }
+
+.flex.flex-wrap.items-center.gap-2.mb-3
+  %span.text-sm.text-slate-500.w-15 Range:
+  %filter-btn{ filter: 'days', value: '1' } 1d
+  %filter-btn{ filter: 'days', value: '7' } 7d
+  %filter-btn{ filter: 'days', value: '30', default: true } 30d
+  %filter-btn{ filter: 'days', value: '365' } 1y
+  %filter-btn{ filter: 'days', value: 'all' } all
+  %span.text-sm.text-slate-400.ml-2 or
+  %input.text-sm.border.border-slate-200.rounded.bg-white.px-2.py-1{ type: 'date', value: lux.params[:from], onchange: "Pjax.qs('from', this.value)" }
+  %span.text-sm.text-slate-400 &ndash;
+  %input.text-sm.border.border-slate-200.rounded.bg-white.px-2.py-1{ type: 'date', value: lux.params[:to], onchange: "Pjax.qs('to', this.value)" }
+
+.flex.flex-wrap.items-center.gap-2.mb-4
+  %span.text-sm.text-slate-500.w-15 Unique:
+  %input.text-sm.border.border-slate-200.rounded.bg-white.px-2.py-1{ type: 'text', value: lux.params[:unique], placeholder: 'data key, e.g. user - empty counts events', size: 36, onkeydown: "if (event.key == 'Enter') Pjax.qs('unique', this.value)" }
+
+- if @steps
+  .boxb
+    %table.table
+      %tr
+        %th{ style: 'width: 180px;' } Step
+        %th
+        %th.r{ style: 'width: 90px;' } Count
+        %th.r{ style: 'width: 90px;' } % of first
+        %th.r{ style: 'width: 90px;' } % of prev
+      - for step in @steps
+        %tr
+          %td= CGI.escapeHTML step[:tag]
+          %td
+            - if step[:count] > 0
+              .h-3.rounded-r.bg-blue-600{ style: "width: #{step[:pct].clamp(0, 100)}%;" }
+          %td.r= step[:count]
+          %td.r= '%s%%' % step[:pct]
+          %td.r= step[:step_pct] ? '%s%%' % step[:step_pct] : '&mdash;'
+- else
+  .boxb.text-sm.text-slate-500.px-3.py-4
+    Enter at least two comma separated tags (ordered, first step first) to build a funnel.
+    - if @tags.length == 1
+      %br
+      Only one tag given - a funnel needs a second step to measure conversion.
