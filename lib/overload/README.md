@@ -75,6 +75,8 @@ See "Global helpers on Object" below - all of `Object`'s additions are callable 
 * `to_query(namespace=nil)` - build a sorted `?k=v&...` query string.
 * `to_attributes` / `to_css` - sorted `k="v"` attribute string / `k: v;` CSS string.
 * `deep_sort` - recursively sort by key.
+* `deep_stringify_keys` / `deep_stringify_keys!` - recursively convert keys to strings (nested Hash + Array of Hash).
+* `deep_symbolize_keys` / `deep_symbolize_keys!` - recursively convert keys to symbols (nested Hash + Array of Hash).
 * `pluck(*args)` - select only the named keys (string-compared).
 * `remove_empty(covert_to_s = false)` - drop keys/values that are blank.
 * `to_js(opts = {})` - JSON with unquoted keys for embedding in JS.

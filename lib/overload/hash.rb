@@ -33,13 +33,51 @@ class Hash
     end
   end
 
+  # Recursively convert keys to strings (nested Hash + Array of Hash).
+  def deep_stringify_keys
+    each_with_object({}) do |(k, v), h|
+      h[k.to_s] =
+        case v
+        when Hash
+          v.deep_stringify_keys
+        when Array
+          v.map { |e| e.is_a?(Hash) ? e.deep_stringify_keys : e }
+        else
+          v
+        end
+    end
+  end
+
+  def deep_stringify_keys!
+    replace deep_stringify_keys
+  end
+
+  # Recursively convert keys to symbols (nested Hash + Array of Hash).
+  def deep_symbolize_keys
+    each_with_object({}) do |(k, v), h|
+      h[k.to_sym] =
+        case v
+        when Hash
+          v.deep_symbolize_keys
+        when Array
+          v.map { |e| e.is_a?(Hash) ? e.deep_symbolize_keys : e }
+        else
+          v
+        end
+    end
+  end
+
+  def deep_symbolize_keys!
+    replace deep_symbolize_keys
+  end
+
   def pluck *args
     string_args = args.map(&:to_s)
     self.select{ |k,v| string_args.index(k.to_s) }
   end
 
-  # Hash#stringify_keys, #symbolize_keys, #slice, #slice!, #except, #except!,
-  # #transform_keys - removed; all built-in since Ruby 2.5–3.0.
+  # Hash#slice, #slice!, #except, #except!, #transform_keys - built-in since Ruby 2.5–3.0.
+  # Shallow stringify_keys / symbolize_keys: use transform_keys(&:to_s) / transform_keys(&:to_sym).
 
   def remove_empty covert_to_s = false
     self.keys.inject({}) do |t, el|
