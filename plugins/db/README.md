@@ -22,7 +22,11 @@ lux db:restore              # restore from backup
 lux db:check                # print configured database info
 lux db:exec --sql SQL       # execute SQL against configured databases
 lux db:psql                 # open local psql console
+lux db:seed [--full]        # reset and load seeds; include optional full datasets
 ```
+
+`db:seed --full` sets `DB_SEED_FULL=true` while app and plugin seed files load.
+Applications can use it to keep large optional seed datasets out of the default seed.
 
 (See `hammer/db_hammer.rb` for the full task list.)
 

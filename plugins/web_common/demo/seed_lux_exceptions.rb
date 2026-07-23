@@ -2,8 +2,9 @@
 # admin plugin UI testing. Writes directly via the models so timestamps,
 # times, is_resolved and log spread can be controlled.
 #
-# usage from the host app:
-#   bundle exec lux e 'load Lux.fw_root.join("plugins/admin_web/seeds/lux_exceptions.rb").to_s'
+# NOT auto-loaded by `lux db:seed` (lives under demo/, not seeds/).
+# Load manually when you want demo exception UI data:
+#   bundle exec lux e 'load Lux.fw_root.join("plugins/web_common/demo/seed_lux_exceptions.rb").to_s'
 
 require 'digest'
 
