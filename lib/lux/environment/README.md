@@ -20,6 +20,7 @@ Lux.env.prod?            # alias for production?
 Lux.env.dev?             # alias for development?
 Lux.env == :prod         # accepts :dev / :prod / :test and strings
 Lux.env(:prod)           # same: Lux.env(:prod) -> bool
+Lux.env.fibers?          # fiber-based server (falcon / any Fiber.scheduler)
 
 # Set via LUX_ENV. Defaults to 'development'.
 
@@ -52,6 +53,10 @@ Lux.runtime.rake?        # run via rake
 * `LUX_DEBUG`, `LUX_RELOAD` accept `true`/`false`
   (case-insensitive). Empty = unset. Other = boot-time error.
 * `lux server` accepts `-d`, `-e`, `-r` flags for these on the CLI.
+* `Lux.env.fibers?` is true under the falcon binary or when the current
+  thread has a `Fiber.scheduler`. The framework uses it to key Sequel
+  connections by fiber, widen the DB pool, and skip the per-request
+  `Timeout` wrapper (thread-raise based, unsafe across fibers).
 
 ## See also
 

@@ -14,6 +14,8 @@ module Lux
     # in test / tooling paths that skip the gem entry.
     STARTED_AT ||= Time.now
 
+    BOOT_MUTEX ||= Mutex.new
+
     def started_at
       STARTED_AT
     end
@@ -28,23 +30,31 @@ module Lux
     #   end
     def call
       return if @booted
-      @booted = true
 
-      require_env!
-      Lux.init_env
-      Lux.dotenv
-      bundler_require!
-      Lux.config
-      set_defaults
+      # first requests race on threaded servers (falcon --threaded, puma):
+      # without the lock a second thread sees @booted and dispatches into a
+      # half-booted app. @booted flips inside the lock before the work, so a
+      # reentrant boot! on the booting thread stays a no-op.
+      BOOT_MUTEX.synchronize do
+        return if @booted
+        @booted = true
 
-      yield if block_given?
+        require_env!
+        Lux.init_env
+        Lux.dotenv
+        bundler_require!
+        Lux.config
+        set_defaults
 
-      plugins = Lux::Plugin.normalize_names(Lux.config[:plugins])
-      Lux.plugin(*plugins) if plugins.any?
+        yield if block_given?
 
-      unless Lux.env.test?
-        Lux.shell.info plugins.any? ? "Lux plugins: #{plugins.join(', ')}" : 'Lux: no plugins'
-        puts start_info
+        plugins = Lux::Plugin.normalize_names(Lux.config[:plugins])
+        Lux.plugin(*plugins) if plugins.any?
+
+        unless Lux.env.test?
+          Lux.shell.info plugins.any? ? "Lux plugins: #{plugins.join(', ')}" : 'Lux: no plugins'
+          puts start_info
+        end
       end
     end
 

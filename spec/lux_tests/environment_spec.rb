@@ -137,4 +137,37 @@ describe Lux::Environment do
       _(env == :totally_unknown_env).must_equal false
     end
   end
+
+  describe '#fibers?' do
+    # minimal Fiber.set_scheduler-compatible stub; specs never block on it
+    def stub_scheduler
+      Class.new do
+        def block(*); end
+        def unblock(*); end
+        def io_wait(*); end
+        def kernel_sleep(*); end
+        def fiber_interrupt(*); end
+        def close; end
+      end.new
+    end
+
+    it 'is false without a fiber scheduler' do
+      _(Lux.env.fibers?).must_equal false
+    end
+
+    it 'is true on a thread with a fiber scheduler' do
+      result = Thread.new do
+        Fiber.set_scheduler stub_scheduler
+        Lux.env.fibers?
+      end.value
+
+      _(result).must_equal true
+    end
+
+    it 'does not leak scheduler state across threads' do
+      Thread.new { Fiber.set_scheduler stub_scheduler }.join
+
+      _(Lux.env.fibers?).must_equal false
+    end
+  end
 end

@@ -41,9 +41,18 @@ module Lux
   end
 
   def rack_dispatch env
-    Timeout::timeout Lux::Boot::Config.app_timeout do
-      app  = Lux::Application.new env
+    render = -> do
+      app = Lux::Application.new env
       app.render_base || raise('No RACK response given')
+    end
+
+    if Lux.env.fibers?
+      # Timeout fires via Thread#raise; on a fiber scheduler thread the
+      # interrupt lands in whichever request fiber happens to be running.
+      # Rely on the server (falcon) for request timeouts instead.
+      render.call
+    else
+      Timeout::timeout(Lux::Boot::Config.app_timeout) { render.call }
     end
   rescue => err
     Lux.error.log err

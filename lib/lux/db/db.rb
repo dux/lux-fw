@@ -17,6 +17,10 @@ module Lux
       sslmode: 'disable',
     }.freeze
 
+    # fibered servers run hundreds of concurrent requests per process, not a
+    # small thread pool - widen the default; db_config still overrides
+    FIBER_MAX_CONNECTIONS ||= 25
+
     class MainProxy < BasicObject
       def method_missing(name, *args, **kwargs, &block)
         ::Lux.db(:main).send(name, *args, **kwargs, &block)
@@ -128,6 +132,14 @@ module Lux
 
     def connect(url)
       config = DEFAULT_CONFIG.dup
+
+      if Lux.env.fibers?
+        # key connections by fiber, or every fiber on the reactor thread
+        # would share (and interleave queries on) one PG connection
+        Sequel.extension :fiber_concurrency
+        config[:max_connections] = FIBER_MAX_CONNECTIONS
+      end
+
       config.merge!(Lux.config[:db_config]) if Lux.config[:db_config].is_hash?
 
       db = Sequel.connect(url, config)

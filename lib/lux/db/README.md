@@ -29,6 +29,11 @@ production:
 `DB_MAIN`, `DB_LOG`, ... environment variables override; otherwise falls
 back to `Lux.config[:db_url]` for `:main`.
 
+Pool defaults: `max_connections: 5`. On a fibered server
+(`Lux.env.fibers?` - falcon / any `Fiber.scheduler`) connections are
+keyed per fiber (Sequel `fiber_concurrency` extension) and the pool
+widens to 25. `Lux.config[:db_config]` overrides both.
+
 ## Full example
 
 ```ruby
