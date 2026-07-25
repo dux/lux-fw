@@ -5,7 +5,8 @@
 #   Lux.plugin :event_log
 #
 # Usage:
-#   LuxEventLog.log ['page_view', 'mobile'], '/pricing', { referrer: 'google.com' }
+#   LuxEventLog.log ['page_view', 'mobile'],
+#     user_ref: user.ref, info: 'Viewed pricing', path: '/pricing'
 #
 # Admin dashboard ships as a haml template under mount/. After
 # `Lux.plugin :event_log`, run `lux mount event_log` once to symlink it

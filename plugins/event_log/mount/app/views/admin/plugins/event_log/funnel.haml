@@ -58,7 +58,7 @@
 
 .flex.flex-wrap.items-center.gap-2.mb-4
   %span.text-sm.text-slate-500.w-15 Unique:
-  %input.text-sm.border.border-slate-200.rounded.bg-white.px-2.py-1{ type: 'text', value: lux.params[:unique], placeholder: 'data key, e.g. user - empty counts events', size: 36, onkeydown: "if (event.key == 'Enter') Pjax.qs('unique', this.value)" }
+  %input.text-sm.border.border-slate-200.rounded.bg-white.px-2.py-1{ type: 'text', value: lux.params[:unique], placeholder: 'user_ref or data key - empty counts events', size: 36, onkeydown: "if (event.key == 'Enter') Pjax.qs('unique', this.value)" }
 
 - if @steps
   .boxb

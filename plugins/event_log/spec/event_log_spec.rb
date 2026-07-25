@@ -80,6 +80,9 @@ describe 'event_log plugin' do
     cols = DB.schema(:lux_event_logs).to_h
 
     _(cols[:tags][:db_type]).must_match(/\[\]\z/)
+    _(cols[:user_ref][:db_type]).must_equal 'character varying(20)'
+    _(cols[:parent_key][:db_type]).must_equal 'character varying(255)'
+    _(cols[:info][:db_type]).must_equal 'character varying(200)'
     _(cols[:data][:db_type]).must_equal 'jsonb'
     _(cols[:created_at][:db_type]).must_match(/\Atimestamp/)
     _(cols.key?(:json_data)).must_equal false
@@ -90,17 +93,22 @@ describe 'event_log plugin' do
     indexes = DB.fetch("SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'lux_event_logs'").all
     _(indexes.map { _1[:indexdef] }.join(' ')).must_match(/USING gin/i)
     _(indexes.map { _1[:indexname] }.join(' ')).must_include 'created_at'
+    _(indexes.map { _1[:indexname] }.join(' ')).must_include 'user_ref'
   end
 
   it 'logs events and queries them by tag' do
-    LuxEventLog.log ['page_view', 'mobile'], path: '/pricing', referrer: 'google.com'
-    LuxEventLog.log ['page_view'], path: '/home'
+    user_ref = 'user000000000001'
+    LuxEventLog.log ['page_view', 'mobile'], user_ref: user_ref, parent_key: 'pricing', info: 'Viewed pricing', path: '/pricing', referrer: 'google.com'
+    LuxEventLog.log ['page_view'], { path: '/home' }
     LuxEventLog.log :user_login
 
     _(LuxEventLog.count).must_equal 3
 
     row = LuxEventLog.where_all('mobile').first
     _(row.tags.to_a).must_equal ['page_view', 'mobile']
+    _(row.user_ref).must_equal user_ref
+    _(row.parent_key).must_equal 'pricing'
+    _(row.info).must_equal 'Viewed pricing'
     _(row.data['path']).must_equal '/pricing'
     _(row.data['referrer']).must_equal 'google.com'
     _(row.ref.length).must_equal 16
@@ -115,12 +123,16 @@ describe 'event_log plugin' do
   end
 
   it 'fast-inserts via .add, skipping the model layer' do
-    ref = LuxEventLog.add tags: [:api, :v2], data: { path: 'GET /users', ms: 152 }
+    user_ref = 'user000000000001'
+    ref = LuxEventLog.add tags: [:api, :v2], user_ref: user_ref, parent_key: 'users', info: 'Listed users', data: { path: 'GET /users', ms: 152 }
 
     _(ref.length).must_equal 16
 
     row = LuxEventLog[ref]
     _(row.tags.to_a).must_equal ['api', 'v2']
+    _(row.user_ref).must_equal user_ref
+    _(row.parent_key).must_equal 'users'
+    _(row.info).must_equal 'Listed users'
     _(row.data['path']).must_equal 'GET /users'
     _(row.data['ms']).must_equal 152
     _(row.created_at).wont_be_nil
@@ -131,12 +143,14 @@ describe 'event_log plugin' do
   end
 
   it 'computes funnels over an ordered tag list' do
-    LuxEventLog.add tags: [:visit],    data: { user: 'u1' }
-    LuxEventLog.add tags: [:visit],    data: { user: 'u2' }
-    LuxEventLog.add tags: [:visit],    data: { user: 'u2' }   # same actor twice
-    LuxEventLog.add tags: [:signup],   data: { user: 'u1' }
-    LuxEventLog.add tags: [:signup],   data: { user: 'u2' }
-    LuxEventLog.add tags: [:purchase], data: { user: 'u1' }
+    user_1 = 'user000000000001'
+    user_2 = 'user000000000002'
+    LuxEventLog.add tags: [:visit],    user_ref: user_1, data: { user: 'u1' }
+    LuxEventLog.add tags: [:visit],    user_ref: user_2, data: { user: 'u2' }
+    LuxEventLog.add tags: [:visit],    user_ref: user_2, data: { user: 'u2' }   # same actor twice
+    LuxEventLog.add tags: [:signup],   user_ref: user_1, data: { user: 'u1' }
+    LuxEventLog.add tags: [:signup],   user_ref: user_2, data: { user: 'u2' }
+    LuxEventLog.add tags: [:purchase], user_ref: user_1, data: { user: 'u1' }
 
     steps = LuxEventLog.funnel [:visit, :signup, :purchase]
     _(steps.map { _1[:tag] }).must_equal ['visit', 'signup', 'purchase']
@@ -150,6 +164,10 @@ describe 'event_log plugin' do
     steps = LuxEventLog.funnel [:visit, :signup, :purchase], unique: 'user'
     _(steps.map { _1[:count] }).must_equal [2, 2, 1]
 
+    # unique by the indexed first-class user reference
+    steps = LuxEventLog.funnel [:visit, :signup, :purchase], unique: :user_ref
+    _(steps.map { _1[:count] }).must_equal [2, 2, 1]
+
     # unique: true = distinct whole data values
     steps = LuxEventLog.funnel [:visit], unique: true
     _(steps.map { _1[:count] }).must_equal [2]
@@ -161,8 +179,9 @@ describe 'event_log plugin' do
   end
 
   it 'renders the funnel page' do
-    LuxEventLog.add tags: [:visit],  data: { user: 'u1' }
-    LuxEventLog.add tags: [:signup], data: { user: 'u1' }
+    user_ref = 'user000000000001'
+    LuxEventLog.add tags: [:visit],  user_ref: user_ref, data: { user: 'u1' }
+    LuxEventLog.add tags: [:signup], user_ref: user_ref, data: { user: 'u1' }
 
     body = render_view '/admin/plugins/event_log/funnel', params: { tags: 'visit, signup' }
     _(body).must_include 'visit'
@@ -172,6 +191,9 @@ describe 'event_log plugin' do
 
     body = render_view '/admin/plugins/event_log/funnel', params: { tags: 'visit, signup', unique: 'user' }
     _(body).must_include 'unique by user'
+
+    body = render_view '/admin/plugins/event_log/funnel', params: { tags: 'visit, signup', unique: 'user_ref' }
+    _(body).must_include 'unique by user_ref'
 
     body = render_view '/admin/plugins/event_log/funnel'
     _(body).must_include 'at least two comma separated tags'
@@ -229,11 +251,13 @@ describe 'event_log plugin' do
   end
 
   it 'renders the admin list and narrows it with the tag filter' do
-    LuxEventLog.log ['page_view', 'mobile'], path: '/pricing', referrer: 'google.com'
+    LuxEventLog.log ['page_view', 'mobile'], user_ref: 'user000000000001', info: 'Viewed pricing', path: '/pricing', referrer: 'google.com'
     LuxEventLog.log ['user_login'], m: 'login-marker'
 
     body = render_view '/admin/plugins/event_log/root'
     _(body).must_include 'total: 2'
+    _(body).must_include 'user000000000001'
+    _(body).must_include 'Viewed pricing'
     _(body).must_include '/pricing'
     _(body).must_include 'login-marker'
     _(body).must_include 'referrer'

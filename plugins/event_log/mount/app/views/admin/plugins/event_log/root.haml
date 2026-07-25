@@ -69,4 +69,6 @@
 = table @list, not_found: 'no events' do |t|
   - t.col :created_at, title: 'When', as: :ago, width: 130
   - t.col(title: 'Tags', width: 260) { |o| o.tags.map { |tag| { class: 'badge', href: '%s?tag=%s' % [@prefix, CGI.escape(tag)], onclick: 'event.stopPropagation()' }.tag(:a, CGI.escapeHTML(tag)) }.join(' ') }
+  - t.col(title: 'User', width: 145) { |o| CGI.escapeHTML(o.user_ref.to_s) }
+  - t.col(title: 'Info', width: 220) { |o| trim(o.info.to_s, 80) }
   - t.col(title: 'Data') { |o| trim(o.data.to_json) }

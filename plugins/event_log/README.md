@@ -19,29 +19,39 @@ lux mount event_log    # symlinks the admin dashboard into the app
 ## Usage
 
 ```ruby
-LuxEventLog.log ['page_view', 'mobile'], path: '/pricing', referrer: 'google.com'
+LuxEventLog.log ['page_view', 'mobile'],
+  user_ref: user.ref,
+  parent_key: 'pricing',
+  info: 'Viewed pricing',
+  path: '/pricing',
+  referrer: 'google.com'
 LuxEventLog.log :user_login
 LuxEventLog.log [:api_call, :v2], path: 'GET /users', ms: 152, status: 200
 
 # fast path: raw INSERT, no model/validations/hooks; returns the generated ref
-LuxEventLog.add tags: [:api, :v2], data: { path: 'GET /users', ms: 152 }
+LuxEventLog.add tags: [:api, :v2],
+  user_ref: user.ref,
+  parent_key: 'users',
+  info: 'Listed users',
+  data: { path: 'GET /users', ms: 152 }
 
 LuxEventLog.where_all(['page_view', 'mobile']).count  # AND tag match, uses GIN index
 LuxEventLog.where_any('mobile').count                 # OR tag match
 LuxEventLog.all_tags(limit: 20)                       # top tags with counts
 
 # funnel: per-step counts for an ordered tag list
-# unique: 'user' counts distinct data->>'user' values (actor key in data);
+# unique: :user_ref counts distinct users through the indexed column;
+# any other name counts distinct data->>name values;
 # unique: true counts distinct whole data values
-LuxEventLog.funnel [:visit, :signup, :purchase], since: 7.days.ago, unique: 'user'
+LuxEventLog.funnel [:visit, :signup, :purchase], since: 7.days.ago, unique: :user_ref
 # => [{ tag: 'visit', count: 120, pct: 100.0, step_pct: nil },
 #     { tag: 'signup', count: 30, pct: 25.0, step_pct: 25.0 }, ...]
 ```
 
 ## Admin
 
-* `/admin/plugins/event_log` - paginated list; day presets or an explicit from/to date window, tag filters.
-* `/admin/plugins/event_log/funnel?tags=visit,signup,purchase&unique=user` - funnel view over an ordered tag list, with the same time controls and an optional "unique by" data key (empty = raw event counts).
+* `/admin/plugins/event_log` - paginated list with user, info, day presets or an explicit from/to date window, and tag filters.
+* `/admin/plugins/event_log/funnel?tags=visit,signup,purchase&unique=user_ref` - funnel view over an ordered tag list, with the same time controls and optional unique counting by `user_ref` or a data key (empty = raw event counts).
   The URL fully encodes the funnel, so a bookmark acts as a saved funnel.
 
 ### Saved views
@@ -52,12 +62,15 @@ Saved views show as badges on both pages, with the active one highlighted.
 
 ## Table
 
-| column     | type                |
-|------------|---------------------|
-| ref        | varchar(20) PK      |
-| tags       | text[], GIN index   |
-| data       | jsonb, default `{}` |
-| created_at | timestamp, index    |
+| column     | type                     |
+|------------|--------------------------|
+| ref        | varchar(20) PK           |
+| tags       | text[], GIN index        |
+| user_ref   | varchar(20), optional, index |
+| parent_key | varchar(255), optional   |
+| info       | varchar(200), optional   |
+| data       | jsonb, default `{}`      |
+| created_at | timestamp, index         |
 
 The table is UNLOGGED: inserts skip the write-ahead log (much faster, no WAL bloat), but the table is truncated after a PG crash and is not replicated to standbys.
 Use it for loss-tolerant event data only.
