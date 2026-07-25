@@ -277,47 +277,34 @@ namespace :db do
 
   task :seed do
     desc 'Load seed from ./db/seeds and plugins/*/seeds'
-    opt :full, type: :boolean, desc: 'Import all map seeds (default: first 50 per category)'
-    opt :no_reset, type: :boolean, desc: 'Keep existing DB (skip db:reset); continue / re-seed'
     # needs :env (not :app) so models load inside db:am where DB_MIGRATE=true
     # creates their tables; loading models on an empty DB makes enum checks
     # against db_schema fail.
     needs :env
-    proc do |opts|
-      previous_seed_full = ENV['DB_SEED_FULL']
-      ENV['DB_SEED_FULL'] = opts[:full] ? 'true' : nil
+    proc do |_opts|
+      LuxDb.dev_check!
 
-      begin
-        LuxDb.dev_check!
+      Lux::Db.disconnect_all
 
-        Lux::Db.disconnect_all
+      hammer 'db:reset'
 
-        hammer 'db:reset' unless opts[:no_reset]
-        puts 'db:seed --no-reset (keeping existing data)'.colorize(:yellow) if opts[:no_reset]
+      LuxDb.load_migrate_file './db/seed.rb' do
+        for file in Dir['db/seeds/*.rb'].sort
+          puts 'Seed: %s' % file.colorize(:green)
+          load file
+        end
 
-        LuxDb.load_migrate_file './db/seed.rb' do
-          for file in Dir['db/seeds/*.rb'].sort
-            puts 'Seed: %s' % file.colorize(:green)
+        # Plugin-shipped seeds (plugin/seeds/*.rb only, not demo/).
+        # Demo fixtures (e.g. fake lux_exceptions) live under plugin/demo/
+        # and must be loaded explicitly.
+        Lux::Plugin::PLUGIN.each_value do |plugin|
+          files = Dir[::File.join(plugin.folder, 'seeds/*.rb')].sort
+          next if files.empty?
+          for file in files
+            puts 'Seed (%s): %s' % [plugin.name, file.colorize(:green)]
             load file
           end
-
-          # Plugin-shipped seeds (plugin/seeds/*.rb only — not demo/).
-          # Demo fixtures (e.g. fake lux_exceptions) live under plugin/demo/
-          # and must be loaded explicitly. Skip re-running plugin seeds on
-          # --no-reset so continue-seeds don't re-insert fixture data.
-          unless opts[:no_reset]
-            Lux::Plugin::PLUGIN.each_value do |plugin|
-              files = Dir[::File.join(plugin.folder, 'seeds/*.rb')].sort
-              next if files.empty?
-              for file in files
-                puts 'Seed (%s): %s' % [plugin.name, file.colorize(:green)]
-                load file
-              end
-            end
-          end
         end
-      ensure
-        ENV['DB_SEED_FULL'] = previous_seed_full
       end
     end
   end
