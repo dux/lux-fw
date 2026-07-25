@@ -85,6 +85,11 @@ lux.browser.bundle(:sse)                                # core + sse bundle
   survives unless your `app` provides its own `page`.
 * `Object.assign(window, <other keys>)` - any non-`app` top-level keys are
   assigned onto the client `window` directly.
+* `app.lux` - framework debug bucket, merged in outside production only. It
+  carries `file_in_use`, the render trail of this request (templates, cells,
+  route blocks) as collected by `Lux.current.files_in_use`, plus `root`, the
+  app root those paths are relative to (the dev menu joins the two into a
+  `vscode://file/` link); omitted when the trail is empty.
 * `</` in string values is escaped to `<\/` so a payload can't break out of the
   surrounding `<script>` tag.
 

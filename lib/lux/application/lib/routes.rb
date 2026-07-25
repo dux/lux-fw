@@ -292,8 +292,10 @@ module Lux
           lux.response.rack object
         end
 
-        if object.respond_to?(:source_location)
-          lux.files_in_use object.source_location
+        # source_location is [file, line]; files_in_use only keeps strings, so
+        # join it into the file:line form the trail already uses
+        if location = (object.source_location if object.respond_to?(:source_location))
+          lux.files_in_use location.is_a?(Array) ? location.join(':') : location
         end
 
         opts   ||= {}

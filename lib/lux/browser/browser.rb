@@ -100,9 +100,14 @@ module Lux
     # the previous page's payload. The `:app` key is then *merged* into
     # window.app (so cfg/current persist and the page reset survives unless app
     # provides its own page); any other top-level keys are assigned onto window.
+    # Outside production an extra `app.lux` bucket carries framework debug state.
     def window_script
       app  = window[:app] || window['app']
       rest = window.reject { |k, _| k.to_s == 'app' }
+
+      if (state = dev_state)
+        app = (app || {}).merge(lux: state)
+      end
 
       lines = ['window.app = window.app || {};', 'window.app.page = {};']
       lines << "Object.assign(window.app, #{js_safe(app)});" if app && !app.empty?
@@ -131,10 +136,27 @@ module Lux
 
     private
 
+    # Payload emitted as window.app.lux, nil in production (these are server
+    # paths). `file_in_use` is the render trail for this request - templates,
+    # cells and route blocks in the order Lux.current.files_in_use saw them.
+    # The head is rendered by the layout, after the page template, so the page
+    # files are already collected by the time this runs. `root` is what the
+    # trail is relative to, so a dev tool can build an absolute path (the dev
+    # menu turns it into a vscode://file/ link).
+    def dev_state
+      return if Lux.env.prod?
+
+      files = Lux.current.files_in_use.to_a
+      { root: Lux.root.to_s, file_in_use: files } if files.any?
+    end
+
     # Escape </ to <\/ so a string value can't break out of the <script> tag.
+    # It has to be a JSON escape, not an HTML entity: <script> content is not
+    # entity-decoded, so &lt; would reach the client verbatim and corrupt any
+    # value that legitimately contains a < or >.
     def js_safe value
       out = Lux.env.dev? ? value.to_jsonp : value.to_json
-      out.gsub('<', '&lt;').gsub('>', '&rt;')
+      out.gsub('</', '<\/')
     end
   end
 end

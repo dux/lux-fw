@@ -43,6 +43,26 @@ Mirrors the server vocabulary: `app.current.user` <-> `lux.current.user`.
 Non-`app` top-level keys (`window[:api] = {...}`) are assigned onto the global
 `window` instead - reserve them to namespaces, avoid native window names.
 
+## `app.lux` - framework bucket
+
+One more bucket is written by the framework itself, not by app code, and only
+outside production:
+
+```js
+window.app.lux.file_in_use   // ["app/views/main/index.haml", "app/cells/nav.haml", ...]
+window.app.lux.root          // "/Users/me/dev/app" - what those paths are relative to
+```
+
+`file_in_use` is the render trail of the current request - every file that passed
+through `Lux.current.files_in_use` (templates, view cells, route blocks), in the
+order they were used, so a dev tool can map what it sees back to source. Entries
+may carry a `:line` suffix (route blocks come from `source_location`). `root`
+joins with them into an absolute path - that is how the dev menu
+(`app/views/dev/_dev_menu.haml`) builds its `vscode://file/` links. The `<head>`
+is rendered by the layout (after the page template), so page files are in;
+anything rendered further down the layout body is not. The bucket is dropped when
+the trail is empty.
+
 ## Usage
 
 ```ruby
@@ -71,7 +91,8 @@ app/page data belongs in `app`.
 
 ## Rules
 
-* Server data -> `app.cfg` / `app.current` / `app.page`. Nothing else.
+* Server data -> `app.cfg` / `app.current` / `app.page`. Nothing else
+  (`app.lux` is the framework's own, dev-only).
 * Custom function globals -> `app.fn.*` (old `window.X` names kept as aliases).
 * `page` is request-scoped: assume it is wiped on every navigation.
 * No secrets - everything here is visible in page source (`Lux.csrf` lives

@@ -108,8 +108,11 @@ describe Lux::Browser do
 
       _(tag).must_include 'window.app = window.app || {};'
       _(tag).must_include 'window.app.page = {};'
-      _(tag).must_include %[Object.assign(window.app, {"cfg":{"host":"http://x"}});]
-      _(tag).must_include %[Object.assign(window, {"foo":1});]
+
+      # the payload is pretty printed outside production, so match it whitespace-free
+      flat = tag.gsub(/\s+/, '')
+      _(flat).must_include %[Object.assign(window.app,{"cfg":{"host":"http://x"}});]
+      _(flat).must_include %[Object.assign(window,{"foo":1});]
 
       # page reset precedes the app merge, so app's own page (if any) wins
       assert tag.index('window.app.page = {};') < tag.index('Object.assign(window.app')
@@ -125,6 +128,32 @@ describe Lux::Browser do
     it 'always emits the page reset so a navigation clears the prior page payload' do
       b.window[:foo] = 1
       _(b.window_script).must_include 'window.app.page = {};'
+    end
+
+    it 'exports the request render trail as window.app.lux.file_in_use' do
+      Lux.current.files_in_use 'app/views/main/index.haml'
+      tag = b.window_script    # dev json is pretty printed, so match the parts
+
+      _(tag).must_include '"lux"'
+      _(tag).must_include '"file_in_use"'
+      _(tag).must_include 'app/views/main/index.haml'
+    end
+
+    it 'exports the app root the trail is relative to' do
+      Lux.current.files_in_use 'app/views/main/index.haml'
+      tag = b.window_script
+
+      _(tag).must_include '"root"'
+      _(tag).must_include Lux.root.to_s
+    end
+
+    it 'omits the lux bucket in production' do
+      Lux.env.define_singleton_method(:prod?) { true }
+      Lux.current.files_in_use 'app/views/main/index.haml'
+
+      refute_includes b.window_script, 'file_in_use'
+    ensure
+      Lux.env.singleton_class.send(:remove_method, :prod?)
     end
 
     it 'escapes </ inside string values so payload cannot break the tag' do

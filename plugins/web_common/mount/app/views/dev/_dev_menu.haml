@@ -1,11 +1,197 @@
+-# Dev only popup menu, opened with cmd/ctrl + right click anywhere on the page.
+-# Links are plain anchors passed to the component slot, so an app can add its own
+-# rows without touching the component. The file list comes from window.app.lux
+-# (lux.browser dev state) and links into the editor.
 - if Lux.env.dev?
-  .typo-main.flex{ style: 'position: fixed; z-index: 1; right: 5px; bottom: 10px; gap: 7px;' }
-    - if user&.can&.admin?
-      %ui-btn{ size: :xs, type: :danger, href: '/admin' }
-        A
-    %ui-btn{ size: :xs, type: :danger, href: '/dev/login_as' }
-      L
-    %ui-btn{ size: :xs, type: :danger, href: '/dev/css' }
-      D
-    %ui-btn{ size: :xs, type: :danger, href:  params[:debug] ? request.path : "?debug=render", 'data-key': 'F2' }
-      R
+  %xmp{ fez: 'dev-menu' }
+    :plain
+      <script>
+        class {
+          init() {
+            this.state.open = false
+            this.state.x = 0
+            this.state.y = 0
+            this.state.files = []
+          }
+
+          onMount() {
+            // cmd/ctrl + right click - a plain right click keeps the native menu.
+            // on macOS ctrl + left click fires contextmenu too, so that opens it as well
+            this.on(document, 'contextmenu', (e) => {
+              if (!(e.metaKey || e.ctrlKey)) return
+              e.preventDefault()
+              this.openAt(e.clientX, e.clientY)
+            })
+
+            this.on(document, 'keydown', (e) => { if (e.key == 'Escape') this.close() })
+            this.on(document, 'click', (e) => { if (!e.target.closest('.dev-menu')) this.close() })
+            this.on('scroll', () => this.close())
+          }
+
+          openAt(x, y) {
+            this.state.files = this.trail()
+            this.state.x = x
+            this.state.y = y
+            this.state.open = true
+            this.setTimeout(() => this.keepInViewport(), 0)
+          }
+
+          close() {
+            if (this.state.open) this.state.open = false
+          }
+
+          // window.app.lux is rewritten by the server on every render (and pjax re-runs
+          // the head script), so read it when the menu opens, never cache it
+          trail() {
+            const lux = window.app && window.app.lux
+            if (!lux || !lux.file_in_use) return []
+
+            return lux.file_in_use.filter(el => el.includes('/')).map(el => {
+              const [path, line] = el.split(':')
+              const parts = path.split('/')
+              const name = parts.pop()
+
+              return {
+                name,
+                dir: parts.length ? parts.join('/') + '/' : '',
+                path: lux.root + '/' + path + (line ? ':' + line : ''),
+              }
+            })
+          }
+
+          keepInViewport() {
+            const node = this.menuNode
+            if (!node) return
+
+            const box = node.getBoundingClientRect()
+            const x = Math.max(5, Math.min(this.state.x, window.innerWidth - box.width - 5))
+            const y = Math.max(5, Math.min(this.state.y, window.innerHeight - box.height - 5))
+
+            if (x != this.state.x) this.state.x = x
+            if (y != this.state.y) this.state.y = y
+          }
+
+          openFile(index) {
+            location.href = 'vscode://file' + this.state.files[index].path
+            this.close()
+          }
+
+          copyPath(index, event) {
+            event.stopPropagation()
+            const path = this.state.files[index].path
+
+            if (window.$ && $.copyText) $.copyText(path)
+            else if (navigator.clipboard) navigator.clipboard.writeText(path)
+
+            if (window.Toast) Toast.ok('Copied ' + path)
+            this.close()
+          }
+        }
+      </script>
+
+      <style lang="scss">
+        .dev-menu {
+          position: fixed;
+          z-index: 100000;
+          display: none;
+          min-width: 260px;
+          max-width: 520px;
+          max-height: 70vh;
+          overflow: auto;
+          padding: 5px 0;
+          border-radius: 6px;
+          background: #1c1c1e;
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+          color: #eee;
+          font: 400 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+          &.open {
+            display: block;
+          }
+
+          .title {
+            padding: 3px 12px;
+            color: #7d7d84;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+          }
+
+          hr {
+            margin: 5px 0;
+            border: 0;
+            border-top: 1px solid #33333a;
+          }
+
+          .fez-slot a,
+          .file {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 12px;
+            color: #eee;
+            text-decoration: none;
+            cursor: pointer;
+            white-space: nowrap;
+
+            &:hover {
+              background: #b91c1c;
+            }
+          }
+
+          .file {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+
+            .dir {
+              color: #8a8a92;
+            }
+
+            .name {
+              color: #fff;
+            }
+
+            .copy {
+              margin-left: auto;
+              padding: 0 4px;
+              border-radius: 3px;
+              color: #8a8a92;
+
+              &:hover {
+                background: #000;
+                color: #fff;
+              }
+            }
+          }
+
+          .empty {
+            padding: 4px 12px;
+            color: #8a8a92;
+          }
+        }
+      </style>
+
+      <div class="dev-menu" class:open={state.open} style="left: {state.x}px; top: {state.y}px" fez:this="menuNode">
+        <div class="title">links</div>
+        <slot />
+
+        <hr />
+
+        <div class="title">files in use</div>
+        {#each state.files as file, index}
+          <div class="file" onclick="fez.openFile({index})">
+            <span><span class="dir">{file.dir}</span><span class="name">{file.name}</span></span>
+            <span class="copy" onclick="fez.copyPath({index}, event)" title="copy path">copy</span>
+          </div>
+        {:else}
+          <div class="empty">no render trail on this page</div>
+        {/each}
+      </div>
+
+  %dev-menu
+    %a{ href: '/admin' } Admin
+    %a{ href: '/dev/login_as' } Login as
+    %a{ href: '/dev/schema' } DB schema
+    %a{ href: params[:debug] ? request.path : '?debug=render', 'data-key': 'F2' }
+      = params[:debug] ? 'Render debug off' : 'Render debug on'
