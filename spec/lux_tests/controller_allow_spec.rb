@@ -75,14 +75,12 @@ class AllowIsolationController < Lux::Controller
   end
 end
 
-# `ref do` interaction - allow above a def inside ref do must survive the
-# rename to *_ref dispatch.
+# Ref-bearing action - `allow` applies the same way whether or not the URL
+# carries a ref; the action reads nav.ref.
 class AllowRefController < Lux::Controller
-  ref do
-    allow :delete
-    def destroy
-      render text: 'destroy:%s:%s' % [lux.nav.ref, lux.request.request_method]
-    end
+  allow :delete
+  def destroy
+    render text: 'destroy:%s:%s' % [lux.nav.ref, lux.request.request_method]
   end
 end
 
@@ -277,18 +275,18 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
     end
   end
 
-  describe 'ref do interaction' do
-    it 'enforces allow on the renamed *_ref action' do
+  describe 'ref-bearing action' do
+    it 'enforces allow when the URL carries a ref' do
       Lux::Current.new('http://test/things/abc', method: 'DELETE')
       Lux.current.nav.path(:ref) { |el| el == 'abc' ? 'abc' : nil }
-      AllowRefController.action(:destroy_ref)
+      AllowRefController.action(:destroy)
       _(Lux.current.response.body).must_equal 'destroy:abc:DELETE'
     end
 
-    it 'still rejects undeclared verbs on *_ref' do
+    it 'still rejects undeclared verbs' do
       Lux::Current.new('http://test/things/abc', method: 'POST')
       Lux.current.nav.path(:ref) { |el| el == 'abc' ? 'abc' : nil }
-      _{ AllowRefController.action(:destroy_ref) }.must_raise Lux::Error
+      _{ AllowRefController.action(:destroy) }.must_raise Lux::Error
       _(Lux.current.response.status).must_equal 405
     end
   end

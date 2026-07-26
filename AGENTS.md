@@ -24,6 +24,27 @@ module's `README.md`.** Links are in the tables below.
 * Models use `ref` (string ULID) as primary key. Sequel-based ORM.
 * `Lux.current` (alias `lux`) is the thread-local request context.
 
+## Routing invariants
+
+Read [`lib/lux/application/README.md`](./lib/lux/application/README.md) before
+touching the router. The three rules that catch people out:
+
+* **`lux.route` is the only path matcher.** It owns `match?` / `start_with?` /
+  `capture` over an offset stack, and both `map` and the controller `filter`
+  tree walk it. Never re-derive a match from `nav.path` indices.
+* **The first match ends routing.** A dispatch that writes the body throws
+  `:done`, caught once in `Application#resolve_routes`. Adding a second
+  `catch(:done)` anywhere re-enables the old "keep walking as no-ops" behaviour
+  and silently re-runs work after a match.
+* **`-` and `_` are equal at compare time only** (`Route#norm`). `nav.path`
+  keeps the URL's own spelling so slug lookups work; never normalise it in
+  place.
+
+There are no per-action URL macros and no `_ref` action suffix - URLs are
+declared in the router. See [`doc/migration-routing.md`](./doc/migration-routing.md)
+for what was removed and why. Note `Lux::Api.ref` is a separate, live macro on a
+different class.
+
 ## The unified DSL
 
 `Lux::Schema::Define` (`lib/lux/schema/define.rb`) is the shared line

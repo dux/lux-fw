@@ -12,8 +12,6 @@
 #   GET /pdf/travel_orders/<ref>  -> model-backed preview (@travel_order)
 
 class PdfController < FrontendController
-  include Lux::Controller::Auto
-
   layout :pdf
   helper :pdf
 
@@ -24,8 +22,9 @@ class PdfController < FrontendController
     return render_pdf if nav.format == :pdf
 
     # Models are loaded in the router (pdf routes.rb); @<model> is already set.
-    tpl = auto_find_template(nav.path) or raise Lux.error.not_found 'PDF template not found'
-    render tpl
+    # auto_render prefixes the view dir (:pdf) and reads the route cursor, which
+    # the `map 'pdf' do` scope already advanced past the mount segment.
+    auto_render
   end
 
   # HMAC over the canonical (format-less) path. Lets the unauthenticated headless

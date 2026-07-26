@@ -1,12 +1,22 @@
-> STATUS: design proposal - NOT implemented. Describes a possible future router, not current behavior.
+> STATUS: HISTORICAL. Kept for the reasoning, not as a description of the code.
+> Do not use this file to learn how routing works - read
+> [`../lib/lux/application/README.md`](../lib/lux/application/README.md) and
+> [`../lib/lux/controller/README.md`](../lib/lux/controller/README.md).
+>
+> Known to be wrong about current code:
+>
+> * `nav.shift` / `nav.unshift` do not exist and never shipped; scoping is the
+>   offset stack on `Lux::Application::Route`.
+> * `root` reads `lux.route.root` (the cursor), not `nav.root`.
+> * Resourceful dispatch resolves to the last non-`:ref` segment; there is no
+>   `:index` default and no `_ref` action suffix.
+> * Part A of the refactor plan shipped (the `Lux::Lifecycle` mixin,
+>   `lux.var[:active_controller]`, a default `Controller#error`). Part B did
+>   not - `rescue_from` still exists, deliberately.
 
 # Router Refactor - Architecture Reference
 
-Snapshot of how the request pipeline currently works, written as a baseline before any router refactor. File/line refs are against `master` at the time of writing.
-
-> Note: the "Architecture Reference" section below documents real current code.
-> The "Refactor plan" section is aspirational and was NOT carried out - in
-> particular `rescue_from` still exists and was NOT removed.
+Snapshot of how the request pipeline worked when this was written, as a baseline before any router refactor. File/line refs are against `master` at the time of writing and have since drifted.
 
 ## Request flow at a glance
 

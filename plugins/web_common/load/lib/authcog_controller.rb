@@ -24,11 +24,14 @@ class AuthcogController < Lux::Controller
     action :callback
   end
 
-  # GET /log-off?check=<hash> - verify the hash against the session, end it, back to /.
+  # Verify the ?check= hash against the session, end it, back to /.
   # Checks session[:user_ref] directly (not User.current): this action runs on
   # AuthcogController, which the app's user-loading before-filter never touches,
   # so it must not depend on the current user being resolved.
-  route '/log-off'
+  #
+  # Not routed by default - UserSession#logout_link (?sso_action=) is the
+  # supported path. Mount it explicitly if you want the bare URL:
+  #   map 'log-off', 'authcog#log_off'
   def log_off
     ref = Lux::Utils::Crypt.short_decrypt(params[:check].to_s) rescue nil
     UserSession.destroy_session if ref && ref == session[:user_ref]

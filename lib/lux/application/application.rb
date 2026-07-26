@@ -38,42 +38,15 @@ module Lux
         @class_callbacks_routes ||= {}
         user_caller = caller[0]
         @class_callbacks_routes[user_caller] = proc do
-          # Ruby 3 kwargs: `map admin: :admin` arrives as kw; pass it as a
-          # positional Hash so instance `map` sees `route_object = {...}`.
-          if kw.any?
-            send(name, kw, &block)
-          else
-            send(name, *args, &block)
-          end
+          # Ruby 3 kwargs: none of the instance DSL methods take keywords, so a
+          # trailing hash arrives here as `kw`. Append it as a positional arg -
+          # that covers both `map admin: :admin` (route_object) and
+          # `map 'users', 'admin/users', foo: :bar` (opts), which would lose its
+          # positional args if kw replaced them.
+          full_args = kw.any? ? args + [kw] : args
+          send(name, *full_args, &block)
         end
       end
-    end
-
-    # Catch-all for arbitrary instance-method calls at the top level of
-    # `Lux.app do ... end`. Apps often define helper methods (`def general_rules`)
-    # and call them inside `routes do ... end`. With `routes do` removed, those
-    # calls happen at class-eval time — too early. Capture them here and replay
-    # at request time so `general_rules; set_nav_id; map 'api'; ...` all work
-    # as top-level statements without a `routes` wrapper.
-    def self.method_missing(name, *args, **kw, &block)
-      # Skip Ruby/Object internals so things like `inspect`, `class`, etc. work
-      # normally during class definition.
-      return super if name.to_s.start_with?('_')
-      return super if Object.private_method_defined?(name) || Object.method_defined?(name)
-
-      @class_callbacks_routes ||= {}
-      user_caller = caller[0]
-      @class_callbacks_routes[user_caller] = proc do
-        if kw.any?
-          send(name, *args, kw, &block)
-        else
-          send(name, *args, &block)
-        end
-      end
-    end
-
-    def self.respond_to_missing?(name, include_private = false)
-      true
     end
 
     def initialize env, opts={}
@@ -151,7 +124,7 @@ module Lux
 
     # Router-level catch-all error block, defined inside Lux.app do ... end.
     # The block is instance_exec'd on the Application instance, so it has access
-    # to the routing DSL (`map`, `call`, etc.) — typically used to forward to a
+    # to the routing DSL (`map`, `call`, etc.) - typically used to forward to a
     # controller that renders the error page:
     #   rescue_from do |err|
     #     LuxException.add err
@@ -161,12 +134,13 @@ module Lux
       define_method(:app_rescue_from) { |error| instance_exec(error, &block) }
     end
 
-    # full page render — returns response hash
+    # full page render - returns response hash
     # Lux.app.new('/').render_page.body
     def render_page
       out  = @response_render ||= render_base
       body = out[2].join('')
-      body = JSON.parse body if out[1]['content-type'].index('/json')
+      # 204/304/HEAD responses carry no content-type
+      body = JSON.parse body if out[1]['content-type'].to_s.include?('/json')
 
       {
         body:    body,
@@ -223,10 +197,10 @@ module Lux
       lux.response.render
     end
 
-    # internall call to resolve the routes. Per-action `route` annotations
-    # are tried first (first match wins, source/load order), then the
-    # `routes do` callbacks. Both halt via the :done catch when a handler
-    # writes the response body.
+    # internall call to resolve the routes. Runs the `routes` callbacks in
+    # source order. This is the single `catch :done` for routing: the first
+    # dispatch that writes the response body throws, unwinding the rest of the
+    # route statements (and any remaining `routes` callbacks) in one step.
     def resolve_routes
       # Expose the running Application instance so route-block helpers (e.g.
       # nav.load_models ivars: true) can export ivars that #call copies
@@ -234,20 +208,7 @@ module Lux
       lux.var[:lux_app] = self
 
       catch :done do
-        resolve_action_routes
-        run_callback :routes, lux.nav.path unless lux.response.body?
-      end
-    end
-
-    # Walk Lux::Controller.action_routes and dispatch the first matching
-    # entry. No-op when the registry is empty or nothing matches. Runs after
-    # `before` filters have executed, so a before-filter that loads the
-    # current user has already populated ivars before route resolution.
-    def resolve_action_routes
-      Lux::Controller.action_routes.each do |entry|
-        next unless action_route_match?(entry[:path])
-        call [entry[:controller], entry[:action]]
-        return
+        run_callback :routes, lux.nav.path
       end
     end
   end

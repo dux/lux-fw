@@ -1,4 +1,7 @@
 class Main::RootController < ApplicationController
+  layout :main            # app/views/layouts/main.haml
+  views  'main/root'      # app/views/main/root/*
+
   mock :about
 
   def index

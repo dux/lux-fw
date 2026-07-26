@@ -58,27 +58,6 @@ module Lux
           @_pending_opts << [name, args]
         end
 
-        # Declare an absolute URL that dispatches to the next def. Multiple
-        # `route` lines stack - each URL aliases the same action.
-        #
-        #   route '/users'
-        #   def index; end
-        #
-        #   route '/u/:slug'
-        #   route '/users/:slug'
-        #   def by_slug; end                # both URLs hit :by_slug
-        #
-        # Captures land in `nav.params`; a `:ref` capture also binds
-        # `nav.ref`. Inside `ref do ... end` the method (and its routes)
-        # get the standard `_ref` rename.
-        def route path, **opts
-          unless path.is_a?(String) && path.start_with?('/')
-            raise ArgumentError, 'route path must be a String starting with / (got %s)' % path.inspect
-          end
-          @_pending_routes ||= []
-          @_pending_routes << [path, opts]
-        end
-
         # Declare the exact HTTP verb set the next def accepts. This REPLACES
         # the GET + HEAD + OPTIONS default - it is not additive. For dual-verb
         # actions, declare both verbs explicitly. HEAD and OPTIONS piggyback on
@@ -107,12 +86,8 @@ module Lux
           end
         end
 
-        # method_added snapshots pending opts + verb-allows + routes onto the
-        # action so they survive subsequent def lines without bleeding across
-        # methods. Route declarations are also pushed into the global registry
-        # at Lux::Controller.action_routes; the entry's :action key is the
-        # current method name (pre-`ref do` rename, if applicable - the rename
-        # step in `ref` remaps the entry afterwards).
+        # method_added snapshots pending opts + verb-allows onto the action so
+        # they survive subsequent def lines without bleeding across methods.
         def method_added name
           super
           if @_pending_opts && @_pending_opts.any?
@@ -124,22 +99,6 @@ module Lux
             @_action_allows ||= {}
             @_action_allows[name] = @_pending_allows
             @_pending_allows = nil
-          end
-          if @_pending_routes && @_pending_routes.any?
-            @_action_routes ||= {}
-            @_action_routes[name] = @_pending_routes
-
-            registry = Lux::Controller.action_routes
-            # drop any prior registry entries for (this class, this action) so
-            # reloads don't pile up. Reload replaces the class object, so we
-            # match on class-name string to catch the stale entries too.
-            class_name = to_s
-            registry.reject! { |e| e[:controller].to_s == class_name && e[:action] == name }
-            @_pending_routes.each do |path, opts|
-              registry << { controller: self, action: name, path: path, opts: opts }
-            end
-
-            @_pending_routes = nil
           end
         end
 
@@ -258,8 +217,10 @@ module Lux
           lux.response.content_type = :json
           lux.response.body({ errors: errors }.to_json)
         else
-          # HTML: stash errors for the action / form helper to read,
-          # fall through so the page can re-render with the original input.
+          # HTML: stash errors on lux.param_errors and fall through, so the
+          # action decides whether to re-render or carry on. lux.params has
+          # already been stripped and coerced at this point - it is the
+          # validated set, not the raw submission.
           lux.var[:param_errors] = errors
         end
       end

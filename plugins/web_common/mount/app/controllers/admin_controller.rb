@@ -4,7 +4,8 @@ class AdminController < FrontendController
   allow :get
   def call
     nav.load_models.each { |o| o.can.update! }
-    tpl = auto_find_template nav.path
-    render tpl
+    # auto_render prefixes the view dir (:admin) and reads the route cursor,
+    # so a missing template raises a proper 404 instead of rendering nothing.
+    auto_render
   end
 end

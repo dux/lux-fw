@@ -1,6 +1,11 @@
 /tmp
 /log
 
+# example apps carry a real secret once you run them - keep it out of the
+# framework repo. assets/new_app/config/config.yaml is a template ({{secret}}
+# placeholder) and stays tracked.
+examples/*/config/config.yaml
+
 .yardoc
 *.gem
 tmp.rb

@@ -89,6 +89,7 @@ end
 | `route`           | `Lux::Application::Route` | router cursor |
 | `session`         | `Lux::Current::Session` | JWT-encrypted session |
 | `params`          | `Lux::Hash` | request params (coerced if `opt` declared) |
+| `param_errors`    | hash | `{ field => 'Message' }` from the action's `opt` / `params do` contract, HTML requests only (JSON halts with 422). Empty when clean |
 | `var`             | `Lux::Hash` | request-scoped bag (`current[:k]` shortcut) |
 | `browser`         | `Lux::Browser` | master per-request object: `header` / `window` / `export` / `channel` |
 | `locale`          | symbol/string | i18n hook |

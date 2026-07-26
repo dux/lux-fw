@@ -7,5 +7,7 @@ module Lux
     define_method(:nav)      { lux.nav }
     define_method(:session)  { lux.session }
     define_method(:user)     { lux.user }
+
+    define_method(:redirect_to) { |where, flash = {}| lux.response.redirect_to where, flash }
   end
 end

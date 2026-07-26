@@ -4,7 +4,7 @@
 # PdfController (logged-in preview, or a signed URL for the headless renderer).
 #
 # Wire in the host app routes with:  plugin_route :pdf
-if nav.root == 'pdf'
+map 'pdf' do
   # Canonical path before load_models rewrites the ref segment - used by
   # PdfController to build/verify the signed URL.
   @pdf_path = '/' + nav.path.join('/')

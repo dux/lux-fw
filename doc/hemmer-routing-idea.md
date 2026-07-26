@@ -1,4 +1,24 @@
-> STATUS: design proposal - NOT implemented. Describes a possible future router, not current behavior.
+> STATUS: design proposal - NOT implemented, and partly overtaken by events.
+> Describes a possible future router, not current behavior. For current
+> behavior read [`../lib/lux/application/README.md`](../lib/lux/application/README.md).
+>
+> Several things this proposal wanted to delete are already gone, achieved by
+> trimming the existing router rather than replacing it (see
+> [`./migration-routing.md`](./migration-routing.md)):
+>
+> * `Lux::Controller::ACTION_ROUTES`, the per-action `route '/path'` macro,
+>   `action_route_match?` and `resolve_action_routes` - deleted. Dispatch is a
+>   single pass through the `routes` callbacks.
+> * The `_ref` action rename and the `ref do` macro - deleted. Resourceful
+>   dispatch resolves to the last non-`:ref` segment and the action reads
+>   `nav.ref`.
+> * Path matching is no longer spread across four matchers; `Lux::Application::Route`
+>   owns `match?` / `start_with?` / `capture` and the controller `filter` tree
+>   walks the same cursor as `map`.
+>
+> What remains genuinely unsolved is the **namespace-scoped `before`** and the
+> **plugin-appends-to-an-existing-namespace** problem in the "Why" below. Those
+> are the parts worth re-reading if this is ever picked up.
 
 # Hammer-style routing idea
 
@@ -9,11 +29,11 @@ cursor. The model is *positional and imperative*:
 
 * `map 'admin' do ... end` walks `lux.route` forward by one segment, then
   re-evaluates inside the block. Source order decides precedence.
-* Per-controller `route` annotations are a separate registry
-  (`Lux::Controller::ACTION_ROUTES`) checked before the routes block.
 * `before` / `before_action` are controller-class concepts; you cannot say
   "run this before anything mounted under `/admin`" without writing a
-  router-level `before` that re-checks the path.
+  router-level `before` that re-checks the path - or wrapping the whole
+  namespace in `map 'admin' do ... end` and putting the guard on the first
+  line, which is what apps do today.
 * Plugins extend by re-eval'ing their own `routes.rb`, which means a plugin
   cannot append to an existing namespace without the host file calling
   `plugin_route` at the right spot.
@@ -77,25 +97,15 @@ Same shapes `call` already accepts:
 
 ### Controllers shrink
 
-Controller-side `route` macros become sugar that registers at load time:
-
-```ruby
-class UsersController < Lux::Controller
-  route '/users/:ref', verb: :get
-  def show; ...; end
-end
-```
-
-becomes, at class-eval time:
-
-```ruby
-Lux::Router.ns(:_root).get('/users/:ref', [UsersController, :show])
-```
+> Written when controllers still had a `route '/path'` macro. That macro is
+> gone - URLs are declared in the router only - so there is nothing left to
+> desugar here. The paragraph below is the part that still matters.
 
 Controller `before_action` / `after` callbacks stay (they are per-action,
 not per-path), but the common "before-everything-under-/admin" use case
-migrates to `ns :admin do; before { ... }; end`. That alone should let us
-delete most of the controller-level `before` plumbing.
+migrates to `ns :admin do; before { ... }; end`. Today that is spelled
+`map 'admin' do` with the guard as the first statement in the block, which
+works but couples the guard to declaration order and to one call site.
 
 ### Resolution
 
@@ -127,13 +137,19 @@ the routes inside the same `ns`.
 ### What we drop
 
 * `lux.route` cursor + `with_scope` - patterns are absolute relative to
-  their node, no incremental walking.
-* `Lux::Controller::ACTION_ROUTES` global - rolled into the same tree.
-* `resolve_action_routes` / `resolve_routes` two-pass dispatch -
-  single tree walk does both.
+  their node, no incremental walking. **Note:** the cursor has since grown
+  into the single owner of path matching (`match?` / `start_with?` /
+  `capture`) and is what the controller `filter` tree walks, so dropping it
+  is a bigger cut today than it was when this was written.
 * The `routes do ... end` callback shape on `Lux::Application` -
   registration is load-time, not request-time. (Class-level `map`/`root`
   in `Lux.app do ... end` becomes top-level calls into the registry.)
+  This is the real cost of the proposal: every app router is an imperative
+  per-request pipeline (`general_rules`, `load_objects`, `admin_routes`,
+  then a `call 'main#auto'` catch-all), not a static table.
+
+Already dropped, without this refactor: `Lux::Controller::ACTION_ROUTES`
+and the `resolve_action_routes` / `resolve_routes` two-pass dispatch.
 
 ## Start plan
 
@@ -200,13 +216,11 @@ longer paths outrank shorter. Deterministic - no source order.
 
 Drop into `Application#render_base` in place of `resolve_routes`.
 
-### Step 4 - Controller `route` macro -> registry write
+### Step 4 - ~~Controller `route` macro -> registry write~~
 
-Move `params_dsl.rb`'s `route 'path', verbs: ...` so that on
-`method_added` it calls `Lux::Router.add(verb, pattern, [self, name])`
-instead of pushing to `ACTION_ROUTES`. Verb metadata moves out of
-`@_action_allows` (still needed for resourceful dispatch when no `route`
-was declared, until that path is removed too).
+Obsolete. The controller `route` macro and `ACTION_ROUTES` are gone; there
+is nothing to migrate. `@_action_allows` (the `allow` verb contract) stays
+on the controller either way - it gates the action, not the URL.
 
 ### Step 5 - Top-level DSL
 
@@ -223,8 +237,8 @@ Lux.app do
 end
 ```
 
-works without a `routes do` wrapper. The existing
-`@class_callbacks_routes` machinery in `application.rb:36-73` goes away.
+works without a `routes do` wrapper. The existing `ROUTING_DSL` /
+`@class_callbacks_routes` machinery on `Lux::Application` goes away.
 
 ### Step 6 - Port one app, prove it
 
@@ -237,9 +251,9 @@ gate the old resolver behind a config flag during the transition.
 Once the canary is green:
 
 * delete `lib/lux/application/lib/routes.rb` (`map`, cursor, etc.)
-* delete `Lux::Controller::ACTION_ROUTES`, `resolve_action_routes`,
-  `action_route_match?`
-* delete `lux.route` cursor + `with_scope`
+* delete `lux.route` cursor + `with_scope` - and with it `match?` /
+  `start_with?` / `capture`, so the controller `filter` tree needs a
+  replacement built on node patterns first
 * simplify `Lux::Controller`: drop controller-level `before` if `ns`-level
   `before` covers the use case; otherwise keep `before_action` as the
   per-action-name hook
@@ -247,13 +261,14 @@ Once the canary is green:
 ## Open questions
 
 * **Resourceful dispatch**: today `map 'users'` to `UsersController`
-  auto-derives `:index`/`:show`/`:edit`/... from the remaining path.
-  Worth preserving as `mount Klass, at: '/users'` sugar that registers
-  the standard 7 routes? Or force explicit declaration?
-* **`ref do`**: the `_ref` action rename is convenient but tightly coupled
-  to the cursor model. If routes are explicit patterns, `_ref` actions
-  can just declare their own pattern (`'/users/:ref/edit'`) and the rename
-  dance goes away. Likely a clean delete.
+  derives the action from the last non-`:ref` segment. Worth preserving as
+  `mount Klass, at: '/users'` sugar that registers the standard routes? Or
+  force explicit declaration? (Note: no app uses resourceful dispatch, so
+  "force explicit" costs nothing today.)
+* **Controller `filter` trees**: the heaviest real usage in app code is the
+  nested `filter :seg do` tree, which is a path-scoped `before` in
+  everything but name. `ns`-scoped `before` is meant to replace it - confirm
+  it can express the same thing (including `:ref` segments) before cutting.
 * **Plugin mount points**: should `mount Plugin::Foo, at: '/foo'` graft
   the plugin's whole subtree under that key, or should plugins always
   `ns :foo` themselves and assume the host mounts under root? Tree graft

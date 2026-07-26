@@ -63,6 +63,11 @@ class RoutesTestController < Lux::Controller
 
     render text: 'nested'
   end
+
+  allow :post
+  def posted
+    render text: 'posted'
+  end
 end
 
 class MountedRackApp
@@ -87,11 +92,8 @@ class BoardsController < Lux::Controller
   def root;    render text: 'boards:root';    end
   def new;     render text: 'boards:new';     end
   def archive; render text: 'boards:archive'; end
-
-  ref do
-    def show; render text: 'boards:show_ref'; end
-    def edit; render text: 'boards:edit_ref'; end
-  end
+  def show;    render text: 'boards:show';    end
+  def edit;    render text: 'boards:edit';    end
 end
 
 class ProfileController < Lux::Controller
@@ -100,16 +102,12 @@ class ProfileController < Lux::Controller
 end
 
 class AdminTestController < Lux::Controller
-  def root;  render text: 'admin:root:';  end
-  def edit;  render text: 'admin:edit:';  end
-  def users; render text: 'admin:users:'; end
-  def foo;   render text: 'admin:foo:';   end
-
-  ref do
-    def show; render text: "admin:show_ref:#{nav.ref}"; end
-    def edit; render text: "admin:edit_ref:#{nav.ref}"; end
-    def foo;  render text: "admin:foo_ref:#{nav.ref}";  end
-  end
+  def root;  render text: 'admin:root:';                 end
+  def edit;  render text: "admin:edit:#{nav.ref}";       end
+  def users; render text: "admin:users:#{nav.ref}";      end
+  def foo;   render text: "admin:foo:#{nav.ref}";        end
+  def bar;   render text: "admin:bar:#{nav.ref}";        end
+  def show;  render text: "admin:show:#{nav.ref}";       end
 end
 
 ###
@@ -143,6 +141,14 @@ Lux.app do
   map 'city' do
     root 'routes_test#city'
     map user: 'routes_test#user'
+  end
+
+  # verb-scope and subdomain blocks are written at the top level of Lux.app,
+  # so their `self` is the class until the router rebinds it
+  post? { map post_scope: 'routes_test#posted' }
+
+  subdomain 'sub' do
+    map 'page', 'routes_test#user'
   end
 
   map [:array1, :array2] => 'routes_test#root'
@@ -249,6 +255,24 @@ describe 'Lux::Application' do
     end
   end
 
+  describe 'verb-scope and subdomain blocks' do
+    it 'dispatches from inside a post? { } block' do
+      _(Lux.render.post('/post_scope').body).must_equal 'posted'
+    end
+
+    it 'does not match the post? scope on GET' do
+      _(Lux.render.get('/post_scope').status).must_equal 404
+    end
+
+    it 'dispatches from inside a subdomain block' do
+      _(Lux.render.get('http://sub.example.com/page').body).must_equal 'user'
+    end
+
+    it 'leaves other subdomains alone' do
+      _(Lux.render.get('http://other.example.com/page').status).must_equal 404
+    end
+  end
+
   it 'should render js route' do
     _(Lux.render.get('/routes_test/foo-nested.js').body[:a]).must_equal 1
   end
@@ -280,12 +304,12 @@ describe 'Lux::Application' do
       _(Lux.render.get('/boards/new').body).must_equal 'boards:new'
     end
 
-    it 'maps /boards/123 (:ref only) to :show_ref' do
-      _(Lux.render.get('/boards/123').body).must_equal 'boards:show_ref'
+    it 'maps /boards/123 (:ref only) to :show' do
+      _(Lux.render.get('/boards/123').body).must_equal 'boards:show'
     end
 
-    it 'maps /boards/123/edit to :edit_ref' do
-      _(Lux.render.get('/boards/123/edit').body).must_equal 'boards:edit_ref'
+    it 'maps /boards/123/edit to :edit' do
+      _(Lux.render.get('/boards/123/edit').body).must_equal 'boards:edit'
     end
 
     it 'maps /boards/archive (single action segment) to that action' do
@@ -310,32 +334,32 @@ describe 'Lux::Application' do
       _(Lux.render.get('/admin_test/edit').body).must_equal 'admin:edit:'
     end
 
-    it '/admin_test/123 -> :show_ref with nav.ref' do
-      _(Lux.render.get('/admin_test/123').body).must_equal 'admin:show_ref:123'
+    it '/admin_test/123 (only a :ref left) -> :show with nav.ref' do
+      _(Lux.render.get('/admin_test/123').body).must_equal 'admin:show:123'
     end
 
-    it '/admin_test/123/edit -> :edit_ref with nav.ref' do
-      _(Lux.render.get('/admin_test/123/edit').body).must_equal 'admin:edit_ref:123'
+    it '/admin_test/123/edit -> :edit with nav.ref' do
+      _(Lux.render.get('/admin_test/123/edit').body).must_equal 'admin:edit:123'
     end
 
     it '/admin_test/users -> :users (sub-resource as action)' do
       _(Lux.render.get('/admin_test/users').body).must_equal 'admin:users:'
     end
 
-    it '/admin_test/users/123 -> :show_ref with nav.ref' do
-      _(Lux.render.get('/admin_test/users/123').body).must_equal 'admin:show_ref:123'
+    it '/admin_test/users/123 -> :users (last non-ref segment) with nav.ref' do
+      _(Lux.render.get('/admin_test/users/123').body).must_equal 'admin:users:123'
     end
 
-    it '/admin_test/users/123/edit -> :edit_ref with nav.ref' do
-      _(Lux.render.get('/admin_test/users/123/edit').body).must_equal 'admin:edit_ref:123'
+    it '/admin_test/users/123/edit -> :edit with nav.ref' do
+      _(Lux.render.get('/admin_test/users/123/edit').body).must_equal 'admin:edit:123'
     end
 
-    it '/admin_test/users/foo/bar -> :foo (trailing segment ignored, no :ref)' do
-      _(Lux.render.get('/admin_test/users/foo/bar').body).must_equal 'admin:foo:'
+    it '/admin_test/users/foo/bar -> :bar (last segment wins)' do
+      _(Lux.render.get('/admin_test/users/foo/bar').body).must_equal 'admin:bar:'
     end
 
-    it '/admin_test/users/123/foo/bar -> :foo_ref (has :ref, suffix applied)' do
-      _(Lux.render.get('/admin_test/users/123/foo/bar').body).must_equal 'admin:foo_ref:123'
+    it '/admin_test/users/123/foo/bar -> :bar with nav.ref' do
+      _(Lux.render.get('/admin_test/users/123/foo/bar').body).must_equal 'admin:bar:123'
     end
   end
 end

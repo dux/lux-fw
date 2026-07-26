@@ -54,12 +54,12 @@ module Lux
       #                                `def filter` on the controller and call
       #                                `super` to keep the class-level block.
       #
-      #   filter :seg [, :seg] do end  Runtime nav.path matcher. Runs the block
-      #                                only when the segments at the current depth
-      #                                match; nesting descends one segment per
-      #                                level so filters read like the URL. `:ref`
-      #                                matches the extracted ref placeholder. Pass
-      #                                several segments to match in one step
+      #   filter :seg [, :seg] do end  Runtime route matcher. Runs the block only
+      #                                when the segments at the cursor match;
+      #                                nesting descends one segment per level so
+      #                                filters read like the URL. `:ref` matches
+      #                                the extracted ref placeholder. Pass several
+      #                                segments to match in one step
       #                                (`filter :admin, :users`). A filter that
       #                                renders or redirects sets the response
       #                                body, so the action is then skipped.
@@ -68,6 +68,10 @@ module Lux
       #         filter :admin do ... end   # /spaces/:ref/admin
       #       end
       #     end
+      #
+      # Matching runs against `lux.route`, the same cursor `map` advances, so a
+      # controller mounted under a prefix (`map 'dev', 'dev#auto'`) does not
+      # repeat that prefix in its filters.
       def filter *segments, &block
         if segments.empty? && block.nil?
           if blk = self.class.filter
@@ -77,46 +81,38 @@ module Lux
         end
 
         return unless block
+        return unless lux.route.start_with?(*segments)
 
-        @filter_depth ||= 0
-        path     = nav.path.drop(@filter_depth).map { _1.to_s.gsub('-', '_') }
-        segments = segments.map { _1.to_s.gsub('-', '_') }
-
-        return unless path[0, segments.length] == segments
-
-        @filter_depth += segments.length
-        instance_eval(&block)
-        @filter_depth -= segments.length
+        lux.route.with_scope(segments.length) { instance_eval(&block) }
       end
 
       private
 
       # Find a template by path under cattr.template_root (default ./app/views).
       # Tries /path.{haml,md,erb} then /path/root.{...}; returns the path or nil.
+      # URL segments are underscored here because that is how template files are
+      # named on disk.
       #   auto_find_template(['main', 'notes'])  ->  '/main/notes' or nil
       def auto_find_template path
         root     = cattr.template_root
-        path     = path.flatten.map { _1.to_s.gsub('-', '_') }
-        tpl_root = '/' + path.join('/')
+        tpl_root = '/' + path.flatten.map { _1.to_s.tr('-', '_') }.join('/')
+        key      = "#{root}#{tpl_root}"
 
-        AUTO_PATH_CACHE[tpl_root] = nil if Lux.env.dev?
-        AUTO_PATH_CACHE[tpl_root] ||= begin
-          for check in [tpl_root, "#{tpl_root}/root"]
-            for ext in AUTO_EXTS
-              return check if File.exist?("#{root}#{check}.#{ext}")
-            end
-          end
-          nil
+        AUTO_PATH_CACHE.delete(key) if Lux.env.dev?
+        return AUTO_PATH_CACHE[key] if AUTO_PATH_CACHE.key?(key)
+
+        AUTO_PATH_CACHE[key] = [tpl_root, "#{tpl_root}/root"].find do |check|
+          AUTO_EXTS.any? { |ext| File.exist?("#{root}#{check}.#{ext}") }
         end
       end
 
-      # Render the template matching cattr.layout + nav.path, or raise a 404.
-      # The 404 flows through the app error sink, which renders the error template
-      # at the layout root (e.g. app/views/main/error.haml).
+      # Render the template matching cattr.layout + the remaining route path, or
+      # raise a 404. The 404 flows through the app error sink, which renders the
+      # error template at the layout root (e.g. app/views/main/error.haml).
       def auto_render
         return if lux.response.body?
 
-        path = [template_dir] + nav.path
+        path = [template_dir] + lux.route.path
         if tpl = auto_find_template(path)
           render tpl
         else

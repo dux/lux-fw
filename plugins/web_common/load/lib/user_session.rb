@@ -13,7 +13,7 @@
 
 module UserSession
   extend self
-  extend Lux::Application::Shared
+  extend Lux::Lifecycle
 
   USER_REF      = :user_ref
   SUDO_USER_REF = :sudo_user_ref

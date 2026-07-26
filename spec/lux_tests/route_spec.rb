@@ -89,4 +89,121 @@ describe Lux::Application::Route do
       _(Lux.current.nav.path).must_equal %w[a b c]
     end
   end
+
+  describe '#match?' do
+    it 'matches a String against the cursor root' do
+      _(route_for('/admin/users').match?('admin')).must_equal true
+      _(route_for('/admin/users').match?('users')).must_equal false
+    end
+
+    it 'strips a leading slash from the pattern' do
+      _(route_for('/admin').match?('/admin')).must_equal true
+    end
+
+    it 'matches a Symbol' do
+      _(route_for('/admin').match?(:admin)).must_equal true
+    end
+
+    it 'matches a Regexp against the raw segment' do
+      _(route_for('/@dux').match?(%r{^@})).must_equal true
+      _(route_for('/dux').match?(%r{^@})).must_equal false
+    end
+
+    it 'matches any member of an Array' do
+      _(route_for('/b').match?([:a, :b])).must_equal true
+      _(route_for('/c').match?([:a, :b])).must_equal false
+    end
+
+    it 'treats - and _ as the same character on both sides' do
+      _(route_for('/cash-book').match?(:cash_book)).must_equal true
+      _(route_for('/cash_book').match?('cash-book')).must_equal true
+    end
+
+    it 'is false at the end of the path' do
+      route = route_for('/a')
+      route.with_scope(1) { _(route.match?('a')).must_equal false }
+    end
+
+    it 'follows the cursor, not nav.path' do
+      route = route_for('/admin/users')
+      _(route.match?('users')).must_equal false
+      route.with_scope(1) { _(route.match?('users')).must_equal true }
+    end
+  end
+
+  describe '#start_with?' do
+    it 'matches a single segment at the cursor' do
+      _(route_for('/spaces/abc').start_with?(:spaces)).must_equal true
+      _(route_for('/notes/abc').start_with?(:spaces)).must_equal false
+    end
+
+    it 'matches several segments in one step' do
+      _(route_for('/admin/users/1').start_with?(:admin, :users)).must_equal true
+      _(route_for('/admin/notes/1').start_with?(:admin, :users)).must_equal false
+    end
+
+    it 'normalizes dashes' do
+      _(route_for('/cash-book-entries/1').start_with?(:cash_book_entries)).must_equal true
+    end
+
+    it 'matches the :ref placeholder after classification' do
+      Lux::Current.new('http://example.com/spaces/abc123')
+      Lux.current.nav.path(:ref) { |el| el == 'abc123' ? el : nil }
+      _(Lux.current.route.start_with?(:spaces, :ref)).must_equal true
+    end
+
+    it 'is false with no segments given' do
+      _(route_for('/a').start_with?).must_equal false
+    end
+
+    it 'is false when the path is shorter than the pattern' do
+      _(route_for('/admin').start_with?(:admin, :users)).must_equal false
+    end
+
+    it 'follows the cursor' do
+      route = route_for('/dev/settings')
+      _(route.start_with?(:settings)).must_equal false
+      route.with_scope(1) { _(route.start_with?(:settings)).must_equal true }
+    end
+  end
+
+  describe '#capture' do
+    it 'returns an empty hash for a literal match' do
+      _(route_for('/city/people').capture('/city/people')).must_equal({})
+    end
+
+    it 'returns nil when a literal segment differs' do
+      _(route_for('/city/people').capture('/town/people')).must_be_nil
+    end
+
+    it 'binds :name placeholders' do
+      _(route_for('/zagreb/people').capture('/:city/people')).must_equal({ city: 'zagreb' })
+    end
+
+    it 'matches from the URL root, not the cursor' do
+      route = route_for('/a/b')
+      route.with_scope(1) { _(route.capture('/a/b')).must_equal({}) }
+    end
+
+    it 'does not match when a placeholder has no segment to bind' do
+      _(route_for('/users').capture('/users/:id')).must_be_nil
+    end
+
+    it 'binds the id, not the placeholder, when nav.path(:ref) already ran' do
+      Lux::Current.new('http://example.com/users/abc123/dashboard')
+      Lux.current.nav.path(:ref) { |el| el == 'abc123' ? el : nil }
+      _(Lux.current.nav.path).must_equal ['users', :ref, 'dashboard']
+      _(Lux.current.route.capture('/users/:ref/dashboard')).must_equal({ ref: 'abc123' })
+    end
+
+    it 'binds the right id when several refs precede the capture' do
+      Lux::Current.new('http://example.com/a/r1/b/r2')
+      Lux.current.nav.path(:ref) { |el| el.start_with?('r') ? el : nil }
+      _(Lux.current.route.capture('/a/:x/b/:y')).must_equal({ x: 'r1', y: 'r2' })
+    end
+
+    it 'reports the segment count it consumes' do
+      _(route_for('/a/b').capture_length('/:x/b')).must_equal 2
+    end
+  end
 end

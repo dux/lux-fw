@@ -20,10 +20,10 @@ Mirrors two existing patterns:
      `Dir[...][0]`, like `find_layout` already does) -> `Tilt.new(path)`
    * `Tilt` object - a ready template (DB-stored / generated source) -> used directly
    * `nil` - not handled, try next resolver (else 404)
-2. Scope - views only (`compile_template`). Layouts (`find_layout`) and the
-   controller `_ref` existence probe (`template_file_exists?`) stay file-only.
-   Resolvers are a render-time fallback, not part of probing. Easy to extend to
-   layouts later.
+2. Scope - views only (`compile_template`). Layouts (`find_layout`), the
+   controller error-template probe (`template_file_exists?`) and the convention
+   router's lookup (`Auto#auto_find_template`) stay file-only. Resolvers are a
+   render-time fallback, not part of probing. Easy to extend later.
 3. Registration stays explicit (matches no-boot-magic preference):
    `Lux::Template.resolvers << ->(path) { ... }`
 

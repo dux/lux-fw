@@ -39,8 +39,6 @@ module Lux
         store = @app_class.instance_variable_get(:@class_callbacks_routes) || {}
 
         with_stub_current do
-          dump_action_routes
-
           # iterate a snapshot - some wrapped procs would otherwise re-enter
           # the singleton DSL and mutate the hash mid-walk
           store.to_a.each do |source, value|
@@ -68,14 +66,20 @@ module Lux
         record verb: '*', path: base, target: stringify(target)
       end
 
-      def map route_object = nil, target = nil, &block
+      def map route_object = nil, target = nil, opts = nil, &block
         if block_given?
           push_segment(route_object)
-          instance_exec(@path.last, &block)
+          # the router passes the segment AFTER the one it just consumed
+          # (lux.route.root inside the new scope); there is no such segment
+          # while dumping, so pass nil rather than the matched one.
+          instance_exec(nil, &block)
           @path.pop
         else
-          # single non-Hash arg dispatches unconditionally - mirror `call`
-          if target.nil? && !route_object.is_hash?
+          # only an explicit 'controller#action' string dispatches
+          # unconditionally - mirror `map`, which gates everything else on the
+          # route cursor. A bare `map 'boards'` matches /boards.
+          if target.nil? && route_object.is_a?(::String) &&
+             route_object.include?('#') && !route_object.end_with?('#')
             return call(route_object)
           end
 
@@ -166,25 +170,6 @@ module Lux
       end
 
       private
-
-      # Append per-action `route` annotations from the global registry. Verb
-      # column is the joined `allowed_verbs_for` set so the dump reflects what
-      # the action will actually accept.
-      #
-      # Per-action routes are global (controller-level), not app-scoped, so
-      # only emit them when dumping the main Lux::Application. Test-app
-      # subclasses (e.g. RoutesDumper specs) stay isolated.
-      def dump_action_routes
-        return unless @app_class.equal?(Lux::Application)
-
-        Lux::Controller.action_routes.each do |entry|
-          verbs   = entry[:controller].allowed_verbs_for(entry[:action])
-          verb    = verbs == :any ? '*' : verbs.to_a.map { |v| v.to_s.upcase }.join('|')
-          target  = '%s#%s [action-route]' % [entry[:controller], entry[:action]]
-          @source = (entry[:controller].instance_method(entry[:action]).source_location || [entry[:controller].to_s]).first
-          record verb: verb, path: entry[:path], target: target
-        end
-      end
 
       def push_segment obj
         # bare class names inside module Lux resolve to Lux::* aliases - guard

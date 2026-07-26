@@ -233,12 +233,24 @@ Lux do
     root 'main'
     map about: 'static#about' if get?
     map 'admin' do
+      raise Lux.error.not_found unless user&.can&.admin?   # path-scoped guard
       map users: 'admin/users'
     end
     map '/api' => ApiApp
   end
 end
 ```
+
+Two rules worth knowing up front:
+
+* **The first match ends routing.** A dispatch that writes the response body
+  throws `:done`, caught once in the router, so every later statement in the
+  block is skipped. No `unless response.body?` guards needed after a
+  `map` / `call` / `root`.
+* **`-` and `_` are the same character** to `map`, `match`, controller
+  `filter` and resourceful dispatch - normalised on both sides at compare
+  time. `nav.path` keeps the URL's own spelling, so slug lookups still see
+  `my-post-title`.
 
 ### Lux::Cache
 
@@ -535,7 +547,7 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 | Plugin | What | Docs |
 |--------|------|------|
 | `db`               | Sequel model extensions, auto-migrate, `link` associations | [README](./plugins/db/README.md) |
-| `web_common`       | Shared web layer: html builders, assets, authcog controller, convention-routing mixin, PG exception logger + `/admin` | [README](./plugins/web_common/README.md) |
+| `web_common`       | Shared web layer: html builders, assets, authcog controller, user session + sudo, PG exception logger + `/admin` | [README](./plugins/web_common/README.md) |
 | `job_runner`       | Background job queue (LuxJob) | [README](./plugins/job_runner/README.md) |
 | `lux_logger`       | Structured database logger | [README](./plugins/lux_logger/README.md) |
 | `oauth`            | OAuth integration | [README](./plugins/oauth/README.md) |

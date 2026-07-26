@@ -76,32 +76,31 @@ describe Lux::Controller::Auto do
     end
   end
 
-  describe 'depth optimization' do
-    it 'skips subsequent top-level filters after a match' do
-      # /spaces matches :spaces, should NOT check :cash_book_entries or :notes
+  describe 'sibling filters' do
+    # Filters are not "skipped" after a match - every sibling at the same depth
+    # is evaluated, they just do not match. The cursor is restored on block exit.
+    it 'runs only the sibling whose segment matches' do
       result = run_filter_for('spaces')
       _(result).must_equal [:spaces]
       _(result).wont_include :cash_book_entries
       _(result).wont_include :notes
     end
 
-    it 'skips subsequent top-level filters even when nested miss' do
-      # /spaces matches at depth 0 but :ref misses at depth 1
-      # :cash_book_entries at depth 0 should still be skipped
+    it 'leaves the cursor where it was when a nested filter misses' do
+      # /spaces matches at depth 0 but :ref misses at depth 1, so the following
+      # depth-0 siblings still compare against segment 0
       result = run_filter_for('spaces')
       _(result).must_equal [:spaces]
     end
 
-    it 'still checks siblings at same depth when prior sibling missed' do
-      # /spaces/ref/settings - :ref matches, inside :ref block
-      # :admin misses at depth 2, :settings should still be checked at depth 2
+    it 'checks a later sibling at the same depth when the prior one missed' do
+      # /spaces/ref/settings - :ref matches, :admin misses at depth 2,
+      # :settings is still evaluated at depth 2
       result = run_filter_for('spaces/ref/settings')
       _(result).must_equal [:spaces, :spaces_ref, :spaces_ref_settings]
     end
 
-    it 'skips sibling at same depth after a match' do
-      # /spaces/ref/admin - :admin matches at depth 2
-      # :settings at depth 2 should be skipped
+    it 'does not run a non-matching sibling after a match at the same depth' do
       result = run_filter_for('spaces/ref/admin')
       _(result).must_include :spaces_ref_admin
       _(result).wont_include :spaces_ref_settings
@@ -115,6 +114,41 @@ describe Lux::Controller::Auto do
 
     it 'matches nested hyphenated paths' do
       _(run_filter_for('cash-book-entries/ref')).must_equal [:cash_book_entries, :cash_book_entries_ref]
+    end
+  end
+
+  describe 'route cursor composition' do
+    # A controller mounted under a prefix (map 'x', 'x#auto') must not repeat
+    # that prefix in its filters - filter reads lux.route, which the map scope
+    # already advanced.
+    it 'matches from the cursor, not from nav.path[0]' do
+      Lux::Current.new('http://test/mounted/spaces')
+      ctrl = AutoControllerTestController.new
+
+      Lux.current.route.with_scope(1) do
+        ctrl.action(:run_filters) rescue nil
+      end
+
+      _(ctrl.matched_filters).must_equal [:spaces]
+    end
+
+    it 'does not match the consumed mount segment' do
+      Lux::Current.new('http://test/spaces/notes')
+      ctrl = AutoControllerTestController.new
+
+      Lux.current.route.with_scope(1) do
+        ctrl.action(:run_filters) rescue nil
+      end
+
+      _(ctrl.matched_filters).must_equal [:notes]
+    end
+
+    it 'restores the cursor after a filter block' do
+      Lux::Current.new('http://test/spaces/ref')
+      ctrl = AutoControllerTestController.new
+      ctrl.action(:run_filters) rescue nil
+
+      _(Lux.current.route.path).must_equal %w[spaces ref]
     end
   end
 end

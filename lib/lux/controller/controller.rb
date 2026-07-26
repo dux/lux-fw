@@ -38,17 +38,6 @@ module Lux
     define_callback :before_render
     define_callback :after
 
-    # Global ordered list of action-route entries. Populated by the `route`
-    # class macro (see params_dsl.rb#method_added). Each entry is a hash:
-    #   { controller: ClassObject, action: :name, path: '/users/:ref', opts: {} }
-    # Application#resolve_action_routes walks this list at request time; first
-    # match wins. Source/load order is match order.
-    ACTION_ROUTES ||= []
-
-    def self.action_routes
-      ACTION_ROUTES
-    end
-
     class << self
       # simple shortcut allows direct call to action, bypasing call
       def action *args, **kwargs
@@ -56,7 +45,7 @@ module Lux
       end
 
       # render a template in this controller's scope without action dispatch
-      # skips before/after callbacks — just renders template with layout and helpers
+      # skips before/after callbacks - just renders template with layout and helpers
       # MainController.render_template(:error)
       # MainController.render_template(:error, self)
       def render_template template, scope = nil
@@ -85,57 +74,6 @@ module Lux
         define_method(:error) { instance_exec(@error, &block) }
       end
 
-      # Groups action definitions that handle ID-bearing URLs. Every `def NAME`
-      # inside the block is renamed to `NAME_ref` after the block runs, matching
-      # the routing rule that paths containing `:ref` resolve to `<action>_ref`.
-      #
-      #   class UsersController < Lux::Controller
-      #     def edit       # /users/edit   -> :edit
-      #     end
-      #
-      #     ref do
-      #       def edit     # /users/123/edit -> :edit_ref
-      #         @user = User.find(nav.ref)
-      #       end
-      #
-      #       def show     # /users/123 -> :show_ref
-      #       end
-      #     end
-      #   end
-      #
-      # Snapshot-diff approach: capture instance_methods before/after `class_eval`
-      # and rename whatever the block introduced. Public + private both captured.
-      # If the block REDEFINES an existing method (e.g. `def foo` exists outside
-      # and `def foo` also inside `ref do`), the inner impl becomes `foo_ref`
-      # and the outer impl is restored as `foo`.
-      def ref &block
-        before = {}
-        (instance_methods(false) + private_instance_methods(false)).each do |n|
-          before[n] = instance_method(n)
-        end
-
-        class_eval(&block)
-
-        (instance_methods(false) + private_instance_methods(false)).each do |n|
-          next if n.to_s.end_with?('_ref')
-          after_impl  = instance_method(n)
-          before_impl = before[n]
-
-          if before_impl.nil?
-            # newly defined inside the block - rename to _ref
-            remove_method(n)
-            define_method(:"#{n}_ref", after_impl)
-            remap_action_metadata(n, :"#{n}_ref")
-          elsif before_impl != after_impl
-            # redefined - inner impl is the _ref version, restore outer
-            remove_method(n)
-            define_method(n, before_impl)
-            define_method(:"#{n}_ref", after_impl)
-            remap_action_metadata(n, :"#{n}_ref")
-          end
-        end
-      end
-
       # Self-contained HTML error page (no template lookup). Fallback used by the
       # default Lux::Controller#error action when the app has no error template;
       # can be called directly from a custom :error to wrap the framework chrome
@@ -150,41 +88,12 @@ module Lux
 
         DEFAULT_ERROR_TEMPLATE.result(binding)
       end
-
-      private
-
-      # Move per-action metadata (opts + verb allows + routes snapshotted by
-      # method_added when the inner def fired) from the pre-rename key to the
-      # `_ref` key, so params validation, verb enforcement and the global
-      # route registry see the entry under the dispatched name.
-      def remap_action_metadata from, to
-        if (store = instance_variable_get(:@_action_opts)) && store.key?(from)
-          store[to] = store.delete(from)
-        end
-        if (store = instance_variable_get(:@_action_allows)) && store.key?(from)
-          store[to] = store.delete(from)
-        end
-        if (store = instance_variable_get(:@_action_routes)) && store.key?(from)
-          store[to] = store.delete(from)
-        end
-        # update entries in the global route registry as well, otherwise the
-        # dispatcher would call :foo (which has been renamed away) instead of
-        # :foo_ref.
-        Lux::Controller.action_routes.each do |entry|
-          if entry[:controller].equal?(self) && entry[:action] == from
-            entry[:action] = to
-          end
-        end
-      end
-
     end
 
     ### INSTANCE METHODS
 
     IVARS ||= Struct.new 'LuxControllerIvars', :template_suffix, :action, :layout, :render_cache
     RENDER_OPTS ||= Struct.new 'LuxControllerRenderOpts', :inline, :text, :plain, :html, :json, :javascript, :xml, :cache, :template, :layout, :render_to_string, :status, :ttl, :content_type
-
-    attr_reader :controller_action
 
     def initialize
       # before and after should be exected only once
@@ -201,19 +110,20 @@ module Lux
 
       ivars.each { |k, v| instance_variable_set(k, v) }
 
-      method_name = method_name.to_sym unless method_name.is_a?(Symbol)
+      # The single action-name sanitiser - dashes to underscores, non-word
+      # characters dropped. Every dispatch path lands here (router `call`,
+      # in-controller `action(:x)` transfer, direct `Klass.action`).
+      method_name = method_name.to_s.tr('-', '_').gsub(/[^\w]/, '').to_sym
 
       if method_name == :action
         raise Lux.error.internal_server_error('Forbiden action name :%s' % method_name)
       end
 
-      method_name = method_name.to_s.gsub('-', '_').gsub(/[^\w]/, '')
-
       # dev console log
       Lux.log { ' %s#%s (action)'.colorize(:light_blue) % [self.class, method_name] }
       # Lux.log { ' %s' % self.class.source_location }
 
-      @lux.action = method_name.to_sym
+      @lux.action = method_name
 
       # fail-fast verb check before any callbacks run. Default is GET + HEAD
       # + OPTIONS; add other verbs per-action via `allow :post, :patch`.
@@ -259,7 +169,7 @@ module Lux
       lux.response.flash
     end
 
-    # Default :error action — renders the app error template at the layout root
+    # Default :error action - renders the app error template at the layout root
     # (e.g. app/views/main/error.haml) when present, else a self-contained HTML page.
     # Override on any controller (def error) or via the rescue_from class macro.
     # Reads @error and @status set by Application#render_error before dispatch; the
@@ -283,7 +193,7 @@ module Lux
       lux.response.redirect_to where, flash
     end
 
-    # delegated to current — use lux.request.get?, lux.request.post?, etc. for HTTP method checks
+    # delegated to current - use lux.request.get?, lux.request.post?, etc. for HTTP method checks
     define_method(:etag)          { |*args| lux.response.etag *args }
     define_method(:layout)        { |arg = :_nil| arg == :_nil ? @lux.layout : (@lux.layout = arg) }
     define_method(:cache_control) { |arg| lux.response.headers['cache-control'] = arg }
@@ -293,7 +203,7 @@ module Lux
       lux.response.send_file(file, opts)
     end
 
-    # does not set the body, returns body string
+    # Renders and returns the markup without touching the response body.
     def render_to_string name=nil, opts={}
       opts[:render_to_string] = true
       render name, opts
@@ -312,9 +222,13 @@ module Lux
     # render json: { a: 1 }
     # render html: '<h1>hi</h1>', status: 200
     def render name = nil, opts = {}
-      return if lux.response.body?
-
       opt = normalize_render_opts(name, opts)
+
+      # render_to_string is a pure "give me the markup" call - it must not read
+      # or write the response, so it bypasses the body? guard below.
+      return render_template(opt) if opt.render_to_string
+
+      return if lux.response.body?
 
       lux.response.status opt.status if opt.status
       lux.response.content_type = opt.content_type if opt.content_type
@@ -381,19 +295,10 @@ module Lux
       helper_name  = cattr.helper || layout_name
       local_helper = self.helper helper_name
 
-      # Template path comes from the action name verbatim (including `_ref`
-      # suffix from ref-bearing resourceful actions). If no template file
-      # exists for `show_ref.haml/erb/...`, fall back to `show.haml/erb/...`
-      # so apps can share a template between `:show` and `:show_ref` or have
-      # a dedicated one when they want. Explicit `render template: 'X'` skips
-      # the fallback.
+      # Template path comes from the action name verbatim.
       template = (opt.template || @lux.action).to_s.sub(/^\//, '')
       page_template = build_template_path(template, view_dir)
 
-      if !opt.template && template.end_with?('_ref') && !template_file_exists?(page_template)
-        template = template.sub(/_ref$/, '')
-        page_template = build_template_path(template, view_dir)
-      end
       Lux.current.var['views_root'] ||= cattr.template_root
       Lux.current.var.root_template_path = page_template.sub(%r{/[\w]+$}, '')
       data = opt.inline || Lux::Template.render(local_helper, {template: page_template, dev_info: "Helper: #{helper_name.to_s.classify}Helper, Template: #{page_template}" })
@@ -404,10 +309,6 @@ module Lux
       end
 
       data
-    end
-
-    def namespace
-      self.class.to_s.split('::').first.underscore.to_sym
     end
 
     HELPERS ||= {}

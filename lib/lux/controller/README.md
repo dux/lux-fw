@@ -50,15 +50,13 @@ class BoardsController < ApplicationController
     @boards = @user.boards
   end
 
-  # Member actions inside ref do { ... } are renamed to <name>_ref
-  ref do
-    def show         # /boards/123        -> :show_ref, nav.ref = '123'
-      @board = Board.find(nav.ref)
-    end
+  # One action serves both the collection and the member URL - branch on nav.ref
+  def show           # /boards/123        -> :show, nav.ref = '123'
+    @board = Board.find(nav.ref)
+  end
 
-    def edit         # /boards/123/edit   -> :edit_ref
-      @board = Board.find(nav.ref)
-    end
+  def edit           # /boards/edit and /boards/123/edit -> :edit
+    @board = Board.find(nav.ref) if nav.ref
   end
 
   mock :show, :about                           # generate empty actions for templates
@@ -167,70 +165,29 @@ The same `allow` word exists in `Lux::Api`, with the inverse default: API
 endpoints default to `POST`, and `allow :get` adds GET on top. Same word,
 same shape, the framework-appropriate default per system.
 
-## Per-action routes
-
-Actions can declare their own absolute URLs with `route`. The annotation
-sits above the `def` (same opt-the-next-def-in shape as `opt` / `allow`),
-multiple lines stack as URL aliases for the same handler, and resolution
-happens after the application's `before` filters run - so any user-loading
-filter has already populated ivars by the time the action dispatches.
-
-```ruby
-class UsersController < Lux::Controller
-  route '/users'
-  def index; end                       # GET /users
-
-  route '/u/:slug'
-  allow :get, :post
-  def by_slug; end                     # GET or POST /u/anything
-
-  route '/users/new'
-  route '/users/create'                # two URLs, one handler
-  allow :get, :post
-  def create; end
-
-  ref do
-    route '/users/:ref/dashboard'
-    def dashboard; end                 # method becomes :dashboard_ref;
-                                       # nav.ref bound from the :ref capture
-  end
-end
-```
-
-Rules:
-
-* Paths must be absolute (start with `/`). They are not scoped under any
-  `routes do` mount point.
-* Captures (`:name`) land in `nav.params[:name]`. A `:ref` capture also
-  binds `nav.ref` for the resourceful convenience.
-* `allow` still governs verb enforcement - `route` is path-only. No `allow`
-  means GET + HEAD + OPTIONS only.
-* `ref do` placement is what triggers the `_ref` method rename. A `route`
-  above a `def` inside `ref do` follows the method to the `_ref` key.
-* Per-action routes take priority over `routes do` resourceful dispatch.
-  Within the per-action registry, source/load order is match order; first
-  match wins.
-
-Subdomain routing and wildcards/regex paths are not supported here -
-keep using `routes do` for those.
-
 ## Routing primer
 
-URLs map to actions resourcefully when `nav.path(:ref) { ... }` is set in
-a `before` filter (see [`../application/README.md`](../application/README.md)
-for the routing DSL).
+All routing lives in the app router - there are no per-action URL
+annotations. See [`../application/README.md`](../application/README.md) for the
+DSL. URLs map to actions resourcefully when `nav.path(:ref) { ... }` (or
+`nav.load_models`) has canonicalised id segments to `:ref`:
 
-| URL                       | Action       | `nav.ref` |
-|---------------------------|--------------|-----------|
-| `/users`                  | `:root`      | nil       |
-| `/users/edit`             | `:edit`      | nil       |
-| `/users/123`              | `:show_ref`  | "123"     |
-| `/users/123/edit`         | `:edit_ref`  | "123"     |
-| `/users/foo/bar`          | `:foo`       | nil       |
-| `/users/123/foo/bar`      | `:foo_ref`   | "123"     |
+| URL                       | Action    | `nav.ref` |
+|---------------------------|-----------|-----------|
+| `/users`                  | `:root`   | nil       |
+| `/users/edit`             | `:edit`   | nil       |
+| `/users/123`              | `:show`   | "123"     |
+| `/users/123/edit`         | `:edit`   | "123"     |
+| `/users/posts/123`        | `:posts`  | "123"     |
+| `/users/foo/bar`          | `:bar`    | nil       |
 
-`def NAME` inside `ref do ... end` becomes `:NAME_ref`. Template lookup
-tries `<name>_ref.haml` then falls back to `<name>.haml`.
+The action is the last non-`:ref` segment, so one method serves both the
+collection and the member URL - read `nav.ref` to tell them apart. To give a
+member action its own URL, route it explicitly:
+
+```ruby
+map '/users/:ref/dashboard' => 'users#dashboard'
+```
 
 ## Instance helpers
 
@@ -252,10 +209,10 @@ tries `<name>_ref.haml` then falls back to `<name>.haml`.
 ## Convention routing - `Lux::Controller::Auto`
 
 Mixed into every controller by default (see `controller.rb`), so any controller
-can be convention-routed: instead of writing an action per URL, it maps
-`nav.path` to a template under `cattr.template_root` (default `./app/views`),
-keyed by `cattr.layout`. Lives in core (`lib/lux/controller/auto_controller.rb`);
-mount it with `call 'main#auto'`.
+can be convention-routed: instead of writing an action per URL, it maps the
+route path to a template under `cattr.template_root` (default `./app/views`),
+keyed by `cattr.views` / `cattr.layout`. Lives in core
+(`lib/lux/controller/auto_controller.rb`); mount it with `call 'main#auto'`.
 
 ```ruby
 class MainController < FrontendController
@@ -274,14 +231,29 @@ It supplies an `auto` that runs `filter`, then `auto_render` unless a filter
 already wrote the body. Key pieces:
 
 * `auto` - entry point: `filter` then `auto_render`. Override for full control.
-* `auto_render` - renders the `views` (default layout name) + `nav.path` template
-  (`app/views/<views>/<path>.{haml,md,erb}`, or `.../root.*`), else raises 404.
+* `auto_render` - renders the `views` (default layout name) + the remaining
+  route path (`app/views/<views>/<path>.{haml,md,erb}`, or `.../root.*`), else
+  raises 404.
 * `auto_find_template(path)` - resolves a path array to a template, or nil.
 * `filter` - two shapes share the name. With no args it is the entry hook that
   runs the class-level `filter do |mount_on| ... end` block. With segments
-  (`filter :seg do ... end`) it is a `nav.path` matcher that descends one
+  (`filter :seg do ... end`) it matches against `lux.route` and descends one
   segment per nesting level, so filters read like the URL; a filter that
   renders or redirects sets the body and skips `auto_render`.
+
+Filters and `auto_render` read the **route cursor**, not `nav.path`, so a
+controller mounted under a prefix does not repeat it:
+
+```ruby
+map 'dev', 'dev#auto'     # router consumes 'dev'
+
+class DevController < FrontendController
+  layout :dev
+  filter :settings do     # matches /dev/settings - no `filter :dev` wrapper
+    ...
+  end
+end
+```
 
 ## See also
 

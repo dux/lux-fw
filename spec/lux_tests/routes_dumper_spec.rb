@@ -6,6 +6,8 @@ class DumpApp < Lux::Application
 
   root 'main'
   map about: 'static#about'
+  map 'boards'                     # bare resourceful map - matches /boards
+  map 'reports#monthly'            # explicit c#a - unconditional dispatch
   map 'admin' do
     root 'admin/dashboard'
     map users: 'admin/users'
@@ -31,6 +33,18 @@ describe Lux::Application::RoutesDumper do
     e = entries.find { |x| x.path == '/about' }
     _(e).wont_be_nil
     _(e.target).must_equal 'static#about'
+  end
+
+  it 'records a bare resourceful map at its own segment, not at /' do
+    e = entries.find { |x| x.path == '/boards' }
+    _(e).wont_be_nil
+    _(e.target).must_equal 'boards'
+  end
+
+  it "records a bare 'controller#action' map at / (it dispatches unconditionally)" do
+    e = entries.find { |x| x.target == 'reports#monthly' }
+    _(e).wont_be_nil
+    _(e.path).must_equal '/'
   end
 
   it 'records nested map block as joined path' do

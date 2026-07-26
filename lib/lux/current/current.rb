@@ -83,6 +83,15 @@ module Lux
       @opt.session.or({}).each {|k,v| @session[k] = v }
     end
 
+    # Param validation errors from the action's `opt` / `params do` contract,
+    # as { field => 'Message' }. Only populated for HTML requests - a JSON
+    # request halts with 422 instead (see Controller::ParamsDsl). Note that
+    # lux.params has already been filtered and coerced by the time this is set,
+    # so re-render the form from the submitted values you kept, not from params.
+    def param_errors
+      @var[:param_errors] || {}
+    end
+
     def [] name
       @var[name]
     end

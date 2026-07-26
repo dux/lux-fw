@@ -1,8 +1,6 @@
 Lux.app do
 
   routes do
-    call 'application#on_error'
-
     root 'main/root#index'
 
     # call action in a controller
@@ -14,23 +12,19 @@ Lux.app do
     # plain text namespace
     # /foo/bar
     map 'foo' do
-      root     proc { body = 'foo root OK' }
-      map bar: proc { body = 'foo/bar match OK' }
+      root     proc { 'foo root OK' }
+      map bar: proc { 'foo/bar match OK' }
     end
 
     # namespace route demo
     # /city/foo
     map 'city' do
-      root     proc { body = 'City root OK' }
-      map foo: proc { body = 'city/foo match OK' }
+      root     proc { 'City root OK' }
+      map foo: proc { 'city/foo match OK' }
     end
-  end
 
-  # after routing
-  after do
-    # not found route
-    call 'main/base#not_found' unless body?
-    # response 'Error: document not found', 404 unless body?
+    # nothing matched - the last routes statement is the 404
+    body 'Error: document not found', status: 404
   end
 
 end

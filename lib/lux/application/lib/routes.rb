@@ -2,8 +2,13 @@ module Lux
   class Application
     module Routes
       # Cached controller class lookups: 'main/users' => Main::UsersController
-      # Persists until full process restart.
-      CONTROLLER_CLASS_CACHE = {}
+      # Cleared by Lux::Reloader so a reloaded controller class is picked up.
+      CONTROLLER_CLASS_CACHE ||= {}
+
+      # Cached plugin routes.rb sources: '/abs/path/routes.rb' => source string.
+      # Route files are instance_eval'd per request; re-reading them from disk
+      # every time is pure overhead outside reload mode.
+      PLUGIN_ROUTE_SOURCE ||= {}
 
       # generate get, get?, post, post? ...
       # get {}
@@ -15,8 +20,11 @@ module Lux
           return unless cm == m.upcase
 
           if block
-            # get? { ... }
-            block.call
+            # get? { ... } - instance_exec so `map`/`call` inside the block
+            # dispatch on this Application instance. The block was captured at
+            # class-eval time, where self is the class, and calling it directly
+            # would re-register routes instead of running them.
+            instance_exec(&block)
           elsif args.first
             # post api: 'api#call'
             map *args
@@ -34,10 +42,12 @@ module Lux
         call target unless lux.route.root
       end
 
-      # Pure predicate against nav root - delegates to Lux::Application::Nav#root?
-      # root?(:admin) -> true if /admin/...
+      # Pure predicate against the route cursor - same frame of reference as
+      # `root` and `map`, so inside `map 'admin' do` it tests the segment
+      # after /admin. Use `nav.root?` for the absolute answer.
+      # root?(:admin) -> true if the cursor is at /admin/...
       def root? name
-        lux.nav.root? name
+        lux.route.match? name
       end
 
       # Absolute-path match. Captures `:var` placeholders into params.
@@ -48,50 +58,18 @@ module Lux
       # lux.route.consumed reflects the matched prefix (needed for sub-mounts
       # like Lux::Api to derive their own mount_on).
       def match base, target
-        base = base.split('/').slice(1, 100)
+        captures = lux.route.capture(base) or return
 
-        base.each_with_index do |el, i|
-          if el[0,1] == ':'
-            lux.params[el.sub(':','').to_sym] = lux.nav.path[i]
-          else
-            return unless el == lux.nav.path[i]
-          end
-        end
+        captures.each { |name, value| lux.params[name] = value }
 
-        lux.route.with_scope(base.length) { call target }
+        lux.route.with_scope(lux.route.capture_length(base)) { call target }
       end
 
-      # Strict, length-exact path match for per-action `route` annotations.
-      # Returns true (and binds captures) on success, false otherwise. No
-      # dispatch - the caller decides what to do with a match.
-      #
-      # `:ref` captures bind both `nav.params[:ref]` and `nav.ref` so the
-      # controller's existing ref convenience works unchanged.
-      def action_route_match? pattern
-        pattern_parts = pattern.split('/').reject(&:empty?)
-        nav_parts     = lux.nav.path.compact
-        return false unless pattern_parts.length == nav_parts.length
-
-        captures = {}
-        pattern_parts.each_with_index do |el, i|
-          if el.start_with?(':')
-            captures[el[1..].to_sym] = nav_parts[i]
-          else
-            return false unless el == nav_parts[i]
-          end
-        end
-
-        captures.each do |name, value|
-          lux.params[name] = value
-          lux.nav.ref      = value if name == :ref && lux.nav.respond_to?(:ref=)
-        end
-        true
-      end
-
-      # Matches given subdomain name
-      def subdomain name
+      # Matches given subdomain name. instance_exec for the same reason as
+      # `get?` - the block is captured at class-eval time.
+      def subdomain name, &block
         return unless lux.nav.subdomain == name.to_s
-        yield
+        instance_exec(&block)
         raise Lux.error.not_found Lux.mode.debug?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
       end
 
@@ -122,6 +100,11 @@ module Lux
       # map 'adm', 'admin'
       # map adm: :admin
       # ```
+      #
+      # Halting: a dispatch that writes the response body throws `:done`, which
+      # is caught once, in Application#resolve_routes. Every route statement
+      # after the matched one is therefore skipped outright - there is no
+      # "keep walking the block as no-ops" pass.
       #
       # A trailing opts hash is forwarded to `call`: `:only`/`:except` gate the
       # action, any other key is set as an ivar on the controller.
@@ -156,7 +139,7 @@ module Lux
         # (`map 'foo', 'foo#bar'`, `map foo: 'foo#bar'`) still gate on the route
         # cursor below. Also covers the `map 'promo#app_error'` rescue_from shorthand.
         if target.nil? && route_object.is_a?(String) && route_object.include?('#') && !route_object.end_with?('#')
-          return catch(:done) { call route_object, nil, opts }
+          return call(route_object, nil, opts)
         end
 
         # Normalize into [match_value, target_value]
@@ -192,22 +175,20 @@ module Lux
         # Array of route names: [:foo, :bar] => 'root'
         if match_value.is_a?(Array)
           match_value.each do |m|
-            if route_match?(m)
-              lux.route.with_scope(1) { catch(:done) { call target_value, nil, opts } }
-            end
+            lux.route.with_scope(1) { call target_value, nil, opts } if route_match?(m)
           end
           return
         end
 
         # Standard match
         if route_match?(match_value)
-          lux.route.with_scope(1) { catch(:done) { call target_value, nil, opts } }
+          lux.route.with_scope(1) { call target_value, nil, opts }
         end
       end
 
       # Calls target controller and dispatches action.
       #
-      # Unconditional dispatch — does not check route_match. Use this inside
+      # Unconditional dispatch - does not check route_match. Use this inside
       # `rescue_from` blocks or other side-channels where the caller already
       # decided what to run.
       #
@@ -230,7 +211,9 @@ module Lux
           Lux.log { ' Routed from: %s' % sources.join(' ') } if sources.first
         end
 
-        action    = action.gsub('-', '_').to_sym if action && action.is_a?(String)
+        # Controller#action owns action-name sanitising (every dispatch passes
+        # through it), so just normalise the type here.
+        action    = action.to_sym if action.is_a?(String)
         object  ||= block if block_given?
 
         # NOTE: bare `Hash` inside module Lux is Lux::Hash, so handle plain
@@ -285,11 +268,17 @@ module Lux
           consumed = lux.route.consumed
           mount_at = consumed.any? ? ('/' + consumed.join('/')) : object.mount_on
           mount_at = nil if mount_at == '/' || mount_at.to_s.empty?
-          return lux.response.rack object, mount_at: mount_at
+          lux.response.rack object, mount_at: mount_at
+          throw :done if lux.response.body?
+          return
         end
 
+        # Any other Rack-callable class/module. Controllers do not define a
+        # class-level `call`, so they never take this branch.
         if [Module, Class].include?(object.class) && object.respond_to?(:call)
           lux.response.rack object
+          throw :done if lux.response.body?
+          return
         end
 
         # source_location is [file, line]; files_in_use only keeps strings, so
@@ -345,7 +334,7 @@ module Lux
 
         raise "Plugin :#{name} has no routes.rb at #{path}" unless ::File.exist?(path)
 
-        instance_eval ::File.read(path), path, 1
+        eval_plugin_routes path
       end
 
       # Evaluates `routes.rb` for every loaded plugin that ships one. Plugins
@@ -358,58 +347,48 @@ module Lux
         Lux::Plugin::PLUGIN.each_value do |plugin|
           path = ::File.join(plugin.folder, 'routes.rb')
           next unless ::File.exist?(path)
-          instance_eval ::File.read(path), path, 1
+          eval_plugin_routes path
         end
       end
 
-      # Pure predicate: checks if the current route cursor's root matches (no side effects)
+      # Pure predicate: checks if the current route cursor's root matches
+      # (no side effects). See Lux::Application::Route#match?
       def route_match? route
-        root = lux.route.root.to_s
-        case route
-        when String then root == route.sub(/^\//,'')
-        when Symbol then route.to_s == root
-        when Regexp then !!(route =~ root)
-        when Array  then !!route.map(&:to_s).include?(root)
-        else false
-        end
+        lux.route.match? route
       end
 
       private
 
+      # Read + instance_eval a plugin routes.rb. The source is memoized unless
+      # we are in reload mode, where the file is expected to change under us.
+      def eval_plugin_routes path
+        source =
+          if Lux.mode.reload?
+            ::File.read(path)
+          else
+            PLUGIN_ROUTE_SOURCE[path] ||= ::File.read(path)
+          end
+
+        instance_eval source, path, 1
+      end
+
       # Resourceful action resolution from the remaining route cursor path.
+      # The action is the last segment that is not a `:ref` placeholder, so it
+      # reads straight off the tail of the URL:
       #
-      # Rules:
-      # * empty                              -> :root
-      # * [:ref] (single)                    -> :show_ref
-      # * single segment X (not :ref)        -> :X
-      # * 2+ segments, walk path[1..]:
-      #     first non-:ref                   -> :<base>
-      #     all :ref                         -> :show
-      # * If any :ref was in the path        -> append `_ref` to the resolved action
-      #
-      # The `_ref` suffix lets controllers cleanly split ID-bearing flows from
-      # collection flows without action collisions:
       #   /users               -> :root
       #   /users/edit          -> :edit
-      #   /users/123           -> :show_ref
-      #   /users/123/edit      -> :edit_ref
-      #   /users/foo/bar       -> :foo
-      #   /users/123/foo/bar   -> :foo_ref
+      #   /users/123           -> :show   (nav.ref == '123')
+      #   /users/123/edit      -> :edit   (nav.ref == '123')
+      #   /users/posts/123     -> :posts
+      #   /users/foo/bar       -> :bar
+      #
+      # Actions that need the id read `nav.ref`; there is no separate `_ref`
+      # action name.
       def resourceful_action remaining
         return :root if remaining.empty?
 
-        has_ref = remaining.include?(:ref)
-
-        base =
-          if remaining.length == 1
-            remaining[0] == :ref ? :show : remaining[0].to_sym
-          else
-            rest = remaining[1..]
-            found = rest.find { |s| s != :ref }
-            found ? found.to_sym : :show
-          end
-
-        has_ref ? :"#{base}_ref" : base
+        (remaining.reverse.find { |s| s != :ref } || :show).to_sym
       end
     end
   end
