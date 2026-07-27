@@ -19,7 +19,10 @@ task :server do
     end
 
     # high (dev) ports default debug + reload on; -d / -r force them off.
-    dev_default = port > 500
+    # The port alone cannot say "dev": a deployed app sits behind a reverse
+    # proxy on a high port too (lux-deploy hands out 3010-3990), so every
+    # deploy was running production with debug and code reload on.
+    dev_default = ENV['LUX_ENV'] != 'production' && port > 500
     ENV['LUX_DEBUG']  = (dev_default && !opts[:debug]).to_s
     ENV['LUX_RELOAD'] = (dev_default && !opts[:reload]).to_s
 
