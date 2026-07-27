@@ -16,7 +16,8 @@ module LuxPack
   module_function
 
   DEFAULT_DEST  ||= './tmp/lux-app-cache'
-  AUTO_INCLUDES ||= %w[.gems public/assets]   # gitignored, but needed on prod
+  GEMS_DIR      ||= '.gems'                          # local gem checkouts, symlinked
+  AUTO_INCLUDES ||= [GEMS_DIR, 'public/assets']      # gitignored, but needed on prod
 
   # Includes are copied wholesale (no per-dir git filter), so strip VCS/build
   # junk that local gem checkouts under ./.gems drag along.
@@ -28,27 +29,46 @@ module LuxPack
   # Target path written by `lux mount` for every plugin-owned link.
   PLUGIN_MOUNT_TARGET ||= %r{/plugins/[^/]+/mount/}
 
-  def build dest: DEFAULT_DEST, includes: [], dry: false
+  # only_gems drops the tracked app tree from the pack - .gems plus whatever
+  # --include asks for, nothing else. For a box that materializes the app from
+  # git itself (a release that is a real checkout, reset to the deployed sha):
+  # the tracked files are already there, so shipping them again is dead weight.
+  # What git cannot supply is exactly what stays - the gitignored local gem
+  # checkouts, and any --include the app names.
+  #
+  # Note the app code then comes only from the pushed commit. HEAD has to be on
+  # the remote, or the box has nothing to reset to.
+  def build dest: DEFAULT_DEST, includes: [], dry: false, only_gems: false
     raise Hammer::Error, 'not a git repo (no ./.git)' unless Dir.exist?('.git')
     raise Hammer::Error, 'refusing unsafe --dest' if dest.to_s.strip.empty? || %w[. /].include?(dest)
 
-    files = `git ls-files -z`.split("\x0").reject(&:empty?)
-    raise Hammer::Error, 'git ls-files returned nothing' if files.empty?
+    files   = []
+    mounts  = []
+    missing = []
 
-    # Drop tracked paths missing from the working tree (e.g. a file deleted
-    # mid-refactor but not yet committed); rsync -L can't stat them and would
-    # abort the whole deploy.
-    missing, files = files.partition { |f| !File.exist?(f) }
+    if only_gems
+      raise Hammer::Error, "nothing to pack: no ./#{GEMS_DIR}" unless Dir.exist?(GEMS_DIR)
+      includes |= [GEMS_DIR]   # keep --include; only the rest of AUTO_INCLUDES goes
+    else
+      files = `git ls-files -z`.split("\x0").reject(&:empty?)
+      raise Hammer::Error, 'git ls-files returned nothing' if files.empty?
 
-    # Live lux-plugin mount symlinks only (not in git). User symlinks stay out.
-    mounts = plugin_mount_symlinks
-    files |= mounts
+      # Drop tracked paths missing from the working tree (e.g. a file deleted
+      # mid-refactor but not yet committed); rsync -L can't stat them and would
+      # abort the whole deploy.
+      missing, files = files.partition { |f| !File.exist?(f) }
 
-    AUTO_INCLUDES.each { |p| includes |= [p] if Dir.exist?(p) }
+      # Live lux-plugin mount symlinks only (not in git). User symlinks stay out.
+      mounts = plugin_mount_symlinks
+      files |= mounts
+
+      AUTO_INCLUDES.each { |p| includes |= [p] if Dir.exist?(p) }
+    end
     includes.select! { |p| File.exist?(p) }
 
     puts 'Pack -> %s'         % dest.colorize(:yellow)
-    puts 'Tracked files : %s' % files.size.to_s.colorize(:yellow)
+    puts 'Mode          : %s' % 'only-gems'.colorize(:yellow) if only_gems
+    puts 'Tracked files : %s' % files.size.to_s.colorize(:yellow) unless only_gems
     puts 'Plugin mounts : %s' % mounts.size.to_s.colorize(:yellow) if mounts.any?
     puts 'Skipped (gone): %s' % missing.size.to_s.colorize(:red) if missing.any?
     puts 'Includes      : %s' % (includes.empty? ? '-' : includes.join(', ')).colorize(:yellow)
@@ -60,10 +80,12 @@ module LuxPack
       FileUtils.mkdir_p dest
 
       # -L dereferences every symlink into a real file (local gems, plugin mounts)
-      IO.popen(['rsync', '-aL', '--from0', '--files-from=-', './', dest + '/'], 'w') do |io|
-        io.write files.join("\x0")
+      unless files.empty?
+        IO.popen(['rsync', '-aL', '--from0', '--files-from=-', './', dest + '/'], 'w') do |io|
+          io.write files.join("\x0")
+        end
+        raise Hammer::Error, 'rsync failed' unless $?.success?
       end
-      raise Hammer::Error, 'rsync failed' unless $?.success?
 
       # -R preserves each include's relative path (public/assets -> dest/public/assets)
       excludes = INCLUDE_EXCLUDES.flat_map { |p| ['--exclude', p] }
@@ -182,10 +204,12 @@ task :pack do
   opt :dest,    alias: :d, type: :string,  default: LuxPack::DEFAULT_DEST, desc: 'Destination dir'
   opt :include, alias: :i, type: :string,  default: '',                    desc: 'Extra gitignored paths to bundle (comma-sep)'
   opt :dry_run, alias: :n, type: :boolean, default: false,                 desc: 'List what would be packed, write nothing'
+  opt :only_gems,          type: :boolean, default: false,                 desc: 'Pack ./.gems only - no app files, no other includes'
 
   proc do |opts|
-    LuxPack.build dest:     opts[:dest],
-                  includes: opts[:include].to_s.split(',').map(&:strip).reject(&:empty?),
-                  dry:      opts[:dry_run]
+    LuxPack.build dest:      opts[:dest],
+                  includes:  opts[:include].to_s.split(',').map(&:strip).reject(&:empty?),
+                  dry:       opts[:dry_run],
+                  only_gems: opts[:only_gems]
   end
 end
