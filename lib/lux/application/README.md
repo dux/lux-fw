@@ -31,7 +31,7 @@ Lux.app do
 
   # --- request callbacks (top level; instance_exec'd on Application) ------
   before do
-    nav.path(:ref) { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
+    nav.ref { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
   end
   after do
     response.body { |b| b.gsub(/T\[([\w.]+)\]/) { Translation.fetch($1) } }
@@ -184,7 +184,7 @@ map 'users', 'admin/users', only: [:index], foo: :bar
 
 The action is the **last segment that is not a `:ref`** placeholder, so it reads
 straight off the tail of the URL. `:ref` segments come from
-`nav.path(:ref) { ... }` (or `nav.load_models`); the id itself is on `nav.ref`.
+`nav.ref { ... }` (or `nav.load_models`); the id itself is on `nav.ref`.
 
 | URL                        | Action    | `nav.ref` |
 |----------------------------|-----------|-----------|

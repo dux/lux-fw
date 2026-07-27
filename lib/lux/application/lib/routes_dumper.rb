@@ -158,7 +158,7 @@ module Lux
       end
 
       # Catch-all for arbitrary instance method calls inside routes blocks
-      # (e.g. helper defs, side-effect callbacks like nav.path(:ref) { ... }
+      # (e.g. helper defs, side-effect callbacks like nav.ref { ... }
       # that pre-process the request). Return a chainable noop so calls
       # like `request.path` inside conditionals do not raise.
       def method_missing _name, *_args, **_kw, &_block

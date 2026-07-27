@@ -39,6 +39,10 @@ touching the router. The three rules that catch people out:
 * **`-` and `_` are equal at compare time only** (`Route#norm`). `nav.path`
   keeps the URL's own spelling so slug lookups work; never normalise it in
   place.
+* **`nav.path` is a working copy, `nav.source_path` is the original.**
+  `nav.ref { }` (id classification), `nav.locale { }` and app code all rewrite
+  `nav.path` in place. If you need the path a second time, read the frozen
+  `nav.source_path` rather than snapshotting `nav.path` yourself.
 
 There are no per-action URL macros and no `_ref` action suffix - URLs are
 declared in the router. See [`doc/migration-routing.md`](./doc/migration-routing.md)

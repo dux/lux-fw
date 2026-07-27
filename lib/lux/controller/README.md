@@ -169,7 +169,7 @@ same shape, the framework-appropriate default per system.
 
 All routing lives in the app router - there are no per-action URL
 annotations. See [`../application/README.md`](../application/README.md) for the
-DSL. URLs map to actions resourcefully when `nav.path(:ref) { ... }` (or
+DSL. URLs map to actions resourcefully when `nav.ref { ... }` (or
 `nav.load_models`) has canonicalised id segments to `:ref`:
 
 | URL                       | Action    | `nav.ref` |

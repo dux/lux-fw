@@ -278,14 +278,14 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
   describe 'ref-bearing action' do
     it 'enforces allow when the URL carries a ref' do
       Lux::Current.new('http://test/things/abc', method: 'DELETE')
-      Lux.current.nav.path(:ref) { |el| el == 'abc' ? 'abc' : nil }
+      Lux.current.nav.ref { |el| el == 'abc' ? 'abc' : nil }
       AllowRefController.action(:destroy)
       _(Lux.current.response.body).must_equal 'destroy:abc:DELETE'
     end
 
     it 'still rejects undeclared verbs' do
       Lux::Current.new('http://test/things/abc', method: 'POST')
-      Lux.current.nav.path(:ref) { |el| el == 'abc' ? 'abc' : nil }
+      Lux.current.nav.ref { |el| el == 'abc' ? 'abc' : nil }
       _{ AllowRefController.action(:destroy) }.must_raise Lux::Error
       _(Lux.current.response.status).must_equal 405
     end

@@ -35,22 +35,28 @@ class PdfController < FrontendController
 
   private
 
+  # Canonical, format-less path for the signature. Reads nav.source_path so the
+  # value is stable regardless of what load_models or app filters did to nav.path.
+  def pdf_path
+    '/' + nav.source_path.join('/')
+  end
+
   # Render the current page to a PDF by pointing the headless browser at our own
-  # signed HTML URL (@pdf_path is the canonical path set by pdf routes.rb) and
-  # streaming the result.
+  # signed HTML URL and streaming the result.
   def render_pdf
-    url = Url.current.path(@pdf_path).qs(:s, self.class.sign(@pdf_path)).to_s
-    pdf = PdfGenerator.generate_pdf(url)
+    path = pdf_path
+    url  = Url.current.path(path).qs(:s, self.class.sign(path)).to_s
+    pdf  = PdfGenerator.generate_pdf(url)
 
     response.headers['content-type']        = 'application/pdf'
-    response.headers['content-disposition'] = %(attachment; filename="#{nav.path.last}.pdf")
+    response.headers['content-disposition'] = %(attachment; filename="#{nav.source_path.last}.pdf")
     response.body pdf
   end
 
   def verify_access!
     return if user
     sig = params[:s].to_s
-    ok  = sig.present? && Rack::Utils.secure_compare(sig, self.class.sign(@pdf_path))
+    ok  = sig.present? && Rack::Utils.secure_compare(sig, self.class.sign(pdf_path))
     raise Lux.error.not_found('Not found') unless ok
   end
 end

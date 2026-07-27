@@ -112,7 +112,7 @@ module Lux
       # map 'users', 'admin/users', foo: :bar   # -> @foo = :bar in the controller
       # ```
       #
-      # Resourceful examples (after `nav.path(:ref) { ... }` canonicalization):
+      # Resourceful examples (after `nav.ref { ... }` canonicalization):
       # ```
       # /admin                       -> :index
       # /admin/edit                  -> :edit

@@ -217,7 +217,7 @@ Router and request lifecycle. Lifecycle callbacks at the top level of
 ```ruby
 Lux do
   before do
-    nav.path(:ref) { |el| el =~ /\A\d+\z/ ? el : nil }
+    nav.ref { |el| el =~ /\A\d+\z/ ? el : nil }
   end
 
   # post-render: expand T[key.path] placeholders to real translations

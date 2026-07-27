@@ -92,7 +92,7 @@ module Lux
 
       private
 
-      # `nav.path(:ref) { }` replaces id segments with the `:ref` symbol and
+      # `nav.ref { }` replaces id segments with the `:ref` symbol and
       # moves the values to `nav.refs`, so a capture that lands on one has to
       # read the value back by position.
       def segment_value segment, index

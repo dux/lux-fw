@@ -122,7 +122,8 @@ end
 does not mutate. See [`./lib/nav.rb`](./lib/nav.rb) for full DSL.
 
 ```ruby
-nav.path                          # canonical path array
+nav.path                          # working path array - rewritten in place
+nav.source_path                   # frozen, as the request arrived
 nav.root                          # first segment
 nav.child                         # second segment
 nav.last                          # last segment
@@ -134,10 +135,24 @@ nav.base                          # scheme://host:port
 nav.url(foo: 1)                   # current URL + query merge
 
 # id canonicalisation (typically in a before filter)
-nav.path(:ref) { |el| Ulid.is?(el) ? el : nil }
+nav.ref { |el| Ulid.is?(el) ? el : nil }
 nav.ref / nav.refs                # captured ids
 nav.pathname(has: 'edit')         # /foo/edit/x => true
 ```
+
+`nav.path` is the working copy: `nav.ref { }` swaps id segments for the `:ref`
+symbol, `nav.locale { }` peels a leading `/xx`, and app code edits it directly
+(`nav.path[1] = board.ref`). `nav.source_path` is a frozen snapshot taken at the
+end of `Nav#initialize` - lowercased, format and `key:value` already stripped, but
+before any of that rewriting. Reach for it when you need the path a second time
+and something in between may have changed it:
+
+```ruby
+'/' + nav.source_path.join('/')   # stable canonical pathname
+```
+
+It is not `request.path`, which is the raw Rack string: original case, extension
+and `key:value` segments intact, and not split into segments.
 
 ## See also
 

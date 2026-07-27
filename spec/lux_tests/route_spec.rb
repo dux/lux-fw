@@ -148,7 +148,7 @@ describe Lux::Application::Route do
 
     it 'matches the :ref placeholder after classification' do
       Lux::Current.new('http://example.com/spaces/abc123')
-      Lux.current.nav.path(:ref) { |el| el == 'abc123' ? el : nil }
+      Lux.current.nav.ref { |el| el == 'abc123' ? el : nil }
       _(Lux.current.route.start_with?(:spaces, :ref)).must_equal true
     end
 
@@ -189,16 +189,16 @@ describe Lux::Application::Route do
       _(route_for('/users').capture('/users/:id')).must_be_nil
     end
 
-    it 'binds the id, not the placeholder, when nav.path(:ref) already ran' do
+    it 'binds the id, not the placeholder, when nav.ref classification already ran' do
       Lux::Current.new('http://example.com/users/abc123/dashboard')
-      Lux.current.nav.path(:ref) { |el| el == 'abc123' ? el : nil }
+      Lux.current.nav.ref { |el| el == 'abc123' ? el : nil }
       _(Lux.current.nav.path).must_equal ['users', :ref, 'dashboard']
       _(Lux.current.route.capture('/users/:ref/dashboard')).must_equal({ ref: 'abc123' })
     end
 
     it 'binds the right id when several refs precede the capture' do
       Lux::Current.new('http://example.com/a/r1/b/r2')
-      Lux.current.nav.path(:ref) { |el| el.start_with?('r') ? el : nil }
+      Lux.current.nav.ref { |el| el.start_with?('r') ? el : nil }
       _(Lux.current.route.capture('/a/:x/b/:y')).must_equal({ x: 'r1', y: 'r2' })
     end
 

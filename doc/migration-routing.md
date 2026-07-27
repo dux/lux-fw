@@ -194,3 +194,73 @@ map 'admin' do
   call 'admin#call'
 end
 ```
+
+## Nav
+
+### `nav.path(:ref) { }` is now `nav.ref { }`
+
+`nav.path` did two unrelated jobs: read accessor with no block, in-place id
+classifier with one. It is now a plain reader, and classification moved onto
+`nav.ref` - the same shape `nav.locale { }` already had.
+
+```ruby
+# before, in a router before-filter
+nav.path(:ref) { |el| Ref.is?(el) ? el : nil }
+
+# after
+nav.ref { |el| Ref.is?(el) ? el : nil }
+```
+
+The `:ref` argument is gone - it was never anything but `:ref`. Everything else
+is unchanged: segments still become the `:ref` symbol, values still stack up in
+`nav.refs` in path order, `nav.ref` still reads the first one, and re-running it
+is still idempotent.
+
+Two small behaviour fixes ride along:
+
+* The block form used to return `refs.last` while `nav.ref` returns `refs[0]`.
+  Both now return the first, so `nav.ref { ... }` and a later `nav.ref` agree.
+* `nav.locale` with no block used to raise `LocalJumpError` on a locale-shaped
+  path (it called `yield` with no `block_given?` guard). It now reads as a
+  reader and returns nil.
+
+App call sites to update: `racunovodstvo/app/routes.rb`, `bolja-pomoc/app/routes.rb`,
+`sohospot.com-live/app/routes.rb`.
+
+### `nav.ref=` removed
+
+The setter's only caller was `action_route_match?`, deleted with the per-action
+route registry. Nothing in the framework, the plugins or any app assigned to it.
+
+### `nav.source_path` added
+
+A frozen copy of the path taken at the end of `Nav#initialize` - lowercased,
+extension and `key:value` segments already stripped, but before `nav.ref { }`,
+`nav.locale { }` or any app rewrite touches it.
+
+```ruby
+GET /Boards/AB/edit.json
+
+nav.source_path   # ['boards', 'ab', 'edit']   frozen, never changes
+nav.path          # ['boards', :ref, 'edit']   after classification
+request.path      # "/Boards/AB/edit.json"     raw Rack string
+```
+
+Use it when you need the path a second time and something in between may have
+rewritten it. `plugins/pdf` was the worked example: it signs the request path
+and re-verifies it on the follow-up render, so it used to snapshot the path into
+`@pdf_path` in its `routes.rb` and thread that ivar into the controller. Both are
+gone; the controller builds `'/' + nav.source_path.join('/')` on demand.
+
+If you carried the same workaround (izlazni's `GuestController#pdf_view` re-splits
+`request.path` and re-normalises it by hand), `nav.source_path` replaces it:
+
+```ruby
+# before
+parts    = request.path.sub(%r{^/pdf/}, '').split('/')
+kind     = parts[0]&.tr('-', '_')
+ref      = parts[1]
+
+# after
+kind, ref, doc_type, slip_ref = nav.source_path.drop(1)
+```

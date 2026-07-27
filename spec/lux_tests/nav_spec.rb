@@ -144,24 +144,24 @@ describe Lux::Application::Nav do
       _(nav[2]).must_equal 'c'
     end
 
-    it 'reflects :ref rewrites from nav.path(:ref)' do
+    it 'reflects :ref rewrites from nav.ref' do
       nav = nav_for('/boards/abc-123/edit')
-      nav.path(:ref) { |el| el.include?('-') ? el.split('-').last : nil }
+      nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
       _(nav[1]).must_equal :ref
     end
   end
 
-  describe '#path(:ref) ref capture' do
+  describe '#ref capture' do
     it 'stores extracted refs in nav.refs and exposes first as nav.ref' do
       nav = nav_for('/boards/abc-123/edit')
-      nav.path(:ref) { |el| el.include?('-') ? el.split('-').last : nil }
+      nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
       _(nav.ref).must_equal '123'
       _(nav.refs).must_equal ['123']
     end
 
     it 'preserves spatial order across multiple refs' do
       nav = nav_for('/orgs/a-1/users/b-2')
-      nav.path(:ref) { |el| el.include?('-') ? el.split('-').last : nil }
+      nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
       _(nav.refs).must_equal ['1', '2']
       _(nav.ref).must_equal '1'
     end
@@ -169,13 +169,97 @@ describe Lux::Application::Nav do
     it 'is idempotent - existing :ref symbols are skipped on re-run' do
       nav = nav_for('/boards/abc-123')
       classifier = ->(el) { el.include?('-') ? el.split('-').last : nil }
-      nav.path(:ref, &classifier)
+      nav.ref(&classifier)
       _(nav.refs).must_equal ['123']
 
       # second call must not re-process the :ref symbol or push a duplicate
-      nav.path(:ref, &classifier)
+      nav.ref(&classifier)
       _(nav.refs).must_equal ['123']
       _(nav.path).must_equal ['boards', :ref]
+    end
+
+    it 'is a pure reader with no block - never mutates the path' do
+      nav = nav_for('/boards/abc-123/edit')
+      _(nav.ref).must_be_nil
+      _(nav.path).must_equal %w[boards abc-123 edit]
+
+      nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
+      before = nav.path.dup
+      _(nav.ref).must_equal '123'
+      _(nav.ref).must_equal '123'
+      _(nav.path).must_equal before
+    end
+
+    it 'block form returns the same value the reader does' do
+      nav = nav_for('/orgs/a-1/users/b-2')
+      returned = nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
+      _(returned).must_equal nav.ref
+      _(returned).must_equal '1'
+    end
+
+    it 'stores the segment itself when the block returns true' do
+      nav = nav_for('/boards/abc123')
+      nav.ref { |el| el == 'abc123' }
+      _(nav.ref).must_equal 'abc123'
+      _(nav.path).must_equal ['boards', :ref]
+    end
+  end
+
+  describe '#source_path' do
+    it 'is the path as it arrived, normalised but not rewritten' do
+      nav = nav_for('/Boards/ABC-123/Edit')
+      _(nav.source_path).must_equal %w[boards abc-123 edit]
+    end
+
+    it 'has the format already stripped' do
+      nav = nav_for('/users/data.json')
+      _(nav.source_path).must_equal %w[users data]
+      _(nav.format).must_equal :json
+    end
+
+    it 'has key:value segments already popped into params' do
+      nav = nav_for('/users/page:3')
+      _(nav.source_path).must_equal %w[users]
+      _(Lux.current.params[:page]).must_equal '3'
+    end
+
+    it 'survives nav.ref classification' do
+      nav = nav_for('/boards/abc-123/edit')
+      nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
+      _(nav.path).must_equal ['boards', :ref, 'edit']
+      _(nav.source_path).must_equal %w[boards abc-123 edit]
+    end
+
+    it 'survives nav.locale peeling' do
+      nav = nav_for('/en/users')
+      nav.locale { |l| l.length == 2 ? l : nil }
+      _(nav.path).must_equal %w[users]
+      _(nav.source_path).must_equal %w[en users]
+    end
+
+    it 'survives app rewrites of nav.path' do
+      nav = nav_for('/boards/ab/edit')
+      nav.path[1] = 'full-ref'
+      nav.path.unshift 'x'
+      nav.path.map! { |el| el.tr('-', '_') }
+      _(nav.source_path).must_equal %w[boards ab edit]
+    end
+
+    it 'is frozen' do
+      _(nav_for('/a/b').source_path).must_be :frozen?
+    end
+
+    # plugins/pdf signs this string and re-verifies it on the follow-up request,
+    # so it has to survive load_models rewriting the ref segment out of nav.path.
+    it 'yields a stable pathname before and after classification' do
+      nav      = nav_for('/pdf/salary-runs/abc123/obracun.pdf')
+      pathname = -> { '/' + nav.source_path.join('/') }
+      before   = pathname.call
+
+      nav.ref { |el| el == 'abc123' ? el : nil }
+
+      _(pathname.call).must_equal before
+      _(before).must_equal '/pdf/salary-runs/abc123/obracun'   # format already stripped
     end
   end
 
@@ -217,6 +301,18 @@ describe Lux::Application::Nav do
       nav = nav_for('/users/profile')
       locale = nav.locale { |l| l.length == 2 ? l : nil }
       _(locale).must_be_nil
+    end
+
+    it 'is a reader with no block - does not raise on a locale-shaped path' do
+      nav = nav_for('/en/users')
+      _(nav.locale).must_be_nil
+      _(nav.path).must_equal %w[en users]
+    end
+
+    it 'reads back the resolved locale with no block' do
+      nav = nav_for('/en/users')
+      nav.locale { |l| l.length == 2 ? l : nil }
+      _(nav.locale).must_equal 'en'
     end
   end
 end

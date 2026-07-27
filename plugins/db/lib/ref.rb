@@ -85,7 +85,7 @@ class Lux::Application::Nav
   # ivars: false -> return the objects without setting ivars
   # pqs:   false -> ignore the abbr:ref form (API: a `doc[...]` POST must not reach find)
   def load_models models = nil, ivars: true, pqs: true
-    path :ref do |el|
+    ref do |el|
       Lux::Utils::Ref.is?(el) ? el : nil
     end
 

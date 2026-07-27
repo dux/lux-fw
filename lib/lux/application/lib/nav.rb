@@ -2,7 +2,7 @@ module Lux
   class Application
     class Nav
       attr_accessor :format
-      attr_reader :domain, :subdomain, :refs
+      attr_reader :domain, :subdomain, :refs, :source_path
 
       # acepts path as a string
       def initialize request
@@ -14,6 +14,16 @@ module Lux
         set_variables
         set_domain request
         set_format
+
+        # The path as the request arrived - lowercased, format and `key:value`
+        # already stripped, but before `nav.ref { }` classification, `nav.locale { }`
+        # peeling or any app rewrite. #path is the working copy that all of those
+        # mutate; this is what you snapshot against.
+        #
+        # A plain dup is enough: every later mutation (map!, []=, shift, unshift,
+        # and the `@path = @path.map` in #ref) replaces elements or the whole
+        # array, never mutates a segment string in place.
+        @source_path = @path.dup.freeze
       end
 
       def root
@@ -47,45 +57,48 @@ module Lux
         end
       end
 
-      def path ref = nil
-        if block_given?
-          # Classify path segments. The block decides per segment:
-          # * truthy return -> stored in nav.refs, segment replaced by `ref` symbol
-          # * nil/false     -> segment left as-is
-          # * already a Symbol (idempotency) -> skipped entirely
-          #
-          # nav.path(:ref) {|el| el.split('-').last.then { |p| Ref.is?(p) ? p : nil } }
-          # /foo/title-cw7r/bar -> ['foo', :ref, 'bar'] -> nav.ref == 'cw7r'
-          unless ref
-            raise ArgumentError.new('Default path not given as argument')
-          end
-
-          @path = @path.map do |el|
-            next el if el.is_a?(Symbol)
-            if result = yield(el)
-              @refs.push result == true ? el : result
-              ref
-            else
-              el
-            end
-          end
-
-          @refs.last
-        else
-          @path
-        end
+      # The working path. Rewritten in place by `nav.ref { }`, `nav.locale { }` and
+      # app code (`nav.path[1] = board.ref`, `unshift`, ...). See #source_path for
+      # the version that arrived.
+      def path
+        @path
       end
 
       def path= list
         @path = list
       end
 
+      # Reader, and the id-segment classifier.
+      #
+      # Declare what an id looks like once, from a router before-filter:
+      #
+      #   nav.ref { |el| Ref.is?(el) ? el : nil }
+      #
+      # The block decides per segment:
+      # * truthy return -> pushed to nav.refs, segment replaced by the `:ref`
+      #                    symbol (a literal `true` stores the segment itself)
+      # * nil/false     -> segment left as-is
+      # * already a Symbol (idempotency) -> skipped entirely
+      #
+      # nav.ref { |el| el.split('-').last.then { |p| Ref.is?(p) ? p : nil } }
+      # /foo/title-cw7r/bar -> ['foo', :ref, 'bar'] -> nav.ref == 'cw7r'
+      #
+      # With no block it reads the first extracted ref - same value the block form
+      # returns. Multiple ids in one URL stack up in nav.refs, in path order.
       def ref
-        @refs[0]
-      end
+        return @refs.first unless block_given?
 
-      def ref= data
-        @refs[0] = data
+        @path = @path.map do |el|
+          next el if el.is_a?(Symbol)
+          if result = yield(el)
+            @refs.push result == true ? el : result
+            :ref
+          else
+            el
+          end
+        end
+
+        @refs.first
       end
 
       # removes leading www.
@@ -116,12 +129,15 @@ module Lux
         @path.join('/').sub(/\/$/, '')
       end
 
-      # accept only two strings locale
+      # Reader, and the locale-segment classifier - same shape as #ref.
       # nav.locale { _1.length == 2 ? _1 : nil }
       def locale
         if @locale
           return @locale.to_s == '' ? nil : @locale
         end
+
+        # reader form: nothing resolved yet and no block to resolve it with
+        return nil unless block_given?
 
         if @path[0].to_s.downcase =~ /^[a-z]{2}(-[a-z]{2})?$/
           if @locale = yield(@path[0])

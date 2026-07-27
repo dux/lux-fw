@@ -125,7 +125,7 @@ Lux.app do
 
   before do
     # canonicalize ID-like segments to :ref before routing
-    nav.path(:ref) { |el| el =~ /\A\d+\z/ ? el : nil }
+    nav.ref { |el| el =~ /\A\d+\z/ ? el : nil }
   end
 
   root 'routes_test#root'
