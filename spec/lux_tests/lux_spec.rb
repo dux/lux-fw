@@ -1,4 +1,5 @@
 require 'test_helper'
+require 'tempfile'
 
 describe Lux do
   describe '.root' do
@@ -195,6 +196,40 @@ describe Lux do
 
     it 'returns a Cache instance' do
       _(Lux.cache).must_be_kind_of Lux::Cache
+    end
+  end
+
+  describe '.deploy_stamp' do
+    def with_reload value
+      was = Lux.reload?
+      Lux.reload = value
+      yield
+    ensure
+      Lux.reload = was
+    end
+
+    it 'is DEPLOY_ID with no source given' do
+      _(Lux.deploy_stamp).must_equal Lux::DEPLOY_ID
+    end
+
+    it 'is DEPLOY_ID for an unreadable source' do
+      with_reload(true) { _(Lux.deploy_stamp('/no/such/file.rb')).must_equal Lux::DEPLOY_ID }
+    end
+
+    it 'follows the source mtime in reload mode, so an edit invalidates' do
+      with_reload true do
+        Tempfile.create(['stamp', '.rb']) do |file|
+          first = Lux.deploy_stamp(file.path)
+          _(first).wont_equal Lux::DEPLOY_ID
+
+          File.utime(Time.now + 60, Time.now + 60, file.path)
+          _(Lux.deploy_stamp(file.path)).wont_equal first
+        end
+      end
+    end
+
+    it 'is DEPLOY_ID outside reload mode, so every worker agrees' do
+      with_reload(false) { _(Lux.deploy_stamp(__FILE__)).must_equal Lux::DEPLOY_ID }
     end
   end
 end

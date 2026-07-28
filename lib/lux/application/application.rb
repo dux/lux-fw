@@ -67,7 +67,7 @@ module Lux
       # rescue below and render_error downgrades the 302 to 500.
       catch(:done) { run_callback :before, lux.nav.path }
 
-      if Lux.mode.reload? && Lux.runtime.web?
+      if Lux.reload? && Lux.runtime.web?
         Lux::Reloader.run
       end
 

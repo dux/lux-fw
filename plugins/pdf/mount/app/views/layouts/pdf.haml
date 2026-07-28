@@ -7,27 +7,33 @@
     / headless Chrome (PdfGenerator). Same engine both sides => identical output.
     / window.pagedReady is the signal PdfGenerator waits on before printing.
     :javascript
+      // loading="lazy" deadlocks pagination: Paged.js has to measure an image
+      // before it can break the page around it, but Chrome will not fetch a lazy
+      // image far below the fold - and pagination is what would bring it into
+      // view. Nothing is ever offscreen on a printed page, so force eager. The
+      // observer is installed before <body> is parsed, so it catches every image
+      // as it arrives, including the copies Paged.js clones into its page boxes.
+      new MutationObserver(records => {
+        for (const record of records) {
+          for (const node of record.addedNodes) {
+            if (node.nodeType !== 1) continue
+            if (node.tagName === 'IMG') node.loading = 'eager'
+            node.querySelectorAll?.('img[loading="lazy"]').forEach(img => { img.loading = 'eager' })
+          }
+        }
+      }).observe(document.documentElement, { childList: true, subtree: true })
+
       window.PagedConfig = {
         auto: true,
+        before () {
+          document.querySelectorAll('img[loading="lazy"]').forEach(img => { img.loading = 'eager' })
+        },
         after () {
           window.pagedReady = true
           // Title (and thus the download filename) follows the document's H1.
           const h1 = document.querySelector('h1')
           if (h1) document.title = h1.textContent.trim()
-          // The toolbar lives on <html> (outside .pagedjs_pages) so Paged.js never
-          // chunks it into a page. The headless generator removes #pdf-dl before
-          // printing, so it never lands in the PDF.
-          if (!document.querySelector('#pdf-dl')) {
-            const a = document.createElement('a')
-            a.id = 'pdf-dl'
-            a.textContent = 'Preuzmi PDF'
-            a.href = location.pathname.replace(/\/$/, '') + '.pdf'
-            a.setAttribute('download', (document.title || 'dokument') + '.pdf')
-            a.style.cssText = 'position:fixed;right:20px;top:20px;z-index:9999;' +
-              'background:#111;color:#fff;padding:10px 16px;border-radius:8px;' +
-              'font:600 13px sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.3)'
-            document.documentElement.appendChild(a)
-          }
+          document.querySelector('#pdf-dl')?.setAttribute('download', document.title + '.pdf')
         }
       }
     %script{ src: 'https://unpkg.com/pagedjs@0.4.3/dist/paged.polyfill.js' }
@@ -81,6 +87,15 @@
     %style{ media: 'screen' }
       :plain
         html, body { background: #e8e8ea !important; }
+        /* Paged.js moves the whole body into its page boxes, so #pdf-dl travels
+           along - position: fixed keeps it pinned to the viewport wherever it
+           lands. Screen-only, and PdfGenerator drops the node before printing. */
+        #pdf-dl {
+          position: fixed; right: 20px; top: 20px; z-index: 9999;
+          background: #111; color: #fff; padding: 10px 16px; border-radius: 8px;
+          font: 600 13px sans-serif; text-decoration: none;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+        }
         .pagedjs_pages {
           display: flex !important;
           flex-direction: column;
@@ -97,4 +112,7 @@
           margin: 0 !important;
         }
   %body
+    / Plain link, always in the markup - /<path>.pdf renders server-side, so the
+    / button must not wait on (or be lost to) a Paged.js run that stalls.
+    %a#pdf-dl{ href: @pdf_url, download: true } Preuzmi PDF
     = yield

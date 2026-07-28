@@ -36,7 +36,10 @@ describe 'String inflections (lux-fw overrides)' do
     {
       'criterion' => 'criteria',
       'axis'      => 'axes',
-      'leaf'      => 'leaves',
+      # `leaves` is the plural of "leave" here, not "leaf" - apps have models
+      # like SickLeave, whose table is sick_leaves. See the irregular declared
+      # in lib/lux/loader.rb; the two readings cannot both hold.
+      'leave'     => 'leaves',
       'focus'     => 'focuses'
     }.each do |singular, plural|
       it %(singularizes "#{plural}" to "#{singular}") do

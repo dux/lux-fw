@@ -36,6 +36,21 @@ module ::Lux
       ENV['DEPLOY_ID'] = raw.md5[0, 8]
     end
 
+  # Cache-bust token for a cache keyed on source that can change.
+  #
+  # DEPLOY_ID is fixed for the life of a deploy, which is what you want in
+  # production - one value per release, shared by every worker. In reload mode
+  # it is the wrong answer: nothing about it moves when you edit a file, so a
+  # cached view would sit there until its ttl ran out. There, stamp with the
+  # mtime of the source that produced the entry instead.
+  #
+  #   Lux.deploy_stamp(__FILE__)
+  def deploy_stamp source = nil
+    return DEPLOY_ID unless source && Lux.reload?
+
+    File.mtime(source).to_i.to_s rescue DEPLOY_ID
+  end
+
   # simple block to calc block execution speed
   def speed
     render_start = Time.monotonic

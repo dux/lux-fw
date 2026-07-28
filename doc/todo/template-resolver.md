@@ -10,7 +10,7 @@ value-returning, ordered, first-hit-wins chain - not a fire-and-forget event.
 Mirrors two existing patterns:
 * locale plugin's `registered handler -> external store -> flat-file` chain
   (`./plugins/locale/load/locale.rb:238`)
-* `Ref`'s `REGISTRY ||= {}` + `register` (`./plugins/db/lib/ref.rb:32`)
+* `Ref`'s `REGISTRY ||= {}` + `register` (`./plugins/db/ext/nav_models.rb`)
 
 ## Design decisions
 
@@ -79,7 +79,7 @@ module Lux
 ```ruby
     # BEFORE
     unless @template
-      raise Lux.error 404, Lux.mode.debug?('404 Not Found') { %[Lux::Template "#{template}.{erb,haml}" not found] }
+      raise Lux.error 404, Lux.debug?('404 Not Found') { %[Lux::Template "#{template}.{erb,haml}" not found] }
     end
 
     @tilt = Tilt.new(@template, escape_html: false)
@@ -99,7 +99,7 @@ module Lux
         @tilt     = resolved                              # resolver returned a ready Tilt object
       end
     else
-      raise Lux.error 404, Lux.mode.debug?('404 Not Found') { %[Lux::Template "#{template}.{erb,haml}" not found] }
+      raise Lux.error 404, Lux.debug?('404 Not Found') { %[Lux::Template "#{template}.{erb,haml}" not found] }
     end
 
     pointer[template] = [@tilt, @template]                # why: cache resolver hits too, same as files

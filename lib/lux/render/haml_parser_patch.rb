@@ -66,6 +66,8 @@ module Haml
             break
           when '/'
             break if slash_ends_class?(list, i)
+
+            i += 1
           else
             i += 1
           end
@@ -93,9 +95,16 @@ module Haml
           when '=', ?~, ?&, ?<, ?>
             break
           when '!'
+            # `.!text-red` - important modifier at the head of a class segment.
+            # Must advance when it does not end the segment, or we spin here.
             break if i.positive? && segment_started?(list, i)
+
+            i += 1
           when '/'
+            # `.w-1/2` - fraction inside a class.
             break if slash_ends_class?(list, i)
+
+            i += 1
           when /\s/, ?{, ?(, ?[
             break
           else
@@ -172,7 +181,11 @@ module Haml
         nuke_inner_whitespace = true
       end
 
-      value = value.nil? ? '' : value.strip!
+      # strip, not strip! - the bang form returns nil when there is nothing to
+      # strip, and Haml indexes into this right after. `%td!= foo` captures the
+      # action as `!` and leaves value as `= foo`, which has no surrounding
+      # whitespace, so the bang form nils it out and blows up downstream.
+      value = value.to_s.strip
 
       [tag_name, attributes, attributes_hashes, object_ref, nuke_outer_whitespace,
        nuke_inner_whitespace, action, value, last_line || @line.index + 1]

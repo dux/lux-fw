@@ -197,32 +197,26 @@ end
 
 ## Nav
 
-### `nav.path(:ref) { }` is now `nav.ref { }`
+### `nav.path(:ref) { }` is now `nav.map_path`
 
 `nav.path` did two unrelated jobs: read accessor with no block, in-place id
-classifier with one. It is now a plain reader, and classification moved onto
-`nav.ref` - the same shape `nav.locale { }` already had.
+classifier with one. It is now a plain reader, and classification is its own
+method. `nav.ref` is a read-only accessor for the first id.
 
 ```ruby
 # before, in a router before-filter
 nav.path(:ref) { |el| Ref.is?(el) ? el : nil }
 
-# after
-nav.ref { |el| Ref.is?(el) ? el : nil }
+# after - the format comes from Lux.config.ref_format
+nav.map_path
 ```
 
-The `:ref` argument is gone - it was never anything but `:ref`. Everything else
-is unchanged: segments still become the `:ref` symbol, values still stack up in
-`nav.refs` in path order, `nav.ref` still reads the first one, and re-running it
-is still idempotent.
+See [`./migration-nav-ref.md`](./migration-nav-ref.md) for the full story: ids
+are objects rather than a `:ref` symbol, and the format is declared once in
+config.
 
-Two small behaviour fixes ride along:
-
-* The block form used to return `refs.last` while `nav.ref` returns `refs[0]`.
-  Both now return the first, so `nav.ref { ... }` and a later `nav.ref` agree.
-* `nav.locale` with no block used to raise `LocalJumpError` on a locale-shaped
-  path (it called `yield` with no `block_given?` guard). It now reads as a
-  reader and returns nil.
+`nav.locale` also gained the `block_given?` guard it was missing - a bare
+`nav.locale` on a locale-shaped path used to raise `LocalJumpError`.
 
 App call sites to update: `racunovodstvo/app/routes.rb`, `bolja-pomoc/app/routes.rb`,
 `sohospot.com-live/app/routes.rb`.
@@ -235,7 +229,7 @@ route registry. Nothing in the framework, the plugins or any app assigned to it.
 ### `nav.source_path` added
 
 A frozen copy of the path taken at the end of `Nav#initialize` - lowercased,
-extension and `key:value` segments already stripped, but before `nav.ref { }`,
+extension and `key:value` segments already stripped, but before `nav.map_path`,
 `nav.locale { }` or any app rewrite touches it.
 
 ```ruby
@@ -263,4 +257,45 @@ ref      = parts[1]
 
 # after
 kind, ref, doc_type, slip_ref = nav.source_path.drop(1)
+```
+
+## Config
+
+### `config.yaml` now actually takes effect
+
+`Lux::Boot.set_defaults` runs **after** the config load and used a plain `=`, so
+every key it touched silently overwrote what the host declared -
+`serve_static_files`, `asset_root`, `log_level`, the four logger keys,
+`delay_timeout`, `defer_pool_size`. Only `plugins` was safe.
+
+It now fills in a default only when the key is absent, so an explicit value
+wins - including an explicit `false` against a `true` default, which `||=`
+would have flipped back on.
+
+Nothing to change on your side, but if any of those keys are sitting in a
+`config.yaml` with a stale value, they start being honoured. Worth a look.
+
+### `Lux.config.use_autoroutes` removed
+
+It gated an implicit "a template exists at `views/<controller>/<name>`, so
+define that action" fallback inside `Controller#action_missing`. It defaulted
+to `false`, no app enabled it, and `Lux::Controller::Auto` (`auto` /
+`auto_render`) is the supported way to route by template - explicitly, from the
+route path. Both the flag and the fallback are gone; an unknown action is a
+plain 404.
+
+### `Lux.config.deploy_timestamp` removed
+
+One reader, `Lux::Template::Helper#cache`, which used it as a cache-bust token.
+Its value was the **Gemfile** mtime frozen at boot, so editing a view helper
+never invalidated the entry - you waited out the ttl.
+
+The cache key now stamps with `Lux.deploy_stamp(source)`: the mtime of the
+block's own source file in reload mode, `Lux::DEPLOY_ID` otherwise. Dev
+invalidates on edit; production keeps one value per deploy that every worker
+agrees on.
+
+```ruby
+Lux.deploy_stamp             # => DEPLOY_ID
+Lux.deploy_stamp(__FILE__)   # => file mtime in reload mode, else DEPLOY_ID
 ```

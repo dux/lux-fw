@@ -57,7 +57,7 @@ module Lux
   rescue => err
     Lux.error.log err
 
-    if Lux.mode.debug?
+    if Lux.debug?
       raise
     else
       [500, {}, ['Server error: %s' % err.message]]

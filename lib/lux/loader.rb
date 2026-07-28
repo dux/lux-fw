@@ -45,7 +45,7 @@ require_relative './shell/shell'
 require_relative './shell/lux_adapter'
 
 require_relative './environment/environment'
-require_relative './environment/mode'
+require_relative './environment/flags'
 require_relative './environment/runtime'
 require_relative './environment/lux_adapter'
 

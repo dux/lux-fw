@@ -21,8 +21,12 @@ class Lux::Type::ModelType < Lux::Type
       errors[field] = error
     end
 
-    # keep only the fields the client sent, now type-coerced
-    @value.select! { |k, _| given.include?(k.to_s) }
+    # Keep only the fields the client sent, now type-coerced - but only when a
+    # real model backs the field. There the absent keys are stored columns and
+    # injecting them would clobber the row on a partial update. An ad-hoc nested
+    # schema has no row behind it, so its declared defaults are meant to
+    # materialise rather than be stripped back out.
+    @value.select! { |k, _| given.include?(k.to_s) } if model_backed
 
     raise TypeError.new errors.to_json if errors.keys.first
   end

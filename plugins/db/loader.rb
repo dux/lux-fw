@@ -14,14 +14,14 @@ Sequel::Model.require_valid_table = false if Lux.runtime.rake?
 root = File.expand_path(__dir__)
 
 # --- lib/ : pure-Ruby utilities ----------------------------------------
-require_relative 'lib/ref'
-require_relative 'lib/ref_type'
 require_relative 'lib/schema_define'
 
-# --- ext/ : direct Sequel::Model extensions ----------------------------
+# --- ext/ : Sequel-aware extensions ------------------------------------
 # core defines class+instance helpers; dataset_methods provides the x*
 # query primitives used by dataset_scopes, so order matters within ext/.
+# nav_models is the Nav <-> model integration, not a Sequel::Model extension.
 require_relative 'ext/core'
+require_relative 'ext/nav_models'
 require_relative 'ext/cache'
 require_relative 'ext/dataset_methods'
 require_relative 'ext/dataset_scopes'

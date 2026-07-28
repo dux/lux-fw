@@ -97,6 +97,55 @@ describe Lux::Boot::Config do
     end
   end
 
+  # set_defaults is private (internal to boot!), hence send. It runs after the
+  # config.yaml load, so it must not overwrite what
+  # the host declared. `=` used to clobber every key here; `||=` would still flip
+  # an explicit false back on for a true-default.
+  describe '.set_defaults' do
+    def with_config keys
+      was = keys.keys.each_with_object({}) { |k, h| h[k] = Lux.config.key?(k) ? Lux.config[k] : :_absent }
+      keys.each { |k, v| v == :_absent ? Lux.config.delete(k.to_s) : Lux.config[k] = v }
+      yield
+    ensure
+      was.each { |k, v| v == :_absent ? Lux.config.delete(k.to_s) : Lux.config[k] = v }
+    end
+
+    it 'does not overwrite a value the host declared' do
+      with_config(logger_files_to_keep: 99) do
+        Lux::Boot.send(:set_defaults)
+        _(Lux.config[:logger_files_to_keep]).must_equal 99
+      end
+    end
+
+    it 'keeps an explicit false against a true default' do
+      with_config(serve_static_files: false) do
+        Lux::Boot.send(:set_defaults)
+        _(Lux.config[:serve_static_files]).must_equal false
+      end
+    end
+
+    it 'keeps an explicit true against a false default' do
+      with_config(asset_root: true) do
+        Lux::Boot.send(:set_defaults)
+        _(Lux.config[:asset_root]).must_equal true
+      end
+    end
+
+    it 'keeps an explicit nil rather than re-defaulting it' do
+      with_config(ref_format: nil) do
+        Lux::Boot.send(:set_defaults)
+        _(Lux.config[:ref_format]).must_be_nil
+      end
+    end
+
+    it 'fills in a key the host left out' do
+      with_config(serve_static_files: :_absent) do
+        Lux::Boot.send(:set_defaults)
+        _(Lux.config[:serve_static_files]).must_equal true
+      end
+    end
+  end
+
   it 'defaults LUX_ENV to development when empty and mirrors it into RACK_ENV' do
     old_lux_env = ENV['LUX_ENV']
     old_rack_env = ENV['RACK_ENV']

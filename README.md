@@ -172,7 +172,7 @@ guidance is consolidated in the top-level [`AGENTS.md`](./AGENTS.md).
 | [`Lux::Controller`](./lib/lux/controller/README.md)     | `class X < Lux::Controller`                |
 | [`Lux::Current`](./lib/lux/current/README.md)           | `Lux.current` / `current` / `lux`          |
 | [`Lux::Db`](./lib/lux/db/README.md)                     | `Lux.db` / `Lux.db(:name)` / `DB`          |
-| [`Lux::Environment`](./lib/lux/environment/README.md)   | `Lux.env` / `Lux.mode` / `Lux.runtime`     |
+| [`Lux::Environment`](./lib/lux/environment/README.md)   | `Lux.env` / `Lux.debug?` / `Lux.runtime`     |
 | [`Lux::Error`](./lib/lux/error/README.md)               | `Lux.error` / `Lux.error.not_found`        |
 | [`Lux::Hash`](./lib/lux/hash/README.md)                 | `{}.to_lux_hash` / `Lux::Hash.new`         |
 | [`Lux::JsonExporter`](./lib/lux/json_exporter/README.md)| `class X < Lux::JsonExporter`              |
@@ -217,7 +217,7 @@ Router and request lifecycle. Lifecycle callbacks at the top level of
 ```ruby
 Lux do
   before do
-    nav.ref { |el| el =~ /\A\d+\z/ ? el : nil }
+    nav.map_path   # classify id segments; format from Lux.config.ref_format
   end
 
   # post-render: expand T[key.path] placeholders to real translations
@@ -318,7 +318,7 @@ Three orthogonal facets: name, behavior, runtime.
 
 ```ruby
 Lux.env.production?                    # name (dev/prod/test)
-Lux.mode.debug?                        # behavior toggle (debug/reload)
+Lux.debug?                             # behavior toggle (debug/reload/silent)
 Lux.runtime.web?                       # process kind (web/cli/rake)
 ```
 

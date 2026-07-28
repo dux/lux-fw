@@ -125,7 +125,13 @@ module Lux
         end
 
         opts[:ttl] ||= 1.hour
-        key = 'view:' + name + block.source_location.join(':') + Lux.config.deploy_timestamp.to_s
+
+        # Keyed on the block's own source so editing the helper invalidates the
+        # entry in dev instead of waiting out the ttl; one value per deploy
+        # otherwise. Was Lux.config.deploy_timestamp - the Gemfile mtime frozen
+        # at boot, which never moved when the view changed.
+        source = block.source_location
+        key    = 'view:' + name + source.join(':') + Lux.deploy_stamp(source.first)
 
         if etag = opts.delete(:etag)
           etag = key if etag.class != String

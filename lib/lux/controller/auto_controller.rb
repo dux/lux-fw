@@ -58,7 +58,10 @@ module Lux
       #                                when the segments at the cursor match;
       #                                nesting descends one segment per level so
       #                                filters read like the URL. `:ref` matches
-      #                                the extracted ref placeholder. Pass several
+      #                                any segment `nav.ref` classified as an id,
+      #                                by type - so the classifier has to have run,
+      #                                and a segment literally spelled "ref" is not
+      #                                one. Pass several
       #                                segments to match in one step
       #                                (`filter :admin, :users`). A filter that
       #                                renders or redirects sets the response
@@ -112,13 +115,15 @@ module Lux
       def auto_render
         return if lux.response.body?
 
-        path = [template_dir] + lux.route.path
+        # normalized_path, not path: a classified id renders as its value, but
+        # on disk the convention is a literal `ref` segment (boards/ref/edit.haml)
+        path = [template_dir] + lux.route.normalized_path
         if tpl = auto_find_template(path)
           render tpl
         else
           base = '/' + path.join('/')
           exts = AUTO_EXTS.map { |e| ".#{e}" }.join(', ')
-          raise Lux.error.not_found Lux.mode.debug?('Not Found') { "No template found, looked for #{base}{#{exts}} and #{base}/root{#{exts}}" }
+          raise Lux.error.not_found Lux.debug?('Not Found') { "No template found, looked for #{base}{#{exts}} and #{base}/root{#{exts}}" }
         end
       end
     end

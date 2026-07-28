@@ -23,7 +23,7 @@ class UsersController < ApplicationController
     # --- params + nav ----------------------------------------------------
     current.params           # validated/coerced if opt declared (Lux::Hash)
     current.nav.path         # canonical path array
-    current.nav.ref          # captured :ref id (see Application docs)
+    current.nav.ref          # captured id (see Application docs)
 
     # --- session (JWT-encrypted) ----------------------------------------
     current.session[:user_id] = @user.id
@@ -134,15 +134,34 @@ nav.domain                        # bare domain
 nav.base                          # scheme://host:port
 nav.url(foo: 1)                   # current URL + query merge
 
-# id canonicalisation (typically in a before filter)
-nav.ref { |el| Ulid.is?(el) ? el : nil }
+# id classification (one line in a router before filter)
+nav.map_path                      # format from Lux.config.ref_format
+nav.map_path :uuid7               # or a different registered format
+nav.map_path { |el| ... }         # or a custom rule
 nav.ref / nav.refs                # captured ids
 nav.pathname(has: 'edit')         # /foo/edit/x => true
 ```
 
-`nav.path` is the working copy: `nav.ref { }` swaps id segments for the `:ref`
-symbol, `nav.locale { }` peels a leading `/xx`, and app code edits it directly
-(`nav.path[1] = board.ref`). `nav.source_path` is a frozen snapshot taken at the
+Three views of the path:
+
+| reader | what it is |
+|--------|------------|
+| `nav.source_path` | frozen snapshot of what arrived |
+| `nav.path` | the working copy, mutated in place |
+| `nav.normalized_path` | the working copy as a *shape* - ids back as `'ref'` |
+
+`nav.path` is the working copy: `nav.ref` swaps id segments for a
+`Nav::Base` instance carrying the id (see
+[`../../../doc/migration-nav-ref.md`](../../../doc/migration-nav-ref.md)),
+`nav.locale { }` peels a leading `/xx`, and app code edits it directly
+(`nav.path[1] = board.ref`).
+
+`nav.normalized_path` is that same working copy with every classified id put
+back as the literal `'ref'` - `/boards/abc123/edit` reads
+`['boards', 'ref', 'edit']`. That is the form that maps to disk, so
+`auto_render` uses it to find `app/views/boards/ref/edit.haml`.
+
+`nav.source_path` is a frozen snapshot taken at the
 end of `Nav#initialize` - lowercased, format and `key:value` already stripped, but
 before any of that rewriting. Reach for it when you need the path a second time
 and something in between may have changed it:

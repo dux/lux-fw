@@ -61,7 +61,7 @@ class LuxJob < ApplicationModel
     end
 
     def run
-      verbose = Lux.mode.debug?
+      verbose = Lux.debug?
 
       puts "Registered jobs:"
       if JOBS.empty?

@@ -15,6 +15,13 @@ class DslAccount
       ref? Integer
     end
   end
+
+  # The `schema Klass` shortcut reads .api_schema, which is what the Sequel
+  # lux_schema plugin exposes alongside .schema (see
+  # lib/lux/schema/sequel_adapter.rb) - a bare .schema is not enough.
+  def self.api_schema
+    schema
+  end
 end
 
 class SchemaDslApi < ApplicationApi

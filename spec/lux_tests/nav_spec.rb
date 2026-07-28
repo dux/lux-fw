@@ -144,38 +144,104 @@ describe Lux::Application::Nav do
       _(nav[2]).must_equal 'c'
     end
 
-    it 'reflects :ref rewrites from nav.ref' do
+    it 'reflects ref classification from nav.ref' do
       nav = nav_for('/boards/abc-123/edit')
-      nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
-      _(nav[1]).must_equal :ref
+      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
+      _(nav[1]).must_be_kind_of Lux::Application::Nav::Base
+      _(nav[1].value).must_equal '123'
+    end
+  end
+
+  describe '#normalized_path' do
+    it 'puts classified ids back as the ref placeholder' do
+      nav = nav_for('/boards/abc-123/edit')
+      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
+      _(nav.normalized_path).must_equal %w[boards ref edit]
+    end
+
+    it 'equals the path when nothing is classified' do
+      nav = nav_for('/boards/edit')
+      _(nav.normalized_path).must_equal %w[boards edit]
+    end
+
+    it 'leaves the working path untouched' do
+      nav = nav_for('/boards/abc-123/edit')
+      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
+      nav.normalized_path
+      _(nav.path[1]).must_be_kind_of Lux::Application::Nav::Base
+      _(nav.path.map(&:to_s)).must_equal %w[boards 123 edit]
+    end
+
+    it 'is the URL shape, while pathname stays concrete' do
+      nav = nav_for('/boards/abc-123/edit')
+      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
+      _('/' + nav.normalized_path.join('/')).must_equal '/boards/ref/edit'
+      _(nav.pathname).must_equal '/boards/123/edit'
+    end
+  end
+
+  describe '#map_path block arity' do
+    # the block gets (segment, list_so_far). Segment first, so the one-arg form
+    # every app router already uses keeps working.
+    it 'yields the segment to a one-arg block' do
+      nav = nav_for('/boards/abc-123/edit')
+      seen = []
+      nav.map_path { |el| seen << el; nil }
+      _(seen).must_equal %w[boards abc-123 edit]
+    end
+
+    it 'yields the segment to a one-arg lambda without raising' do
+      nav = nav_for('/boards/abc-123')
+      nav.map_path(&->(el) { el.include?('-') ? el.split('-').last : nil })
+      _(nav.ref).must_equal '123'
+    end
+
+    it 'yields the list built so far to a two-arg block' do
+      nav = nav_for('/boards/abc-123/edit')
+      seen = []
+      nav.map_path { |el, list| seen << list.map(&:to_s); nil }
+      _(seen).must_equal [[], %w[boards], %w[boards abc-123]]
+    end
+
+    it 'lets a two-arg rule decide from what sits to its left' do
+      nav = nav_for('/skip/x1/boards/x1')
+      nav.map_path { |el, list| el == 'x1' && list.last == 'boards' ? el : nil }
+      _(nav.refs).must_equal %w[x1]
+      _(nav.normalized_path).must_equal %w[skip x1 boards ref]
+    end
+
+    it 'yields both to a splat block without raising' do
+      nav = nav_for('/boards/abc')
+      nav.map_path { |*args| args.length == 2 ? args.first : nil }
+      _(nav.refs).must_equal %w[boards abc]
     end
   end
 
   describe '#ref capture' do
     it 'stores extracted refs in nav.refs and exposes first as nav.ref' do
       nav = nav_for('/boards/abc-123/edit')
-      nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
+      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
       _(nav.ref).must_equal '123'
       _(nav.refs).must_equal ['123']
     end
 
     it 'preserves spatial order across multiple refs' do
       nav = nav_for('/orgs/a-1/users/b-2')
-      nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
+      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
       _(nav.refs).must_equal ['1', '2']
       _(nav.ref).must_equal '1'
     end
 
-    it 'is idempotent - existing :ref symbols are skipped on re-run' do
+    it 'is idempotent - already classified segments are skipped on re-run' do
       nav = nav_for('/boards/abc-123')
       classifier = ->(el) { el.include?('-') ? el.split('-').last : nil }
-      nav.ref(&classifier)
+      nav.map_path(&classifier)
       _(nav.refs).must_equal ['123']
 
-      # second call must not re-process the :ref symbol or push a duplicate
-      nav.ref(&classifier)
+      # second call must not re-process the classified segment or duplicate it
+      nav.map_path(&classifier)
       _(nav.refs).must_equal ['123']
-      _(nav.path).must_equal ['boards', :ref]
+      _(nav.path.map(&:to_s)).must_equal %w[boards 123]
     end
 
     it 'is a pure reader with no block - never mutates the path' do
@@ -183,7 +249,7 @@ describe Lux::Application::Nav do
       _(nav.ref).must_be_nil
       _(nav.path).must_equal %w[boards abc-123 edit]
 
-      nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
+      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
       before = nav.path.dup
       _(nav.ref).must_equal '123'
       _(nav.ref).must_equal '123'
@@ -192,16 +258,65 @@ describe Lux::Application::Nav do
 
     it 'block form returns the same value the reader does' do
       nav = nav_for('/orgs/a-1/users/b-2')
-      returned = nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
+      returned = nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
       _(returned).must_equal nav.ref
       _(returned).must_equal '1'
     end
 
     it 'stores the segment itself when the block returns true' do
       nav = nav_for('/boards/abc123')
-      nav.ref { |el| el == 'abc123' }
+      nav.map_path { |el| el == 'abc123' }
       _(nav.ref).must_equal 'abc123'
-      _(nav.path).must_equal ['boards', :ref]
+      _(nav.path.map(&:to_s)).must_equal %w[boards abc123]
+      _(nav.path[1]).must_be_kind_of Lux::Application::Nav::Base
+    end
+
+    it 'classifies from a format class with no block' do
+      nav = nav_for("/boards/#{'a' * 16}/edit")
+      nav.map_path
+      _(nav.ref).must_equal 'a' * 16
+      _(nav.path[0]).must_be_kind_of ::String
+      _(nav.path[2]).must_be_kind_of ::String
+    end
+
+    it 'leaves a segment the format rejects alone' do
+      nav = nav_for('/boards/short/edit')
+      nav.map_path
+      _(nav.refs).must_equal []
+      _(nav.path).must_equal %w[boards short edit]
+    end
+
+    it 'exposes the segment before each ref as path_before' do
+      nav = nav_for('/orgs/a-1/users/b-2')
+      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
+      _(nav.path[1].path_before).must_equal 'orgs'
+      _(nav.path[3].path_before).must_equal 'users'
+    end
+
+    it 'has no path_before at position 0' do
+      nav = nav_for('/a-1/users')
+      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
+      _(nav.path[0].path_before).must_be_nil
+    end
+
+    # regression: the value used to live in a parallel array, indexed by
+    # counting placeholders to the left, so overwriting one shifted the rest
+    it 'survives an app rewrite of an earlier path segment' do
+      nav = nav_for('/orgs/a-1/users/b-2')
+      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
+      nav.path[1] = 'plain'
+      _(nav.refs).must_equal ['2']
+      _(nav.path[3].value).must_equal '2'
+    end
+
+    # regression: a second pass used to append to @refs in its own discovery
+    # order, so refs stopped matching path order
+    it 'keeps refs in path order when a later pass matches an earlier segment' do
+      nav = nav_for('/orgs/a-1/users/b-2')
+      nav.map_path { |el| el == 'b-2' ? '2' : nil }
+      nav.map_path { |el| el == 'a-1' ? '1' : nil }
+      _(nav.refs).must_equal %w[1 2]
+      _(nav.ref).must_equal '1'
     end
   end
 
@@ -225,8 +340,8 @@ describe Lux::Application::Nav do
 
     it 'survives nav.ref classification' do
       nav = nav_for('/boards/abc-123/edit')
-      nav.ref { |el| el.include?('-') ? el.split('-').last : nil }
-      _(nav.path).must_equal ['boards', :ref, 'edit']
+      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
+      _(nav.path.map(&:to_s)).must_equal %w[boards 123 edit]
       _(nav.source_path).must_equal %w[boards abc-123 edit]
     end
 
@@ -256,7 +371,7 @@ describe Lux::Application::Nav do
       pathname = -> { '/' + nav.source_path.join('/') }
       before   = pathname.call
 
-      nav.ref { |el| el == 'abc123' ? el : nil }
+      nav.map_path { |el| el == 'abc123' ? el : nil }
 
       _(pathname.call).must_equal before
       _(before).must_equal '/pdf/salary-runs/abc123/obracun'   # format already stripped

@@ -2,7 +2,7 @@ require 'test_helper'
 
 # Boot-level config that Lux.boot! would normally set; required because this
 # spec drives the full Lux.render request pipeline.
-%i(serve_static_files use_autoroutes asset_root deploy_timestamp csrf).each do |k|
+%i(serve_static_files asset_root csrf).each do |k|
   Lux.config[k] = false unless Lux.config.key?(k)
 end
 Lux.config[:plugins] ||= []

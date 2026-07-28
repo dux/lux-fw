@@ -39,10 +39,22 @@ touching the router. The three rules that catch people out:
 * **`-` and `_` are equal at compare time only** (`Route#norm`). `nav.path`
   keeps the URL's own spelling so slug lookups work; never normalise it in
   place.
-* **`nav.path` is a working copy, `nav.source_path` is the original.**
-  `nav.ref { }` (id classification), `nav.locale { }` and app code all rewrite
-  `nav.path` in place. If you need the path a second time, read the frozen
-  `nav.source_path` rather than snapshotting `nav.path` yourself.
+* **Three views of the path.** `nav.source_path` is the frozen original,
+  `nav.path` the working copy that `nav.map_path`, `nav.locale { }` and app code
+  rewrite in place, and `nav.normalized_path` the working copy as a *shape*
+  (classified ids back as `'ref'`). Values -> `path`, disk/template lookup ->
+  `normalized_path`, "what arrived" -> `source_path`. Never snapshot `nav.path`
+  yourself.
+* **A classified id is an object, never a symbol.** `nav.map_path` replaces the
+  segment with a `Lux::Application::Nav::Base` instance carrying the value, so
+  `nav.refs` is derived from `nav.path` and cannot drift from it. Test with
+  `is_a?(Nav::Base)`, never `== :ref`; `:ref` in a route pattern is matched by
+  type, so a URL segment spelled `ref` is not one. `nav.ref` is read-only.
+* **The id format is named once, by `Lux.config.ref_format`.** Never hardcode a
+  format class. `nav.map_path`, `Lux::Type::RefType` (validation *and* column
+  width), `Lux::Utils::Ref` (primary keys) and `load_models` all resolve through
+  `Nav::Base.resolve` / `.build`, so an app that switches to `:uuid7` moves all
+  four together. New shapes subclass `Nav::Base` and `Nav::Base.register` a name.
 
 There are no per-action URL macros and no `_ref` action suffix - URLs are
 declared in the router. See [`doc/migration-routing.md`](./doc/migration-routing.md)
@@ -87,7 +99,7 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | `Lux::Browser`         | Server-side composer for `window.Lux` client + per-request state | [README](./lib/lux/browser/README.md) |
 | `Lux::Browser::Channel`| In-process pub/sub backing `response.sse` streams          | [README](./lib/lux/browser/channel/README.md) |
 | `Lux::Error`           | Thin exception class + `Lux.error.not_found` style helpers | [README](./lib/lux/error/README.md) |
-| `Lux::Environment`     | `Lux.env` / `Lux.mode` / `Lux.runtime` facets              | [README](./lib/lux/environment/README.md) |
+| `Lux::Environment`     | `Lux.env` / `Lux.debug?` / `Lux.runtime` facets              | [README](./lib/lux/environment/README.md) |
 | `Lux::DEPLOY_ID`       | Stable per-deploy id for cache-busting; mirrored to `ENV['DEPLOY_ID']` | [README](./README.md#luxdeploy_id) |
 | `Lux::Boot::Config`          | YAML config + `.env` loader + lifecycle hooks              | [README](./lib/lux/boot/config/README.md) |
 | `Lux::Plugin`          | Plugin loader (`Lux.root/plugins` then `Lux.fw_root/plugins`) | [README](./lib/lux/plugin/README.md) |

@@ -36,11 +36,27 @@ class AutoControllerTestController < Lux::Controller
   end
 end
 
+# auto_render resolves a template from the route path. A classified id renders
+# as its value, but the on-disk convention is a literal `ref` segment, so the
+# resolver reads lux.route.normalized_path.
+class RefTemplateController < Lux::Controller
+  include Lux::Controller::Auto
+
+  template_root './spec/fixtures/views'
+  views  'boards'
+  layout false
+end
+
 ###
+
+# `filter :ref` matches classified id segments by type, so the classifier has to
+# have run - a segment literally spelled "ref" is not one.
+REF ||= 'a' * 16
 
 describe Lux::Controller::Auto do
   def run_filter_for path
     Lux::Current.new("http://test/#{path}")
+    Lux.current.nav.map_path
     ctrl = AutoControllerTestController.new
     ctrl.action(:run_filters) rescue nil
     ctrl.matched_filters
@@ -52,11 +68,11 @@ describe Lux::Controller::Auto do
     end
 
     it 'matches nested segments' do
-      _(run_filter_for('spaces/ref')).must_equal [:spaces, :spaces_ref]
+      _(run_filter_for("spaces/#{REF}")).must_equal [:spaces, :spaces_ref]
     end
 
     it 'matches deeply nested segments' do
-      _(run_filter_for('spaces/ref/admin')).must_equal [:spaces, :spaces_ref, :spaces_ref_admin]
+      _(run_filter_for("spaces/#{REF}/admin")).must_equal [:spaces, :spaces_ref, :spaces_ref_admin]
     end
 
     it 'matches second top-level filter when first does not match' do
@@ -64,7 +80,7 @@ describe Lux::Controller::Auto do
     end
 
     it 'matches nested in second top-level filter' do
-      _(run_filter_for('cash_book_entries/ref')).must_equal [:cash_book_entries, :cash_book_entries_ref]
+      _(run_filter_for("cash_book_entries/#{REF}")).must_equal [:cash_book_entries, :cash_book_entries_ref]
     end
 
     it 'matches third top-level filter' do
@@ -94,14 +110,14 @@ describe Lux::Controller::Auto do
     end
 
     it 'checks a later sibling at the same depth when the prior one missed' do
-      # /spaces/ref/settings - :ref matches, :admin misses at depth 2,
+      # /spaces/<ref>/settings - :ref matches, :admin misses at depth 2,
       # :settings is still evaluated at depth 2
-      result = run_filter_for('spaces/ref/settings')
+      result = run_filter_for("spaces/#{REF}/settings")
       _(result).must_equal [:spaces, :spaces_ref, :spaces_ref_settings]
     end
 
     it 'does not run a non-matching sibling after a match at the same depth' do
-      result = run_filter_for('spaces/ref/admin')
+      result = run_filter_for("spaces/#{REF}/admin")
       _(result).must_include :spaces_ref_admin
       _(result).wont_include :spaces_ref_settings
     end
@@ -113,7 +129,46 @@ describe Lux::Controller::Auto do
     end
 
     it 'matches nested hyphenated paths' do
-      _(run_filter_for('cash-book-entries/ref')).must_equal [:cash_book_entries, :cash_book_entries_ref]
+      _(run_filter_for("cash-book-entries/#{REF}")).must_equal [:cash_book_entries, :cash_book_entries_ref]
+    end
+  end
+
+  # regression: to_s on a classified id is its value, so building the template
+  # path from lux.route.path looked for views/boards/<the-id>.haml
+  describe 'auto_render template resolution' do
+    def render_for path
+      Lux::Current.new("http://test/#{path}")
+      Lux.current.nav.map_path
+      RefTemplateController.new.action(:auto)
+      Lux.current.response.body
+    end
+
+    it 'renders the collection template' do
+      _(render_for('')).must_include 'boards:root'
+    end
+
+    it 'renders ref.haml for a classified id segment' do
+      _(render_for(REF)).must_include 'boards:ref'
+    end
+
+    it 'passes the id through to the template' do
+      _(render_for(REF)).must_include "ref=#{REF}"
+    end
+
+    it 'renders ref/edit.haml for a nested member action' do
+      _(render_for("#{REF}/edit")).must_include 'boards:ref:edit'
+    end
+
+    # template lookup is by name, so a literal segment lands on the same file.
+    # Only route matching (filter :ref) tells the two apart, by type.
+    it 'resolves a literal ref segment to the same template, with no id' do
+      _(render_for('ref')).must_include 'boards:ref'
+      _(render_for('ref')).must_include 'ref='
+      _(Lux.current.nav.ref).must_be_nil
+    end
+
+    it 'raises 404 when no template matches' do
+      _(-> { render_for('missing') }).must_raise Lux::Error
     end
   end
 

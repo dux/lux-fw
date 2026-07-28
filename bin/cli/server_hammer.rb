@@ -18,13 +18,28 @@ task :server do
       ENV['LUX_ENV'] = env
     end
 
-    # high (dev) ports default debug + reload on; -d / -r force them off.
-    # The port alone cannot say "dev": a deployed app sits behind a reverse
-    # proxy on a high port too (lux-deploy hands out 3010-3990), so every
-    # deploy was running production with debug and code reload on.
-    dev_default = ENV['LUX_ENV'] != 'production' && port > 500
-    ENV['LUX_DEBUG']  = (dev_default && !opts[:debug]).to_s
-    ENV['LUX_RELOAD'] = (dev_default && !opts[:reload]).to_s
+    # Only ever force the flags OFF here. Turning them ON is the per-env
+    # default's job (Lux::Environment::Flags::FLAGS) - writing 'true' would
+    # outrank it and was why `lux server -e test` ran with debug + reload on.
+    # The port check is a CLI-layer heuristic and stays that way: a low port
+    # means a privileged/public bind. The framework never looks at ports.
+    off = port <= 500
+    ENV['LUX_DEBUG']  = 'false' if off || opts[:debug]
+    ENV['LUX_RELOAD'] = 'false' if off || opts[:reload]
+
+    # " by ~/path/to/app" for the EADDRINUSE message: lsof gives the listening
+    # pid, then that pid's cwd. Empty when lsof is missing or the process
+    # belongs to another user - the message then reads as it always did.
+    port_owner = lambda do |num|
+      return '' unless Lux.shell.exists?('lsof')
+      pid = Lux.shell.exec('lsof', '-nP', '-t', "-iTCP:#{num}", '-sTCP:LISTEN', timeout: 2) {}
+      pid = pid.to_s.split("\n").first # clustered puma lists master + workers
+      return '' unless pid
+      cwd = Lux.shell.exec('lsof', '-a', '-p', pid, '-d', 'cwd', '-Fn', timeout: 2) {}
+      cwd = cwd.to_s[/^n(.+)$/, 1]
+      return '' unless cwd
+      ' by %s' % cwd.sub(/\A#{Regexp.escape(Dir.home)}/, '~')
+    end
 
     require 'socket'
     TCPServer.new('0.0.0.0', port).close
@@ -32,7 +47,9 @@ task :server do
     # rename the terminal window/tab (ghostty, iterm2) for the server's lifetime
     print "\e]0;lux: #{File.basename(Dir.pwd)}\a" if $stdout.tty?
 
-    envs = %w(LUX_ENV LUX_DEBUG LUX_RELOAD).map { |k| "#{k}=#{ENV[k]}" }.join(' ')
+    # unset vars are skipped, otherwise puma would inherit LUX_DEBUG= (empty)
+    # and the per-env default would never apply
+    envs = %w(LUX_ENV LUX_DEBUG LUX_RELOAD).reject { ENV[_1].to_s.empty? }.map { "#{_1}=#{ENV[_1]}" }.join(' ')
     puma_cfg = File.exist?('config/puma.rb') ? '-C config/puma.rb' : ''
     base = "#{envs} bundle exec puma #{puma_cfg}".squeeze(' ')
 
@@ -43,6 +60,6 @@ task :server do
       exec "#{base} -p #{port}"
     end
   rescue Errno::EADDRINUSE
-    Lux.shell.die 'Port %s is already in use' % port
+    Lux.shell.die 'Port %s is already in use%s' % [port, port_owner.(port)]
   end
 end

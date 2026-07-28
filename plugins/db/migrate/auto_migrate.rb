@@ -68,7 +68,7 @@ class AutoMigrate
       @applied << klass
 
       # mute the per-statement SQL logger; migration's own puts output stays
-      Lux.mode.silent do
+      Lux.silent do
         schema = Lux.schema(klass)
 
         am = new(klass.db)

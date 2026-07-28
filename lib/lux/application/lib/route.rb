@@ -10,6 +10,9 @@ module Lux
     # `map '/a/:b'` (capture). That is also the only place `-` and `_` are
     # treated as the same character, so nav.path keeps the original spelling
     # and slug lookups still work.
+    #
+    # `:ref` is the one pattern matched by type rather than by text - it means
+    # "a segment nav.ref classified as an id" (see #match_segment?).
     class Route
       def initialize nav
         @nav     = nav
@@ -18,6 +21,12 @@ module Lux
 
       def path
         @nav.path[@offsets.last..] || []
+      end
+
+      # #path with classified ids put back as the literal `ref` placeholder.
+      # See Nav#normalized_path - this is the cursor-relative view of it.
+      def normalized_path
+        @nav.normalized_path[@offsets.last..] || []
       end
 
       def root
@@ -43,8 +52,8 @@ module Lux
       #   match?('admin') / match?(:admin) / match?(%r{^@}) / match?([:a, :b])
       def match? pattern
         case pattern
-        when ::String then norm(root) == norm(pattern.sub(%r{^/}, ''))
-        when ::Symbol then norm(root) == norm(pattern)
+        when ::String then match_segment?(root, pattern.sub(%r{^/}, ''))
+        when ::Symbol then match_segment?(root, pattern)
         when ::Regexp then !!(pattern =~ root.to_s)
         when ::Array  then pattern.any? { |el| match?(el) }
         else false
@@ -55,10 +64,13 @@ module Lux
       #   start_with?(:spaces)         -> /spaces/*
       #   start_with?(:admin, :users)  -> /admin/users/*
       def start_with? *segments
-        segments = segments.flatten.map { norm(_1) }
+        segments = segments.flatten
         return false if segments.empty?
 
-        path.first(segments.length).map { norm(_1) } == segments
+        list = path.first(segments.length)
+        return false if list.length < segments.length
+
+        list.zip(segments).all? { |segment, pattern| match_segment?(segment, pattern) }
       end
 
       # Absolute path pattern with `:name` placeholders, matched from the URL
@@ -76,9 +88,9 @@ module Lux
 
           if el.start_with?(':')
             return nil if segment.nil?
-            captures[el[1..].to_sym] = segment_value(segment, i)
+            captures[el[1..].to_sym] = segment_value(segment)
           else
-            return nil unless norm(el) == norm(segment)
+            return nil unless match_segment?(segment, el)
           end
         end
 
@@ -92,13 +104,19 @@ module Lux
 
       private
 
-      # `nav.ref { }` replaces id segments with the `:ref` symbol and
-      # moves the values to `nav.refs`, so a capture that lands on one has to
-      # read the value back by position.
-      def segment_value segment, index
-        return segment unless segment == :ref
+      # `:ref` matches any segment `nav.ref` classified as an id, by type - a
+      # literal URL segment spelled "ref" is not one. Everything else compares
+      # as text.
+      def match_segment? segment, pattern
+        return segment.is_a?(Nav::Base) if norm(pattern) == 'ref'
 
-        @nav.refs[@nav.path[0, index].count(:ref)]
+        !segment.is_a?(Nav::Base) && norm(segment) == norm(pattern)
+      end
+
+      # A classified segment carries its own id (see Nav::Base), so a capture
+      # that lands on one binds the value, not the placeholder.
+      def segment_value segment
+        segment.is_a?(Nav::Base) ? segment.value : segment
       end
 
       # `-` and `_` are the same character to the router. Applied to both sides

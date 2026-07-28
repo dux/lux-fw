@@ -37,13 +37,16 @@ Lux.config.production.db.main
 
 Lux.config.host = 'other.com'    # write at runtime
 
-# --- defaults you typically set in config/initializers/lux.rb ----------
+# --- framework defaults you can override -------------------------------
+#
+# Declare these in config/config.yaml. Lux::Boot.set_defaults fills in only
+# what you left out, so an explicit `false` is never flipped back on.
 
 Lux.config.app_timeout         = 30
 Lux.config.delay_timeout       = 30
-Lux.config.use_autoroutes      = false
 Lux.config.serve_static_files  = true
 Lux.config.log_level           = :info
+Lux.config.ref_format          = :string   # or :uuid7 - see Nav::Base.register
 
 # logger config
 Lux.config.logger_path_mask     = './log/%s.log'

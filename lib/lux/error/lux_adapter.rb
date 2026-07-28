@@ -44,7 +44,7 @@ module Lux
         end
       end
 
-      if Lux.mode.debug?
+      if Lux.debug?
         begin
           Lux.log "#{Lux.app_caller || 'unknown'} - #{exception.class}: #{exception.message}"
         rescue StandardError
@@ -97,7 +97,7 @@ module Lux
     message ||= ::Rack::Utils::HTTP_STATUS_CODES[code] || 'Error'
 
     Lux.current.response.status code
-    Lux.log " Lux.error #{code} at #{Lux.app_caller} - #{message}".colorize(:red) if Lux.mode.debug?
+    Lux.log " Lux.error #{code} at #{Lux.app_caller} - #{message}".colorize(:red) if Lux.debug?
 
     Lux::Error.new(message)
   end

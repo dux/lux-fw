@@ -81,7 +81,7 @@ module Lux
       def default_error_page status, error
         name      = ::Rack::Utils::HTTP_STATUS_CODES[status] || 'Error'
         message   = error.message.to_s.gsub('<', '&lt;').gsub('>', '&gt;')
-        show_dev  = Lux.mode.debug?
+        show_dev  = Lux.debug?
         backtrace = (show_dev && error.respond_to?(:backtrace) && error.backtrace) ?
                     error.backtrace.first(40).join("\n").gsub('<', '&lt;').gsub('>', '&gt;') : nil
         color     = status >= 500 ? '#dc2626' : status >= 400 ? '#d97706' : '#374151'
@@ -337,7 +337,7 @@ module Lux
           yield if block_given?
           true
         elsif lux.nav.format
-          raise Lux.error.not_found Lux.mode.debug?('404 Not Found') { '%s document Not Found' % lux.nav.format.to_s.upcase }
+          raise Lux.error.not_found Lux.debug?('404 Not Found') { '%s document Not Found' % lux.nav.format.to_s.upcase }
         end
       else
         yield lux.nav.format
@@ -399,36 +399,22 @@ module Lux
       owner.is_a?(Class) && owner < Lux::Controller
     end
 
+    # No action by that name. Override on a controller to add a custom lookup;
+    # calling `super` from it returns false rather than raising, so you can fall
+    # through to your own pattern.
+    #
+    # Template-driven actions live on Lux::Controller::Auto (`auto` /
+    # auto_render), which resolves a template from the route path explicitly.
+    # There is no implicit "a template exists, so define the action" fallback.
     def action_missing name
-      path = [cattr.template_root, @lux.template_suffix, name].join('/')
+      # if called via super from `action_missing', return false,
+      # so once can easily fallback to custom template search pattern
+      return false if caller[0].include?("`action_missing'")
 
-      if template = Dir['%s.*' % path].first
-        unless Lux.config.use_autoroutes
-          raise 'Autoroute for "%s" is found but it is disabled in Lux.config.use_autoroutes' % name
-        end
-
-        self.class.define_method(name) {}
-        Lux.log { ' created method %s#%s | found template %s'.colorize(:yellow) % [self.class, name, template] }
-        return true
-      else
-        # if called via super from `action_missing', return false,
-        # so once can easily fallback to custom template search pattern
-        return false if caller[0].include?("`action_missing'")
-      end
-
-      message = Lux.mode.debug? '404 Method Not Found' do
+      message = Lux.debug? '404 Method Not Found' do
         base = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, lux.nav]
         defined_methods = (methods - Lux::Controller.instance_methods).map(&:to_s)
         defined = '<br /><br />Defined methods %s' % defined_methods.sort.to_ul
-
-        if Lux.config.use_autoroutes
-          root  = [cattr.template_root, @lux.template_suffix].join('/')
-          files = Dir.files(root).sort.filter {|f| f =~ /^[a-z]/ }.map {|f| f.sub(/\.\w+$/, '') }
-          files = files - defined_methods
-          defined += '<br />Defined via templates in %s%s' % [root, files.to_ul]
-        else
-          defined += 'Defined templates - disabled'
-        end
 
         [base, defined].join(' ')
       end

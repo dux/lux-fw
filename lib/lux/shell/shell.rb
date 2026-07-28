@@ -124,7 +124,7 @@ module Lux
     # Status output to STDERR (magenta). STDOUT stays clean for piping.
     # Accepts a string or an array of strings.
     def info text
-      return if Lux.mode.silent
+      return if Lux.silent
       if text.is_a?(Array)
         text.each { |line| info line }
       else
@@ -151,7 +151,7 @@ module Lux
       if app_line = Lux.app_caller
         lines << "at #{app_line}"
       end
-      Lux.logger.fatal "Lux FATAL: #{lines.join(' | ')}" if Lux.mode.debug?
+      Lux.logger.fatal "Lux FATAL: #{lines.join(' | ')}" if Lux.debug?
 
       if Lux.env.test?
         raise Lux::Shell::Die, lines.join(' | ')

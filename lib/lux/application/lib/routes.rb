@@ -70,7 +70,7 @@ module Lux
       def subdomain name, &block
         return unless lux.nav.subdomain == name.to_s
         instance_exec(&block)
-        raise Lux.error.not_found Lux.mode.debug?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
+        raise Lux.error.not_found Lux.debug?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
       end
 
       # Main routing DSL. All forms match against the current route cursor first,
@@ -112,7 +112,7 @@ module Lux
       # map 'users', 'admin/users', foo: :bar   # -> @foo = :bar in the controller
       # ```
       #
-      # Resourceful examples (after `nav.ref { ... }` canonicalization):
+      # Resourceful examples (after `nav.map_path { ... }` canonicalization):
       # ```
       # /admin                       -> :index
       # /admin/edit                  -> :edit
@@ -205,7 +205,7 @@ module Lux
       # ```
       def call object=nil, action=nil, opts=nil, &block
         # log original app caller (skipped in production - caller() is expensive)
-        if Lux.mode.debug?
+        if Lux.debug?
           root    = Lux.root.join('app/').to_s
           sources = caller.select { |it| it.include?(root) }.map { |it| 'app/' + it.sub(root, '').split(':in').first }
           Lux.log { ' Routed from: %s' % sources.join(' ') } if sources.first
@@ -292,11 +292,11 @@ module Lux
         action ||= resourceful_action(lux.route.path)
 
         if opts[:only] && !opts[:only].include?(action.to_sym)
-          raise Lux.error.not_found Lux.mode.debug?('404 Not Found') { "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" }
+          raise Lux.error.not_found Lux.debug?('404 Not Found') { "Action :#{action} not allowed on #{object}, allowed are: #{opts[:only]}" }
         end
 
         if opts[:except] && opts[:except].include?(action.to_sym)
-          raise Lux.error.not_found Lux.mode.debug?('404 Not Found') { "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" }
+          raise Lux.error.not_found Lux.debug?('404 Not Found') { "Action :#{action} not allowed on #{object}, forbidden are: #{opts[:except]}" }
         end
 
         if object.respond_to?(:action)
@@ -363,7 +363,7 @@ module Lux
       # we are in reload mode, where the file is expected to change under us.
       def eval_plugin_routes path
         source =
-          if Lux.mode.reload?
+          if Lux.reload?
             ::File.read(path)
           else
             PLUGIN_ROUTE_SOURCE[path] ||= ::File.read(path)
@@ -373,7 +373,7 @@ module Lux
       end
 
       # Resourceful action resolution from the remaining route cursor path.
-      # The action is the last segment that is not a `:ref` placeholder, so it
+      # The action is the last segment that is not a classified id, so it
       # reads straight off the tail of the URL:
       #
       #   /users               -> :root
@@ -388,7 +388,7 @@ module Lux
       def resourceful_action remaining
         return :root if remaining.empty?
 
-        (remaining.reverse.find { |s| s != :ref } || :show).to_sym
+        (remaining.reverse.find { |s| !s.is_a?(Nav::Base) } || :show).to_sym
       end
     end
   end

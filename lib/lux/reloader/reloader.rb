@@ -1,5 +1,5 @@
 # Reloads source files modified since the last check.
-# Called per-request in dev (Lux.mode.reload? && Lux.runtime.web?) and explicitly
+# Called per-request in dev (Lux.reload? && Lux.runtime.web?) and explicitly
 # from the console via `reload!`.
 # Installed gems are skipped via @gem_paths; user dev gems (outside Gem.path)
 # still reload. Plain `load` reopens classes in place so cached class refs

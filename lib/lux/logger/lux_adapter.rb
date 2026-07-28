@@ -48,8 +48,8 @@ module Lux
         l.formatter = proc { |_, _, _, msg| "#{msg}\n" }
       end
 
-      # Default uses Lux.mode.debug? so the logger works before Lux.boot! has populated config.
-      level = Lux.config.key?(:log_level) ? Lux.config[:log_level] : (Lux.mode.debug? ? :info : :error)
+      # Default uses Lux.debug? so the logger works before Lux.boot! has populated config.
+      level = Lux.config.key?(:log_level) ? Lux.config[:log_level] : (Lux.debug? ? :info : :error)
       l.level = level == :info ? Logger::INFO : Logger::ERROR
       l
     end

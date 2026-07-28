@@ -3,13 +3,12 @@ require 'test_helper'
 describe Lux::Error do
   before do
     Lux::Current.new('http://testing/widgets?x=1')
-    @original_debug = Lux.mode.method(:debug?)
-    Lux.mode.define_singleton_method(:debug?) { |short = nil, &blk| blk ? blk.call : true }
+    @prev_debug = Lux.debug?
+    Lux.debug = true
   end
 
   after do
-    original = @original_debug
-    Lux.mode.define_singleton_method(:debug?) { |*a, &b| original.call(*a, &b) }
+    Lux.debug = @prev_debug
   end
 
   it 'inline output contains URL, Copy btn, hidden textarea' do

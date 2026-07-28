@@ -4,7 +4,7 @@ Custom code reloader. Skips installed gems via `Gem.path`, so reload is
 fast even with a fat Gemfile. Reopens classes in place (`load`) so
 existing class references stay valid.
 
-Called automatically per-request in dev when both `Lux.mode.reload?` and
+Called automatically per-request in dev when both `Lux.reload?` and
 `Lux.runtime.web?` are true.
 
 `Lux.reloader` is the shim for the module.
@@ -29,8 +29,8 @@ end
 
 # --- environment toggles -----------------------------------------------
 
-Lux.mode.reload?              # true in dev (default), false in prod / test
-Lux.mode.reload = false       # turn off at runtime
+Lux.reload?              # true in dev (default), false in prod / test
+Lux.reload = false       # turn off at runtime
 ```
 
 ## Scope
@@ -60,5 +60,5 @@ existing references valid.
 
 ## See also
 
-* [`../environment/README.md`](../environment/README.md) - `Lux.mode.reload?`
+* [`../environment/README.md`](../environment/README.md) - `Lux.reload?`
 * [`../boot/config/README.md`](../boot/config/README.md) - `on_reload_code` hook

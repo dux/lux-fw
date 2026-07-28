@@ -21,6 +21,10 @@ class PdfController < FrontendController
 
     return render_pdf if nav.format == :pdf
 
+    # The layout renders the download link as plain markup, so it needs the
+    # canonical path - same one the signature is built over, not nav.path.
+    @pdf_url = "#{pdf_path}.pdf"
+
     # Models are loaded in the router (pdf routes.rb); @<model> is already set.
     # auto_render prefixes the view dir (:pdf) and reads the route cursor, which
     # the `map 'pdf' do` scope already advanced past the mount segment.

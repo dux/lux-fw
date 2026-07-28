@@ -18,7 +18,7 @@ module CdnAsset
         name = '%s/assets/%s' % [root, file]
       else
         return unless File.exist?("./public/assets/#{name}")
-        stamp = Lux.mode.reload? ? get_time_stamp : Lux::DEPLOY_ID
+        stamp = Lux.reload? ? get_time_stamp : Lux::DEPLOY_ID
         name = '/assets/%s?%s' % [name, stamp]
       end
     end
@@ -48,7 +48,7 @@ module CdnAsset
   # = CdnAsset.auto :shared, :fez, :app
   def auto *list
     key = 'page-assets-%s-%s' % [Lux::DEPLOY_ID, list.sort.join('-')]
-    Lux.cache.fetch key, ttl: Lux.mode.reload? ? 0 : 3600 do
+    Lux.cache.fetch key, ttl: Lux.reload? ? 0 : 3600 do
       list.flat_map { |el| [url("auto-#{el}.js"), url("auto-#{el}.css")] }.compact.join("\n")
     end
   end

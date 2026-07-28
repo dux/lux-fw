@@ -67,3 +67,34 @@ describe 'Haml parser patch (Tailwind classes)' do
     _(nested).wont_include 'w-24='
   end
 end
+
+describe 'Haml parser patch (tag actions)' do
+  def render(src)
+    Tilt['haml'].new(escape_html: false) { src }.render.strip
+  end
+
+  # regression: parse_tag used String#strip!, which returns nil when there is
+  # nothing to strip. `%td!= foo` captures the action as `!` and leaves value as
+  # `= foo` - no surrounding whitespace - so value went nil and Haml then
+  # indexed into it.
+  it 'compiles unescaped output on a tag' do
+    _(render('%td!= "<b>x</b>"')).must_equal '<td><b>x</b></td>'
+  end
+
+  it 'compiles unescaped output alongside a class' do
+    _(render('%td.cls!= "<b>x</b>"')).must_equal '<td class="cls"><b>x</b></td>'
+  end
+
+  it 'compiles unescaped output alongside an id' do
+    _(render('%span#sid!= "<b>x</b>"')).must_equal '<span id="sid"><b>x</b></span>'
+  end
+
+  it 'compiles output with no space after the action' do
+    _(render('%td="x"')).must_equal '<td>x</td>'
+  end
+
+  it 'still compiles the plain and spaced forms' do
+    _(render('%td= "x"')).must_equal '<td>x</td>'
+    _(render('%p Hello')).must_equal '<p>Hello</p>'
+  end
+end

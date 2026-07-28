@@ -2,7 +2,7 @@ require 'test_helper'
 
 # Config defaults that Lux.boot! would normally set, needed because this spec
 # exercises Lux.render which walks the full request pipeline.
-%i(serve_static_files use_autoroutes asset_root deploy_timestamp csrf).each do |k|
+%i(serve_static_files asset_root csrf).each do |k|
   Lux.config[k] = false unless Lux.config.key?(k)
 end
 Lux.config[:plugins] ||= []
@@ -125,7 +125,7 @@ Lux.app do
 
   before do
     # canonicalize ID-like segments to :ref before routing
-    nav.ref { |el| el =~ /\A\d+\z/ ? el : nil }
+    nav.map_path { |el| el =~ /\A\d+\z/ ? el : nil }
   end
 
   root 'routes_test#root'

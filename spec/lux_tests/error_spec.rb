@@ -62,11 +62,11 @@ describe 'Lux.error' do
   end
 
   def with_debug_mode(value)
-    prev = Lux.mode.debug?
-    Lux.mode.debug = value
+    prev = Lux.debug?
+    Lux.debug = value
     yield
   ensure
-    Lux.mode.debug = prev
+    Lux.debug = prev
   end
 
   describe 'with integer code' do

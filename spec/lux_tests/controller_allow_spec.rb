@@ -278,14 +278,14 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
   describe 'ref-bearing action' do
     it 'enforces allow when the URL carries a ref' do
       Lux::Current.new('http://test/things/abc', method: 'DELETE')
-      Lux.current.nav.ref { |el| el == 'abc' ? 'abc' : nil }
+      Lux.current.nav.map_path { |el| el == 'abc' ? 'abc' : nil }
       AllowRefController.action(:destroy)
       _(Lux.current.response.body).must_equal 'destroy:abc:DELETE'
     end
 
     it 'still rejects undeclared verbs' do
       Lux::Current.new('http://test/things/abc', method: 'POST')
-      Lux.current.nav.ref { |el| el == 'abc' ? 'abc' : nil }
+      Lux.current.nav.map_path { |el| el == 'abc' ? 'abc' : nil }
       _{ AllowRefController.action(:destroy) }.must_raise Lux::Error
       _(Lux.current.response.status).must_equal 405
     end
@@ -312,8 +312,8 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
 
   describe 'dev-mode 405 hint' do
     it 'includes the action name, attempted verb and allowed list' do
-      prev = Lux.mode.debug?
-      Lux.mode.debug = true
+      prev = Lux.debug?
+      Lux.debug = true
       begin
         Lux::Current.new('http://test/show', method: 'PUT')
         raised = nil
@@ -328,7 +328,7 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
         _(raised.message).must_include 'GET, HEAD, OPTIONS'
         _(raised.message).must_include 'allow :put'
       ensure
-        Lux.mode.debug = prev
+        Lux.debug = prev
       end
     end
   end

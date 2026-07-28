@@ -141,11 +141,10 @@ keys, mixed key types, duplicate column) raise via `Lux.shell.die`.
 plugins/db/
   loader.rb                  # explicit require list (no Dir sweep)
   lib/                       # pure-Ruby utilities (no Sequel)
-    ref.rb                   # Lux::Utils::Ref (16-char ID generator)
-    ref_type.rb              # Lux::Type::RefType
     schema_define.rb         # Lux::Schema::Define DSL helpers: #timestamps, #enum
-  ext/                       # direct Sequel::Model extensions
+  ext/                       # Sequel-aware extensions
     core.rb
+    nav_models.rb            # Nav#load_models + the ref->model registry
     dataset_methods.rb       # x* query-builder primitives
     dataset_scopes.rb        # convenience scopes layered on dataset_methods
     find_precache.rb

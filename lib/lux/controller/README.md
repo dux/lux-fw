@@ -169,8 +169,8 @@ same shape, the framework-appropriate default per system.
 
 All routing lives in the app router - there are no per-action URL
 annotations. See [`../application/README.md`](../application/README.md) for the
-DSL. URLs map to actions resourcefully when `nav.ref { ... }` (or
-`nav.load_models`) has canonicalised id segments to `:ref`:
+DSL. URLs map to actions resourcefully when `nav.ref` (or `nav.load_models`)
+has classified the id segments:
 
 | URL                       | Action    | `nav.ref` |
 |---------------------------|-----------|-----------|
@@ -181,9 +181,9 @@ DSL. URLs map to actions resourcefully when `nav.ref { ... }` (or
 | `/users/posts/123`        | `:posts`  | "123"     |
 | `/users/foo/bar`          | `:bar`    | nil       |
 
-The action is the last non-`:ref` segment, so one method serves both the
-collection and the member URL - read `nav.ref` to tell them apart. To give a
-member action its own URL, route it explicitly:
+The action is the last segment that is not a classified id, so one method serves
+both the collection and the member URL - read `nav.ref` to tell them apart. To
+give a member action its own URL, route it explicitly:
 
 ```ruby
 map '/users/:ref/dashboard' => 'users#dashboard'
@@ -233,7 +233,9 @@ already wrote the body. Key pieces:
 * `auto` - entry point: `filter` then `auto_render`. Override for full control.
 * `auto_render` - renders the `views` (default layout name) + the remaining
   route path (`app/views/<views>/<path>.{haml,md,erb}`, or `.../root.*`), else
-  raises 404.
+  raises 404. It reads `lux.route.normalized_path`, so a classified id maps to a
+  literal `ref` segment on disk - `/boards/abc123/edit` renders
+  `app/views/boards/ref/edit.haml`.
 * `auto_find_template(path)` - resolves a path array to a template, or nil.
 * `filter` - two shapes share the name. With no args it is the entry hook that
   runs the class-level `filter do |mount_on| ... end` block. With segments

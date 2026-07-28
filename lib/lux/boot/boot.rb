@@ -42,6 +42,10 @@ module Lux
         require_env!
         Lux.init_env
         Lux.dotenv
+        # .env may carry LUX_DEBUG / LUX_RELOAD, and anything that logged
+        # before boot has already built the flags off the pre-dotenv ENV.
+        # Re-parse; runtime overrides and silent are untouched.
+        Lux.flags.reload_env!
         bundler_require!
         Lux.config
         set_defaults
@@ -84,32 +88,46 @@ module Lux
       Bundler.require :default, (ENV['LUX_ENV'] || 'development').to_sym
     end
 
+    # Framework defaults for anything config.yaml did not declare.
+    #
+    # This runs AFTER the config load (see boot!), so a plain `=` would overwrite
+    # what the host declared - config.yaml would silently do nothing for every
+    # key listed here. `||=` is wrong too: a default of `true` would flip an
+    # explicit `false` back on. Key existence is the only correct test, which is
+    # what set_default does. A block defers the value so it is not computed for a
+    # key the host already set.
     def set_defaults
       ENV['TZ'] ||= 'UTC'
 
       # Delay
-      Lux.config.delay_timeout    = Lux.env.dev? ? 3600 : 30
-      Lux.config.defer_pool_size  = 3
+      set_default(:delay_timeout) { Lux.env.dev? ? 3600 : 30 }
+      set_default :defer_pool_size, 3
 
       # Logger
-      Lux.config.log_level            = Lux.mode.debug? ? :info : :error
-      Lux.config.logger_path_mask     = './log/%s.log'
-      Lux.config.logger_files_to_keep = 3
-      Lux.config.logger_file_max_size = 10_240_000
-      Lux.config.logger_formatter     = nil
+      set_default(:log_level) { Lux.debug? ? :info : :error }
+      set_default :logger_path_mask, './log/%s.log'
+      set_default :logger_files_to_keep, 3
+      set_default :logger_file_max_size, 10_240_000
+      set_default :logger_formatter, nil
 
       # Other
-      Lux.config.use_autoroutes       = false
-      Lux.config.asset_root           = false
-      Lux.config[:plugins]           ||= []
+      set_default :asset_root, false
+      set_default :plugins, []
 
-      ###
+      # What an id looks like, app-wide: the router (nav.map_path), the :ref
+      # column type, Lux::Utils::Ref and load_models all resolve through it, so
+      # they cannot drift apart. A registered name, or `{ name => attrs }`.
+      # See Lux::Application::Nav::Base.register for what is available.
+      set_default :ref_format, :string
 
       # Serve static files is on by default
-      Lux.config.serve_static_files = true
+      set_default :serve_static_files, true
+    end
 
-      # Etag and cache tags reset after deploy
-      Lux.config.deploy_timestamp = File.mtime('./Gemfile').to_i.to_s
+    def set_default key, value = nil
+      return if Lux.config.key?(key)
+
+      Lux.config[key] = block_given? ? yield : value
     end
 
     def start_info
@@ -118,11 +136,11 @@ module Lux
 
         info.push "Lux env:  #{Lux.env.to_s.colorize(:yellow)}"
 
-        flags = %w(debug reload).map do |name|
-          on = Lux.mode.send("#{name}?")
+        toggles = Lux::Environment::Flags::FLAGS.keys.map do |name|
+          on = Lux.send("#{name}?")
           on ? "#{name} (yes)".colorize(:yellow) : "#{name} (no)".colorize(:green)
         end
-        info.push "Lux mode: #{flags.join(', ')}"
+        info.push "Lux flags: #{toggles.join(', ')}"
 
         speed = 'in %s sec' % (Time.now - started_at).round(2).to_s.colorize(:white)
 

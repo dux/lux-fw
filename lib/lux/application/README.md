@@ -31,7 +31,7 @@ Lux.app do
 
   # --- request callbacks (top level; instance_exec'd on Application) ------
   before do
-    nav.ref { |el| Ulid.is?(el.split('-').last) ? el.split('-').last : nil }
+    nav.map_path   # classify id segments; format from Lux.config.ref_format
   end
   after do
     response.body { |b| b.gsub(/T\[([\w.]+)\]/) { Translation.fetch($1) } }
@@ -182,9 +182,9 @@ map 'users', 'admin/users', only: [:index], foo: :bar
 
 ## Resourceful action resolution
 
-The action is the **last segment that is not a `:ref`** placeholder, so it reads
-straight off the tail of the URL. `:ref` segments come from
-`nav.ref { ... }` (or `nav.load_models`); the id itself is on `nav.ref`.
+The action is the **last segment that is not a classified id**, so it reads
+straight off the tail of the URL. Id segments come from `nav.ref` (or
+`nav.load_models`); the id itself is on `nav.ref`.
 
 | URL                        | Action    | `nav.ref` |
 |----------------------------|-----------|-----------|
@@ -197,9 +197,9 @@ straight off the tail of the URL. `:ref` segments come from
 | `/boards/users/123/edit`   | `:edit`   | "123"     |
 | `/boards/foo/bar`          | `:bar`    | nil       |
 
-Rules: empty remaining → `:root`; all segments are `:ref` → `:show`; otherwise
-the last non-`:ref` segment. One action serves both the collection and the
-member form - branch on `nav.ref` when you need to.
+Rules: empty remaining → `:root`; every segment is an id → `:show`; otherwise
+the last non-id segment. One action serves both the collection and the member
+form - branch on `nav.ref` when you need to.
 
 Only methods the app defined on a `Lux::Controller` subclass are reachable this
 way, so a URL can never dispatch into a framework method. Explicit

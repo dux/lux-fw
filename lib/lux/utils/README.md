@@ -20,11 +20,14 @@ via their full namespace, or through monkey-patches on stdlib classes
 | `Lux::Utils::HtmlTag`       | `html_tag/`          | tag-based HTML builder DSL (vendored, rewritten); top-level `HtmlTag` kept as alias |
 | `Lux::Utils::Url`           | `url.rb`             | URL parser/builder with path attrs, locale, qs, pqs (vendored from `lux-url` gem); top-level `Url` kept as alias |
 
-Two more live in the db plugin (same namespace, plugin-coupled location):
+| `Lux::Utils::Ref`           | `ref.rb`             | `generate` / `is?` for the default ref format; the rule lives in `Lux::Application::Nav::RefString` |
+
+The db plugin reopens `Lux::Utils::Ref` in `ext/nav_models.rb` to add the model
+registry (`register` / `klass` / `load` / `models` / `public_link`), which needs
+Sequel. One more constant lives there outright:
 
 | Constant | File |
 |----------|------|
-| `Lux::Utils::Ref`            | `plugins/db/lib/ref.rb` |
 | `Lux::Utils::PaginatedArray` | `plugins/db/ext/paginate.rb` |
 
 ## Full example
@@ -238,5 +241,6 @@ Time.now.short(true) # force default format, ignore config
 ## See also
 
 * [`../current/README.md`](../current/README.md) - `Lux.current.encrypt/decrypt` (per-request variants)
-* [`../../../plugins/db/lib/ref.rb`](../../../plugins/db/lib/ref.rb) - `Lux::Utils::Ref`
+* [`../application/lib/nav/ref_string.rb`](../application/lib/nav/ref_string.rb) - the format behind `Lux::Utils::Ref`
+* [`../../../plugins/db/ext/nav_models.rb`](../../../plugins/db/ext/nav_models.rb) - `Lux::Utils::Ref` model registry + `Nav#load_models` (db plugin)
 * [`../../../plugins/db/ext/paginate.rb`](../../../plugins/db/ext/paginate.rb) - `Lux::Utils::PaginatedArray`
