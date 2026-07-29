@@ -146,13 +146,21 @@ Two switches, both off by default:
   what other processes publish.
 
 ```ruby
-# config/puma.rb (publish + receive, per worker after fork)
-on_worker_boot     { Lux::Browser::Channel.pg_listen! }
-on_worker_shutdown { Lux::Browser::Channel.pg_stop! }
+# an initializer is enough - lux_boot re-arms the listener in each worker
+Lux::Browser::Channel.pg_listen!
 
 # in a job process (publish only)
 Lux::Browser::Channel.pg_publish!
 ```
+
+**A listener does not survive `fork`.** A clustered puma loads the app in the
+master, so `pg_listen!` in an initializer starts the thread there; every worker
+then inherits the LISTEN socket and nothing that reads it, and no message ever
+reaches a browser. `lux_boot`'s worker-boot hook calls
+`Channel.pg_after_fork!`, which notices the state came from another process and
+starts a fresh thread and connection - so an initializer is the right place to
+call `pg_listen!`. Any other forking server has to make the same call after
+its fork. `pg_listening?` answers for the current process only.
 
 NOTIFY is database-scoped. Pass the same `db_name:` to every call so
 publisher and listeners share a database:
@@ -197,6 +205,7 @@ Lux::Browser::Channel::PgBroker::PG_CHANNEL  # "lux_channel"
 | `Lux::Browser::Channel.reset!` | nil | drop every subscriber (tests only) |
 | `Lux::Browser::Channel.pg_publish!(db_name: :main)` | true | route publishes through NOTIFY (jobs/rake) |
 | `Lux::Browser::Channel.pg_listen!(db_name: :main)` | true | also start LISTEN thread (Puma workers) |
+| `Lux::Browser::Channel.pg_after_fork!` | bool | restart an inherited listener in a forked child |
 | `Lux::Browser::Channel.pg_stop!` | true | stop listener and disable NOTIFY publishing |
 | `Lux::Browser::Channel.pg_publishing?` | Boolean | publish path routed through NOTIFY |
 | `Lux::Browser::Channel.pg_listening?` | Boolean | listener thread alive |

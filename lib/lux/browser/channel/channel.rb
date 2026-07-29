@@ -175,6 +175,14 @@ module Lux
         PgBroker.stop!
       end
 
+      # Restart the listener in a forked child - the thread does not survive
+      # fork, only its socket does. Called from the puma worker-boot hook, so
+      # an app that calls pg_listen! in an initializer (which runs in the
+      # master) still ends up with a listening worker.
+      def pg_after_fork!
+        PgBroker.after_fork!
+      end
+
       def pg_publishing?
         PgBroker.publish_enabled?
       end

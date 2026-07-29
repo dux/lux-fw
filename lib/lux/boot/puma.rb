@@ -21,7 +21,8 @@
 # When clustered (workers >= 2 after overrides) it installs three hooks:
 #
 #   before_fork        - disconnect any Sequel DBs held by the master
-#   on_worker_boot     - disconnect inherited sockets, then load ./config/app
+#   on_worker_boot     - disconnect inherited sockets, load ./config/app, then
+#                        re-arm anything that cannot survive a fork
 #   on_worker_shutdown - disconnect on worker exit
 #
 # Disconnects are a no-op without preload_app! (master holds no DB handles)
@@ -77,6 +78,13 @@ module Lux
         send boot_hook do
           Sequel::DATABASES.each(&:disconnect) if defined?(Sequel)
           require './config/app'
+
+          # The app is loaded in the master before the first fork, so anything
+          # it started there - the channel broker's LISTEN thread above all -
+          # exists in the master only; the worker inherits the socket and
+          # nothing that reads it. Re-arm here, after the fork. No-op unless
+          # the app asked for a listener.
+          Lux::Browser::Channel.pg_after_fork! if defined?(Lux::Browser::Channel)
         end
 
         send down_hook do

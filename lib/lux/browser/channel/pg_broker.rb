@@ -33,6 +33,9 @@ module Lux
       #   history per channel for Last-Event-ID reconnects; that is all.
       # * NOTIFY is database-scoped. Publisher and listener must use the
       #   same Lux DB name (`db_name:` on both calls).
+      # * The listener does not survive `fork`. A clustered server loads the app
+      #   in the master, so the thread is started there and every worker
+      #   inherits the socket without anything reading it - see after_fork!.
       module PgBroker
         extend self
 
@@ -53,8 +56,10 @@ module Lux
           @publish_enabled == true
         end
 
+        # Only true for a listener this process started. State inherited across
+        # fork names a thread that no longer exists.
         def listening?
-          @thread&.alive? ? true : false
+          (@owner_pid == Process.pid && @thread&.alive?) ? true : false
         end
 
         # Route Channel.publish through NOTIFY on `db_name`. Idempotent.
@@ -67,29 +72,56 @@ module Lux
           true
         end
 
-        # Enable publish AND start the listener thread on `db_name`. Idempotent.
-        # Use this in Puma workers (so they receive what other processes publish).
+        # Enable publish AND start the listener thread on `db_name`. Idempotent
+        # per process - and "per process" is the whole point: a listener started
+        # before a fork is not a listener in the child.
         def enable_listen! db_name: :main
           @lock.synchronize do
             @db_name         = db_name
             @publish_enabled = true
-            return true if @thread&.alive?
-            @stop    = false
-            @thread  = Thread.new { run_loop }
+            @listen_wanted   = true
+            return true if @owner_pid == Process.pid && @thread&.alive?
+
+            # Inherited from a parent: the thread is gone, but @conn names a
+            # socket the parent is still reading. Drop the reference and leave
+            # it alone - closing it here would UNLISTEN and terminate the
+            # parent's connection, which we share at the OS level.
+            @conn = nil unless @owner_pid == Process.pid
+
+            @stop        = false
+            @owner_pid   = Process.pid
+            @thread      = Thread.new { run_loop }
             @thread.name = 'lux_channel_broker'
           end
           true
+        end
+
+        # Re-arm the listener in a freshly forked child. Call it from a
+        # post-fork hook (Lux::Boot's puma worker hook does): a clustered server
+        # loads the app - and so runs the app's pg_listen! - in the master, so
+        # without this every worker holds an inherited LISTEN socket that
+        # nothing polls and no message ever reaches a browser.
+        #
+        # No-op in the process that started the listener, and in any process
+        # that never asked for one.
+        def after_fork!
+          return false unless @listen_wanted
+          return false if @owner_pid == Process.pid
+
+          enable_listen! db_name: @db_name || :main
         end
 
         # Stop the listener (if any) and disable NOTIFY-based publishing.
         def stop!
           @lock.synchronize do
             @publish_enabled = false
+            @listen_wanted   = false
             @stop            = true
             t                = @thread
             c                = @conn
             @thread          = nil
             @conn            = nil
+            @owner_pid       = nil
 
             if c
               begin c.async_exec("UNLISTEN *") rescue nil end

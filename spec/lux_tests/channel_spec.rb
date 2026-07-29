@@ -170,4 +170,51 @@ describe Lux::Browser::Channel do
       _(Lux::Browser::Channel.session_channels).must_be_nil
     end
   end
+
+  # A listener thread does not survive fork, but its socket does - a clustered
+  # puma loads the app in the master, so every worker used to inherit a LISTEN
+  # connection that nothing polled.
+  describe 'fork awareness' do
+    let(:broker) { Lux::Browser::Channel::PgBroker }
+
+    def fake_inherited_listener
+      broker.instance_variable_set :@listen_wanted, true
+      broker.instance_variable_set :@db_name, :main
+      broker.instance_variable_set :@owner_pid, Process.pid - 1
+      broker.instance_variable_set :@thread, Thread.new { sleep 5 }
+    end
+
+    after { Lux::Browser::Channel.pg_stop! }
+
+    it 'does not call an inherited thread ours' do
+      fake_inherited_listener
+      _(Lux::Browser::Channel.pg_listening?).must_equal false
+    end
+
+    it 'starts a listener of its own after a fork' do
+      fake_inherited_listener
+      _(Lux::Browser::Channel.pg_after_fork!).must_equal true
+      _(broker.instance_variable_get(:@owner_pid)).must_equal Process.pid
+      _(Lux::Browser::Channel.pg_listening?).must_equal true
+    end
+
+    # Closing it would UNLISTEN and terminate the connection the parent is
+    # still reading - we share it at the OS level.
+    it 'lets go of the inherited connection without touching it' do
+      conn = Object.new
+      def conn.close; raise 'must not close the parent connection'; end
+      def conn.async_exec(*); raise 'must not touch the parent connection'; end
+
+      fake_inherited_listener
+      broker.instance_variable_set :@conn, conn
+      Lux::Browser::Channel.pg_after_fork!
+
+      _(broker.instance_variable_get(:@conn)).wont_be_same_as conn
+    end
+
+    it 'is a no-op where no listener was ever wanted' do
+      Lux::Browser::Channel.pg_stop!
+      _(Lux::Browser::Channel.pg_after_fork!).must_equal false
+    end
+  end
 end
