@@ -28,7 +28,9 @@ module Lux
       # * The listening worker holds one dedicated raw PG connection in
       #   LISTEN mode (outside the Sequel pool). Count it against your
       #   max_connections.
-      # * No replay - LISTEN/NOTIFY is fire-and-forget.
+      # * No replay at this layer - LISTEN/NOTIFY is fire-and-forget. A process
+      #   started after a NOTIFY never sees it. Channel keeps a short in-memory
+      #   history per channel for Last-Event-ID reconnects; that is all.
       # * NOTIFY is database-scoped. Publisher and listener must use the
       #   same Lux DB name (`db_name:` on both calls).
       module PgBroker
@@ -101,8 +103,8 @@ module Lux
         # Send a NOTIFY on the configured DB. Uses a pooled Sequel connection -
         # returns immediately. The matching listener (in any process that called
         # enable_listen! on the same db_name) will re-publish locally.
-        def publish name, data
-          payload = "#{name}#{SEP}#{data.is_a?(String) ? data : JSON.generate(data)}"
+        def publish name, data, id = nil
+          payload = "#{name}#{SEP}#{id}#{SEP}#{data.is_a?(String) ? data : JSON.generate(data)}"
           raise ArgumentError, "channel payload too large (#{payload.bytesize} > #{MAX_PAYLOAD})" if payload.bytesize > MAX_PAYLOAD
 
           Lux.db(@db_name || :main).synchronize do |conn|
@@ -142,7 +144,7 @@ module Lux
         end
 
         def dispatch payload
-          name, raw = payload.split(SEP, 2)
+          name, id, raw = payload.split(SEP, 3)
           return unless name && raw
 
           data = begin
@@ -152,7 +154,8 @@ module Lux
           end
 
           # Direct local fan-out - bypass Channel.publish to avoid re-NOTIFY loop.
-          Lux::Browser::Channel.local_publish(name, data)
+          # The id comes from the publisher so every listener agrees on it.
+          Lux::Browser::Channel.local_publish(name, data, id.to_s.empty? ? nil : id.to_i)
         end
 
         def open_conn

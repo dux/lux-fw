@@ -16,10 +16,17 @@ module Lux
     #   # in job / rake / one-off processes (publish only)
     #   Lux::Browser::Channel.pg_publish!
     module Channel
+      # Messages retained per channel for Last-Event-ID replay after a client
+      # reconnects. LISTEN/NOTIFY has no replay of its own, so this is the only
+      # thing standing between a dropped connection and silently lost messages.
+      HISTORY_SIZE ||= 100
+
       extend self
 
-      @lock ||= Mutex.new
-      @subs ||= {}   # channel_name (String) -> [Queue, ...]
+      @lock    ||= Mutex.new
+      @subs    ||= {}   # channel_name (String) -> [Queue, ...]
+      @history ||= {}   # channel_name (String) -> [[id, data], ...]
+      @seq     ||= {}   # channel_name (String) -> last id assigned here
 
       Publisher    ||= Struct.new(:name) do
         def push data
@@ -42,22 +49,52 @@ module Lux
       # currently subscribed to `name`. When PG publish is enabled (pg_publish!
       # or pg_listen!), this is routed through NOTIFY so every process listening
       # on the same DB receives it via its own LISTEN connection.
+      # The id is assigned here, by the publishing process, and travels with the
+      # message so every listener agrees on it. Replay therefore assumes a single
+      # publisher per channel - two processes publishing to the same name will
+      # hand out the same ids. That matches how channels are used in practice
+      # (one job, one channel); if you need multiple publishers, make the channel
+      # name unique per publisher.
       def publish name, data
+        name = name.to_s
+        id   = next_id(name)
+
         if PgBroker.publish_enabled?
-          PgBroker.publish(name.to_s, data)
+          PgBroker.publish(name, data, id)
         else
-          local_publish(name, data)
+          local_publish(name, data, id)
         end
       end
 
       # Direct in-process fan-out, bypassing the broker. Used by PgBroker to
       # deliver an inbound NOTIFY without bouncing it back through NOTIFY again,
       # and by tests that exercise the queue path without a DB.
-      def local_publish name, data
-        name = name.to_s
-        message = { channel: name, data: data }
-        queues = @lock.synchronize { (@subs[name] || []).dup }
+      def local_publish name, data, id = nil
+        name    = name.to_s
+        id    ||= next_id(name)
+        message = { channel: name, data: data, id: id }
+
+        queues = @lock.synchronize do
+          log = (@history[name] ||= [])
+          log << [id, data]
+          log.shift while log.size > HISTORY_SIZE
+          (@subs[name] || []).dup
+        end
+
         queues.each { |q| q.push(message) }
+      end
+
+      # Messages retained for `name` newer than `last_id`, oldest first. Used to
+      # catch a reconnecting EventSource up on what it missed.
+      def history_since name, last_id
+        name    = name.to_s
+        last_id = last_id.to_i
+
+        @lock.synchronize do
+          (@history[name] || [])
+            .select { |id, _| id > last_id }
+            .map    { |id, data| { channel: name, data: data, id: id } }
+        end
       end
 
       # Attach `queue` (typically a SizedQueue or Queue) to a channel. Returns a
@@ -80,6 +117,30 @@ module Lux
         end
       end
 
+      # What a browser connection receives is derived from its session, never
+      # from the request - a client cannot ask for a channel, so there is
+      # nothing to authorize. Set this once in an initializer:
+      #
+      #   Lux::Browser::Channel.session_channels do |lux|
+      #     user = lux.current.user or next []
+      #     ["user:#{user.ref}", "org:#{user.org_ref}"]
+      #   end
+      #
+      # Return [] for an anonymous visitor; /_lux_/stream then refuses to open.
+      # A resolver that raises is treated as [].
+      def session_channels &block
+        return @session_channels = block if block
+        @session_channels
+      end
+
+      def channels_for lux
+        return [] unless @session_channels
+        Array(@session_channels.call(lux)).map(&:to_s).reject(&:empty?).uniq
+      rescue => e
+        Lux.logger(:channel).error("session_channels raised: #{e.message}") rescue nil
+        []
+      end
+
       # Diagnostic helpers (not part of the public hot path).
       def channels
         @lock.synchronize { @subs.keys.dup }
@@ -89,9 +150,14 @@ module Lux
         @lock.synchronize { (@subs[name.to_s] || []).size }
       end
 
-      # Test/admin only - drop every subscriber and channel.
+      # Test/admin only - drop every subscriber, channel and retained message.
       def reset!
-        @lock.synchronize { @subs = {} }
+        @lock.synchronize do
+          @subs    = {}
+          @history = {}
+          @seq     = {}
+        end
+        @session_channels = nil
       end
 
       # PG LISTEN/NOTIFY shortcuts. See PgBroker for details and caveats.
@@ -115,6 +181,12 @@ module Lux
 
       def pg_listening?
         PgBroker.listening?
+      end
+
+      private
+
+      def next_id name
+        @lock.synchronize { @seq[name] = (@seq[name] || 0) + 1 }
       end
     end
   end

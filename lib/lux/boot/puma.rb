@@ -5,7 +5,7 @@
 #
 #   lux_boot do |is_prod|
 #     # optional overrides, e.g.
-#     # threads 1, 32 if is_prod
+#     # threads 1, 32 if is_prod    # lower it if the box is memory-tight
 #   end
 #
 # lux_boot applies the standard lux puma config (port, threads, pidfile,
@@ -13,7 +13,7 @@
 # host app can override any directive at parse time. Defaults:
 #
 #   port            ENV['PUMA_PORT'] || ENV['PORT'] || 3000
-#   threads         1, 32
+#   threads         1, 100  (an open SSE stream parks one for its lifetime)
 #   plugin          :tmp_restart
 #   production      stdout -> ./log, workers 2 (environment derived from LUX_ENV)
 #   development     stdout on-screen (no redirect)
@@ -46,7 +46,12 @@ module Lux
         log_requests  false
         pidfile       './tmp/puma.%s.pid'   % puma_port
         state_path    './tmp/puma.%s.state' % puma_port
-        threads       1, 32
+
+        # An SSE stream parks a thread for as long as the client stays connected,
+        # so the max thread count is also the concurrent-stream ceiling per
+        # worker. 32 is too tight once a page holds a stream open; 100 leaves
+        # room. Idle threads are cheap - blocked ones hold no DB connection.
+        threads       1, 100
 
         # debug/reload are resolved from ENV (set by `lux s` or the deploy unit),
         # not here. prod runs clustered with file logging; dev/test stay single

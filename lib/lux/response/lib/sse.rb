@@ -7,7 +7,12 @@ module Lux
     #
     #   response.sse :notifications, "user:#{u.id}"
     #
-    # Client side: see assets/lux/sse.js (window.Lux.sse).
+    # Every frame is {channel, data} as JSON on the default message event, so
+    # one connection carries any number of channels and the client routes on
+    # the channel field. Normally you want /_lux_/stream (one session-scoped
+    # stream per browser) rather than calling this from an action.
+    #
+    # Client side: see assets/lux/sse.js (window.Lux.subscribe).
     module Sse
       HEARTBEAT_INTERVAL ||= 30   # seconds; sent as `: ping\n\n` to keep proxies alive
 
@@ -26,8 +31,12 @@ module Lux
       # Iterable body that subscribes to channels in #each and yields formatted
       # SSE frames until the client disconnects or an error tears the stream.
       class StreamBody
-        def initialize channels
-          @channels = channels
+        # last_event_id: the browser's Last-Event-ID header on a reconnect.
+        # Anything retained by Channel newer than that is replayed before we
+        # start streaming live, so a dropped connection does not eat messages.
+        def initialize channels, last_event_id = nil
+          @channels      = channels
+          @last_event_id = last_event_id
         end
 
         def each
@@ -36,10 +45,28 @@ module Lux
 
           yield ": connected\n\n"
 
+          # Subscribe first, then replay: the reverse order would drop anything
+          # published in between. The cost is that a message can be both
+          # replayed and queued, so remember what we sent and skip it below.
+          sent = {}
+
+          if @last_event_id
+            @channels
+              .flat_map { |c| Lux::Browser::Channel.history_since(c, @last_event_id) }
+              .sort_by  { |m| m[:id].to_i }
+              .each do |m|
+                sent[m[:channel]] = m[:id].to_i
+                yield format_event(m[:channel], m[:data], m[:id])
+              end
+          end
+
           loop do
             msg = pop_with_timeout(queue, HEARTBEAT_INTERVAL)
+
             if msg
-              yield format_event(msg[:channel], msg[:data])
+              last = sent[msg[:channel]]
+              next if last && msg[:id].to_i <= last
+              yield format_event(msg[:channel], msg[:data], msg[:id])
             else
               yield ": ping\n\n"
             end
@@ -70,9 +97,16 @@ module Lux
           end
         end
 
-        def format_event channel, data
-          payload = data.is_a?(String) ? data : JSON.generate(data)
-          "event: #{channel}\ndata: #{payload}\n\n"
+        # Every frame is the same shape: {channel, data} as JSON on the default
+        # message event. The client routes on the channel field, so a connection
+        # needs no per-channel event listeners and never reopens.
+        #
+        # JSON.generate escapes newlines, so the payload cannot break framing -
+        # which a raw String payload could, since SSE needs `data: ` per line.
+        def format_event channel, data, id = nil
+          frame = +''
+          frame << "id: #{id}\n" if id
+          frame << "data: #{JSON.generate(channel: channel, data: data)}\n\n"
         end
       end
     end

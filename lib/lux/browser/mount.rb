@@ -7,7 +7,7 @@ module Lux
     #   /_lux_/client.js             -> Lux::Browser.client_js (all modules)
     #   /_lux_/client.js?modules=sse,api -> Lux::Browser.client_js(:sse, :api)
     #   /_lux_/<module>.js           -> Lux::Browser.client_js(:<module>)  (just that one + core)
-    #   /_lux_/stream?channels=a,b   -> SSE stream for the named channels
+    #   /_lux_/stream                -> SSE stream for the session's channels
     module Mount
       PREFIX       ||= '/_lux_/'.freeze
       JS_PATH      ||= %r{\A/_lux_/(?<name>[a-z0-9_]+)\.js\z}
@@ -34,20 +34,22 @@ module Lux
         nil
       end
 
-      # SSE endpoint - subscribes to the channels listed in ?channels=a,b,c and
-      # streams a text/event-stream until the client disconnects. Channel-level
-      # authorization is the app's job (gate via a before_filter or front proxy).
+      # SSE endpoint - one stream per session. Takes no parameters: what a
+      # connection receives comes from Lux::Browser::Channel.session_channels,
+      # so a client cannot ask for someone else's channel and there is nothing
+      # to authorize. Routing within the stream is the client's job - every
+      # frame carries its channel name.
       def self.stream lux
-        channels = lux.request.params['channels'].to_s
-          .split(',')
-          .map(&:strip)
-          .reject(&:empty?)
-          .select { |c| CHANNEL_NAME.match?(c) }
-          .uniq
+        return [501, headers_html, ['no session_channels resolver']] unless Lux::Browser::Channel.session_channels
 
-        return [400, headers_html, ['no channels']] if channels.empty?
+        channels = Lux::Browser::Channel.channels_for(lux).select { |c| CHANNEL_NAME.match?(c) }
 
-        [200, headers_sse, Lux::Response::Sse::StreamBody.new(channels)]
+        return [403, headers_html, ['no channels for this session']] if channels.empty?
+
+        last_event_id = lux.request.env['HTTP_LAST_EVENT_ID']
+        last_event_id = nil unless last_event_id.to_s =~ /\A\d+\z/
+
+        [200, headers_sse, Lux::Response::Sse::StreamBody.new(channels, last_event_id)]
       end
 
       def self.serve body
