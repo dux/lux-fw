@@ -6,6 +6,10 @@
 const $ = window.$
 const onHandler = {}
 
+// Events a form only receives if it opts in. Unlike the named done-handlers, a
+// missing handler here is the normal case and must not raise a toast.
+const OPTIONAL_EVENTS = new Set(['progress', 'phase'])
+
 class ApiForm {
   static bind(form, opts) { return new ApiForm($(form).closest('form')[0], opts) }
   static on(name, func) { onHandler[name] = func }
@@ -36,10 +40,12 @@ class ApiForm {
     img.src = URL.createObjectURL(file)
   }
 
-  call(name) {
+  // payload overrides the first argument for events that carry their own data
+  // (progress); named done-handlers keep receiving the parsed response.
+  call(name, payload) {
     const func = onHandler[name]
-    if (func) func.apply(this, [this.response, this.opts, this.data, this.form])
-    else Toast.error(`Form handler [${name}] not found.`)
+    if (func) func.apply(this, [payload === undefined ? this.response : payload, this.opts, this.data, this.form])
+    else if (!OPTIONAL_EVENTS.has(name)) Toast.error(`Form handler [${name}] not found.`)
   }
 
   constructor(form, opts) {
@@ -59,9 +65,94 @@ class ApiForm {
       if (file) formData.append(el.name, new Blob([file], { type: file.type }), file.name)
     })
 
+    // data-upload-url: send the file straight to object storage first and post
+    // only its key, so a large upload never occupies a request.
+    const uploadUrl = this.form.data('uploadUrl')
+
+    if (uploadUrl) this.uploadThenPost(uploadUrl, form, formData)
+    else this.post(formData)
+  }
+
+  // Reports byte progress; free on every XHR, so a form opts in just by
+  // defining a 'progress' handler or a [data-progress] element.
+  trackProgress(xhr) {
+    xhr.upload.onprogress = e => {
+      if (!e.lengthComputable) return
+      this.call('progress', {
+        loaded: e.loaded,
+        total: e.total,
+        percent: Math.round(e.loaded / e.total * 100),
+      })
+    }
+  }
+
+  // presign -> PUT the file to the returned URL -> post the key instead of the
+  // file. The storage host is not our origin, so it needs a CORS rule for PUT.
+  uploadThenPost(uploadUrl, form, formData) {
+    const input = form.querySelector('input[type=file]')
+    const file = input?.files[0]
+    if (!file) return this.post(formData)
+
+    const field = this.form.data('uploadField') || 'key'
+
+    this.call('phase', 'presign')
+
+    const presign = new FormData()
+    for (const [k, v] of formData.entries()) if (!(v instanceof Blob)) presign.append(k, v)
+    presign.append('filename', file.name)
+
+    const ask = new XMLHttpRequest()
+    ask.open('POST', uploadUrl, true)
+
+    ask.onload = () => {
+      let response
+      try { response = JSON.parse(ask.responseText) }
+      catch (_) { return this.uploadFailed('Upload could not be prepared') }
+
+      if (ask.status != 200 || response.error) {
+        // Surface the server's own message - it knows why it said no.
+        this.response = response
+        this.call('after')
+        return this.call('error')
+      }
+
+      this.call('phase', 'upload')
+
+      const put = new XMLHttpRequest()
+      put.open('PUT', response.data.put_url, true)
+      this.trackProgress(put)
+
+      put.onload = () => {
+        if (put.status < 200 || put.status > 299) {
+          return this.uploadFailed(`Upload failed (${put.status})`)
+        }
+
+        this.call('phase', 'post')
+
+        formData.delete(input.name)
+        formData.append(field, response.data.key)
+        this.post(formData)
+      }
+
+      put.onerror = () => this.uploadFailed('Upload blocked - check storage CORS')
+      put.send(file)
+    }
+
+    ask.onerror = () => this.uploadFailed('Upload could not be prepared')
+    ask.send(presign)
+  }
+
+  uploadFailed(text) {
+    this.call('after')
+    Toast.error(text)
+  }
+
+  post(formData) {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', this.action, true)
     if (window.Intl) xhr.setRequestHeader('x-tz-name', Intl.DateTimeFormat().resolvedOptions().timeZone)
+
+    this.trackProgress(xhr)
 
     xhr.onload = () => {
       if (this.rawResponse = xhr.responseText) {
@@ -115,6 +206,21 @@ ApiForm.on('before', function () {
   button.html(text + '&hellip;')
   button.prop('disabled', true)
   this.disable_button = () => { button.prop('disabled', false); button.html(text) }
+})
+
+// upload progress: fill a [data-progress] bar if the form has one, otherwise
+// count up on the submit button, whose label the 'before' handler already owns.
+ApiForm.on('progress', function (progress) {
+  const bar = this.form.find('[data-progress]')[0]
+
+  if (bar) {
+    bar.style.width = `${progress.percent}%`
+    bar.setAttribute('aria-valuenow', progress.percent)
+    return
+  }
+
+  const button = this.form.find('button[type=submit]')[0]
+  if (button && progress.percent < 100) button.innerHTML = `${progress.percent}%&hellip;`
 })
 
 ApiForm.on('after', function () {
@@ -171,6 +277,41 @@ ApiForm.on('refresh', function (response, path) {
   }
   if (window.Dialog?.isOpen()) Dialog.close()
   Pjax.refresh(path)
+})
+
+// done: :stream - the request only queued the work, so keep the dialog open and
+// hand over to a <stream-box> that reports the rest. The response names the
+// channel; the box refreshes the page itself when the run ends.
+ApiForm.on('stream', function (response) {
+  this.form.hide()
+
+  // The panel is a sibling of the form, not a child - walk up to the nearest
+  // ancestor that contains one, so the markup can nest it however it likes.
+  let panel = null
+  for (let node = this.form[0]; node && !panel; node = node.parentElement) {
+    panel = node.querySelector('[data-stream-log]')
+  }
+  if (panel) panel.style.display = ''
+
+  const channel = response.data?.channel
+  if (!channel) return Toast.error('No stream channel in API response')
+  if (!window.Lux?.subscribe) return Toast.error('Lux.subscribe missing - is /_lux_/sse.js loaded?')
+
+  // The box renders the log; this only watches for the terminal frame so the
+  // page picks up whatever the job created.
+  //
+  // A terminal frame carrying ok: false means the run failed: leave the dialog
+  // and its log on screen, because closing them would take the only report of
+  // what went wrong with them.
+  const onDone = msg => {
+    if (msg.type != 'done') return
+    Lux.unsubscribe(channel, onDone)
+    if (msg.ok === false) return
+    if (window.Dialog?.isOpen()) Dialog.close()
+    Pjax.refresh()
+  }
+
+  Lux.subscribe(channel, onDone)
 })
 
 ApiForm.on('edit', function (data) {
