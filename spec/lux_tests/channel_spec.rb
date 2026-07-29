@@ -7,54 +7,103 @@ describe Lux::Browser::Channel do
   describe 'publish / subscribe' do
     it 'delivers messages to subscribers of the same channel' do
       q = Queue.new
-      Lux::Browser::Channel.subscribe(:foo, q)
-      Lux::Browser::Channel[:foo].push(value: 1)
+      Lux::Browser::Channel.subscribe('test:foo', q)
+      Lux::Browser::Channel['test:foo'].push(value: 1)
       msg = q.pop
-      _(msg[:channel]).must_equal 'foo'
+      _(msg[:channel]).must_equal 'test:foo'
       _(msg[:data]).must_equal({ value: 1 })
     end
 
     it 'fans out to every queue on a channel' do
       a = Queue.new
       b = Queue.new
-      Lux::Browser::Channel.subscribe(:foo, a)
-      Lux::Browser::Channel.subscribe(:foo, b)
-      Lux::Browser::Channel[:foo].push(:hello)
+      Lux::Browser::Channel.subscribe('test:foo', a)
+      Lux::Browser::Channel.subscribe('test:foo', b)
+      Lux::Browser::Channel['test:foo'].push(:hello)
       _(a.pop[:data]).must_equal :hello
       _(b.pop[:data]).must_equal :hello
     end
 
     it 'does not deliver to other channels' do
       q = Queue.new
-      Lux::Browser::Channel.subscribe(:foo, q)
-      Lux::Browser::Channel[:bar].push(:nope)
+      Lux::Browser::Channel.subscribe('test:foo', q)
+      Lux::Browser::Channel['test:bar'].push(:nope)
       _(q.empty?).must_equal true
     end
 
     it 'normalises channel names to strings' do
       q = Queue.new
-      Lux::Browser::Channel.subscribe(:foo, q)
-      Lux::Browser::Channel['foo'].push(:ok)
+      Lux::Browser::Channel.subscribe(:'test:foo', q)
+      Lux::Browser::Channel['test:foo'].push(:ok)
       _(q.pop[:data]).must_equal :ok
+    end
+
+    it 'carries no message id - nothing is replayed' do
+      q = Queue.new
+      Lux::Browser::Channel.subscribe('test:foo', q)
+      Lux::Browser::Channel['test:foo'].push(:a)
+      refute_includes q.pop.keys, :id
     end
   end
 
   describe 'unsubscribe' do
     it 'stops further delivery and cleans empty channels' do
       q   = Queue.new
-      sub = Lux::Browser::Channel.subscribe(:foo, q)
+      sub = Lux::Browser::Channel.subscribe('test:foo', q)
       sub.close
-      Lux::Browser::Channel[:foo].push(:nope)
+      Lux::Browser::Channel['test:foo'].push(:nope)
       _(q.empty?).must_equal true
-      refute_includes Lux::Browser::Channel.channels, 'foo'
+      refute_includes Lux::Browser::Channel.channels, 'test:foo'
+    end
+  end
+
+  # The channel name is the audience, so a bare ref must never become one.
+  describe 'channel_name' do
+    Target = Struct.new(:ref)
+
+    it 'derives "<model>:<ref>" from anything with a ref' do
+      _(Lux::Browser::Channel.channel_name(Target.new('abc123'))).must_equal 'target:abc123'
+    end
+
+    # underscore would give "admin/report", and "/" is not a legal channel name -
+    # /_lux_/stream drops it, so the push would vanish without an error.
+    module Ns; Report = Struct.new(:ref); end
+
+    it 'keeps a namespaced model addressable' do
+      name = Lux::Browser::Channel.channel_name(Ns::Report.new('xyz'))
+
+      _(name).must_equal 'ns:report:xyz'
+      _(Lux::Browser::Mount::CHANNEL_NAME.match?(name)).must_equal true
+    end
+
+    it 'takes a prefixed string or symbol as-is' do
+      _(Lux::Browser::Channel.channel_name('user:1')).must_equal 'user:1'
+      _(Lux::Browser::Channel.channel_name(:'org:2')).must_equal 'org:2'
+    end
+
+    it 'refuses an unprefixed name' do
+      err = _{ Lux::Browser::Channel.channel_name('abc123') }.must_raise ArgumentError
+      _(err.message).must_match(/needs a prefix/)
+    end
+
+    it 'refuses something it cannot derive a channel from' do
+      err = _{ Lux::Browser::Channel.channel_name(42) }.must_raise ArgumentError
+      _(err.message).must_match(/cannot derive/)
+    end
+
+    it 'is what [] and Lux.channel use' do
+      q = Queue.new
+      Lux::Browser::Channel.subscribe('target:xyz', q)
+      Lux.channel(Target.new('xyz')).push(ok: true)
+      _(q.pop[:data]).must_equal({ ok: true })
     end
   end
 
   describe 'Lux.channel shortcut' do
     it 'returns a Publisher that pushes to the named channel' do
       q = Queue.new
-      Lux::Browser::Channel.subscribe('alerts', q)
-      Lux.channel('alerts').push(level: :error)
+      Lux::Browser::Channel.subscribe('app:alerts', q)
+      Lux.channel('app:alerts').push(level: :error)
       _(q.pop[:data]).must_equal({ level: :error })
     end
   end
@@ -63,68 +112,72 @@ describe Lux::Browser::Channel do
     it 'reports the active subscriber count per channel' do
       q1 = Queue.new
       q2 = Queue.new
-      Lux::Browser::Channel.subscribe(:x, q1)
-      Lux::Browser::Channel.subscribe(:x, q2)
-      _(Lux::Browser::Channel.subscriber_count(:x)).must_equal 2
+      Lux::Browser::Channel.subscribe('test:x', q1)
+      Lux::Browser::Channel.subscribe('test:x', q2)
+      _(Lux::Browser::Channel.subscriber_count('test:x')).must_equal 2
     end
   end
 
-  describe 'message ids' do
-    it 'numbers messages per channel from 1' do
+  # One config key picks the backend; Channel itself never names one.
+  describe 'broker selection' do
+    def build url
+      Lux::Browser::Channel::Broker.build url
+    end
+
+    it 'defaults to memory when unset' do
+      _(build(nil)).must_be_instance_of  Lux::Browser::Channel::MemoryBroker
+      _(build('')).must_be_instance_of   Lux::Browser::Channel::MemoryBroker
+    end
+
+    it 'picks memory explicitly' do
+      _(build('memory:')).must_be_instance_of Lux::Browser::Channel::MemoryBroker
+    end
+
+    it 'picks pg for both postgres spellings and defaults the db name' do
+      _(build('postgres:')).must_be_instance_of      Lux::Browser::Channel::PgBroker
+      _(build('postgresql:')).must_be_instance_of    Lux::Browser::Channel::PgBroker
+      _(build('postgres:').db_name).must_equal       :main
+      _(build('postgres:events').db_name).must_equal :events
+    end
+
+    it 'raises on an unknown scheme, naming the known ones' do
+      err = _{ build('redis://localhost') }.must_raise ArgumentError
+      _(err.message).must_match(/unknown channel_url scheme "redis"/)
+      _(err.message).must_match(/memory/)
+    end
+
+    # There is no pool to publish through, so name a Lux DB instead.
+    it 'refuses a full postgres connection URL' do
+      err = _{ build('postgres://localhost/somedb') }.must_raise ArgumentError
+      _(err.message).must_match(/lux_db_name/)
+    end
+
+    it 'routes publish through whatever broker is set' do
+      seen   = []
+      fake   = Class.new(Lux::Browser::Channel::Broker) do
+        define_method(:publish) { |name, data| seen << [name, data]; true }
+      end.new
+
+      Lux::Browser::Channel.broker = fake
+      Lux::Browser::Channel['test:foo'].push(:x)
+      _(seen).must_equal [['test:foo', :x]]
+    end
+
+    it 'memory broker delivers locally' do
       q = Queue.new
-      Lux::Browser::Channel.subscribe(:foo, q)
-      Lux::Browser::Channel[:foo].push(:a)
-      Lux::Browser::Channel[:foo].push(:b)
-      _(q.pop[:id]).must_equal 1
-      _(q.pop[:id]).must_equal 2
+      Lux::Browser::Channel.broker = Lux::Browser::Channel::MemoryBroker.new
+      Lux::Browser::Channel.subscribe('test:foo', q)
+      Lux::Browser::Channel['test:foo'].push(:hi)
+      _(q.pop[:data]).must_equal :hi
     end
 
-    it 'counts each channel separately' do
-      q = Queue.new
-      Lux::Browser::Channel.subscribe(:foo, q)
-      Lux::Browser::Channel.subscribe(:bar, q)
-      Lux::Browser::Channel[:foo].push(:a)
-      Lux::Browser::Channel[:bar].push(:b)
-      _(q.pop[:id]).must_equal 1
-      _(q.pop[:id]).must_equal 1
-    end
-
-    it 'keeps the id supplied by the publisher' do
-      q = Queue.new
-      Lux::Browser::Channel.subscribe(:foo, q)
-      Lux::Browser::Channel.local_publish(:foo, :a, 42)
-      _(q.pop[:id]).must_equal 42
-    end
-  end
-
-  describe 'history_since' do
-    it 'returns only messages newer than the given id, oldest first' do
-      Lux::Browser::Channel[:foo].push(:a)
-      Lux::Browser::Channel[:foo].push(:b)
-      Lux::Browser::Channel[:foo].push(:c)
-
-      got = Lux::Browser::Channel.history_since(:foo, 1)
-      _(got.map { _1[:id] }).must_equal [2, 3]
-      _(got.map { _1[:data] }).must_equal [:b, :c]
-    end
-
-    it 'retains history without any subscriber' do
-      Lux::Browser::Channel[:foo].push(:a)
-      _(Lux::Browser::Channel.history_since(:foo, 0).size).must_equal 1
-    end
-
-    it 'is empty for an unknown channel' do
-      _(Lux::Browser::Channel.history_since(:nope, 0)).must_equal []
-    end
-
-    it 'caps retained messages at HISTORY_SIZE, dropping the oldest' do
-      total = Lux::Browser::Channel::HISTORY_SIZE + 10
-      total.times { Lux::Browser::Channel[:foo].push(_1) }
-
-      got = Lux::Browser::Channel.history_since(:foo, 0)
-      _(got.size).must_equal Lux::Browser::Channel::HISTORY_SIZE
-      _(got.first[:id]).must_equal 11
-      _(got.last[:id]).must_equal total
+    it 'the base contract requires publish and no-ops the rest' do
+      base = Lux::Browser::Channel::Broker.new
+      _{ base.publish('test:x', 1) }.must_raise NotImplementedError
+      _(base.listen!).must_equal     false
+      _(base.stop!).must_equal       false
+      _(base.after_fork!).must_equal false
+      _(base.listening?).must_equal  false
     end
   end
 
@@ -175,27 +228,27 @@ describe Lux::Browser::Channel do
   # puma loads the app in the master, so every worker used to inherit a LISTEN
   # connection that nothing polled.
   describe 'fork awareness' do
-    let(:broker) { Lux::Browser::Channel::PgBroker }
+    let(:broker) { Lux::Browser::Channel::PgBroker.new('postgres:main') }
 
-    def fake_inherited_listener
-      broker.instance_variable_set :@listen_wanted, true
-      broker.instance_variable_set :@db_name, :main
-      broker.instance_variable_set :@owner_pid, Process.pid - 1
-      broker.instance_variable_set :@thread, Thread.new { sleep 5 }
+    def fake_inherited_listener b
+      b.instance_variable_set :@listen_wanted, true
+      b.instance_variable_set :@owner_pid, Process.pid - 1
+      b.instance_variable_set :@thread, Thread.new { sleep 5 }
+      b
     end
 
-    after { Lux::Browser::Channel.pg_stop! }
-
     it 'does not call an inherited thread ours' do
-      fake_inherited_listener
-      _(Lux::Browser::Channel.pg_listening?).must_equal false
+      b = fake_inherited_listener broker
+      _(b.listening?).must_equal false
+      b.stop!
     end
 
     it 'starts a listener of its own after a fork' do
-      fake_inherited_listener
-      _(Lux::Browser::Channel.pg_after_fork!).must_equal true
-      _(broker.instance_variable_get(:@owner_pid)).must_equal Process.pid
-      _(Lux::Browser::Channel.pg_listening?).must_equal true
+      b = fake_inherited_listener broker
+      _(b.after_fork!).must_equal true
+      _(b.instance_variable_get(:@owner_pid)).must_equal Process.pid
+      _(b.listening?).must_equal true
+      b.stop!
     end
 
     # Closing it would UNLISTEN and terminate the connection the parent is
@@ -205,16 +258,16 @@ describe Lux::Browser::Channel do
       def conn.close; raise 'must not close the parent connection'; end
       def conn.async_exec(*); raise 'must not touch the parent connection'; end
 
-      fake_inherited_listener
-      broker.instance_variable_set :@conn, conn
-      Lux::Browser::Channel.pg_after_fork!
+      b = fake_inherited_listener broker
+      b.instance_variable_set :@conn, conn
+      b.after_fork!
 
-      _(broker.instance_variable_get(:@conn)).wont_be_same_as conn
+      _(b.instance_variable_get(:@conn)).wont_be_same_as conn
+      b.stop!
     end
 
     it 'is a no-op where no listener was ever wanted' do
-      Lux::Browser::Channel.pg_stop!
-      _(Lux::Browser::Channel.pg_after_fork!).must_equal false
+      _(broker.after_fork!).must_equal false
     end
   end
 end

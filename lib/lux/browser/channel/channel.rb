@@ -1,32 +1,25 @@
 module Lux
   class Browser
-    # Lux::Browser::Channel - in-process pub/sub backbone for SSE streams.
+    # Lux::Browser::Channel - pub/sub backbone for SSE streams.
     #
-    #   Lux.channel(:notifications).push(message: 'Hello')
-    #   Lux.channel("user:#{u.id}").push(type: :inbox, count: 3)
+    #   Lux.channel(user).push(html: 'Done')          # -> "user:<ref>"
+    #   Lux.channel("user:#{ref}").push(count: 3)
     #
-    # Consumed by `response.sse(*channels)` in a controller action; one
-    # EventSource on the client multiplexes events tagged by channel name.
+    # A channel name IS its audience: a browser only ever receives what its own
+    # session resolves to (see session_channels), so pushing to a user reaches
+    # that person and nobody else. Consumed by /_lux_/stream, or by
+    # `response.sse(*channels)` in an action.
     #
-    # In-process by default. For cross-worker fan-out (PG LISTEN/NOTIFY):
+    # Delivery across processes is the broker's job, picked by one config key:
     #
-    #   # config/puma.rb (publish + receive)
-    #   on_worker_boot { Lux::Browser::Channel.pg_listen! }
+    #   Lux.config.channel_url = 'postgres:main'   # or ENV['CHANNEL_URL']
     #
-    #   # in job / rake / one-off processes (publish only)
-    #   Lux::Browser::Channel.pg_publish!
+    # Unset means in-process only. See ./brokers/base.rb for the contract.
     module Channel
-      # Messages retained per channel for Last-Event-ID replay after a client
-      # reconnects. LISTEN/NOTIFY has no replay of its own, so this is the only
-      # thing standing between a dropped connection and silently lost messages.
-      HISTORY_SIZE ||= 100
-
       extend self
 
-      @lock    ||= Mutex.new
-      @subs    ||= {}   # channel_name (String) -> [Queue, ...]
-      @history ||= {}   # channel_name (String) -> [[id, data], ...]
-      @seq     ||= {}   # channel_name (String) -> last id assigned here
+      @lock ||= Mutex.new
+      @subs ||= {}   # channel_name (String) -> [Queue, ...]
 
       Publisher    ||= Struct.new(:name) do
         def push data
@@ -40,65 +33,49 @@ module Lux
         end
       end
 
-      # Lux::Browser::Channel[:foo] -> Publisher; .push(data) fans out to all subscribers.
+      # Lux::Browser::Channel[user] -> Publisher; .push(data) fans out.
       def [] name
-        Publisher.new(name.to_s)
+        Publisher.new(channel_name(name))
       end
 
-      # Broadcast `data` (any JSON-serialisable value, or String) to every queue
-      # currently subscribed to `name`. When PG publish is enabled (pg_publish!
-      # or pg_listen!), this is routed through NOTIFY so every process listening
-      # on the same DB receives it via its own LISTEN connection.
-      # The id is assigned here, by the publishing process, and travels with the
-      # message so every listener agrees on it. Replay therefore assumes a single
-      # publisher per channel - two processes publishing to the same name will
-      # hand out the same ids. That matches how channels are used in practice
-      # (one job, one channel); if you need multiple publishers, make the channel
-      # name unique per publisher.
+      # A model becomes "<model>:<ref>". A String or Symbol is taken as-is but
+      # must name its audience, so a bare ref cannot silently become a channel
+      # nobody is listening to.
+      #
+      # underscore turns "Admin::Report" into "admin/report", and a "/" is not
+      # a legal channel name (Mount::CHANNEL_NAME) - the endpoint would drop it
+      # and the push would vanish without an error. Namespace separators become
+      # ":" instead, so a namespaced model addresses "admin:report:<ref>".
+      def channel_name target
+        if target.is_a?(String) || target.is_a?(Symbol)
+          name = target.to_s
+          raise ArgumentError, "channel needs a prefix, got #{name.inspect}" unless name.include?(':')
+          return name
+        end
+
+        raise ArgumentError, "cannot derive a channel from #{target.class}" unless target.respond_to?(:ref)
+
+        '%s:%s' % [target.class.name.underscore.tr('/', ':'), target.ref]
+      end
+
+      # Send `data` (any JSON-serialisable value, or String) to every subscriber
+      # of `name`, in this process and any other the broker reaches.
       def publish name, data
-        name = name.to_s
-        id   = next_id(name)
-
-        if PgBroker.publish_enabled?
-          PgBroker.publish(name, data, id)
-        else
-          local_publish(name, data, id)
-        end
+        broker.publish name.to_s, data
       end
 
-      # Direct in-process fan-out, bypassing the broker. Used by PgBroker to
-      # deliver an inbound NOTIFY without bouncing it back through NOTIFY again,
-      # and by tests that exercise the queue path without a DB.
-      def local_publish name, data, id = nil
+      # Direct in-process fan-out, bypassing the broker. Brokers call this to
+      # deliver an inbound message without bouncing it back out again.
+      def local_publish name, data
         name    = name.to_s
-        id    ||= next_id(name)
-        message = { channel: name, data: data, id: id }
+        message = { channel: name, data: data }
 
-        queues = @lock.synchronize do
-          log = (@history[name] ||= [])
-          log << [id, data]
-          log.shift while log.size > HISTORY_SIZE
-          (@subs[name] || []).dup
-        end
-
+        queues = @lock.synchronize { (@subs[name] || []).dup }
         queues.each { |q| q.push(message) }
       end
 
-      # Messages retained for `name` newer than `last_id`, oldest first. Used to
-      # catch a reconnecting EventSource up on what it missed.
-      def history_since name, last_id
-        name    = name.to_s
-        last_id = last_id.to_i
-
-        @lock.synchronize do
-          (@history[name] || [])
-            .select { |id, _| id > last_id }
-            .map    { |id, data| { channel: name, data: data, id: id } }
-        end
-      end
-
-      # Attach `queue` (typically a SizedQueue or Queue) to a channel. Returns a
-      # Subscription handle; call .close to detach.
+      # Attach `queue` (typically a Queue) to a channel. Returns a Subscription
+      # handle; call .close to detach.
       def subscribe name, queue
         name = name.to_s
         @lock.synchronize do
@@ -117,17 +94,31 @@ module Lux
         end
       end
 
+      # Built once from Lux.config.channel_url; ENV wins so a single process can
+      # be pointed elsewhere without touching config.
+      def broker
+        @broker ||= Broker.build(ENV['CHANNEL_URL'] || Lux.config[:channel_url])
+      end
+
+      # Escape hatch for tests and for an app that builds its own.
+      def broker= value
+        @broker = value
+      end
+
       # What a browser connection receives is derived from its session, never
       # from the request - a client cannot ask for a channel, so there is
       # nothing to authorize. Set this once in an initializer:
       #
       #   Lux::Browser::Channel.session_channels do |lux|
-      #     user = lux.current.user or next []
-      #     ["user:#{user.ref}", "org:#{user.org_ref}"]
+      #     ref = lux.session[:user_ref] or next []
+      #     ["user:#{ref}"]
       #   end
       #
       # Return [] for an anonymous visitor; /_lux_/stream then refuses to open.
       # A resolver that raises is treated as [].
+      #
+      # Note it runs before route resolution, so a current-user helper set up by
+      # a controller filter is not available yet - read the session directly.
       def session_channels &block
         return @session_channels = block if block
         @session_channels
@@ -150,57 +141,20 @@ module Lux
         @lock.synchronize { (@subs[name.to_s] || []).size }
       end
 
-      # Test/admin only - drop every subscriber, channel and retained message.
+      # Test/admin only - drop every subscriber and release the broker, so the
+      # next publish rebuilds it from current config.
       def reset!
-        @lock.synchronize do
-          @subs    = {}
-          @history = {}
-          @seq     = {}
-        end
+        @lock.synchronize { @subs = {} }
+        @broker&.stop! rescue nil
+        @broker           = nil
         @session_channels = nil
-      end
-
-      # PG LISTEN/NOTIFY shortcuts. See PgBroker for details and caveats.
-      # `pg_publish!` routes Channel.publish through NOTIFY (use in jobs).
-      # `pg_listen!` also starts the LISTEN thread (use in Puma workers).
-      def pg_publish! db_name: :main
-        PgBroker.enable_publish!(db_name: db_name)
-      end
-
-      def pg_listen! db_name: :main
-        PgBroker.enable_listen!(db_name: db_name)
-      end
-
-      def pg_stop!
-        PgBroker.stop!
-      end
-
-      # Restart the listener in a forked child - the thread does not survive
-      # fork, only its socket does. Called from the puma worker-boot hook, so
-      # an app that calls pg_listen! in an initializer (which runs in the
-      # master) still ends up with a listening worker.
-      def pg_after_fork!
-        PgBroker.after_fork!
-      end
-
-      def pg_publishing?
-        PgBroker.publish_enabled?
-      end
-
-      def pg_listening?
-        PgBroker.listening?
-      end
-
-      private
-
-      def next_id name
-        @lock.synchronize { @seq[name] = (@seq[name] || 0) + 1 }
       end
     end
   end
 end
 
-require_relative 'pg_broker'
+require_relative 'brokers/base'
+require_relative 'brokers/memory_broker'
 
 # Register the SSE client module so /_lux_/sse.js works.
 Lux::Browser.register :sse, file: 'assets/lux/sse.js'

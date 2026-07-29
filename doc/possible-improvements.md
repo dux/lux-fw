@@ -18,8 +18,9 @@ Differentiators. The places lux is ahead of Sinatra/Roda/Hanami, not just at par
   LLM-targeted AGENTS endpoint.
 * **`bin/lux routes`** shadow-replays route callbacks against a recording instance; `-v` adds source locations
   (`lib/lux/application/lib/routes_dumper.rb`).
-* **SSE streaming + cross-worker pub/sub.** `response.sse(:channel, ...)` + `Lux::Browser::Channel` with optional PG
-  LISTEN/NOTIFY broker for fan-out across Puma workers. ~150 LOC end-to-end (`lib/lux/response/lib/sse.rb`,
+* **SSE streaming + cross-worker pub/sub.** `response.sse(:channel, ...)` + `Lux::Browser::Channel`, with the delivery
+  backend chosen by a single `channel_url` config key (in-process, or PG LISTEN/NOTIFY for fan-out across workers -
+  a new backend is one file and a scheme). ~150 LOC end-to-end (`lib/lux/response/lib/sse.rb`,
   `lib/lux/browser/channel/`). Sinatra/Roda need plugins, Rails carries the weight of ActionCable.
 * **Per-request browser state composer.** `lux.browser.window[:app] = {...}` emits a deduped `<script>` tag; pairs with
   the `Lux::Browser.client_js` bundler for the framework client lib (csrf, fetch, sse). Nothing else in Ruby has this

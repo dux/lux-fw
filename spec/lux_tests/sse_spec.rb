@@ -6,8 +6,8 @@ describe Lux::Response::Sse do
   before { Lux::Browser::Channel.reset! }
   after  { Lux::Browser::Channel.reset! }
 
-  def format channel, data, id = nil
-    Body.new([]).send(:format_event, channel, data, id)
+  def format channel, data
+    Body.new([]).send(:format_event, channel, data)
   end
 
   # #each never returns on its own - it blocks on the queue until the client
@@ -47,61 +47,31 @@ describe Lux::Response::Sse do
       _(frame.scan("\n\n").size).must_equal 1
     end
 
-    it 'includes an id line when given one' do
-      _(format('foo', 'x', 7)).must_equal %(id: 7\ndata: {"channel":"foo","data":"x"}\n\n)
-    end
-
-    it 'omits the id line when there is none' do
+    it 'never emits an id line - nothing is replayed, so nothing needs one' do
       refute_includes format('foo', 'x'), 'id:'
     end
 
     it 'never emits a per-channel event line, so one connection needs no listeners' do
-      refute_includes format('foo', 'x', 1), 'event:'
+      refute_includes format('foo', 'x'), 'event:'
     end
   end
 
-  describe 'replay' do
-    it 'sends nothing but the handshake without a Last-Event-ID' do
-      Lux::Browser::Channel[:foo].push('a')
+  # A connection receives what is published while it is open, and nothing else.
+  describe 'no replay' do
+    it 'sends only the handshake for anything published before it opened' do
+      Lux::Browser::Channel['test:foo'].push('a')
 
-      frames = frames_for Body.new(['foo'])
+      frames = frames_for Body.new(['test:foo'])
       _(frames).must_equal [": connected\n\n"]
     end
 
-    it 'replays only what the client missed' do
-      3.times { |i| Lux::Browser::Channel[:foo].push("m#{i + 1}") }
-
-      frames = frames_for Body.new(['foo'], 1), expect: 3
-      _(frames[1]).must_equal %(id: 2\ndata: {"channel":"foo","data":"m2"}\n\n)
-      _(frames[2]).must_equal %(id: 3\ndata: {"channel":"foo","data":"m3"}\n\n)
-      _(frames.size).must_equal 3
-    end
-
-    it 'streams messages published after the replay' do
-      Lux::Browser::Channel[:foo].push('m1')
-
-      frames = frames_for Body.new(['foo'], 0), expect: 2 do |out|
-        Lux::Browser::Channel[:foo].push('m2')
-        wait_for out, 3
+    it 'streams messages published while it is open' do
+      frames = frames_for Body.new(['test:foo']) do |out|
+        Lux::Browser::Channel['test:foo'].push('m1')
+        wait_for out, 2
       end
 
-      _(frames[2]).must_equal %(id: 2\ndata: {"channel":"foo","data":"m2"}\n\n)
-    end
-
-    # A message can land in the queue after it was already replayed, because
-    # #each subscribes before it reads history. Same id, so it must be dropped.
-    it 'does not resend a message that was already replayed' do
-      Lux::Browser::Channel[:foo].push('m1')
-      Lux::Browser::Channel[:foo].push('m2')
-
-      frames = frames_for Body.new(['foo'], 0), expect: 3 do |out|
-        Lux::Browser::Channel.local_publish(:foo, 'm2', 2)
-        Lux::Browser::Channel.local_publish(:foo, 'm3', 3)
-        wait_for out, 4
-      end
-
-      _(frames.count { _1.include?('"data":"m2"') }).must_equal 1
-      _(frames.last).must_equal %(id: 3\ndata: {"channel":"foo","data":"m3"}\n\n)
+      _(frames[1]).must_equal %(data: {"channel":"test:foo","data":"m1"}\n\n)
     end
   end
 

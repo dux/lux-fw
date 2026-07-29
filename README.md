@@ -167,6 +167,7 @@ guidance is consolidated in the top-level [`AGENTS.md`](./AGENTS.md).
 |--------|-----------------|
 | [`Lux::Api`](./lib/lux/api/README.md)                   | `Lux::Api` (subclass `ApplicationApi`)     |
 | [`Lux::Application`](./lib/lux/application/README.md)   | `Lux do ... end` / `Lux.app`               |
+| [`Lux::Browser::Channel`](./lib/lux/browser/channel/README.md) | `Lux.channel(user).push(...)`       |
 | [`Lux::Cache`](./lib/lux/cache/README.md)               | `Lux.cache`                                |
 | [`Lux::Boot::Config`](./lib/lux/boot/config/README.md)             | `Lux.config`                               |
 | [`Lux::Controller`](./lib/lux/controller/README.md)     | `class X < Lux::Controller`                |
@@ -311,6 +312,25 @@ Lux.db                                 # :main Sequel::Database
 Lux.db(:log)                           # any named connection
 DB[:users].where(active: true).all     # via proxy
 ```
+
+### Lux::Browser::Channel
+
+Server -> browser push. Name a channel, push to it, subscribe by name - one SSE
+connection per tab carries every channel it is entitled to.
+
+```ruby
+Lux.channel(user).push(html: 'Import finished')          # server, from anywhere
+```
+```js
+Lux.subscribe('user:abc123', msg => log.append(msg.html))  // browser
+```
+
+A session resolver decides what a connection may hear, so a client cannot ask
+for someone else's channel. Cross-process delivery (a job pushing to a browser
+held by the web process) is on by default via PG LISTEN/NOTIFY, and the backend
+is swappable through one `channel_url` config key.
+
+See [doc/browser-push.md](./doc/browser-push.md) for the full walkthrough.
 
 ### Lux::Environment
 

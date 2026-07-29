@@ -97,7 +97,7 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | `Lux::Cache`           | Uniform cache API across memory/memcached/sqlite/null      | [README](./lib/lux/cache/README.md) |
 | `Lux::Db`              | Sequel multi-DB connection management                      | [README](./lib/lux/db/README.md) |
 | `Lux::Browser`         | Server-side composer for `window.Lux` client + per-request state | [README](./lib/lux/browser/README.md) |
-| `Lux::Browser::Channel`| In-process pub/sub backing `response.sse` streams          | [README](./lib/lux/browser/channel/README.md) |
+| `Lux::Browser::Channel`| Pub/sub behind `response.sse`; backend via `channel_url`  | [README](./lib/lux/browser/channel/README.md) |
 | `Lux::Error`           | Thin exception class + `Lux.error.not_found` style helpers | [README](./lib/lux/error/README.md) |
 | `Lux::Environment`     | `Lux.env` / `Lux.debug?` / `Lux.runtime` facets              | [README](./lib/lux/environment/README.md) |
 | `Lux::DEPLOY_ID`       | Stable per-deploy id for cache-busting; mirrored to `ENV['DEPLOY_ID']` | [README](./README.md#luxdeploy_id) |

@@ -31,42 +31,25 @@ module Lux
       # Iterable body that subscribes to channels in #each and yields formatted
       # SSE frames until the client disconnects or an error tears the stream.
       class StreamBody
-        # last_event_id: the browser's Last-Event-ID header on a reconnect.
-        # Anything retained by Channel newer than that is replayed before we
-        # start streaming live, so a dropped connection does not eat messages.
-        def initialize channels, last_event_id = nil
-          @channels      = channels
-          @last_event_id = last_event_id
+        def initialize channels
+          @channels = channels
         end
 
+        # Nothing is replayed: a connection receives what is published while it
+        # is open, and that is all. A tab that reconnects mid-run has missed
+        # whatever went out in the gap, so send state a client can re-fetch
+        # rather than deltas it must have seen.
         def each
           queue = Queue.new
           subs  = @channels.map { |c| Lux::Browser::Channel.subscribe(c, queue) }
 
           yield ": connected\n\n"
 
-          # Subscribe first, then replay: the reverse order would drop anything
-          # published in between. The cost is that a message can be both
-          # replayed and queued, so remember what we sent and skip it below.
-          sent = {}
-
-          if @last_event_id
-            @channels
-              .flat_map { |c| Lux::Browser::Channel.history_since(c, @last_event_id) }
-              .sort_by  { |m| m[:id].to_i }
-              .each do |m|
-                sent[m[:channel]] = m[:id].to_i
-                yield format_event(m[:channel], m[:data], m[:id])
-              end
-          end
-
           loop do
             msg = pop_with_timeout(queue, HEARTBEAT_INTERVAL)
 
             if msg
-              last = sent[msg[:channel]]
-              next if last && msg[:id].to_i <= last
-              yield format_event(msg[:channel], msg[:data], msg[:id])
+              yield format_event(msg[:channel], msg[:data])
             else
               yield ": ping\n\n"
             end
@@ -103,10 +86,8 @@ module Lux
         #
         # JSON.generate escapes newlines, so the payload cannot break framing -
         # which a raw String payload could, since SSE needs `data: ` per line.
-        def format_event channel, data, id = nil
-          frame = +''
-          frame << "id: #{id}\n" if id
-          frame << "data: #{JSON.generate(channel: channel, data: data)}\n\n"
+        def format_event channel, data
+          "data: #{JSON.generate(channel: channel, data: data)}\n\n"
         end
       end
     end

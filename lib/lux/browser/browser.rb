@@ -16,7 +16,7 @@ module Lux
   #      lux.browser.window           -> Hash exported onto the client `window`
   #      lux.browser.window_script    -> <script> that writes the window hash
   #      lux.browser.bundle(:sse)     -> composed client JS bundle
-  #      lux.browser.channel(:foo)    -> SSE channel publisher (== Lux.channel)
+  #      lux.browser.channel(user)    -> SSE channel publisher (== Lux.channel)
   #
   #    Header stays its own class; window is just a Hash. lux.header is a pointer
   #    to lux.browser.header.

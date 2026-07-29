@@ -46,10 +46,7 @@ module Lux
 
         return [403, headers_html, ['no channels for this session']] if channels.empty?
 
-        last_event_id = lux.request.env['HTTP_LAST_EVENT_ID']
-        last_event_id = nil unless last_event_id.to_s =~ /\A\d+\z/
-
-        [200, headers_sse, Lux::Response::Sse::StreamBody.new(channels, last_event_id)]
+        [200, headers_sse, Lux::Response::Sse::StreamBody.new(channels)]
       end
 
       def self.serve body

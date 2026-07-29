@@ -84,7 +84,7 @@ module Lux
           # exists in the master only; the worker inherits the socket and
           # nothing that reads it. Re-arm here, after the fork. No-op unless
           # the app asked for a listener.
-          Lux::Browser::Channel.pg_after_fork! if defined?(Lux::Browser::Channel)
+          Lux::Browser::Channel.broker.after_fork! if defined?(Lux::Browser::Channel)
         end
 
         send down_hook do

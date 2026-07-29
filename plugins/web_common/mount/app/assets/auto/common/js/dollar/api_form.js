@@ -303,15 +303,42 @@ ApiForm.on('stream', function (response) {
   // A terminal frame carrying ok: false means the run failed: leave the dialog
   // and its log on screen, because closing them would take the only report of
   // what went wrong with them.
+  const stop = () => {
+    Lux.unsubscribe(channel, onDone)
+    Lux.offConnectionChange(onState)
+  }
+
   const onDone = msg => {
     if (msg.type != 'done') return
-    Lux.unsubscribe(channel, onDone)
+    stop()
     if (msg.ok === false) return
     if (window.Dialog?.isOpen()) Dialog.close()
     Pjax.refresh()
   }
 
+  // Nothing is replayed, so a frame sent while the connection was down is gone
+  // for good - including the terminal one, which would otherwise leave this
+  // dialog waiting forever on a run that already finished. We cannot tell a
+  // finished run from a still-running one, so report the gap and stop watching
+  // rather than hang silently.
+  //
+  // onConnectionChange fires immediately with the current state, which is
+  // 'closed' until the socket opens - so only count a close as a drop once we
+  // have actually been open.
+  let wasOpen = false
+  let dropped = false
+
+  const onState = state => {
+    if (state != 'open') return (dropped = wasOpen)
+
+    if (!dropped) return (wasOpen = true)
+
+    stop()
+    Toast.warning('Connection dropped - the result may be incomplete. Refresh to check.')
+  }
+
   Lux.subscribe(channel, onDone)
+  Lux.onConnectionChange(onState)
 })
 
 ApiForm.on('edit', function (data) {

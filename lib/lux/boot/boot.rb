@@ -55,6 +55,11 @@ module Lux
         plugins = Lux::Plugin.normalize_names(Lux.config[:plugins])
         Lux.plugin(*plugins) if plugins.any?
 
+        # Only a process that holds browser connections needs to receive;
+        # publishing works anywhere without a listener. Clustered servers
+        # re-arm after fork - see the puma worker hook in boot/puma.rb.
+        Lux::Browser::Channel.broker.listen! if Lux.runtime.web?
+
         unless Lux.env.test?
           Lux.shell.info plugins.any? ? "Lux plugins: #{plugins.join(', ')}" : 'Lux: no plugins'
           puts start_info
@@ -113,6 +118,13 @@ module Lux
       # Other
       set_default :asset_root, false
       set_default :plugins, []
+
+      # Browser push (/_lux_/stream) goes cross-process by default. The usual
+      # shape is a web process plus a job process, and an in-process default
+      # fails silently there - the job publishes and no browser ever hears it.
+      # Two exceptions, both of which have nothing to bridge: test is
+      # single-process, and an app with no main DB has no NOTIFY to send.
+      set_default(:channel_url) { Lux.env.test? || !Lux::Db.url_for(:main) ? nil : 'postgres:main' }
 
       # What an id looks like, app-wide: the router (nav.map_path), the :ref
       # column type, Lux::Utils::Ref and load_models all resolve through it, so
