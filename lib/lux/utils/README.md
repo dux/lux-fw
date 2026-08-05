@@ -18,8 +18,7 @@ via their full namespace, or through monkey-patches on stdlib classes
 | `Lux::Utils::Json`          | `json.rb`            | `to_jsons` / `to_jsonp` / `to_jsonc`, mixed into Hash/Array |
 | `Lux::Utils::TimeOptions`   | `time_options.rb`    | `short` / `long` date formatters, mixed into Time/Date/DateTime |
 | `Lux::Utils::HtmlTag`       | `html_tag/`          | tag-based HTML builder DSL (vendored, rewritten); top-level `HtmlTag` kept as alias |
-| `Lux::Utils::Url`           | `url.rb`             | URL parser/builder with path attrs, locale, qs, pqs (vendored from `lux-url` gem); top-level `Url` kept as alias |
-
+| `Lux::Utils::Url`           | `url.rb`             | URL parser/builder with path attrs, locale, qs, pqs (vendored from `lux-url` gem); top-level `Url` kept as alias; browser twin is `$.url` |
 | `Lux::Utils::Ref`           | `ref.rb`             | `generate` / `is?` for the default ref format; the rule lives in `Lux::Application::Nav::RefString` |
 
 The db plugin reopens `Lux::Utils::Ref` in `ext/nav_models.rb` to add the model
@@ -189,7 +188,15 @@ tag(name, inner = nil, **attrs, &block)
 * Inside a `&block`, unknown methods flow to the host (cell/controller), and host
   `@ivars` are visible. Use `this` / `context` / `parent` for an explicit host handle.
 
-### Url
+### Url (`lib/lux/utils/url.rb`)
+
+Vendored from the old `lux-url` gem. Source of truth for URL parse/build on
+the server. Same vocabulary as the browser port `$.url`
+([`plugins/web_common/.../dollar/dollar_url.js`](../../../plugins/web_common/mount/app/assets/auto/common/js/dollar/dollar_url.js)):
+`qs`, `pqs` / `path_qs`, path prefix `/:a:b`, locale segment, subdomain, fragment.
+
+Entry points: `Lux::Utils::Url` (canonical), top-level `Url` alias, `Lux.url`,
+`Lux.current.url`, class methods on `Url` that rewrite the current request.
 
 ```ruby
 # Build from a string
@@ -204,6 +211,7 @@ u.path_prefix  # ['a', 'b-2']
 # Mutate (chainable)
 u.qs(:foo, 'baz').delete(:menu).hash('top')
 u.to_s         # 'https://sub.lvh.me:3000/:a:b-2/some/path?foo=baz#top'
+u.pqs(:tag, 'x')  # writes path qs and clears matching ?tag= if present
 
 # Current request handles
 Lux.current.url            # Lux::Utils::Url of the current request
@@ -215,7 +223,11 @@ Url.escape('a/b')          # 'a%2Fb'  (CGI escape, nil-safe)
 Url.unescape('a%2Fb')      # 'a/b'
 Url.locale('fr')           # swap locale prefix on current url, return relative
 Url.toggle(:sort, 'asc')   # set qs unless equal, else clear (for filter UIs)
+Url.qs(:page, 2)           # set qs on current request, return relative string
+Url.pqs(:tag, 'dux')       # path qs /tag:dux on current request, relative
 ```
+
+Specs: `spec/lux_tests/url_spec.rb`.
 
 ### TimeOptions
 
@@ -241,6 +253,7 @@ Time.now.short(true) # force default format, ignore config
 ## See also
 
 * [`../current/README.md`](../current/README.md) - `Lux.current.encrypt/decrypt` (per-request variants)
+* [`url.rb`](./url.rb) - `Lux::Utils::Url` (server); browser twin [`dollar_url.js`](../../../plugins/web_common/mount/app/assets/auto/common/js/dollar/dollar_url.js) (`$.url`)
 * [`../application/lib/nav/ref_string.rb`](../application/lib/nav/ref_string.rb) - the format behind `Lux::Utils::Ref`
 * [`../../../plugins/db/ext/nav_models.rb`](../../../plugins/db/ext/nav_models.rb) - `Lux::Utils::Ref` model registry + `Nav#load_models` (db plugin)
 * [`../../../plugins/db/ext/paginate.rb`](../../../plugins/db/ext/paginate.rb) - `Lux::Utils::PaginatedArray`

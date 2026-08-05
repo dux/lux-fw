@@ -105,6 +105,15 @@ describe Lux::Utils::Url do
       _(url.path).must_include 'name:a+b'
     end
 
+    it 'instance pqs clears a matching qs key' do
+      url = Lux.url('/foo?baz=123&keep=1')
+      url.pqs(:baz, 'path-val')
+      _(url.pqs(:baz)).must_equal 'path-val'
+      _(url.qs).must_equal({ 'keep' => '1' })
+      _(url.qs(:baz)).must_equal 'path-val' # falls back to pqs once qs is gone
+      _(url.to_s).must_equal '/foo/baz:path-val?keep=1'
+    end
+
     it 'renders path-qs without a double slash when there is no regular path' do
       url = Lux.url('http://auth.lvh.me:3000/domain:lvh.me/port:3000')
       url.pqs(:domain, "app.#{url.host}")

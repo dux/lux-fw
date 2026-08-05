@@ -53,11 +53,9 @@ module Lux
           current.qs(name, value).relative
         end
 
-        # path qs /foo/bar:baz; also clears the matching ?name= if present
+        # path qs /foo/bar:baz (instance pqs clears matching qs)
         def pqs name, value
-          url = current.pqs(name, value)
-          url.qs name, nil
-          url.relative
+          current.pqs(name, value).relative
         end
 
         # same as force qs but remove value if selected
@@ -247,9 +245,12 @@ module Lux
       end
 
       # path query string -> /foo/bar:baz
+      # on write, clears a matching qs key so the path form is dominant
       def pqs name = nil, value = :_nil
         if value != :_nil
-          @opt.qs_path[name.to_s] = CGI::escape value.to_s
+          key = name.to_s
+          @opt.qs_path[key] = CGI::escape value.to_s
+          @opt.qs.delete(key)
           self
         elsif name
           @opt.qs_path[name.to_s]

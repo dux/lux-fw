@@ -108,7 +108,7 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | `Lux::Shell`           | Secure shell/process exec + `info`/`error`/`die` helpers   | [README](./lib/lux/shell/README.md) |
 | `Lux::Hash`            | Hash with indifferent string/symbol/method access          | [README](./lib/lux/hash/README.md) |
 | `Lux::JsonExporter`    | Structured JSON export with named exporters per model      | [README](./lib/lux/json_exporter/README.md) |
-| `Lux::Utils`           | Pure helpers (`Crypt`, `StringBase`, `Json`, ...)          | [README](./lib/lux/utils/README.md) |
+| `Lux::Utils`           | Pure helpers (`Crypt`, `Url`, `StringBase`, `Json`, ...)   | [README](./lib/lux/utils/README.md) |
 
 ## Plugins - `plugins/<name>/`
 

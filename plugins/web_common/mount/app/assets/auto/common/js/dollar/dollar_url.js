@@ -159,8 +159,14 @@ class Url {
   }
 
   // path query string -> /foo/bar:baz
+  // on write, clears a matching qs key so the path form is dominant
   pqs(name = null, value = NIL) {
-    if (value !== NIL) { this.opt.qsPath[String(name)] = Url.escape(String(value)); return this }
+    if (value !== NIL) {
+      const key = String(name)
+      this.opt.qsPath[key] = Url.escape(String(value))
+      delete this.opt.qs[key]
+      return this
+    }
     if (name != null) return this.opt.qsPath[name]
     return this.opt.qsPath
   }
@@ -241,9 +247,7 @@ class Url {
   static qs(name, value) { return Url.current().qs(name, value).relative() }
 
   static pqs(name, value) {
-    const u = Url.current().pqs(name, value)
-    u.qs(name, null)
-    return u.relative()
+    return Url.current().pqs(name, value).relative()
   }
 
   static toggle(name, value) {
