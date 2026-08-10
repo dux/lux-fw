@@ -19,10 +19,8 @@
 </script>
 
 <style>
-  :fez {
-    .method-group + .method-group { margin-top: 28px; }
-    .method-list   > hr { border: 0; border-top: 1px solid #d1d5db; margin: 20px 0; }
-  }
+  .method-group + .method-group { margin-top: 28px; }
+  .method-list   > hr { border: 0; border-top: 1px solid #d1d5db; margin: 20px 0; }
 </style>
 
 <section id={'api-' + state.name} class="scroll-mt-20 mt-10 pt-8 border-t-2 border-gray-300">

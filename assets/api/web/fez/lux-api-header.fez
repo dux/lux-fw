@@ -85,12 +85,10 @@
 </script>
 
 <style>
-  :fez {
-    .bearer-panel       { display: grid; grid-template-rows: 0fr;
-                          transition: grid-template-rows 220ms ease; }
-    .bearer-panel.open  { grid-template-rows: 1fr; }
-    .bearer-panel > div { overflow: hidden; }
-  }
+  .bearer-panel       { display: grid; grid-template-rows: 0fr;
+                        transition: grid-template-rows 220ms ease; }
+  .bearer-panel.open  { grid-template-rows: 1fr; }
+  .bearer-panel > div { overflow: hidden; }
 </style>
 
 <header class="sticky top-0 z-30 bg-white border-b border-gray-200">

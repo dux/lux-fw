@@ -469,141 +469,139 @@ ${JSON.stringify(body, null, 2)}`
 </script>
 
 <style>
-  :fez {
-    .runner       { border-radius: 12px; background: #0f172a; color: #e2e8f0; overflow: hidden;
-                    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 0 0 1px #1e293b; }
+  .runner       { border-radius: 12px; background: #0f172a; color: #e2e8f0; overflow: hidden;
+                  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 0 0 1px #1e293b; }
 
-    /* Carousel: panes overlap (position absolute); the active pane is
-       position relative so it sets viewport height. JS mirrors that height
-       onto the viewport via inline style so the slide and resize animate
-       together. */
-    .carousel-viewport {
-      position: relative;
-      overflow: hidden;
-      transition: height 320ms cubic-bezier(.2,.7,.2,1);
-    }
-    .carousel-pane {
-      position: absolute; top: 0; left: 0; right: 0;
-      transform: translateX(100%);
-      transition: transform 320ms cubic-bezier(.2,.7,.2,1);
-      will-change: transform;
-    }
-    .carousel-pane.active        { position: relative; transform: translateX(0); }
-    .carousel-pane.before-active { transform: translateX(-100%); }
-    .tabs         { display: flex; align-items: stretch; gap: 6px; padding: 0 12px; border-bottom: 1px solid #1e293b; }
-    .tab          { padding: 14px 18px; margin: 0; font-size: 12px; font-weight: 600;
-                    color: #94a3b8; cursor: pointer; background: transparent; border: 0;
-                    border-bottom: 2px solid transparent; border-radius: 0; line-height: 1;
-                    text-transform: uppercase; letter-spacing: 0.06em; }
-    .tab:hover    { color: #e2e8f0; background: rgba(255,255,255,0.03); }
-    .tab.active   { color: #fff; border-bottom-color: #818cf8; }
-    .tabs .spacer { flex: 1; }
-    .pre-code     { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 14px; line-height: 1.55;
-                    color: #e2e8f0; white-space: pre; margin: 0; padding: 16px; }
-    .field        { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
-    .field label  { font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
-                    color: #cbd5e1; width: 140px; flex-shrink: 0; }
-    .field input[type=text], .field input[type=number], .field select, .field input:not([type]) {
-                    flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 6px;
-                    padding: 8px 12px; color: #e2e8f0; font-size: 14px; }
-    .field input::placeholder { color: #64748b; }
-    .field input:focus, .field select:focus { outline: none; border-color: #6366f1; }
-    .field.has-error input, .field.has-error select { border-color: #be123c; }
-    .field-error   { margin-left: 8px; color: #fda4af; font-size: 12px; }
-    .r-status     { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
-    .r-status-ok   { color: #6ee7b7; background: rgba(16,185,129,0.15); }
-    .r-status-warn { color: #fcd34d; background: rgba(245,158,11,0.15); }
-    .r-status-err  { color: #fda4af; background: rgba(244,63,94,0.15); }
-    .runner-collapsed { padding: 14px 16px; font-size: 13px; color: #94a3b8; display: flex; align-items: center; justify-content: space-between; }
-    .runner-meta  { font-size: 13px; }
-    .runner-meta.ok  { color: #34d399; }
-    .runner-meta.off { color: #64748b; }
-
-    /* close button in tab strip menu (upper right) */
-    .tab.tab-close { color: #64748b; font-size: 16px; padding-left: 14px; padding-right: 14px; }
-    .tab.tab-close:hover { color: #fff; background: rgba(244,63,94,0.15); }
-
-    /* icon-only tab (copy snippet) */
-    .tab.tab-icon { padding-left: 14px; padding-right: 14px; color: #94a3b8; }
-    .tab.tab-icon:hover { color: #fff; }
-
-    /* send row uses the same label-width + gap as form fields so the
-       button aligns flush with the input column */
-    .send-row { padding-top: 14px; }
-
-    /* send/test button at end of try-it form */
-    .send-btn { display: inline-flex; align-items: center; gap: 8px;
-                padding: 10px 22px; background: #2563eb; color: #fff;
-                border: 0; border-radius: 8px; font-size: 14px; font-weight: 600;
-                cursor: pointer; letter-spacing: 0.02em; }
-    .send-btn:hover    { background: #3b82f6; }
-    .send-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .send-btn .spinner { display: none; width: 12px; height: 12px;
-                         border: 2px solid rgba(255,255,255,0.25);
-                         border-top-color: #fff; border-radius: 50%;
-                         animation: send-spin 0.6s linear infinite; }
-    .send-btn.sending .spinner { display: inline-block; }
-    .send-btn.sending           { background: #1d4ed8; cursor: progress; }
-    @keyframes send-spin { to { transform: rotate(360deg); } }
-    .send-path { font-family: 'JetBrains Mono', ui-monospace, monospace;
-                 color: #94a3b8; font-size: 11px; }
-
-    .response-pane { margin-top: 12px; padding-top: 12px;
-                     border-top: 1px solid #1e293b; }
-    .response-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-    .response-body { padding: 0; }
-
-    /* PayPal-style preview bar - the default collapsed state */
-    .runner-preview { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
-    .preview-pill   { display: inline-block; padding: 4px 12px; border-radius: 999px;
-                      background: #10b981; color: #fff; font-size: 11px; font-weight: 700;
-                      letter-spacing: 0.05em; }
-    .preview-path   { flex: 1; min-width: 0; color: #e2e8f0; font-size: 15px;
-                      font-family: 'JetBrains Mono', ui-monospace, monospace;
-                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .preview-path .chev { color: #64748b; margin-left: 8px; }
-    .preview-try    { padding: 8px 18px; background: #2563eb; color: #fff; border: 0;
-                      border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
-    .preview-try:hover { background: #3b82f6; }
-
-    .hist-list   { padding: 8px 0; }
-    .hist-row    { display: flex; align-items: center; gap: 12px; padding: 10px 16px;
-                   cursor: pointer; border-bottom: 1px solid #1e293b; }
-    .hist-row:last-child { border-bottom: 0; }
-    .hist-row:hover     { background: #1e293b; }
-    .hist-time   { color: #64748b; font-size: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace;
-                   width: 70px; flex-shrink: 0; }
-    .hist-ms     { color: #94a3b8; font-size: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace;
-                   width: 60px; text-align: right; flex-shrink: 0; }
-    .hist-body   { flex: 1; min-width: 0; color: #cbd5e1; font-size: 13px;
-                   font-family: 'JetBrains Mono', ui-monospace, monospace;
-                   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .hist-empty  { padding: 24px 16px; color: #64748b; font-size: 13px; text-align: center; }
-    .hist-clear  { background: transparent; border: 0; color: #64748b; font-size: 11px;
-                   padding: 8px 16px; cursor: pointer; text-transform: uppercase;
-                   letter-spacing: 0.06em; }
-    .hist-clear:hover { color: #fda4af; }
-
-    /* JSON tree viewer (response body) */
-    .json-tree   { font-family: 'JetBrains Mono', ui-monospace, monospace;
-                   font-size: 14px; line-height: 1.55; color: #e2e8f0;
-                   padding: 16px;
-                   max-height: 700px; overflow: auto;
-                   white-space: pre; }
-    .jv-group    { display: inline; }
-    .jv-children { display: none; padding-left: 18px; border-left: 1px dashed #1e293b; }
-    .jv-children.is-open { display: block; }
-    .jv-toggle   { color: #64748b; display: inline-block; width: 14px; user-select: none; }
-    .jv-toggle.is-open { color: #94a3b8; }
-    .jv-summary  { }
-    .jv-count    { color: #475569; font-size: 12px; font-style: italic; }
-    .jv-row      { padding: 1px 0; }
-    .jv-key      { color: #93c5fd; }
-    .jv-string   { color: #86efac; }
-    .jv-number   { color: #fcd34d; }
-    .jv-boolean  { color: #f0abfc; }
-    .jv-null     { color: #fda4af; font-style: italic; }
+  /* Carousel: panes overlap (position absolute); the active pane is
+     position relative so it sets viewport height. JS mirrors that height
+     onto the viewport via inline style so the slide and resize animate
+     together. */
+  .carousel-viewport {
+    position: relative;
+    overflow: hidden;
+    transition: height 320ms cubic-bezier(.2,.7,.2,1);
   }
+  .carousel-pane {
+    position: absolute; top: 0; left: 0; right: 0;
+    transform: translateX(100%);
+    transition: transform 320ms cubic-bezier(.2,.7,.2,1);
+    will-change: transform;
+  }
+  .carousel-pane.active        { position: relative; transform: translateX(0); }
+  .carousel-pane.before-active { transform: translateX(-100%); }
+  .tabs         { display: flex; align-items: stretch; gap: 6px; padding: 0 12px; border-bottom: 1px solid #1e293b; }
+  .tab          { padding: 14px 18px; margin: 0; font-size: 12px; font-weight: 600;
+                  color: #94a3b8; cursor: pointer; background: transparent; border: 0;
+                  border-bottom: 2px solid transparent; border-radius: 0; line-height: 1;
+                  text-transform: uppercase; letter-spacing: 0.06em; }
+  .tab:hover    { color: #e2e8f0; background: rgba(255,255,255,0.03); }
+  .tab.active   { color: #fff; border-bottom-color: #818cf8; }
+  .tabs .spacer { flex: 1; }
+  .pre-code     { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 14px; line-height: 1.55;
+                  color: #e2e8f0; white-space: pre; margin: 0; padding: 16px; }
+  .field        { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+  .field label  { font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
+                  color: #cbd5e1; width: 140px; flex-shrink: 0; }
+  .field input[type=text], .field input[type=number], .field select, .field input:not([type]) {
+                  flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 6px;
+                  padding: 8px 12px; color: #e2e8f0; font-size: 14px; }
+  .field input::placeholder { color: #64748b; }
+  .field input:focus, .field select:focus { outline: none; border-color: #6366f1; }
+  .field.has-error input, .field.has-error select { border-color: #be123c; }
+  .field-error   { margin-left: 8px; color: #fda4af; font-size: 12px; }
+  .r-status     { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
+  .r-status-ok   { color: #6ee7b7; background: rgba(16,185,129,0.15); }
+  .r-status-warn { color: #fcd34d; background: rgba(245,158,11,0.15); }
+  .r-status-err  { color: #fda4af; background: rgba(244,63,94,0.15); }
+  .runner-collapsed { padding: 14px 16px; font-size: 13px; color: #94a3b8; display: flex; align-items: center; justify-content: space-between; }
+  .runner-meta  { font-size: 13px; }
+  .runner-meta.ok  { color: #34d399; }
+  .runner-meta.off { color: #64748b; }
+
+  /* close button in tab strip menu (upper right) */
+  .tab.tab-close { color: #64748b; font-size: 16px; padding-left: 14px; padding-right: 14px; }
+  .tab.tab-close:hover { color: #fff; background: rgba(244,63,94,0.15); }
+
+  /* icon-only tab (copy snippet) */
+  .tab.tab-icon { padding-left: 14px; padding-right: 14px; color: #94a3b8; }
+  .tab.tab-icon:hover { color: #fff; }
+
+  /* send row uses the same label-width + gap as form fields so the
+     button aligns flush with the input column */
+  .send-row { padding-top: 14px; }
+
+  /* send/test button at end of try-it form */
+  .send-btn { display: inline-flex; align-items: center; gap: 8px;
+              padding: 10px 22px; background: #2563eb; color: #fff;
+              border: 0; border-radius: 8px; font-size: 14px; font-weight: 600;
+              cursor: pointer; letter-spacing: 0.02em; }
+  .send-btn:hover    { background: #3b82f6; }
+  .send-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .send-btn .spinner { display: none; width: 12px; height: 12px;
+                       border: 2px solid rgba(255,255,255,0.25);
+                       border-top-color: #fff; border-radius: 50%;
+                       animation: send-spin 0.6s linear infinite; }
+  .send-btn.sending .spinner { display: inline-block; }
+  .send-btn.sending           { background: #1d4ed8; cursor: progress; }
+  @keyframes send-spin { to { transform: rotate(360deg); } }
+  .send-path { font-family: 'JetBrains Mono', ui-monospace, monospace;
+               color: #94a3b8; font-size: 11px; }
+
+  .response-pane { margin-top: 12px; padding-top: 12px;
+                   border-top: 1px solid #1e293b; }
+  .response-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .response-body { padding: 0; }
+
+  /* PayPal-style preview bar - the default collapsed state */
+  .runner-preview { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+  .preview-pill   { display: inline-block; padding: 4px 12px; border-radius: 999px;
+                    background: #10b981; color: #fff; font-size: 11px; font-weight: 700;
+                    letter-spacing: 0.05em; }
+  .preview-path   { flex: 1; min-width: 0; color: #e2e8f0; font-size: 15px;
+                    font-family: 'JetBrains Mono', ui-monospace, monospace;
+                    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .preview-path .chev { color: #64748b; margin-left: 8px; }
+  .preview-try    { padding: 8px 18px; background: #2563eb; color: #fff; border: 0;
+                    border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .preview-try:hover { background: #3b82f6; }
+
+  .hist-list   { padding: 8px 0; }
+  .hist-row    { display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+                 cursor: pointer; border-bottom: 1px solid #1e293b; }
+  .hist-row:last-child { border-bottom: 0; }
+  .hist-row:hover     { background: #1e293b; }
+  .hist-time   { color: #64748b; font-size: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace;
+                 width: 70px; flex-shrink: 0; }
+  .hist-ms     { color: #94a3b8; font-size: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace;
+                 width: 60px; text-align: right; flex-shrink: 0; }
+  .hist-body   { flex: 1; min-width: 0; color: #cbd5e1; font-size: 13px;
+                 font-family: 'JetBrains Mono', ui-monospace, monospace;
+                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-empty  { padding: 24px 16px; color: #64748b; font-size: 13px; text-align: center; }
+  .hist-clear  { background: transparent; border: 0; color: #64748b; font-size: 11px;
+                 padding: 8px 16px; cursor: pointer; text-transform: uppercase;
+                 letter-spacing: 0.06em; }
+  .hist-clear:hover { color: #fda4af; }
+
+  /* JSON tree viewer (response body) */
+  .json-tree   { font-family: 'JetBrains Mono', ui-monospace, monospace;
+                 font-size: 14px; line-height: 1.55; color: #e2e8f0;
+                 padding: 16px;
+                 max-height: 700px; overflow: auto;
+                 white-space: pre; }
+  .jv-group    { display: inline; }
+  .jv-children { display: none; padding-left: 18px; border-left: 1px dashed #1e293b; }
+  .jv-children.is-open { display: block; }
+  .jv-toggle   { color: #64748b; display: inline-block; width: 14px; user-select: none; }
+  .jv-toggle.is-open { color: #94a3b8; }
+  .jv-summary  { }
+  .jv-count    { color: #475569; font-size: 12px; font-style: italic; }
+  .jv-row      { padding: 1px 0; }
+  .jv-key      { color: #93c5fd; }
+  .jv-string   { color: #86efac; }
+  .jv-number   { color: #fcd34d; }
+  .jv-boolean  { color: #f0abfc; }
+  .jv-null     { color: #fda4af; font-style: italic; }
 </style>
 
 <div class="runner">

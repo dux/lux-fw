@@ -131,27 +131,25 @@
 </script>
 
 <style>
-  :fez {
-    .tip {
-      position: fixed;
-      display: none;
-      z-index: 999999;
-      max-width: 260px;
-      padding: 6px 9px;
-      border-radius: 4px;
-      background: #2b2b2b;
-      color: #fff;
-      font-size: 13.5px;
-      line-height: 1.4;
-      pointer-events: none;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+  .tip {
+    position: fixed;
+    display: none;
+    z-index: 999999;
+    max-width: 260px;
+    padding: 6px 9px;
+    border-radius: 4px;
+    background: #2b2b2b;
+    color: #fff;
+    font-size: 13.5px;
+    line-height: 1.4;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
 
-      .arr {
-        position: absolute;
-        width: 9px;
-        height: 9px;
-        background: #2b2b2b;
-      }
+    .arr {
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      background: #2b2b2b;
     }
   }
 </style>
