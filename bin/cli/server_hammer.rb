@@ -1,6 +1,5 @@
 task :server do
   desc 'Start web server'
-  alt :s
   opt :port,   alias: :p, desc: 'Port number'
   opt :env,    alias: :e, desc: 'Environment (development, test, production)'
   opt :rerun,  alias: :R, type: :boolean, default: false, desc: 'Rerun app on every file change'
