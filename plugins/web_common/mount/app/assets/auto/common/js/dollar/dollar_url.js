@@ -159,11 +159,16 @@ class Url {
   }
 
   // path query string -> /foo/bar:baz
-  // on write, clears a matching qs key so the path form is dominant
+  // on write, clears a matching qs key so the path form is dominant.
+  // null/'' deletes the path key (Ruby stores blank and drops it on render).
   pqs(name = null, value = NIL) {
     if (value !== NIL) {
       const key = String(name)
-      this.opt.qsPath[key] = Url.escape(String(value))
+      if (value == null || value === '') {
+        delete this.opt.qsPath[key]
+      } else {
+        this.opt.qsPath[key] = Url.escape(String(value))
+      }
       delete this.opt.qs[key]
       return this
     }
@@ -274,5 +279,8 @@ class Url {
 
 // $.url(href) builds an instance; the statics ride on the same function object so
 // $.url.qs(...) etc. resolve to the class methods (see header for the dual call shape).
+// window.Url is the back-compat alias used by Fez components (Url().qs(...)).
+// Z is an alias of $ (see _dollar.js), so Z.url === $.url.
 $.url = url => new Url(url)
 'current host root locale subdomain qs pqs toggle prepareQs escape unescape'.split(' ').forEach(m => $.url[m] = Url[m].bind(Url))
+window.Url = $.url
