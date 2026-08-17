@@ -295,7 +295,7 @@ ApiForm.on('stream', function (response) {
 
   const channel = response.data?.channel
   if (!channel) return Toast.error('No stream channel in API response')
-  if (!window.Lux?.subscribe) return Toast.error('Lux.subscribe missing - is /_lux_/sse.js loaded?')
+  if (!window.Lux?.subscribe) return Toast.error('Lux.subscribe missing - is shared/lux_core.js loaded?')
 
   // The box renders the log; this only watches for the terminal frame so the
   // page picks up whatever the job created.

@@ -67,6 +67,7 @@ module Lux
       private
 
       def render path
+        # Modules are static JS; ERB is still supported for rare dynamic modules.
         ERB.new(File.read(path), trim_mode: '-').result(binding)
       end
     end
@@ -109,7 +110,19 @@ module Lux
         app = (app || {}).merge(lux: state)
       end
 
-      lines = ['window.app = window.app || {};', 'window.app.page = {};']
+      # Lux client surface (csrf/host) must land before asset packs that define
+      # Lux.fetch / Lux.subscribe - those packs no longer go through /_lux_/*.js ERB.
+      lux_cfg = {
+        csrf:   Lux.current.csrf,
+        config: { host: Lux.config.host.to_s, locale: Lux.current.locale.to_s },
+      }
+
+      lines = [
+        'window.Lux = window.Lux || {};',
+        "Object.assign(window.Lux, #{js_safe(lux_cfg)});",
+        'window.app = window.app || {};',
+        'window.app.page = {};',
+      ]
       lines << "Object.assign(window.app, #{js_safe(app)});" if app && !app.empty?
       lines << "Object.assign(window, #{js_safe(rest)});"    unless rest.empty?
 

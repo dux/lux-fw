@@ -1,15 +1,13 @@
-// Lux client core. Sets up window.Lux skeleton + per-request state.
-// Composed by Lux::Browser and served at /_lux_/client.js (or /_lux_/*.js
-// for an individual module - core is always prepended).
+// Lux client core. Sets up window.Lux skeleton + fetch helper.
+// Loaded via app asset packs (auto/common); per-request csrf/config are
+// assigned by #lux-state (Lux::Browser#window_script) before bundles run.
+// Still available at /_lux_/core.js for direct include if needed.
 ;(function (global) {
   var Lux = global.Lux = global.Lux || {};
 
-  // Server-injected per-request state.
-  Lux.csrf = <%= Lux.current.csrf.to_json %>;
-  Lux.config = {
-    host:   <%= Lux.config.host.to_s.to_json %>,
-    locale: <%= Lux.current.locale.to_s.to_json %>
-  };
+  // Filled by #lux-state when present; leave existing values alone if set.
+  if (typeof Lux.csrf === 'undefined') Lux.csrf = null;
+  Lux.config = Lux.config || {};
 
   // JSON-aware fetch wrapper. Defaults method to POST (the primary use case
   // is mutations / form submissions), auto-adds X-CSRF-Token from Lux.csrf,

@@ -57,14 +57,13 @@ describe Lux::Browser do
       _{ Lux::Browser.client_js(:nope_does_not_exist) }.must_raise ArgumentError
     end
 
-    it 'core interpolates per-request state' do
-      env = Rack::MockRequest.env_for('/')
-      Lux::Current.new env
+    it 'core is static (per-request state comes from window_script)' do
       bundle = Lux::Browser.client_js(:core)
-      _(bundle).must_include 'http://test'
-      _(bundle).must_match(/Lux\.csrf\s*=\s*"[a-z0-9]+"/)
+      _(bundle).wont_include '<%='
+      _(bundle).must_include 'Lux.fetch'
     end
   end
+
 
   # ----- instance-level: per-request state ------------------------------
 
@@ -97,17 +96,28 @@ describe Lux::Browser do
       @b ||= Lux::Browser.new
     end
 
-    it 'emits the guard + page reset when the window hash is empty' do
-      _(b.window_script).must_equal %[<script id="lux-state">window.app = window.app || {};\nwindow.app.page = {};</script>]
+    it 'emits Lux bootstrap + app guard when the window hash is empty' do
+      env = Rack::MockRequest.env_for('/')
+      Lux::Current.new env
+      tag = b.window_script
+      _(tag).must_include 'window.Lux = window.Lux || {};'
+      _(tag).must_include 'Object.assign(window.Lux,'
+      _(tag).must_include 'window.app = window.app || {};'
+      _(tag).must_include 'window.app.page = {};'
+      _(tag).must_include 'csrf'
+      _(tag).must_include 'http://test'
     end
 
     it 'merges :app into window.app and assigns other keys onto window' do
+      env = Rack::MockRequest.env_for('/')
+      Lux::Current.new env
       b.window[:app] = { cfg: { host: 'http://x' } }
       b.window[:foo] = 1
       tag = b.window_script
 
       _(tag).must_include 'window.app = window.app || {};'
       _(tag).must_include 'window.app.page = {};'
+      _(tag).must_include 'window.Lux = window.Lux || {};'
 
       # the payload is pretty printed outside production, so match it whitespace-free
       flat = tag.gsub(/\s+/, '')
@@ -176,8 +186,11 @@ describe Lux::Browser do
       Lux.config[:app] = { name: 'T' }.to_lux_hash
       c = Lux::Current.new Rack::MockRequest.env_for('/')
       html = c.browser.header.render
-      _(html).must_include 'window.app = window.app || {};'
       _(html).must_include '<script id="lux-state">'
+      _(html).must_include 'window.Lux = window.Lux || {};'
+      _(html).must_include 'Object.assign(window.Lux,'
+      _(html).must_include 'window.app = window.app || {};'
+      _(html).must_include 'csrf'
     ensure
       Lux.config[:app] = previous
     end

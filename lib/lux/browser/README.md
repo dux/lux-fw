@@ -33,7 +33,9 @@ Lux.browser.client_js                                     # all modules, core fi
 Lux.browser.client_js(:sse)                               # core + sse only
 Lux.browser.client_js(:sse, :api)                         # core + listed
 
-# Served URLs (intercepted before route resolution; /_lux_/* is reserved):
+# Preferred: auto/shared/js/lux_core.js.rb is one line:
+#   Lux::Browser.client_js
+# (#lux-state injects csrf/host before packs run). Direct URLs still work:
 #   /_lux_/client.js                  -> all registered modules
 #   /_lux_/client.js?modules=sse,api  -> just those
 #   /_lux_/<name>.js                  -> core + that one (404 if unknown)
@@ -65,6 +67,8 @@ lux.browser.bundle(:sse)                                # core + sse bundle
 #
 # the window part renders as:
 #   <script id="lux-state">
+#     window.Lux = window.Lux || {};
+#     Object.assign(window.Lux, {"csrf":"...","config":{"host":"...","locale":"..."}});
 #     window.app = window.app || {};
 #     window.app.page = {};
 #     Object.assign(window.app, {"cfg":{...},"current":{...}});
@@ -74,10 +78,14 @@ lux.browser.bundle(:sse)                                # core + sse bundle
 
 ## Export rule
 
-`window_script` is deliberately tiny:
+`window_script` is deliberately tiny. Order matters: `window.Lux` is assigned
+first so asset packs that define `Lux.fetch` / `Lux.subscribe` can read csrf
+and host without going through ERB'd `/_lux_/*.js`.
 
-* `window.app = window.app || {};` - the one guaranteed bootstrap, so bundles
-  can drop defensive `window.app ||= {}` guards.
+* `window.Lux = window.Lux || {};` + `Object.assign(window.Lux, {csrf, config})` -
+  framework client surface: per-request csrf token, host, and locale.
+* `window.app = window.app || {};` - the one guaranteed app bootstrap, so
+  bundles can drop defensive `window.app ||= {}` guards.
 * `window.app.page = {};` - the volatile `page` bucket is reset on every render,
   so a pjax navigation never inherits the previous page's payload.
 * `Object.assign(window.app, <hash[:app]>)` - the `:app` key is **merged** into
@@ -104,8 +112,11 @@ structure `window[:app]`.
 ## Security
 
 Don't ship secrets via `lux.browser.window` - everything is visible in the
-page source. The framework-injected `Lux.csrf` (from `core.js`) lives under
-`window.Lux`, not `window.app`.
+page source. The framework-injected `Lux.csrf` (and `Lux.config.host` /
+`Lux.config.locale`) is written by `window_script` into `#lux-state` under
+`window.Lux`, not `window.app`. Static `core.js` only leaves defaults if
+those keys are unset.
+
 
 ## API
 
