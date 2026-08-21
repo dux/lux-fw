@@ -1,0 +1,197 @@
+<info>
+  <p>Git actions on the vibe branch through the harness api: commit (message typed or
+     generated from the diff), push, pull, merge main into vibe, discard all, recent log,
+     ahead/behind. vibe -> main is deliberately absent.</p>
+  <ul>
+    <li><code>branch</code> - the harness branch (label only)</li>
+    <li><code>main</code> - the branch "merge main" pulls from (label only)</li>
+  </ul>
+</info>
+
+<script>
+  class {
+    init() {
+      this.state.status  = { dirty: [], log: [], ahead: 0, behind: 0, branch: '', on_vibe: true, upstream: false }
+      this.state.busy    = ''       // label while an action runs
+      this.state.confirm = false    // discard all
+      this.state.error   = ''
+      this.state.note    = ''       // last result line
+    }
+
+    onMount() {
+      this.refresh()
+      this.subscribe('files:refresh', () => this.refresh())
+      this.subscribe('git:changed',   () => this.refresh())
+      this.subscribe('turn:done',     () => this.refresh())
+      this.subscribe('tab', id => { if (id === 'git') this.refresh() })
+    }
+
+    async refresh() {
+      try {
+        this.state.status = await Vibe.api('/api/git/status')
+        this.state.error  = ''
+        Fez.publish('git:status', this.state.status)
+      } catch (e) {
+        this.state.error = e.message
+      }
+    }
+
+    // one wrapper for every action: busy label, toast, refresh everyone
+    async act(label, path, body, okText) {
+      if (this.state.busy) return
+      this.state.busy  = label
+      this.state.error = ''
+      this.state.note  = ''
+      try {
+        const r = await Vibe.api(path, body || {})
+        const text = typeof okText === 'function' ? okText(r) : okText
+        this.state.note = text
+        Vibe.toast(text, 'ok')
+        Fez.publish('git:changed')
+        return r
+      } catch (e) {
+        this.state.error = e.message
+        Vibe.toast(e.message, 'err')
+      } finally {
+        this.state.busy = ''
+      }
+    }
+
+    async autoMessage() {
+      if (this.state.busy) return
+      this.state.busy = 'writing a commit message…'
+      try {
+        const r = await Vibe.api('/api/git/commit_message', {})
+        this.msgEl.value = r.message || ''
+        this.msgEl.focus()
+      } catch (e) {
+        this.state.error = e.message
+      } finally {
+        this.state.busy = ''
+      }
+    }
+
+    async commit(push) {
+      const message = (this.msgEl.value || '').trim()
+      const r = await this.act(
+        push ? 'committing and pushing…' : 'committing…',
+        '/api/git/commit',
+        { message, push: !!push },
+        r => `Committed ${r.sha} (${r.files.length} file${r.files.length === 1 ? '' : 's'})${r.pushed ? ' and pushed' : ''}${r.incoming && r.incoming.length ? ', rebased onto ' + r.incoming.length + ' incoming' : ''}`
+      )
+      if (r) this.msgEl.value = ''
+    }
+
+    push()  { this.act('pushing…', '/api/git/push', {}, r => `Pushed ${r.sha} to origin/${this.props.branch}` + (r.incoming.length ? ` (rebased onto ${r.incoming.length} incoming)` : '')) }
+    pull()  { this.act('pulling…', '/api/git/pull', {}, r => r.changed ? `Pulled ${r.incoming.length} commit(s), now at ${r.sha}` : 'Already up to date') }
+    merge() { this.act(`merging ${this.props.main}…`, '/api/git/merge_main', {}, r => r.changed ? `Merged ${r.source}: ${r.incoming.length} commit(s), now at ${r.sha}. Restart the app if Ruby changed.` : `${r.source} already merged`) }
+
+    askDiscard() { this.state.confirm = true }
+    cancel()     { this.state.confirm = false }
+    async discard() {
+      this.state.confirm = false
+      await this.act('discarding…', '/api/git/reset', {}, r => `Discarded ${r.discarded.length} change(s), back at ${r.sha}`)
+    }
+
+    onKey(e) {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); this.commit(false) }
+    }
+  }
+</script>
+
+<style>
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  background: var(--panel);
+
+  .sec { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .sec h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+  .status .b { font-family: var(--mono); font-weight: 700; }
+  textarea {
+    width: 100%;
+    min-height: 64px;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--bg);
+    resize: vertical;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .busy { font-size: 12.5px; color: var(--accent); }
+  .note { font-size: 12.5px; color: var(--ok); }
+  .err  { font-size: 12.5px; color: var(--err); white-space: pre-wrap; }
+  .warn { padding: 8px 12px; border-radius: 8px; background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); font-size: 12.5px; }
+  .confirm { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: var(--err-bg); font-size: 12.5px; }
+  .confirm span { flex: 1; }
+  .log { font-size: 12.5px; }
+  .log div { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .log .sha { font-family: var(--mono); color: var(--accent); }
+  .log .s { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log .t { color: var(--muted); white-space: nowrap; }
+  .hint { font-size: 11.5px; color: var(--muted); }
+</style>
+
+<div class="sec">
+  <div class="status">
+    <span class="b">{state.status.branch || props.branch}</span>
+    <span class="pill">{state.status.dirty.length} changed</span>
+    <span class="pill" title="commits ahead / behind origin">{state.status.ahead}↑ {state.status.behind}↓</span>
+    {#if !state.status.upstream}<span class="hint">no upstream yet - first push sets it</span>{/if}
+    {#if state.busy}<span class="busy">{state.busy}</span>{/if}
+  </div>
+  {#if state.status.branch && !state.status.on_vibe}
+    <div class="warn" style="margin-top:10px">Checkout is on <b>{state.status.branch}</b>. Actions switch to <b>{props.branch}</b> first (refused while the tree is dirty).</div>
+  {/if}
+  {#if state.note}<div class="note" style="margin-top:8px">{state.note}</div>{/if}
+  {#if state.error}<div class="err" style="margin-top:8px">{state.error}</div>{/if}
+</div>
+
+<div class="sec">
+  <h3>Commit</h3>
+  <textarea fez:this="msgEl" placeholder="Commit message - or let the agent write one" onkeydown="fez.onKey(event)"></textarea>
+  <div class="row" style="margin-top:8px">
+    <button class="btn" onclick="fez.autoMessage()" disabled={state.busy || !state.status.dirty.length ? 'disabled' : ''} title="generate from the diff (OpenRouter)">✦ Auto message</button>
+    <button class="btn primary" onclick="fez.commit(false)" disabled={state.busy || !state.status.dirty.length ? 'disabled' : ''}>Commit</button>
+    <button class="btn" onclick="fez.commit(true)" disabled={state.busy || !state.status.dirty.length ? 'disabled' : ''}>Commit &amp; push</button>
+    <span class="hint">⌘Enter commits · empty message = auto</span>
+  </div>
+</div>
+
+<div class="sec">
+  <h3>Sync</h3>
+  <div class="row">
+    <button class="btn" onclick="fez.push()" disabled={state.busy ? 'disabled' : ''} title="push origin/{props.branch}, rebasing onto it if it moved">↑ Push</button>
+    <button class="btn" onclick="fez.pull()" disabled={state.busy ? 'disabled' : ''} title="pull --rebase origin/{props.branch}">↓ Pull</button>
+    <button class="btn" onclick="fez.merge()" disabled={state.busy ? 'disabled' : ''} title="merge origin/{props.main} into {props.branch}">⤵ Merge {props.main} into {props.branch}</button>
+  </div>
+  <div class="hint" style="margin-top:6px">{props.branch} → {props.main} is not here on purpose: review and merge that by hand.</div>
+</div>
+
+<div class="sec">
+  <h3>Danger</h3>
+  {#if state.confirm}
+    <div class="confirm">
+      <span>Throw away all {state.status.dirty.length} uncommitted change(s)? This cannot be undone.</span>
+      <button class="btn sm danger" onclick="fez.discard()">Discard all</button>
+      <button class="btn sm" onclick="fez.cancel()">Cancel</button>
+    </div>
+  {:else}
+    <button class="btn danger" onclick="fez.askDiscard()" disabled={state.busy || !state.status.dirty.length ? 'disabled' : ''}>Discard all uncommitted changes</button>
+  {/if}
+</div>
+
+<div class="sec">
+  <h3>Recent commits</h3>
+  <div class="log">
+    {#each state.status.log as c}
+      <div><span class="sha">{c.sha}</span><span class="s" title={c.subject}>{c.subject}</span><span class="t">{c.ago}</span></div>
+    {/each}
+  </div>
+</div>

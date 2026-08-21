@@ -1,0 +1,318 @@
+<info>
+  <p>Shell of the vibe harness page: header (branch, status lights, restart), chat on
+     the left, tabs (Preview / Files / Git / Logs) on the right, toasts.</p>
+  <ul>
+    <li><code>app_url</code> - url the preview iframes</li>
+    <li><code>model</code>, <code>branch</code>, <code>main</code>, <code>root</code>, <code>title</code> - shown in the header</li>
+  </ul>
+  <p>Polls <code>/api/health</code> and publishes <code>health</code>; renders <code>toast</code> messages.</p>
+</info>
+
+<script>
+  const TABS = [
+    { id: 'preview', label: 'Preview' },
+    { id: 'files',   label: 'Files' },
+    { id: 'git',     label: 'Git' },
+    { id: 'logs',    label: 'Logs' },
+  ]
+
+  class {
+    init(props) {
+      this.state.tab        = localStorage.getItem('vibe.tab') || 'preview'
+      this.state.tabs       = TABS
+      this.state.health     = { app: null, opencode: null, branch: '', on_vibe: true, docker: false }
+      this.state.files      = 0
+      this.state.ahead      = 0
+      this.state.behind     = 0
+      this.state.restarting = ''      // '' | 'soft' | 'hard'
+      this.state.toasts     = []
+      this.state.restartMenu = false
+
+      this.local.left = parseInt(localStorage.getItem('vibe.left')) || 0
+    }
+
+    onMount() {
+      if (this.local.left) this.applyLeft(this.local.left)
+
+      this.pollHealth()
+      this.setInterval(() => this.pollHealth(), 5000)
+
+      this.subscribe('toast', t => this.addToast(t))
+      this.subscribe('files:count', n => { this.state.files = n })
+      this.subscribe('git:status', s => { this.state.ahead = s.ahead || 0; this.state.behind = s.behind || 0 })
+      this.subscribe('open:tab', id => this.setTab(id))
+
+      this.on(window, 'keydown', e => this.onKey(e))
+    }
+
+    // --- health -----------------------------------------------------------
+
+    async pollHealth() {
+      try {
+        const h = await Vibe.api('/api/health')
+        const was = this.state.health
+        this.state.health = h
+        Fez.publish('health', h)
+        // the app came back after a restart -> preview reloads
+        if (this.state.restarting && h.app && was && was.app === false) {
+          this.state.restarting = ''
+          Fez.publish('app:restarted')
+          this.addToast({ text: 'App is back up', kind: 'ok' })
+        }
+      } catch (e) {
+        this.state.health = { ...this.state.health, harness: false }
+      }
+    }
+
+    // --- tabs -------------------------------------------------------------
+
+    setTab(id) {
+      this.state.tab = id
+      localStorage.setItem('vibe.tab', id)
+      Fez.publish('tab', id)
+    }
+
+    onKey(e) {
+      const mod = e.metaKey || e.ctrlKey
+      if (!mod) return
+      const n = parseInt(e.key)
+      if (n >= 1 && n <= TABS.length) { e.preventDefault(); this.setTab(TABS[n - 1].id) }
+    }
+
+    // --- restart ----------------------------------------------------------
+
+    async restart(mode) {
+      this.state.restartMenu = false
+      if (this.state.restarting) return
+      this.state.restarting = mode
+      try {
+        await Vibe.api('/api/restart', { mode })
+        this.addToast({ text: mode === 'hard' ? 'Restarting app container...' : 'Reloading app...', kind: 'info' })
+        // soft restarts are fast; the health poll may never see app=false, so
+        // reload the preview on a timer as well
+        if (mode === 'soft') {
+          this.setTimeout(() => {
+            if (this.state.restarting === 'soft') { this.state.restarting = ''; Fez.publish('app:restarted') }
+          }, 2500)
+        } else {
+          this.setTimeout(() => { if (this.state.restarting === 'hard') this.state.restarting = '' }, 120000)
+        }
+        this.setTimeout(() => this.pollHealth(), 1200)
+      } catch (e) {
+        this.state.restarting = ''
+        this.addToast({ text: e.message, kind: 'err' })
+      }
+    }
+
+    toggleRestartMenu() { this.state.restartMenu = !this.state.restartMenu }
+
+    // --- toasts -----------------------------------------------------------
+
+    addToast(t) {
+      const id = Date.now() + Math.random()
+      this.state.toasts = [...this.state.toasts, { id, text: t.text, kind: t.kind || 'info' }]
+      this.setTimeout(() => { this.state.toasts = this.state.toasts.filter(x => x.id !== id) }, t.kind === 'err' ? 8000 : 3500)
+    }
+
+    dismissToast(id) { this.state.toasts = this.state.toasts.filter(x => x.id !== id) }
+
+    // --- splitter ---------------------------------------------------------
+
+    applyLeft(px) {
+      const min = 340, max = Math.max(min, window.innerWidth - 480)
+      px = Math.min(max, Math.max(min, px))
+      this.local.left = px
+      this.root.style.setProperty('--left', px + 'px')
+    }
+
+    dragStart(e) {
+      e.preventDefault()
+      const move = ev => this.applyLeft(ev.clientX)
+      const up   = () => {
+        window.removeEventListener('mousemove', move)
+        window.removeEventListener('mouseup', up)
+        document.body.style.cursor = ''
+        document.body.classList.remove('vibe-dragging')
+        localStorage.setItem('vibe.left', this.local.left)
+      }
+      document.body.style.cursor = 'col-resize'
+      document.body.classList.add('vibe-dragging')
+      window.addEventListener('mousemove', move)
+      window.addEventListener('mouseup', up)
+    }
+  }
+</script>
+
+<style global>
+  /* while dragging the splitter the iframe must not eat mouse events */
+  body.vibe-dragging iframe { pointer-events: none; }
+</style>
+
+<style>
+  display: grid;
+  grid-template-rows: 46px minmax(0, 1fr);
+  height: 100vh;
+  --left: 38%;
+
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-2); }
+  .brand .t { color: var(--muted); font-weight: 500; }
+  .lights { display: flex; align-items: center; gap: 10px; margin-left: 6px; font-size: 12px; color: var(--muted); }
+  .light { display: inline-flex; align-items: center; gap: 5px; }
+  .light i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); opacity: .5; }
+  .light.on i  { background: var(--ok); opacity: 1; }
+  .light.off i { background: var(--err); opacity: 1; }
+  .spacer { flex: 1; }
+  .model { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .restart { position: relative; display: inline-flex; }
+  .restart .main { border-radius: 8px 0 0 8px; }
+  .restart .more { border-radius: 0 8px 8px 0; border-left: none; padding: 0 7px; }
+  .menu {
+    position: absolute;
+    top: 34px;
+    right: 0;
+    z-index: 20;
+    min-width: 230px;
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+  .menu button {
+    display: block;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    text-align: left;
+  }
+  .menu button:hover { background: var(--panel-2); }
+  .menu small { display: block; color: var(--muted); font-size: 11.5px; }
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: vibe-spin .8s linear infinite; }
+  @keyframes vibe-spin { to { transform: rotate(360deg); } }
+
+  .body {
+    display: grid;
+    grid-template-columns: var(--left) 6px minmax(0, 1fr);
+    min-height: 0;
+  }
+  .left { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--panel); }
+  .split { cursor: col-resize; background: var(--line); transition: background .12s; }
+  .split:hover { background: var(--accent); }
+  .right { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+
+  .tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 40px;
+    padding: 0 10px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .tab:hover { background: var(--panel-2); color: var(--text); }
+  .tab.active { background: var(--accent-2); color: var(--accent); }
+  .tab .n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+  .tab kbd { font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+  .panes { position: relative; min-height: 0; flex: 1; }
+  .pane { position: absolute; inset: 0; display: none; }
+  .pane.active { display: flex; flex-direction: column; }
+  .pane > * { flex: 1; min-height: 0; }
+
+  .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    max-width: 420px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--text);
+    color: var(--bg);
+    box-shadow: var(--shadow);
+    font-size: 13px;
+    cursor: pointer;
+    white-space: pre-wrap;
+  }
+  .toast.ok  { background: var(--ok); color: #fff; }
+  .toast.err { background: var(--err); color: #fff; }
+</style>
+
+<div class="head">
+  <div class="brand"><span class="dot"></span> vibe <span class="t">/ {props.title}</span></div>
+  <span class={state.health.on_vibe ? 'pill' : 'pill warn'} title="git branch of the checkout">
+    {state.health.branch || props.branch}{state.health.on_vibe ? '' : ' (not ' + props.branch + ')'}
+  </span>
+  <div class="lights">
+    <span class={state.health.app === null ? 'light' : (state.health.app ? 'light on' : 'light off')} title={props.app_url}><i></i> app</span>
+    <span class={state.health.opencode === null ? 'light' : (state.health.opencode ? 'light on' : 'light off')} title="opencode serve"><i></i> agent</span>
+  </div>
+  <div class="spacer"></div>
+  <span class="model" title="VIBE_MODEL">{props.model}</span>
+  <div class="restart">
+    <button class="btn main" onclick="fez.restart('soft')" disabled={state.restarting ? 'disabled' : ''} title="touch tmp/restart.txt - puma reloads ruby (~1s)">
+      {#if state.restarting}
+        <span class="spin"></span> restarting {state.restarting}
+      {:else}
+        ↻ Restart app
+      {/if}
+    </button>
+    <button class="btn more" onclick="fez.toggleRestartMenu()" title="more restart options">▾</button>
+    {#if state.restartMenu}
+      <div class="menu">
+        <button onclick="fez.restart('soft')">Soft restart<small>touch tmp/restart.txt - ruby/haml/routes, about a second</small></button>
+        <button onclick="fez.restart('hard')" disabled={state.health.docker ? '' : 'disabled'}>Hard restart<small>docker restart of the app container - Gemfile / package.json changes{state.health.docker ? '' : ' (docker socket not available)'}</small></button>
+      </div>
+    {/if}
+  </div>
+</div>
+
+<div class="body">
+  <div class="left">
+    <vibe-chat model={props.model}></vibe-chat>
+  </div>
+  <div class="split" onmousedown="fez.dragStart(event)" title="drag to resize"></div>
+  <div class="right">
+    <div class="tabs">
+      {#each state.tabs as t, i}
+        <button class={state.tab === t.id ? 'tab active' : 'tab'} onclick="fez.setTab('{t.id}')">
+          {t.label}
+          {#if t.id === 'files' && state.files}<span class="n">{state.files}</span>{/if}
+          {#if t.id === 'git' && (state.ahead || state.behind)}<span class="n" title="ahead / behind origin">{state.ahead}↑ {state.behind}↓</span>{/if}
+          <kbd>⌘{i + 1}</kbd>
+        </button>
+      {/each}
+    </div>
+    <div class="panes">
+      <div class={state.tab === 'preview' ? 'pane active' : 'pane'}><vibe-preview app_url={props.app_url}></vibe-preview></div>
+      <div class={state.tab === 'files' ? 'pane active' : 'pane'}><vibe-files></vibe-files></div>
+      <div class={state.tab === 'git' ? 'pane active' : 'pane'}><vibe-git branch={props.branch} main={props.main}></vibe-git></div>
+      <div class={state.tab === 'logs' ? 'pane active' : 'pane'}><vibe-logs></vibe-logs></div>
+    </div>
+  </div>
+</div>
+
+<div class="toasts">
+  {#each state.toasts as t}
+    <div class="toast {t.kind}" onclick="fez.dismissToast({t.id})">{t.text}</div>
+  {/each}
+</div>

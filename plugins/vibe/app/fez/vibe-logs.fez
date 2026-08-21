@@ -1,0 +1,85 @@
+<info>
+  <p>Tail of the app log (<code>log/LOG.log</code>) or the app container's stdout, auto-following
+     while visible, with a text filter.</p>
+</info>
+
+<script>
+  class {
+    init() {
+      this.state.source = 'app'      // 'app' | 'container'
+      this.state.lines  = []
+      this.state.follow = true
+      this.state.error  = ''
+      this.local.filter = ''
+      this.local.raw    = ''
+    }
+
+    onMount() {
+      this.refresh()
+      this.setInterval(() => { if (this.visible()) this.refresh() }, 2000)
+      this.subscribe('tab', id => { if (id === 'logs') this.refresh() })
+    }
+
+    visible() { return this.root && this.root.offsetParent !== null }
+
+    async refresh() {
+      try {
+        const r = await Vibe.api(`/api/logs?source=${this.state.source}&tail=400`)
+        this.state.error = ''
+        if (r.text === this.local.raw) return
+        this.local.raw = r.text
+        this.apply()
+      } catch (e) {
+        this.state.error = e.message
+      }
+    }
+
+    apply() {
+      const f = this.local.filter.toLowerCase()
+      let lines = this.local.raw.split('\n')
+      if (f) lines = lines.filter(l => l.toLowerCase().includes(f))
+      this.state.lines = lines
+      if (this.state.follow) setTimeout(() => { if (this.boxEl) this.boxEl.scrollTop = this.boxEl.scrollHeight }, 10)
+    }
+
+    setSource(s) { this.state.source = s; this.local.raw = ''; this.refresh() }
+    setFilter(v) { this.local.filter = v || ''; this.apply() }
+    toggleFollow() { this.state.follow = !this.state.follow; if (this.state.follow) this.apply() }
+    clear() { this.local.raw = ''; this.state.lines = [] }
+  }
+</script>
+
+<style>
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--panel);
+
+  .bar { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; border-bottom: 1px solid var(--line); }
+  .bar input { flex: 1; height: 28px; padding: 0 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { height: 26px; padding: 0 9px; border: none; background: transparent; font-size: 12px; color: var(--muted); }
+  .seg button.on { background: var(--accent-2); color: var(--accent); font-weight: 600; }
+  .box { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px; font-family: var(--mono); font-size: 12px; line-height: 1.45; white-space: pre; }
+  .box .l:hover { background: var(--panel-2); }
+  .err { padding: 10px 12px; color: var(--err); font-size: 12.5px; }
+</style>
+
+<div class="bar">
+  <div class="seg">
+    <button class={state.source === 'app' ? 'on' : ''} onclick="fez.setSource('app')" title="log/LOG.log">app log</button>
+    <button class={state.source === 'container' ? 'on' : ''} onclick="fez.setSource('container')" title="docker logs of the app container">container</button>
+  </div>
+  <input placeholder="filter…" oninput="fez.setFilter(this.value)">
+  <button class={state.follow ? 'btn sm primary' : 'btn sm'} onclick="fez.toggleFollow()" title="scroll to new lines">follow</button>
+  <button class="btn sm ghost" onclick="fez.refresh()">↻</button>
+</div>
+{#if state.error}
+  <div class="err">{state.error}</div>
+{/if}
+<div class="box" fez:this="boxEl">
+  {#each state.lines as l}
+    <div class="l">{l}</div>
+  {/each}
+</div>

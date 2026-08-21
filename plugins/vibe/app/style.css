@@ -1,0 +1,145 @@
+/* vibe harness - page-level tokens and resets. Components style themselves
+   (scoped <style> in each .fez) and only reach for these variables. */
+
+:root {
+  color-scheme: light dark;
+
+  --bg:        #f6f7f9;
+  --panel:     #ffffff;
+  --panel-2:   #f1f3f6;
+  --line:      #e3e6ea;
+  --text:      #1a1d21;
+  --muted:     #7b828c;
+  --accent:    #5b5bd6;
+  --accent-2:  #ececfb;
+  --ok:        #1f9d55;
+  --warn:      #d98a00;
+  --err:       #d23c3c;
+  --err-bg:    #fdecec;
+  --add-bg:    #e6ffec;
+  --add-fg:    #04260f;
+  --del-bg:    #ffebe9;
+  --del-fg:    #4c0410;
+  --hunk-bg:   #eef2ff;
+  --mono:      ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans:      -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  --radius:    10px;
+  --shadow:    0 1px 2px rgba(15, 23, 42, .06), 0 8px 24px rgba(15, 23, 42, .06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #111418;
+    --panel:     #181c22;
+    --panel-2:   #1f242c;
+    --line:      #2a313b;
+    --text:      #e6e8eb;
+    --muted:     #8a929e;
+    --accent:    #8b8bf0;
+    --accent-2:  #262a45;
+    --ok:        #3ccf7a;
+    --warn:      #f2b134;
+    --err:       #ff6b6b;
+    --err-bg:    #3a1d1d;
+    --add-bg:    #12361f;
+    --add-fg:    #bff5cf;
+    --del-bg:    #40201f;
+    --del-fg:    #ffd0cc;
+    --hunk-bg:   #232a4a;
+    --shadow:    0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+body { overflow: hidden; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--accent); }
+code, pre, kbd { font-family: var(--mono); font-size: 12.5px; }
+
+/* shared button look, used by every component via class names */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  white-space: nowrap;
+  transition: background .12s ease, border-color .12s ease;
+}
+.btn:hover:not(:disabled) { background: var(--panel-2); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); }
+.btn.danger { color: var(--err); }
+.btn.danger:hover:not(:disabled) { background: var(--err-bg); border-color: var(--err); }
+.btn.sm { height: 26px; padding: 0 9px; font-size: 12.5px; border-radius: 7px; }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.ghost:hover:not(:disabled) { background: var(--panel-2); }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--accent-2);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.pill.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.pill.err  { background: var(--err-bg); color: var(--err); }
+.pill.ok   { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+
+.muted { color: var(--muted); }
+.mono  { font-family: var(--mono); }
+
+/* markdown inside chat bubbles */
+.md > :first-child { margin-top: 0; }
+.md > :last-child  { margin-bottom: 0; }
+.md p   { margin: 0 0 .6em; }
+.md pre { margin: .5em 0; padding: 10px 12px; border-radius: 8px; background: var(--panel-2); overflow: auto; }
+.md code { padding: 1px 5px; border-radius: 4px; background: var(--panel-2); }
+.md pre code { padding: 0; background: transparent; }
+.md ul, .md ol { padding-left: 1.3em; margin: .3em 0 .6em; }
+.md h1, .md h2, .md h3 { margin: .7em 0 .3em; font-size: 1.05em; }
+.md table { border-collapse: collapse; }
+.md td, .md th { border: 1px solid var(--line); padding: 3px 8px; }
+
+/* unified diff rows (files tab + tool cards) */
+.dlines {
+  min-width: 100%;
+  width: max-content;
+  padding: 6px 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  tab-size: 2;
+}
+.dline { display: block; white-space: pre; padding: 0 12px; }
+.dline.add  { background: var(--add-bg); color: var(--add-fg); }
+.dline.del  { background: var(--del-bg); color: var(--del-fg); }
+.dline.hunk { background: var(--hunk-bg); color: var(--accent); }
+.dline.meta { color: var(--muted); }
+
+/* scrollbars that do not fight the layout */
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb { background: var(--line); border-radius: 9px; border: 2px solid transparent; background-clip: content-box; }

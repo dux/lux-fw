@@ -1,0 +1,843 @@
+<info>
+  <p>Chat with the opencode agent through the harness proxy (<code>/oc/*</code>):
+     sessions, live thread (SSE <code>/oc/event</code> patched in place, poll fallback),
+     tool cards, questions / permission prompts, abort, per-message revert + unrevert.</p>
+  <ul>
+    <li><code>model</code> - shown as the agent's name</li>
+  </ul>
+  <p>Publishes <code>turn:done</code> and <code>files:refresh</code> when a turn ends or a file is edited.</p>
+</info>
+
+<script>
+  // tool -> one-line summary of its input for the card header
+  function toolSummary(name, input, title) {
+    input = input || {}
+    switch (name) {
+      case 'edit':
+      case 'write':
+      case 'read':     return input.filePath || input.path || title || ''
+      case 'bash':     return input.command || title || ''
+      case 'grep':     return (input.pattern ? `/${input.pattern}/` : '') + (input.path ? ` in ${input.path}` : '') || title || ''
+      case 'glob':     return input.pattern || title || ''
+      case 'list':     return input.path || title || ''
+      case 'webfetch': return input.url || title || ''
+      case 'task':     return input.description || title || ''
+      case 'todowrite': return 'todo list'
+      case 'question': return 'asked a question'
+      default:         return title || ''
+    }
+  }
+
+  const TOOL_ICON = { edit: '✎', write: '＋', read: '☰', bash: '$', grep: '⌕', glob: '⌕', list: '▤', webfetch: '⇩', task: '⚑', todowrite: '☑', skill: '✦' }
+
+  class {
+    init(props) {
+      this.state.sessions    = []
+      this.state.sessionId   = localStorage.getItem('vibe.session') || null
+      this.state.messages    = []     // render model, built from local.msgs
+      this.state.busy        = false
+      this.state.error       = ''
+      this.state.questions   = []
+      this.state.permissions = []
+      this.state.revert      = null   // session.revert {messageID, ...} when the session is in reverted state
+      this.state.online      = null   // null unknown, true/false after first contact
+      this.state.openTools   = {}     // partId -> true (expanded cards)
+      this.state.hidden      = 0      // messages hidden by a revert
+
+      this.local.msgs   = new Map()   // messageID -> {info, parts: Map(partID -> part)}
+      this.local.order  = []          // messageIDs in arrival order
+      this.local.es     = null
+      this.local.render = null        // pending render timer
+      this.local.poll   = null
+      this.local.pinned = true        // auto-scroll while the user is at the bottom
+      this.local.statusTimer = null
+    }
+
+    onMount() {
+      this.subscribe('health', h => {
+        const was = this.state.online
+        this.state.online = !!h.opencode
+        // agent came (back) up -> (re)connect
+        if (h.opencode && !was) this.boot()
+        if (!h.opencode && this.local.es) { this.local.es.close(); this.local.es = null }
+      })
+      this.boot()
+      this.on(this.threadEl, 'scroll', () => {
+        const el = this.threadEl
+        this.local.pinned = el.scrollTop + el.clientHeight >= el.scrollHeight - 48
+      }, { throttle: 100 })
+    }
+
+    onDestroy() {
+      if (this.local.es) this.local.es.close()
+      this.stopPoll()
+    }
+
+    async boot() {
+      try {
+        await this.loadSessions()
+        this.state.online = true
+        this.state.error  = ''
+        let id = this.state.sessionId
+        if (!id || !this.state.sessions.find(s => s.id === id)) id = this.state.sessions[0] && this.state.sessions[0].id
+        if (id) await this.selectSession(id)
+        this.openStream()
+      } catch (e) {
+        this.state.online = false
+        this.state.error  = `agent not reachable: ${e.message}`
+      }
+    }
+
+    // --- sessions -----------------------------------------------------------
+
+    async loadSessions() {
+      const list = await Vibe.oc('/session')
+      list.sort((a, b) => ((b.time && b.time.updated) || 0) - ((a.time && a.time.updated) || 0))
+      this.state.sessions = list.map(s => ({
+        id: s.id,
+        title: s.title || s.slug || s.id,
+        ago: Vibe.ago(s.time && s.time.updated),
+        revert: s.revert || null
+      }))
+    }
+
+    async selectSession(id) {
+      this.state.sessionId = id
+      localStorage.setItem('vibe.session', id || '')
+      this.state.error = ''
+      this.local.msgs.clear()
+      this.local.order = []
+      this.state.messages = []
+      this.state.openTools = {}
+      if (!id) return
+      await this.refresh(true)
+      this.scrollBottom(true)
+      this.focusInput()
+    }
+
+    onSessionPick(id) {
+      if (id === '__new') return this.newSession()
+      this.selectSession(id)
+    }
+
+    newSession() {
+      // created lazily on the first message, named after it
+      this.state.sessionId = null
+      localStorage.setItem('vibe.session', '')
+      this.local.msgs.clear()
+      this.local.order = []
+      this.state.messages  = []
+      this.state.questions = []
+      this.state.permissions = []
+      this.state.revert = null
+      this.state.busy  = false
+      this.state.error = ''
+      this.focusInput()
+    }
+
+    // --- thread -------------------------------------------------------------
+
+    // full reload of the thread + prompts; `hard` also rebuilds the local store
+    async refresh(hard = false) {
+      const id = this.state.sessionId
+      if (!id) return
+      const [msgs, session, questions, permissions, status] = await Promise.all([
+        Vibe.oc(`/session/${id}/message`).catch(() => null),
+        Vibe.oc(`/session/${id}`).catch(() => null),
+        Vibe.oc('/question').catch(() => []),
+        Vibe.oc('/permission').catch(() => []),
+        Vibe.oc('/session/status').catch(() => ({}))
+      ])
+      if (id !== this.state.sessionId) return   // user switched meanwhile
+
+      if (Array.isArray(msgs)) {
+        if (hard) { this.local.msgs.clear(); this.local.order = [] }
+        for (const m of msgs) this.upsertMessage(m.info, m.parts)
+      }
+      if (session) this.state.revert = session.revert && session.revert.messageID ? session.revert : null
+      this.state.questions   = (Array.isArray(questions) ? questions : []).filter(q => q.sessionID === id).map(q => this.shapeQuestion(q))
+      this.state.permissions = (Array.isArray(permissions) ? permissions : []).filter(p => p.sessionID === id).map(p => this.shapePermission(p))
+      const st = status && status[id]
+      this.state.busy = !!(st && st.type !== 'idle')
+      // a pending prompt parks the run with no idle event
+      if (this.state.questions.length || this.state.permissions.length) this.state.busy = false
+      this.render()
+    }
+
+    upsertMessage(info, parts) {
+      if (!info || !info.id) return
+      let m = this.local.msgs.get(info.id)
+      if (!m) {
+        m = { info, parts: new Map() }
+        this.local.msgs.set(info.id, m)
+        this.local.order.push(info.id)
+      } else {
+        m.info = info
+      }
+      if (parts) for (const p of parts) m.parts.set(p.id, p)
+    }
+
+    upsertPart(part) {
+      if (!part || !part.messageID) return
+      let m = this.local.msgs.get(part.messageID)
+      if (!m) {
+        // part arrived before its message.updated; placeholder info, filled in later
+        m = { info: { id: part.messageID, role: 'assistant', sessionID: part.sessionID, time: {} }, parts: new Map() }
+        this.local.msgs.set(part.messageID, m)
+        this.local.order.push(part.messageID)
+      }
+      m.parts.set(part.id, part)
+    }
+
+    // debounced: many SSE deltas per second, one render per frame-ish
+    render() {
+      if (this.local.render) return
+      this.local.render = setTimeout(() => {
+        this.local.render = null
+        this.state.messages = this.buildMessages()
+        if (this.local.pinned) this.scrollBottom()
+      }, 40)
+    }
+
+    buildMessages() {
+      const revertAt = this.state.revert && this.state.revert.messageID
+      let hidden = 0
+      const out = []
+      const ids = [...this.local.order].sort()   // opencode ids are time-ordered strings
+      for (const id of ids) {
+        const m = this.local.msgs.get(id)
+        if (!m) continue
+        if (revertAt && id >= revertAt) { hidden++; continue }
+        const info  = m.info
+        const role  = info.role || 'assistant'
+        const parts = [...m.parts.values()].sort((a, b) => (a.id < b.id ? -1 : 1))
+        const blocks = []
+        for (const p of parts) {
+          if (p.type === 'text') {
+            if (p.synthetic || p.ignored || !p.text) continue
+            if (role === 'user') blocks.push({ kind: 'utext', text: p.text })
+            else blocks.push({ kind: 'text', html: Vibe.md(p.text) })
+          } else if (p.type === 'reasoning') {
+            if (p.text && p.text.trim()) blocks.push({ kind: 'reasoning', id: p.id, text: p.text, open: !!this.state.openTools[p.id] })
+          } else if (p.type === 'tool') {
+            const st = p.state || {}
+            const name = p.tool || 'tool'
+            blocks.push({
+              kind: 'tool', id: p.id, name,
+              icon: TOOL_ICON[name] || '⚙',
+              summary: Vibe.trunc(toolSummary(name, st.input, st.title), 140),
+              status: st.status || 'pending',
+              open: !!this.state.openTools[p.id],
+              input: st.input ? JSON.stringify(st.input, null, 2) : '',
+              output: Vibe.trunc(st.output || (st.error ? String(st.error) : ''), 6000),
+              diffLines: (name === 'edit' || name === 'write') && st.metadata && st.metadata.diff ? this.parsePatch(st.metadata.diff) : null
+            })
+          } else if (p.type === 'file') {
+            blocks.push({ kind: 'file', name: p.filename || p.url || 'file' })
+          }
+        }
+        if (!blocks.length && role !== 'user') continue
+        out.push({
+          id, role,
+          isUser: role === 'user',
+          isAssistant: role !== 'user',
+          blocks,
+          done: !!(info.time && info.time.completed),
+          error: info.error ? (info.error.data && info.error.data.message) || info.error.name || 'error' : '',
+          ago: Vibe.ago(info.time && info.time.created),
+          cost: info.cost ? `$${Number(info.cost).toFixed(3)}` : ''
+        })
+      }
+      this.state.hidden = hidden
+      return out
+    }
+
+    parsePatch(patch) {
+      const out = []
+      let inHunk = false
+      for (const line of String(patch).split('\n')) {
+        if (line.startsWith('@@'))         { inHunk = true;  out.push({ cls: 'hunk', text: line }); continue }
+        if (!inHunk)                       continue
+        if (line.startsWith('diff --git')) { inHunk = false; continue }
+        const c   = line[0]
+        const cls = c === '+' ? 'add' : c === '-' ? 'del' : c === '\\' ? 'meta' : 'ctx'
+        out.push({ cls, text: line || ' ' })
+      }
+      return out
+    }
+
+    toggleTool(id) {
+      this.state.openTools = { ...this.state.openTools, [id]: !this.state.openTools[id] }
+      this.state.messages = this.buildMessages()
+    }
+
+    // --- questions / permissions ---------------------------------------------
+
+    shapeQuestion(req) {
+      const q = (req.questions && req.questions[0]) || {}
+      return {
+        id: req.id,
+        header: q.header || 'Question',
+        text: q.question || '',
+        options: (q.options || []).map((o, i) => ({ idx: i, label: o.label, desc: o.description || '' }))
+      }
+    }
+
+    shapePermission(req) {
+      return {
+        id: req.id,
+        tool: req.tool || req.permission || 'tool',
+        permission: req.permission || '',
+        patterns: (req.patterns || []).join(', '),
+        title: (req.metadata && (req.metadata.title || req.metadata.description)) || ''
+      }
+    }
+
+    async answerQuestion(reqId, idx) {
+      const req = this.state.questions.find(q => q.id === reqId)
+      const opt = req && req.options[idx]
+      if (!opt) return
+      this.state.questions = this.state.questions.filter(q => q.id !== reqId)
+      this.state.busy = true
+      try {
+        await Vibe.oc(`/question/${reqId}/reply`, { json: { answers: [[opt.label]] } })
+        this.startPoll()
+      } catch (e) { this.fail(e) }
+    }
+
+    async rejectQuestion(reqId) {
+      this.state.questions = this.state.questions.filter(q => q.id !== reqId)
+      try { await Vibe.oc(`/question/${reqId}/reject`, { method: 'POST' }) } catch (e) { this.fail(e) }
+    }
+
+    async answerPermission(reqId, reply) {
+      this.state.permissions = this.state.permissions.filter(p => p.id !== reqId)
+      this.state.busy = reply !== 'reject'
+      try {
+        await Vibe.oc(`/permission/${reqId}/reply`, { json: { reply } })
+        this.startPoll()
+      } catch (e) { this.fail(e) }
+    }
+
+    // --- send / abort / revert ----------------------------------------------
+
+    async send() {
+      const text = (this.inputEl.value || '').trim()
+      if (!text || this.state.busy) return
+      this.inputEl.value = ''
+      this.autogrow()
+      this.state.error = ''
+
+      try {
+        if (!this.state.sessionId) {
+          const title = text.split('\n')[0].trim().slice(0, 80)
+          const s = await Vibe.oc('/session', { json: title ? { title } : {} })
+          this.state.sessionId = s.id
+          localStorage.setItem('vibe.session', s.id)
+          await this.loadSessions()
+        }
+        // optimistic echo; the stream replaces it with the real message
+        const tmpId = 'zzz_local_' + Date.now()
+        this.upsertMessage({ id: tmpId, role: 'user', time: { created: Date.now() } }, [{ id: tmpId + '_p', type: 'text', text, messageID: tmpId }])
+        this.local.tmp = tmpId
+        this.state.busy = true
+        this.local.pinned = true
+        this.render()
+
+        await Vibe.oc(`/session/${this.state.sessionId}/prompt_async`, { json: { parts: [{ type: 'text', text }] } })
+        this.startPoll()
+        this.setTimeout(() => this.refresh(), 600)
+      } catch (e) { this.fail(e) }
+    }
+
+    async abort() {
+      if (!this.state.sessionId) return
+      try {
+        await Vibe.oc(`/session/${this.state.sessionId}/abort`, { method: 'POST' })
+        this.state.busy = false
+        this.turnDone()
+      } catch (e) { this.fail(e) }
+    }
+
+    // revert the session (and the files it touched) to right before this user message
+    async revertTo(messageId) {
+      if (!this.state.sessionId || this.state.busy) return
+      try {
+        await Vibe.oc(`/session/${this.state.sessionId}/revert`, { json: { messageID: messageId } })
+        await this.refresh(true)
+        Vibe.toast('Reverted - files restored. Send a new message to continue from here, or Unrevert.', 'ok')
+        Fez.publish('files:refresh')
+      } catch (e) { this.fail(e) }
+    }
+
+    async unrevert() {
+      if (!this.state.sessionId) return
+      try {
+        await Vibe.oc(`/session/${this.state.sessionId}/unrevert`, { method: 'POST' })
+        await this.refresh(true)
+        Fez.publish('files:refresh')
+      } catch (e) { this.fail(e) }
+    }
+
+    fail(e) {
+      this.state.busy  = false
+      this.state.error = String((e && e.message) || e)
+    }
+
+    turnDone() {
+      this.stopPoll()
+      Fez.publish('turn:done')
+      Fez.publish('files:refresh')
+      this.loadSessions().catch(() => {})
+    }
+
+    // --- live events ----------------------------------------------------------
+
+    openStream() {
+      if (this.local.es) this.local.es.close()
+      const es = new EventSource('/oc/event')
+      this.local.es = es
+      es.onmessage = e => this.onEvent(e.data)
+      // browser reconnects on error; the health poll re-boots when the agent returns
+    }
+
+    onEvent(raw) {
+      let ev
+      try { ev = JSON.parse(raw) } catch (e) { return }
+      const type = ev.type || ''
+      const p    = ev.properties || {}
+      const id   = this.state.sessionId
+
+      switch (type) {
+        case 'message.updated': {
+          const info = p.info
+          if (!info || info.sessionID !== id) return
+          // the real user message replaces the optimistic echo
+          if (this.local.tmp && info.role === 'user') { this.dropTmp() }
+          this.upsertMessage(info)
+          if (info.role === 'assistant' && info.time && info.time.completed) this.checkIdle()
+          if (info.error) { this.state.busy = false; this.turnDone() }
+          this.render()
+          return
+        }
+        case 'message.part.updated': {
+          const part = p.part
+          if (!part || part.sessionID !== id) return
+          this.upsertPart(part)
+          this.render()
+          return
+        }
+        case 'message.part.delta': {
+          if (p.sessionID !== id) return
+          const m = this.local.msgs.get(p.messageID)
+          const part = m && m.parts.get(p.partID)
+          if (part && typeof p.delta === 'string') {
+            part[p.field || 'text'] = (part[p.field || 'text'] || '') + p.delta
+            this.render()
+          }
+          return
+        }
+        case 'message.removed': {
+          if (p.sessionID !== id) return
+          this.local.msgs.delete(p.messageID)
+          this.local.order = this.local.order.filter(x => x !== p.messageID)
+          this.render()
+          return
+        }
+        case 'session.updated': {
+          const info = p.info
+          if (!info) return
+          if (info.id === id) this.state.revert = info.revert && info.revert.messageID ? info.revert : null
+          this.loadSessions().catch(() => {})
+          if (info.id === id) this.render()
+          return
+        }
+        case 'session.error': {
+          if (p.sessionID && p.sessionID !== id) return
+          this.state.busy  = false
+          this.state.error = (p.error && ((p.error.data && p.error.data.message) || p.error.name)) || 'agent error'
+          this.turnDone()
+          return
+        }
+        case 'session.idle':
+        case 'session.status': {
+          if (p.sessionID && p.sessionID !== id) return
+          this.checkIdle()
+          return
+        }
+        case 'question.v2.asked':
+        case 'question.asked':
+        case 'permission.v2.asked':
+        case 'permission.asked':
+        case 'question.v2.replied':
+        case 'permission.v2.replied':
+        case 'permission.replied':
+          this.refreshPrompts()
+          return
+        case 'file.edited':
+        case 'file.watcher.updated':
+          this.filesChanged()
+          return
+        default:
+          // anything else that mentions this session gets a cheap full refresh later
+          if (id && raw.includes(id) && type.startsWith('session.next.')) {
+            if (type.endsWith('.ended') || type.endsWith('.failed')) this.checkIdle()
+          }
+      }
+    }
+
+    dropTmp() {
+      const t = this.local.tmp
+      if (!t) return
+      this.local.msgs.delete(t)
+      this.local.order = this.local.order.filter(x => x !== t)
+      this.local.tmp = null
+    }
+
+    // busy ends when opencode reports the session idle; debounced because the
+    // completed flag arrives per step while tools are still running
+    checkIdle() {
+      clearTimeout(this.local.statusTimer)
+      this.local.statusTimer = setTimeout(async () => {
+        const id = this.state.sessionId
+        if (!id) return
+        try {
+          const st = await Vibe.oc('/session/status')
+          const s  = st && st[id]
+          const idle = !s || s.type === 'idle'
+          if (idle && this.state.busy) {
+            this.state.busy = false
+            await this.refresh()
+            this.turnDone()
+          } else if (!idle) {
+            this.state.busy = true
+          }
+        } catch (e) { /* poll fallback */ }
+      }, 350)
+    }
+
+    async refreshPrompts() {
+      const id = this.state.sessionId
+      if (!id) return
+      const [questions, permissions] = await Promise.all([
+        Vibe.oc('/question').catch(() => []),
+        Vibe.oc('/permission').catch(() => [])
+      ])
+      this.state.questions   = (Array.isArray(questions) ? questions : []).filter(q => q.sessionID === id).map(q => this.shapeQuestion(q))
+      this.state.permissions = (Array.isArray(permissions) ? permissions : []).filter(p => p.sessionID === id).map(p => this.shapePermission(p))
+      if (this.state.questions.length || this.state.permissions.length) { this.state.busy = false; this.scrollBottom() }
+    }
+
+    filesChanged() {
+      clearTimeout(this.local.filesTimer)
+      this.local.filesTimer = setTimeout(() => Fez.publish('files:refresh'), 800)
+    }
+
+    // fallback so the thread still moves when the event stream is down
+    startPoll() {
+      this.stopPoll()
+      this.local.poll = setInterval(() => {
+        if (!this.state.busy) return this.stopPoll()
+        if (!this.local.es || this.local.es.readyState !== 1) this.refresh()
+        else this.checkIdle()
+      }, 2000)
+    }
+
+    stopPoll() {
+      if (this.local.poll) { clearInterval(this.local.poll); this.local.poll = null }
+    }
+
+    // --- composer / dom -------------------------------------------------------
+
+    onKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send() }
+      if (e.key === 'Escape' && this.state.busy) this.abort()
+    }
+
+    autogrow() {
+      const el = this.inputEl
+      if (!el) return
+      el.style.height = 'auto'
+      el.style.height = Math.min(220, Math.max(44, el.scrollHeight)) + 'px'
+    }
+
+    scrollBottom(force) {
+      setTimeout(() => {
+        if (!this.threadEl) return
+        if (force || this.local.pinned) this.threadEl.scrollTop = this.threadEl.scrollHeight
+      }, 20)
+    }
+
+    focusInput() {
+      setTimeout(() => this.inputEl && this.inputEl.focus(), 30)
+    }
+  }
+</script>
+
+<style>
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .top select {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+  .top .st { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .top .st.busy { color: var(--accent); }
+
+  .thread {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 14px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scroll-behavior: smooth;
+  }
+  .msg { display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
+  .msg .meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+  .msg .meta .who { font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+  .msg .meta .act { margin-left: auto; opacity: 0; transition: opacity .12s; }
+  .msg:hover .meta .act { opacity: 1; }
+  .msg.user { align-items: flex-end; }
+  .msg.user .meta { flex-direction: row-reverse; }
+  .msg.user .meta .act { margin-left: 0; margin-right: auto; }
+  .utext {
+    max-width: 92%;
+    padding: 9px 13px;
+    border-radius: 14px 14px 3px 14px;
+    background: var(--accent);
+    color: #fff;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .atext {
+    max-width: 100%;
+    padding: 10px 14px;
+    border-radius: 3px 14px 14px 14px;
+    background: var(--panel-2);
+    word-break: break-word;
+  }
+  .reason { font-size: 12.5px; color: var(--muted); }
+  .reason summary { cursor: pointer; user-select: none; }
+  .reason pre { white-space: pre-wrap; margin: 6px 0 0; font-family: inherit; }
+
+  .tool {
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--panel);
+    font-size: 12.5px;
+    overflow: hidden;
+  }
+  .tool .th {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tool .th:hover { background: var(--panel-2); }
+  .tool .ic { width: 18px; text-align: center; color: var(--accent); font-weight: 700; }
+  .tool .nm { font-weight: 700; }
+  .tool .sm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  .tool .stt { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .tool .stt.running { background: var(--accent); animation: vibe-blink 1s ease-in-out infinite; }
+  .tool .stt.completed { background: var(--ok); }
+  .tool .stt.error { background: var(--err); }
+  @keyframes vibe-blink { 50% { opacity: .3; } }
+  .tool .tb { border-top: 1px solid var(--line); max-height: 360px; overflow: auto; }
+  .tool .tb pre { margin: 0; padding: 8px 10px; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+  .tool .tb .lbl { padding: 4px 10px 0; font-size: 11px; text-transform: uppercase; color: var(--muted); }
+
+  .ask { border: 1px solid var(--line); border-radius: 3px 14px 14px 14px; background: var(--panel-2); padding: 12px 14px; }
+  .ask .h { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 4px; }
+  .ask .q { font-weight: 600; margin-bottom: 10px; white-space: pre-wrap; }
+  .ask .opts { display: flex; flex-direction: column; gap: 6px; }
+  .ask .opt { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  .ask .opt:hover { border-color: var(--accent); background: var(--accent-2); }
+  .ask .opt b { font-weight: 600; }
+  .ask .opt small { color: var(--muted); }
+  .ask .row { display: flex; gap: 8px; }
+
+  .typing { display: inline-flex; gap: 4px; padding: 10px 14px; border-radius: 3px 14px 14px 14px; background: var(--panel-2); }
+  .typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: vibe-dot 1.2s ease-in-out infinite; }
+  .typing i:nth-child(2) { animation-delay: .15s; }
+  .typing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes vibe-dot { 0%, 80%, 100% { transform: translateY(0); opacity: .5; } 40% { transform: translateY(-4px); opacity: 1; } }
+
+  .empty { margin: auto; text-align: center; color: var(--muted); max-width: 320px; }
+  .empty b { display: block; color: var(--text); font-size: 16px; margin-bottom: 4px; }
+  .err { color: var(--err); background: var(--err-bg); padding: 8px 12px; border-radius: 8px; white-space: pre-wrap; }
+  .revert { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; background: var(--accent-2); color: var(--accent); font-size: 12.5px; }
+  .revert b { flex: 1; }
+  .cost { font-variant-numeric: tabular-nums; }
+
+  .composer { display: flex; gap: 8px; align-items: flex-end; padding: 10px; border-top: 1px solid var(--line); }
+  .composer textarea {
+    flex: 1;
+    height: 44px;
+    max-height: 220px;
+    resize: none;
+    padding: 11px 13px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    line-height: 1.4;
+  }
+  .composer textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-2); }
+  .composer .send { height: 44px; padding: 0 18px; border-radius: 12px; font-weight: 600; }
+  .composer .send.stop { background: var(--err); border-color: var(--err); color: #fff; }
+  .hint { padding: 0 12px 8px; font-size: 11px; color: var(--muted); }
+</style>
+
+<div class="top">
+  <select onchange="fez.onSessionPick(this.value)" title="session">
+    <option value="__new" selected={state.sessionId ? '' : 'selected'}>+ New chat</option>
+    {#each state.sessions as s}
+      <option value={s.id} selected={s.id === state.sessionId ? 'selected' : ''}>{s.title} · {s.ago}</option>
+    {/each}
+  </select>
+  <button class="btn sm" onclick="fez.newSession()" title="start a new chat">New</button>
+  {#if state.busy}
+    <span class="st busy">working…</span>
+  {:else if state.online === false}
+    <span class="st">agent offline</span>
+  {/if}
+</div>
+
+<div class="thread" fez:this="threadEl">
+  {#if state.revert}
+    <div class="revert">
+      <b>Reverted to an earlier point ({state.hidden} message{state.hidden === 1 ? '' : 's'} hidden, files restored).</b>
+      <button class="btn sm" onclick="fez.unrevert()">Unrevert</button>
+    </div>
+  {/if}
+
+  {#each state.messages as m}
+    <div class={m.isUser ? 'msg user' : 'msg assistant'}>
+      <div class="meta">
+        <span class="who">{m.isUser ? 'You' : 'Agent'}</span>
+        <span>{m.ago}</span>
+        {#if m.cost}<span class="cost">{m.cost}</span>{/if}
+        {#if m.isUser && !state.busy}
+          <button class="btn sm ghost act" onclick="fez.revertTo('{m.id}')" title="undo this message and everything after it - files are restored to before it">↶ revert to here</button>
+        {/if}
+      </div>
+      {#each m.blocks as b}
+        {#if b.kind === 'utext'}
+          <div class="utext">{b.text}</div>
+        {:else if b.kind === 'text'}
+          <div class="atext md">{@html b.html}</div>
+        {:else if b.kind === 'reasoning'}
+          <details class="reason">
+            <summary>thinking…</summary>
+            <pre>{b.text}</pre>
+          </details>
+        {:else if b.kind === 'tool'}
+          <div class="tool">
+            <div class="th" onclick="fez.toggleTool('{b.id}')">
+              <span class="ic">{b.icon}</span>
+              <span class="nm">{b.name}</span>
+              <span class="sm" title={b.summary}>{b.summary}</span>
+              <span class="stt {b.status}" title={b.status}></span>
+            </div>
+            {#if b.open}
+              <div class="tb">
+                {#if b.diffLines}
+                  <div class="dlines">
+                    {#each b.diffLines as ln}
+                      <div class="dline {ln.cls}">{ln.text}</div>
+                    {/each}
+                  </div>
+                {:else}
+                  {#if b.input}<div class="lbl">input</div><pre>{b.input}</pre>{/if}
+                  {#if b.output}<div class="lbl">output</div><pre>{b.output}</pre>{/if}
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {:else if b.kind === 'file'}
+          <div class="tool"><div class="th"><span class="ic">▣</span><span class="sm">{b.name}</span></div></div>
+        {/if}
+      {/each}
+      {#if m.error}
+        <div class="err">{m.error}</div>
+      {/if}
+    </div>
+  {/each}
+
+  {#each state.questions as q}
+    <div class="msg assistant">
+      <div class="meta"><span class="who">Agent asks</span></div>
+      <div class="ask">
+        <div class="h">{q.header}</div>
+        <div class="q">{q.text}</div>
+        <div class="opts">
+          {#each q.options as o}
+            <button class="opt" onclick="fez.answerQuestion('{q.id}', {o.idx})">
+              <b>{o.label}</b>
+              {#if o.desc}<small>{o.desc}</small>{/if}
+            </button>
+          {/each}
+          <button class="btn sm ghost" onclick="fez.rejectQuestion('{q.id}')">skip</button>
+        </div>
+      </div>
+    </div>
+  {/each}
+
+  {#each state.permissions as p}
+    <div class="msg assistant">
+      <div class="meta"><span class="who">Permission</span></div>
+      <div class="ask">
+        <div class="h">{p.permission || p.tool}</div>
+        <div class="q">{p.title || p.tool}{p.patterns ? ' - ' + p.patterns : ''}</div>
+        <div class="row">
+          <button class="btn sm primary" onclick="fez.answerPermission('{p.id}', 'once')">Allow once</button>
+          <button class="btn sm" onclick="fez.answerPermission('{p.id}', 'always')">Always</button>
+          <button class="btn sm danger" onclick="fez.answerPermission('{p.id}', 'reject')">Reject</button>
+        </div>
+      </div>
+    </div>
+  {/each}
+
+  {#if state.busy && !state.questions.length && !state.permissions.length}
+    <div class="msg assistant"><div class="typing"><i></i><i></i><i></i></div></div>
+  {/if}
+
+  {#if !state.messages.length && !state.busy && !state.error}
+    <div class="empty">
+      <b>What should change?</b>
+      Describe it in plain words. The agent edits this app's code; you watch it in Preview, check the diff in Files and save it in Git.
+    </div>
+  {/if}
+
+  {#if state.error}
+    <div class="err">{state.error}</div>
+  {/if}
+</div>
+
+<div class="composer">
+  <textarea fez:this="inputEl" placeholder={state.online === false ? 'agent is offline' : 'Ask for a change…  (Enter to send, Shift+Enter for a new line)'} onkeydown="fez.onKey(event)" oninput="fez.autogrow()" disabled={state.online === false ? 'disabled' : ''}></textarea>
+  {#if state.busy}
+    <button class="btn send stop" onclick="fez.abort()" title="stop the agent (Esc)">Stop</button>
+  {:else}
+    <button class="btn send primary" onclick="fez.send()">Send</button>
+  {/if}
+</div>

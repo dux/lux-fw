@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>vibe · <%= h title %></title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/vendor/marked.min.js"></script>
+  <script src="/vendor/vibe.js"></script>
+  <script src="/fez.js"></script>
+  <script fez="/fez/vibe-app.fez"></script>
+  <script fez="/fez/vibe-chat.fez"></script>
+  <script fez="/fez/vibe-files.fez"></script>
+  <script fez="/fez/vibe-git.fez"></script>
+  <script fez="/fez/vibe-logs.fez"></script>
+  <script fez="/fez/vibe-preview.fez"></script>
+</head>
+<body>
+  <vibe-app
+    app_url="<%= h app_url %>"
+    model="<%= h model %>"
+    branch="<%= h branch %>"
+    main="<%= h main %>"
+    root="<%= h root %>"
+    title="<%= h title %>"></vibe-app>
+</body>
+</html>

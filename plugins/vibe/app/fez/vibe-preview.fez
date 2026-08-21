@@ -1,0 +1,109 @@
+<info>
+  <p>Live app preview in an iframe: reload, open in a new tab, width presets. Reloads
+     itself on <code>app:restarted</code>.</p>
+  <ul>
+    <li><code>app_url</code> - the url to frame (the app service, host side)</li>
+  </ul>
+</info>
+
+<script>
+  class {
+    init(props) {
+      this.state.width = localStorage.getItem('vibe.preview.width') || 'full'
+      this.state.path  = localStorage.getItem('vibe.preview.path') || '/'
+      this.state.busy  = false
+    }
+
+    onMount() {
+      this.subscribe('app:restarted', () => this.reload())
+      this.subscribe('health', h => {
+        // app just went down -> show the overlay instead of the browser error page
+        const down = h.app === false
+        if (down !== this.state.down) this.state.down = down
+      })
+    }
+
+    src() {
+      const base = (this.props.app_url || '').replace(/\/$/, '')
+      const path = this.state.path.startsWith('/') ? this.state.path : '/' + this.state.path
+      return base + path
+    }
+
+    // cross-origin frame: the only way to reload is to re-set src
+    reload() {
+      if (!this.frameEl) return
+      this.state.busy = true
+      this.frameEl.src = 'about:blank'
+      setTimeout(() => { this.frameEl.src = this.src(); this.state.busy = false }, 60)
+    }
+
+    go(path) {
+      this.state.path = path || '/'
+      localStorage.setItem('vibe.preview.path', this.state.path)
+      this.reload()
+    }
+
+    onPathKey(e) {
+      if (e.key === 'Enter') { e.preventDefault(); this.go(this.pathEl.value) }
+    }
+
+    setWidth(w) {
+      this.state.width = w
+      localStorage.setItem('vibe.preview.width', w)
+    }
+
+    openTab() { window.open(this.src(), '_blank') }
+  }
+</script>
+
+<style>
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg);
+
+  .bar { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .url { flex: 1; display: flex; align-items: center; height: 28px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); overflow: hidden; }
+  .url .base { padding: 0 8px; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; border-right: 1px solid var(--line); height: 100%; display: flex; align-items: center; }
+  .url input { flex: 1; height: 100%; border: none; background: transparent; padding: 0 8px; font-family: var(--mono); font-size: 12px; }
+  .url input:focus { outline: none; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { height: 26px; padding: 0 9px; border: none; background: transparent; font-size: 12px; color: var(--muted); }
+  .seg button.on { background: var(--accent-2); color: var(--accent); font-weight: 600; }
+  .stage { position: relative; flex: 1; min-height: 0; display: flex; justify-content: center; overflow: auto; }
+  .frame { height: 100%; width: 100%; background: #fff; border: none; transition: width .2s ease; }
+  .frame.w1024 { width: 1024px; max-width: 100%; box-shadow: var(--shadow); }
+  .frame.w390  { width: 390px;  max-width: 100%; box-shadow: var(--shadow); }
+  .down {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    color: var(--muted);
+    font-size: 13px;
+    backdrop-filter: blur(2px);
+  }
+</style>
+
+<div class="bar">
+  <button class="btn sm" onclick="fez.reload()" title="reload the preview">↻</button>
+  <div class="url">
+    <span class="base">{props.app_url}</span>
+    <input fez:this="pathEl" value={state.path} onkeydown="fez.onPathKey(event)" placeholder="/" title="path to open, Enter to go">
+  </div>
+  <div class="seg">
+    <button class={state.width === 'full' ? 'on' : ''} onclick="fez.setWidth('full')">full</button>
+    <button class={state.width === '1024' ? 'on' : ''} onclick="fez.setWidth('1024')">1024</button>
+    <button class={state.width === '390' ? 'on' : ''} onclick="fez.setWidth('390')">390</button>
+  </div>
+  <button class="btn sm" onclick="fez.openTab()" title="open in a new tab">↗</button>
+</div>
+<div class="stage">
+  <iframe fez:this="frameEl" class={'frame w' + state.width} src={props.app_url + (state.path.startsWith('/') ? state.path : '/' + state.path)} allow="clipboard-read; clipboard-write"></iframe>
+  {#if state.down}
+    <div class="down">app is not responding - restarting?</div>
+  {/if}
+</div>

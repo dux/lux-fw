@@ -1,0 +1,219 @@
+<info>
+  <p>Changed files of the checkout (tracked + untracked) with a unified diff viewer and
+     per-file discard. Data from the harness api (<code>/api/git/status</code>,
+     <code>/api/git/diff</code>), so it works even when the agent is down.</p>
+  <p>Refreshes on <code>files:refresh</code>, <code>git:changed</code>, <code>turn:done</code> and when its tab opens;
+     publishes <code>files:count</code>.</p>
+</info>
+
+<script>
+  class {
+    init() {
+      this.state.files   = []
+      this.state.current = null     // path
+      this.state.lines   = []
+      this.state.add     = 0
+      this.state.del     = 0
+      this.state.loading = false
+      this.state.confirm = null     // path waiting for discard confirmation
+      this.state.error   = ''
+      this.state.stamp   = ''
+      this.local.timer   = null
+    }
+
+    onMount() {
+      this.refresh()
+      this.subscribe('files:refresh', () => this.refreshSoon())
+      this.subscribe('git:changed',   () => this.refreshSoon())
+      this.subscribe('turn:done',     () => this.refreshSoon())
+      this.subscribe('tab', id => { if (id === 'files') this.refresh() })
+      this.setInterval(() => { if (this.visible()) this.refresh() }, 15000)
+    }
+
+    visible() { return this.root && this.root.offsetParent !== null }
+
+    refreshSoon() {
+      clearTimeout(this.local.timer)
+      this.local.timer = setTimeout(() => this.refresh(), 300)
+    }
+
+    async refresh() {
+      try {
+        const s = await Vibe.api('/api/git/status')
+        this.state.files = s.dirty || []
+        this.state.error = ''
+        this.state.stamp = new Date().toLocaleTimeString()
+        Fez.publish('files:count', this.state.files.length)
+        Fez.publish('git:status', s)
+        if (this.state.current) {
+          if (this.state.files.find(f => f.path === this.state.current)) this.open(this.state.current, true)
+          else this.close()
+        }
+      } catch (e) {
+        this.state.error = e.message
+      }
+    }
+
+    async open(path, silent) {
+      this.state.current = path
+      this.state.confirm = null
+      if (!silent) this.state.loading = true
+      try {
+        const patch = await Vibe.api(`/api/git/diff?path=${encodeURIComponent(path)}`)
+        const f = this.state.files.find(x => x.path === path) || {}
+        this.state.lines = this.parsePatch(patch)
+        this.state.add = f.add || 0
+        this.state.del = f.del || 0
+        if (!this.state.lines.length) this.state.lines = [{ cls: 'meta', text: patch ? '(binary or empty diff)' : '(no diff - file unchanged?)' }]
+      } catch (e) {
+        this.state.lines = [{ cls: 'meta', text: e.message }]
+      }
+      this.state.loading = false
+    }
+
+    close() {
+      this.state.current = null
+      this.state.lines = []
+    }
+
+    parsePatch(patch) {
+      const out = []
+      let inHunk = false
+      for (const line of String(patch || '').split('\n')) {
+        if (line.startsWith('@@'))         { inHunk = true;  out.push({ cls: 'hunk', text: line }); continue }
+        if (!inHunk)                       continue
+        if (line.startsWith('diff --git')) { inHunk = false; continue }
+        const c   = line[0]
+        const cls = c === '+' ? 'add' : c === '-' ? 'del' : c === '\\' ? 'meta' : 'ctx'
+        out.push({ cls, text: line || ' ' })
+      }
+      return out
+    }
+
+    askDiscard(path) { this.state.confirm = path }
+    cancel() { this.state.confirm = null }
+
+    async discard(path) {
+      this.state.confirm = null
+      try {
+        await Vibe.api('/api/git/discard_file', { path })
+        Vibe.toast(`Discarded changes in ${path}`, 'ok')
+        if (this.state.current === path) this.close()
+        Fez.publish('git:changed')
+      } catch (e) {
+        Vibe.toast(e.message, 'err')
+      }
+    }
+
+    openGit() { Fez.publish('open:tab', 'git') }
+  }
+</script>
+
+<style>
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+
+  .list { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); background: var(--panel); }
+  .lh { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  .lh b { color: var(--text); }
+  .lh .sp { flex: 1; }
+  .items { flex: 1; overflow: auto; padding: 6px; }
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .item:hover { background: var(--panel-2); }
+  .item.active { background: var(--accent-2); }
+  .item .st { width: 14px; font-family: var(--mono); font-size: 11px; font-weight: 700; text-align: center; color: var(--muted); }
+  .item.added .st { color: var(--ok); }
+  .item.deleted .st { color: var(--err); }
+  .item.modified .st { color: var(--warn); }
+  .item .p { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; font-family: var(--mono); font-size: 12px; }
+  .item .n { font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .item .n .a { color: var(--ok); }
+  .item .n .d { color: var(--err); }
+  .item .x { display: none; border: none; background: transparent; color: var(--muted); padding: 0 4px; }
+  .item:hover .x { display: inline; }
+  .item .x:hover { color: var(--err); }
+  .confirm { display: flex; align-items: center; gap: 6px; padding: 6px 8px; font-size: 12px; background: var(--err-bg); border-radius: 7px; margin: 2px 0; }
+  .confirm span { flex: 1; }
+  .empty { padding: 30px 14px; text-align: center; color: var(--muted); font-size: 13px; }
+  .foot { padding: 8px; border-top: 1px solid var(--line); display: flex; gap: 6px; }
+
+  .view { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--panel); }
+  .vh { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+  .vh .f { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+  .vh .n { font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .vh .n .a { color: var(--ok); }
+  .vh .n .d { color: var(--err); }
+  .vb { flex: 1; min-height: 0; overflow: auto; }
+  .vempty { margin: auto; color: var(--muted); font-size: 13px; text-align: center; padding: 30px; }
+</style>
+
+<div class="list">
+  <div class="lh">
+    <b>Changed files</b>
+    <span>{state.files.length}</span>
+    <span class="sp"></span>
+    <button class="btn sm ghost" onclick="fez.refresh()" title={'last check ' + state.stamp}>↻</button>
+  </div>
+  <div class="items">
+    {#each state.files as f}
+      {#if state.confirm === f.path}
+        <div class="confirm">
+          <span>discard changes in this file?</span>
+          <button class="btn sm danger" onclick="fez.discard('{f.path}')">Discard</button>
+          <button class="btn sm" onclick="fez.cancel()">No</button>
+        </div>
+      {:else}
+        <div class={state.current === f.path ? 'item active ' + f.status : 'item ' + f.status} onclick="fez.open('{f.path}')">
+          <span class="st">{f.status[0].toUpperCase()}</span>
+          <span class="p" title={f.path}>{f.path}</span>
+          <span class="n"><span class="a">+{f.add}</span> <span class="d">-{f.del}</span></span>
+          <button class="x" onclick!="fez.askDiscard('{f.path}')" title="discard changes in this file">✕</button>
+        </div>
+      {/if}
+    {/each}
+    {#if !state.files.length}
+      <div class="empty">Working tree is clean.<br>Changes the agent makes show up here.</div>
+    {/if}
+    {#if state.error}
+      <div class="empty" style="color: var(--err)">{state.error}</div>
+    {/if}
+  </div>
+  {#if state.files.length}
+    <div class="foot">
+      <button class="btn sm primary" onclick="fez.openGit()">Commit in Git tab →</button>
+    </div>
+  {/if}
+</div>
+
+<div class="view">
+  {#if state.current}
+    <div class="vh">
+      <span class="f">{state.current}</span>
+      <span class="n"><span class="a">+{state.add}</span> <span class="d">-{state.del}</span></span>
+      <button class="btn sm ghost" onclick="fez.close()">✕</button>
+    </div>
+    <div class="vb">
+      {#if state.loading}
+        <div class="vempty">loading…</div>
+      {:else}
+        <div class="dlines">
+          {#each state.lines as ln}
+            <div class="dline {ln.cls}">{ln.text}</div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {:else}
+    <div class="vempty">Select a file to see its diff.</div>
+  {/if}
+</div>
