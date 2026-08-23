@@ -157,9 +157,9 @@
   <h3>Commit</h3>
   <textarea fez:this="msgEl" placeholder="Commit message - or let the agent write one" onkeydown="fez.onKey(event)"></textarea>
   <div class="row" style="margin-top:8px">
-    <button class="btn" onclick="fez.autoMessage()" disabled={state.busy || !state.status.dirty.length ? 'disabled' : ''} title="generate from the diff (OpenRouter)">✦ Auto message</button>
-    <button class="btn primary" onclick="fez.commit(false)" disabled={state.busy || !state.status.dirty.length ? 'disabled' : ''}>Commit</button>
-    <button class="btn" onclick="fez.commit(true)" disabled={state.busy || !state.status.dirty.length ? 'disabled' : ''}>Commit &amp; push</button>
+    <button class="btn" onclick="fez.autoMessage()" disabled={!!state.busy || !state.status.dirty.length} title="generate from the diff (OpenRouter)">✦ Auto message</button>
+    <button class="btn primary" onclick="fez.commit(false)" disabled={!!state.busy || !state.status.dirty.length}>Commit</button>
+    <button class="btn" onclick="fez.commit(true)" disabled={!!state.busy || !state.status.dirty.length}>Commit &amp; push</button>
     <span class="hint">⌘Enter commits · empty message = auto</span>
   </div>
 </div>
@@ -167,9 +167,9 @@
 <div class="sec">
   <h3>Sync</h3>
   <div class="row">
-    <button class="btn" onclick="fez.push()" disabled={state.busy ? 'disabled' : ''} title="push origin/{props.branch}, rebasing onto it if it moved">↑ Push</button>
-    <button class="btn" onclick="fez.pull()" disabled={state.busy ? 'disabled' : ''} title="pull --rebase origin/{props.branch}">↓ Pull</button>
-    <button class="btn" onclick="fez.merge()" disabled={state.busy ? 'disabled' : ''} title="merge origin/{props.main} into {props.branch}">⤵ Merge {props.main} into {props.branch}</button>
+    <button class="btn" onclick="fez.push()" disabled={!!state.busy} title="push origin/{props.branch}, rebasing onto it if it moved">↑ Push</button>
+    <button class="btn" onclick="fez.pull()" disabled={!!state.busy} title="pull --rebase origin/{props.branch}">↓ Pull</button>
+    <button class="btn" onclick="fez.merge()" disabled={!!state.busy} title="merge origin/{props.main} into {props.branch}">⤵ Merge {props.main} into {props.branch}</button>
   </div>
   <div class="hint" style="margin-top:6px">{props.branch} → {props.main} is not here on purpose: review and merge that by hand.</div>
 </div>
@@ -183,7 +183,7 @@
       <button class="btn sm" onclick="fez.cancel()">Cancel</button>
     </div>
   {:else}
-    <button class="btn danger" onclick="fez.askDiscard()" disabled={state.busy || !state.status.dirty.length ? 'disabled' : ''}>Discard all uncommitted changes</button>
+    <button class="btn danger" onclick="fez.askDiscard()" disabled={!!state.busy || !state.status.dirty.length}>Discard all uncommitted changes</button>
   {/if}
 </div>
 

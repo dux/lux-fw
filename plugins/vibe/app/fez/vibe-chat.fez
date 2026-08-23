@@ -41,6 +41,7 @@
       this.state.permissions = []
       this.state.revert      = null   // session.revert {messageID, ...} when the session is in reverted state
       this.state.online      = null   // null unknown, true/false after first contact
+      this.state.noKey       = false  // harness reports OPENROUTER_API_KEY empty
       this.state.openTools   = {}     // partId -> true (expanded cards)
       this.state.hidden      = 0      // messages hidden by a revert
 
@@ -57,6 +58,7 @@
       this.subscribe('health', h => {
         const was = this.state.online
         this.state.online = !!h.opencode
+        if (h.key !== undefined && this.state.noKey !== !h.key) this.state.noKey = !h.key
         // agent came (back) up -> (re)connect
         if (h.opencode && !was) this.boot()
         if (!h.opencode && this.local.es) { this.local.es.close(); this.local.es = null }
@@ -236,14 +238,14 @@
             blocks.push({ kind: 'file', name: p.filename || p.url || 'file' })
           }
         }
-        if (!blocks.length && role !== 'user') continue
+        if (!blocks.length && role !== 'user' && !info.error) continue
         out.push({
           id, role,
           isUser: role === 'user',
           isAssistant: role !== 'user',
           blocks,
           done: !!(info.time && info.time.completed),
-          error: info.error ? (info.error.data && info.error.data.message) || info.error.name || 'error' : '',
+          error: info.error ? this.errorLine(info.error) : '',
           ago: Vibe.ago(info.time && info.time.created),
           cost: info.cost ? `$${Number(info.cost).toFixed(3)}` : ''
         })
@@ -384,6 +386,12 @@
       this.state.error = String((e && e.message) || e)
     }
 
+    // opencode errors carry a stack trace in data.message; the first line is the news
+    errorLine(err) {
+      const msg = (err.data && err.data.message) || err.message || err.name || 'error'
+      return String(msg).split('\n')[0].trim()
+    }
+
     turnDone() {
       this.stopPoll()
       Fez.publish('turn:done')
@@ -455,7 +463,7 @@
         case 'session.error': {
           if (p.sessionID && p.sessionID !== id) return
           this.state.busy  = false
-          this.state.error = (p.error && ((p.error.data && p.error.data.message) || p.error.name)) || 'agent error'
+          this.state.error = p.error ? this.errorLine(p.error) : 'agent error'
           this.turnDone()
           return
         }
@@ -709,9 +717,9 @@
 
 <div class="top">
   <select onchange="fez.onSessionPick(this.value)" title="session">
-    <option value="__new" selected={state.sessionId ? '' : 'selected'}>+ New chat</option>
+    <option value="__new" selected={!state.sessionId}>+ New chat</option>
     {#each state.sessions as s}
-      <option value={s.id} selected={s.id === state.sessionId ? 'selected' : ''}>{s.title} · {s.ago}</option>
+      <option value={s.id} selected={s.id === state.sessionId}>{s.title} · {s.ago}</option>
     {/each}
   </select>
   <button class="btn sm" onclick="fez.newSession()" title="start a new chat">New</button>
@@ -723,6 +731,9 @@
 </div>
 
 <div class="thread" fez:this="threadEl">
+  {#if state.noKey}
+    <div class="err">OPENROUTER_API_KEY is empty - the agent cannot call a model. Put the key into .env and restart the vibe container (lux docker:vibe:run --stop, then run again).</div>
+  {/if}
   {#if state.revert}
     <div class="revert">
       <b>Reverted to an earlier point ({state.hidden} message{state.hidden === 1 ? '' : 's'} hidden, files restored).</b>
@@ -834,7 +845,7 @@
 </div>
 
 <div class="composer">
-  <textarea fez:this="inputEl" placeholder={state.online === false ? 'agent is offline' : 'Ask for a change…  (Enter to send, Shift+Enter for a new line)'} onkeydown="fez.onKey(event)" oninput="fez.autogrow()" disabled={state.online === false ? 'disabled' : ''}></textarea>
+  <textarea fez:this="inputEl" placeholder={state.online === false ? 'agent is offline' : 'Ask for a change…  (Enter to send, Shift+Enter for a new line)'} onkeydown="fez.onKey(event)" oninput="fez.autogrow()" disabled={state.online === false}></textarea>
   {#if state.busy}
     <button class="btn send stop" onclick="fez.abort()" title="stop the agent (Esc)">Stop</button>
   {:else}

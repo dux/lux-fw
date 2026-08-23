@@ -36,7 +36,8 @@
 
     apply() {
       const f = this.local.filter.toLowerCase()
-      let lines = this.local.raw.split('\n')
+      // LOG.log carries terminal color codes; the harness log view is not a terminal
+      let lines = this.local.raw.replace(/\x1b\[[0-9;]*m/g, '').split('\n')
       if (f) lines = lines.filter(l => l.toLowerCase().includes(f))
       this.state.lines = lines
       if (this.state.follow) setTimeout(() => { if (this.boxEl) this.boxEl.scrollTop = this.boxEl.scrollHeight }, 10)

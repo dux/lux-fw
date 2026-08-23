@@ -155,6 +155,7 @@ module Vibe
         app:      app_up?,
         app_url:  Vibe.app_url,
         model:    Vibe.model,
+        key:      !Vibe.openrouter_key.empty?,
         root:     Vibe.root,
         docker:   Restart.docker_socket?,
         time:     Time.now.to_i

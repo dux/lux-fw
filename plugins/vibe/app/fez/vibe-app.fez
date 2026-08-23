@@ -269,7 +269,7 @@
   <div class="spacer"></div>
   <span class="model" title="VIBE_MODEL">{props.model}</span>
   <div class="restart">
-    <button class="btn main" onclick="fez.restart('soft')" disabled={state.restarting ? 'disabled' : ''} title="touch tmp/restart.txt - puma reloads ruby (~1s)">
+    <button class="btn main" onclick="fez.restart('soft')" disabled={!!state.restarting} title="touch tmp/restart.txt - puma reloads ruby (~1s)">
       {#if state.restarting}
         <span class="spin"></span> restarting {state.restarting}
       {:else}
@@ -280,7 +280,7 @@
     {#if state.restartMenu}
       <div class="menu">
         <button onclick="fez.restart('soft')">Soft restart<small>touch tmp/restart.txt - ruby/haml/routes, about a second</small></button>
-        <button onclick="fez.restart('hard')" disabled={state.health.docker ? '' : 'disabled'}>Hard restart<small>docker restart of the app container - Gemfile / package.json changes{state.health.docker ? '' : ' (docker socket not available)'}</small></button>
+        <button onclick="fez.restart('hard')" disabled={!state.health.docker}>Hard restart<small>docker restart of the app container - Gemfile / package.json changes{state.health.docker ? '' : ' (docker socket not available)'}</small></button>
       </div>
     {/if}
   </div>
