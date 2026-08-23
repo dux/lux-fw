@@ -27,6 +27,15 @@ class AfterMutateController < Lux::Controller
   end
 end
 
+# a handler that knows the size without building the body, the way a proxied
+# file HEAD does
+class HeadLengthController < Lux::Controller
+  def show
+    response.headers['content-length'] = '1024'
+    response.body ''
+  end
+end
+
 class AppRescueRenderController < Lux::Controller
   def show
     render text: 'APP-CATCH(%d): %s' % [@status, @error.message]
@@ -164,6 +173,7 @@ Lux.app do
   map 'exploding' => 'exploding#boom'
   map 'exploding-via-call' => 'exploding#boom_via_call'
   map 'after-mutate' => 'after_mutate#show'
+  map 'head-length'  => 'head_length#show'
 
   # Rack-app dispatch: any class responding to .call(env) is routed via
   # `map`/`call` exactly like a controller.
@@ -293,6 +303,17 @@ describe 'Lux::Application' do
     res = Lux.render.get('/after-mutate')
     _(res.body).must_equal 'GREETINGS-FRIEND'
     _(res.headers['content-length']).must_equal 'GREETINGS-FRIEND'.bytesize.to_s
+  end
+
+  it 'keeps a content-length a HEAD handler declared instead of building the body' do
+    res = Lux.render.head('/head-length')
+    _(res.headers['content-length']).must_equal '1024'
+    _(res.body).must_equal ''
+  end
+
+  it 'ignores a declared content-length on GET, where the body is what ships' do
+    res = Lux.render.get('/head-length')
+    _(res.headers['content-length']).must_equal '0'
   end
 
   describe 'resourceful map (single segment controllers)' do

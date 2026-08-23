@@ -423,8 +423,16 @@ module Lux
         if streaming?
           # content-type was set by the streaming writer (text/event-stream etc.)
         else
-          @headers['content-type']   ||= "#{@content_type}; charset=utf-8"
-          @headers['content-length']   = @body.bytesize.to_s
+          @headers['content-type'] ||= "#{@content_type}; charset=utf-8"
+
+          # A HEAD handler may skip building the body and declare the length its
+          # GET would have sent (RFC 9110 9.3.2) - the body is dropped below, so
+          # nothing on the wire can contradict the header. Anywhere else the
+          # computed length wins, including after :after rewrote the body.
+          declared = @headers['content-length'] && @body.empty? &&
+                     current.request.request_method == 'HEAD'
+
+          @headers['content-length'] = @body.bytesize.to_s unless declared
         end
       end
     end

@@ -116,7 +116,7 @@ resp.redirect_to   # Location header value, or nil
 resp.ok?           # true if 2xx
 ```
 
-Verbs: `get`, `post`, `put`, `patch`, `delete`. Options: `params`, `session`,
+Verbs: `get`, `post`, `put`, `patch`, `delete`, `head`. Options: `params`, `session`,
 `cookies`, `query_string`. Pass body data via `params:` for POST.
 
 ## Capture
