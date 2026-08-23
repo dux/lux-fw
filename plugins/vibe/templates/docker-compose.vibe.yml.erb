@@ -19,6 +19,7 @@ services:
     # profile: `lux docker:run` loads this file too (so a personal override may add
     # vibe volumes) but only `--profile vibe` (lux docker:vibe:run) starts the service
     profiles: ["vibe"]
+    restart: unless-stopped        # self-heal if the harness or opencode dies
     build:
       context: .
       dockerfile: <%= docker_dir %>/Dockerfile.vibe

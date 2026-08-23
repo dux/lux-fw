@@ -30,24 +30,23 @@ for _ in $(seq 1 120); do
 done
 bundle check >/dev/null 2>&1 || bundle install
 
-# job control: every background pipeline gets its own process group, so one
-# kill takes the process and its sed prefixer down together
-set -m
-
+# opencode is the sidecar: backgrounded with a log prefix, and kept alive on its
+# own so a crash (or an `opencode upgrade`) does not take the harness down - the
+# agent light in the UI just goes red until it is back. puma runs in the
+# foreground as the container's main process, so only a real signal stops it
+# (a page reload dropping SSE streams must never end the container).
 say 'starting opencode on 127.0.0.1:4096'
-opencode serve --hostname 127.0.0.1 --port 4096 --print-logs 2>&1 | sed -u 's/^/[oc]   /' &
+(
+  while true; do
+    opencode serve --hostname 127.0.0.1 --port 4096 --print-logs 2>&1
+    echo "opencode exited, restarting in 2s"
+    sleep 2
+  done
+) | sed -u 's/^/[oc]   /' &
 OC=$!
+trap 'kill "$OC" 2>/dev/null || true' EXIT TERM INT
 
 say 'starting vibe harness on http://localhost:4000'
-bundle exec lux docker:vibe:server 2>&1 | sed -u 's/^/[vibe] /' &
-VIBE=$!
-
-cleanup() {
-  trap - EXIT TERM INT
-  kill -- -"$OC" -"$VIBE" 2>/dev/null || true
-}
-trap cleanup EXIT TERM INT
-
-# first one to exit ends the container
-wait -n "$OC" "$VIBE" || true
-say 'a vibe process exited, shutting down'
+# process substitution (not a pipe): puma stays the foreground process, so exec
+# makes it the container's main program with no job-control layer around it
+exec bundle exec lux docker:vibe:server > >(sed -u 's/^/[vibe] /') 2>&1
