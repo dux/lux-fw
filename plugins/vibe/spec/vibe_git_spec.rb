@@ -61,6 +61,15 @@ RSpec.describe Vibe::Git do
       expect(git('rev-parse', 'vibe').strip).to eq git('rev-parse', 'main').strip
     end
 
+    it 'branches from the local main even when it is ahead of origin' do
+      write 'local.txt', "l\n"
+      commit_all 'local only work'
+      described_class.ensure_branch!
+      expect(described_class.current_branch).to eq 'vibe'
+      expect(git('rev-parse', 'vibe').strip).to eq git('rev-parse', 'main').strip
+      expect(File).to exist(File.join(@work, 'local.txt'))
+    end
+
     it 'refuses to switch with a dirty tree' do
       write 'README.md', "changed\n"
       expect { described_class.ensure_branch! }.to raise_error(Vibe::Error, /uncommitted/)

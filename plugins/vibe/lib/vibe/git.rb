@@ -80,8 +80,15 @@ module Vibe
         if remote_branch_exists?(Vibe.branch)
           git 'checkout', '--track', "origin/#{Vibe.branch}"
         else
-          base = remote_branch_exists?(Vibe.main) ? "origin/#{Vibe.main}" : Vibe.main
-          git 'checkout', '-b', Vibe.branch, base
+          # the local main is what the developer is looking at (it may be ahead of
+          # origin with unpushed work); origin/main only when there is no local one
+          base = if branch_exists?(Vibe.main) then Vibe.main
+                 elsif remote_branch_exists?(Vibe.main) then "origin/#{Vibe.main}"
+                 else raise Error, 'No %s branch to create %s from' % [Vibe.main, Vibe.branch]
+                 end
+          # --no-track: the upstream of vibe is origin/vibe (set by the first push),
+          # never main - otherwise ahead/behind would be measured against main
+          git 'checkout', '--no-track', '-b', Vibe.branch, base
         end
       end
 
