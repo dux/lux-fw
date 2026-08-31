@@ -42,6 +42,11 @@ module Sequel::Plugins::LuxCreateLimit
           raise Lux.error.unauthorized('You need to log in to save')
         end
 
+        # Dev only: seeding runs as a real user, so a reseed spends that user's
+        # whole quota and locks them out of their own site for a day. Production
+        # keeps the limit for everybody - raise it per model if it is too tight.
+        return if Lux.env.dev? && ::User.current.respond_to?(:is_admin?) && ::User.current.is_admin?
+
         max_count, sec_or_field, name = *data
 
         if sec_or_field.is_a?(Symbol)
