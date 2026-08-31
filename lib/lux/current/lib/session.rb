@@ -1,7 +1,7 @@
 # vars
 # Lux.config.session_cookie_name
 # Lux.config.session_cookie_max_age
-# Lux.config.session_security_refresh
+# Lux.config.session_ip_check
 
 # IMPORTANT - it is probably not a bug!
 # If you have issues with cookies and sessions, try annonymous window and check info on set headers
@@ -13,15 +13,11 @@ module Lux
       attr_reader :hash, :cookie_name
 
       def initialize request
-        # how long will session last if BROWSER or IP change
-        Lux.config[:session_forced_validity]   ||= 15.minutes.to_i
         Lux.config[:session_cookie_max_age]    ||= 1.month.to_i
-        # refresh the security timestamp at most once per N seconds (default 5 min)
-        Lux.config[:session_security_refresh]  ||= 5.minutes.to_i
 
-        # name of the session cookie, encodes Accept-Language and CF country for immediate invalidation
+        # name of the session cookie, encodes Accept-Language for immediate invalidation
         base = Lux.config[:session_cookie_name] || 'lux'
-        identity = request.env['HTTP_ACCEPT_LANGUAGE'].to_s + request.env['HTTP_CF_IPCOUNTRY'].to_s
+        identity = request.env['HTTP_ACCEPT_LANGUAGE'].to_s
         @cookie_name = base + '_' + Lux::Utils::Crypt.sha1(Lux.config.secret + identity)[0,6].downcase
         @cookie_name += "_#{request.port}" # we do not want http and https cookie name conflicts
         @request     = request
@@ -92,8 +88,13 @@ module Lux
         @hash
       end
 
+      # country (CF-IPCountry) is hashed here, not in the cookie name, so geo binding is not observable.
+      # UA and country are treated as fixed per device - any change wipes the session (re-auth).
+      # session_ip_check binds the session to the exact IP - strict, breaks on wifi/cellular switch.
       def security_string
-        Lux.current.ip + @request.env['HTTP_USER_AGENT'].to_s
+        string  = @request.env['HTTP_USER_AGENT'].to_s + @request.env['HTTP_CF_IPCOUNTRY'].to_s
+        string += Lux.current.ip if Lux.config[:session_ip_check]
+        string
       end
 
       private
@@ -110,24 +111,8 @@ module Lux
       def security_check
         key   = '_c'
         check = Lux::Utils::Crypt.sha1(security_string)[0, 5]
-
-        # force type array
-        @hash.delete(key) unless @hash[key].class == Array
-
-        if @hash[key] && @hash[key][0] != check
-          # IP or browser changed - check grace period from last valid request
-          if @hash[key][1].to_i < Time.now.to_i - Lux.config.session_forced_validity
-            @hash = {}
-          end
-
-          # don't update timestamp so grace period counts down from last matching request
-          return
-        end
-
-        # refresh timestamp only periodically; otherwise leave hash untouched so cookie stays stable
-        if !@hash[key] || @hash[key][1].to_i < Time.now.to_i - Lux.config.session_security_refresh
-          @hash[key] = [check, Time.now.to_i]
-        end
+        @hash = {} if @hash[key] && @hash[key] != check
+        @hash[key] = check
       end
     end
   end

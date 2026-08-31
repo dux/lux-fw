@@ -62,7 +62,7 @@ end
 # session
 Lux.config[:session_cookie_name]      = '_app_session'
 Lux.config[:session_cookie_max_age]   = 30.days
-Lux.config[:session_forced_validity]  = nil
+Lux.config[:session_ip_check]         = false # bind session to exact IP (strict, breaks on network switch)
 
 # csrf opt-out (default on)
 Lux.config.csrf                = false

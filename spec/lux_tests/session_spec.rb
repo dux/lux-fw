@@ -115,17 +115,15 @@ describe Lux::Current::Session do
   end
 
   describe '#security_string' do
-    it 'returns a string based on IP and user agent' do
+    it 'returns a string based on user agent and country' do
       result = session.security_string
       _(result).must_be_kind_of String
-      _(result.empty?).must_equal false
     end
   end
 
   describe 'security_check' do
-    it 'stores security check data in _c key' do
-      _(session['_c']).must_be_kind_of Array
-      _(session['_c'].length).must_equal 2
+    it 'stores security check in _c key' do
+      _(session['_c']).must_be_kind_of String
     end
   end
 end
