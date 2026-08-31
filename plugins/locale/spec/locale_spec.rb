@@ -92,6 +92,7 @@ describe Lux::Locale do
   describe '#t file loader' do
     before do
       FileUtils.mkdir_p tmp.join('md/legal')
+      FileUtils.mkdir_p tmp.join('html')
       File.write tmp.join('md/service.en.md'),       "# Service\n\nWelcome %{name}\n"
       File.write tmp.join('md/legal/terms.en.md'),   "# Terms EN\n"
       File.write tmp.join('md/legal/terms.de.md'),   "# Terms DE\n"

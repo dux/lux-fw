@@ -1,2 +1,3 @@
---pattern {spec,plugins}/**/*_spec.rb
---exclude-pattern {plugins/job_runner,spec/api_tests}/**/*_spec.rb
+--require spec_helper
+--pattern {plugins/locale,plugins/vibe,plugins/web_common/load/html}/**/*_spec.rb
+--exclude-pattern plugins/job_runner/**/*_spec.rb

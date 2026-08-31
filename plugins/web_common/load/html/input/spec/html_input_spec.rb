@@ -1,6 +1,7 @@
 require 'spec_helper'
 
-Lux.plugin Lux.fw_root.join('plugins/html')
+require_relative '../html_input'
+require_relative '../html_input_custom'
 
 describe HtmlInput do
   let(:mock_current) { double('current', uid: 'test123') }

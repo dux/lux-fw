@@ -1,5 +1,9 @@
 require 'spec_helper'
 
+# plugin boot resolves DB :main, and the model below needs a live connection
+ENV['DB_MAIN'] ||= 'postgres:///lux_fw_test'
+DB ||= Sequel.connect(ENV['DB_MAIN'])
+
 Lux.plugin Lux.fw_root.join('plugins/locale')
 
 # table must exist before Sequel::Model() resolves the schema

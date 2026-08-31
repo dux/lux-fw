@@ -1,6 +1,7 @@
 require 'spec_helper'
 
-Lux.plugin Lux.fw_root.join('plugins/html')
+require_relative '../html_table'
+require_relative '../html_table_custom'
 
 describe HtmlTable do
   let(:mock_request) { double('request', params: {}, path: '/') }

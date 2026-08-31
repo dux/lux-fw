@@ -1,6 +1,9 @@
 require 'spec_helper'
 
-Lux.plugin Lux.fw_root.join('plugins/html')
+require_relative '../../input/html_input'
+require_relative '../../input/html_input_custom'
+require_relative '../html_form'
+require_relative '../html_form_custom'
 
 describe HtmlForm do
   let(:mock_params) { {} }
