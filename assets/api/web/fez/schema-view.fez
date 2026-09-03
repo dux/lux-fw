@@ -7,8 +7,8 @@
   //   <schema-view name="user" />
   class {
     init(props) {
-      this.local.name   = props.name
-      this.local.fields = this.lookup(props.name)
+      this.state.name   = props.name
+      this.state.fields = this.lookup(props.name)
     }
 
     lookup(name) {

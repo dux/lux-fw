@@ -18,8 +18,8 @@
   //                                    so an outer scroll-spy can re-measure.
   class {
     init(props) {
-      this.local.title = props.title
-      this.local.href  = props.href || ''
+      this.state.title = props.title
+      this.state.href  = props.href || ''
       this.state.collapsed = false
 
       this.copy('data-search')

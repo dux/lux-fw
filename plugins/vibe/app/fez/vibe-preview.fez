@@ -31,10 +31,10 @@
 
     // cross-origin frame: the only way to reload is to re-set src
     reload() {
-      if (!this.frameEl) return
+      if (!this.state.frameEl) return
       this.state.busy = true
-      this.frameEl.src = 'about:blank'
-      setTimeout(() => { this.frameEl.src = this.src(); this.state.busy = false }, 60)
+      this.state.frameEl.src = 'about:blank'
+      setTimeout(() => { this.state.frameEl.src = this.src(); this.state.busy = false }, 60)
     }
 
     go(path) {
@@ -44,7 +44,7 @@
     }
 
     onPathKey(e) {
-      if (e.key === 'Enter') { e.preventDefault(); this.go(this.pathEl.value) }
+      if (e.key === 'Enter') { e.preventDefault(); this.go(this.state.pathEl.value) }
     }
 
     setWidth(w) {

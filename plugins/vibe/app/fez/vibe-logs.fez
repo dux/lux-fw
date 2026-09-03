@@ -10,8 +10,8 @@
       this.state.lines  = []
       this.state.follow = true
       this.state.error  = ''
-      this.local.filter = ''
-      this.local.raw    = ''
+      this.state.filter = ''
+      this.state.raw    = ''
     }
 
     onMount() {
@@ -26,8 +26,8 @@
       try {
         const r = await Vibe.api(`/api/logs?source=${this.state.source}&tail=400`)
         this.state.error = ''
-        if (r.text === this.local.raw) return
-        this.local.raw = r.text
+        if (r.text === this.state.raw) return
+        this.state.raw = r.text
         this.apply()
       } catch (e) {
         this.state.error = e.message
@@ -35,18 +35,18 @@
     }
 
     apply() {
-      const f = this.local.filter.toLowerCase()
+      const f = this.state.filter.toLowerCase()
       // LOG.log carries terminal color codes; the harness log view is not a terminal
-      let lines = this.local.raw.replace(/\x1b\[[0-9;]*m/g, '').split('\n')
+      let lines = this.state.raw.replace(/\x1b\[[0-9;]*m/g, '').split('\n')
       if (f) lines = lines.filter(l => l.toLowerCase().includes(f))
       this.state.lines = lines
-      if (this.state.follow) setTimeout(() => { if (this.boxEl) this.boxEl.scrollTop = this.boxEl.scrollHeight }, 10)
+      if (this.state.follow) setTimeout(() => { if (this.state.boxEl) this.state.boxEl.scrollTop = this.state.boxEl.scrollHeight }, 10)
     }
 
-    setSource(s) { this.state.source = s; this.local.raw = ''; this.refresh() }
-    setFilter(v) { this.local.filter = v || ''; this.apply() }
+    setSource(s) { this.state.source = s; this.state.raw = ''; this.refresh() }
+    setFilter(v) { this.state.filter = v || ''; this.apply() }
     toggleFollow() { this.state.follow = !this.state.follow; if (this.state.follow) this.apply() }
-    clear() { this.local.raw = ''; this.state.lines = [] }
+    clear() { this.state.raw = ''; this.state.lines = [] }
   }
 </script>
 

@@ -18,7 +18,7 @@
       this.state.confirm = null     // path waiting for discard confirmation
       this.state.error   = ''
       this.state.stamp   = ''
-      this.local.timer   = null
+      this.state.timer   = null
     }
 
     onMount() {
@@ -33,8 +33,8 @@
     visible() { return this.root && this.root.offsetParent !== null }
 
     refreshSoon() {
-      clearTimeout(this.local.timer)
-      this.local.timer = setTimeout(() => this.refresh(), 300)
+      clearTimeout(this.state.timer)
+      this.state.timer = setTimeout(() => this.refresh(), 300)
     }
 
     async refresh() {

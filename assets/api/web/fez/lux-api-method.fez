@@ -1,18 +1,18 @@
 <script>
   class {
     init(props) {
-      this.local.api_name    = props.api_name
-      this.local.entry       = props.entry
+      this.state.api_name    = props.api_name
+      this.state.entry       = props.entry
       this.state.show_params = false
       this.state.copied      = false
     }
 
     anchor() {
-      return 'method-' + this.local.api_name + '-' + this.local.entry.action
+      return 'method-' + this.state.api_name + '-' + this.state.entry.action
     }
 
     hasParams() {
-      const p = this.local.entry.params
+      const p = this.state.entry.params
       return p && Object.keys(p).length > 0
     }
 

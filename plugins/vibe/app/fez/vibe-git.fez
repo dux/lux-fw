@@ -62,8 +62,8 @@
       this.state.busy = 'writing a commit message…'
       try {
         const r = await Vibe.api('/api/git/commit_message', {})
-        this.msgEl.value = r.message || ''
-        this.msgEl.focus()
+        this.state.msgEl.value = r.message || ''
+        this.state.msgEl.focus()
       } catch (e) {
         this.state.error = e.message
       } finally {
@@ -72,14 +72,14 @@
     }
 
     async commit(push) {
-      const message = (this.msgEl.value || '').trim()
+      const message = (this.state.msgEl.value || '').trim()
       const r = await this.act(
         push ? 'committing and pushing…' : 'committing…',
         '/api/git/commit',
         { message, push: !!push },
         r => `Committed ${r.sha} (${r.files.length} file${r.files.length === 1 ? '' : 's'})${r.pushed ? ' and pushed' : ''}${r.incoming && r.incoming.length ? ', rebased onto ' + r.incoming.length + ' incoming' : ''}`
       )
-      if (r) this.msgEl.value = ''
+      if (r) this.state.msgEl.value = ''
     }
 
     push()  { this.act('pushing…', '/api/git/push', {}, r => `Pushed ${r.sha} to origin/${this.props.branch}` + (r.incoming.length ? ` (rebased onto ${r.incoming.length} incoming)` : '')) }

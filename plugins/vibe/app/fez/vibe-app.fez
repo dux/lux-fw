@@ -28,11 +28,11 @@
       this.state.toasts     = []
       this.state.restartMenu = false
 
-      this.local.left = parseInt(localStorage.getItem('vibe.left')) || 0
+      this.state.left = parseInt(localStorage.getItem('vibe.left')) || 0
     }
 
     onMount() {
-      if (this.local.left) this.applyLeft(this.local.left)
+      if (this.state.left) this.applyLeft(this.state.left)
 
       this.pollHealth()
       this.setInterval(() => this.pollHealth(), 5000)
@@ -121,7 +121,7 @@
     applyLeft(px) {
       const min = 340, max = Math.max(min, window.innerWidth - 480)
       px = Math.min(max, Math.max(min, px))
-      this.local.left = px
+      this.state.left = px
       this.root.style.setProperty('--left', px + 'px')
     }
 
@@ -133,7 +133,7 @@
         window.removeEventListener('mouseup', up)
         document.body.style.cursor = ''
         document.body.classList.remove('vibe-dragging')
-        localStorage.setItem('vibe.left', this.local.left)
+        localStorage.setItem('vibe.left', this.state.left)
       }
       document.body.style.cursor = 'col-resize'
       document.body.classList.add('vibe-dragging')
