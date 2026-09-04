@@ -258,7 +258,7 @@ module Lux
         end
       end
 
-      @status = opts.delete(:status) || 302
+      @status = opts.delete(:status) || (xhr_external_redirect?(where) ? 409 : 302)
       opts.map { |k,v| flash.send(k, v) }
 
       escaped_where = where.gsub('\\', '\\\\\\\\').gsub("'", "\\\\'").gsub('<', '\\u003c').gsub('>', '\\u003e')
@@ -346,6 +346,21 @@ module Lux
 
     def is_bot?
       current.request.user_agent.to_s.include?('Googlebot')
+    end
+
+    # An XHR cannot follow a cross-origin redirect - the browser follows the 3xx
+    # itself and CORS blocks the redirected request. Detected here so redirect_to
+    # can answer with a status the browser leaves alone, letting the client read
+    # Location and navigate for real.
+    def xhr_external_redirect? where
+      return false unless current.request.xhr?
+
+      uri = URI.parse(where)
+      return false unless uri.host
+
+      [uri.scheme, uri.host, uri.port] != [current.request.scheme, current.request.host, current.request.port]
+    rescue URI::InvalidURIError
+      false
     end
 
     # Persist flash into session, but only if it has content or needs clearing.

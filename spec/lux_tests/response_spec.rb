@@ -74,6 +74,44 @@ describe Lux::Response do
     end
   end
 
+  describe '#redirect_to' do
+    AUTH_URL ||= 'https://auth.authcog.com/domain:test.example.com'
+
+    def xhr!
+      Lux.current.request.env['HTTP_X_REQUESTED_WITH'] = 'XMLHttpRequest'
+    end
+
+    def redirect where, opts = {}
+      catch(:done) { response.redirect_to where, opts }
+    end
+
+    it 'is a plain 302 on a full page request' do
+      redirect AUTH_URL
+      _(response.status).must_equal 302
+      _(response.headers['location']).must_equal AUTH_URL
+    end
+
+    # a 302 would be followed by the browser and the redirected request killed by CORS
+    it 'answers 409 when an xhr is redirected to another origin' do
+      xhr!
+      redirect AUTH_URL
+      _(response.status).must_equal 409
+      _(response.headers['location']).must_equal AUTH_URL
+    end
+
+    it 'keeps 302 for a same origin xhr redirect' do
+      xhr!
+      redirect '/foo'
+      _(response.status).must_equal 302
+    end
+
+    it 'lets an explicit status win' do
+      xhr!
+      redirect AUTH_URL, status: 301
+      _(response.status).must_equal 301
+    end
+  end
+
   describe '#max_age= (back-compat)' do
     it 'implies public cache when > 0' do
       response.max_age = 30
