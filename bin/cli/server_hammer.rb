@@ -59,6 +59,6 @@ task :server do
       exec "#{base} -p #{port}"
     end
   rescue Errno::EADDRINUSE
-    Lux.shell.die 'Port %s is already in use%s' % [port, port_owner.(port)]
+    Lux.shell.die 'Port %s is already in use%s. Use -p PORT or PORT=n lux s' % [port, port_owner.(port)]
   end
 end

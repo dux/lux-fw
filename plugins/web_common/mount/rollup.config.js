@@ -16,6 +16,13 @@ import fezPlugin from 'fez/rollup';
 const production = !process.env.ROLLUP_WATCH;
 const extensions = ['.js', '.coffee', '.ts']
 
+// Pin the livereload port instead of letting the plugin hunt upward from 35729
+// for a free socket: with two apps running, the second one's browser would
+// otherwise connect to whichever reload server answered first. `lux s` exports
+// LIVERELOAD_PORT; the fallback keeps a bare `rollup -cw` deterministic too.
+const livereloadPort = Number(process.env.LIVERELOAD_PORT) ||
+  35729 + (Number(process.env.PORT) || 3000) - 3000
+
 // Property mangling: opt-in per app, and only in a production build (the same
 // no-watch flag that turns on terser). Set "manglePropsRegex" in the app
 // package.json to a regex source string and every property whose name matches
@@ -143,7 +150,7 @@ fs.readdirSync('app/assets').forEach(file => {
   if (/\.js$/.test(file)) {
     config.add(file, (cfg) => {
       cfg.plugins.push(
-        !production && livereload({ watch: './public/assets' })
+        !production && livereload({ watch: './public/assets', port: livereloadPort })
       )
     })
   }

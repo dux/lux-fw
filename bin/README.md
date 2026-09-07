@@ -21,12 +21,32 @@ $ lux
   lux render      # Render page via Lux.render (lux render /login -t TOKEN -s user_id=1 -i)
   lux routes      # Print mounted route tree (verb, path, target, source)
   lux secrets     # Edit, show and compile secrets
-  lux server      # Start web server                                    (alias: s)
+  lux server      # Start web server (puma only)
+  lux start       # Mount assets, then run ./Procfile                   (alias: s)
+  lux procfile    # Run all Procfile services color-prefixed            (alias: pf)
   lux stats       # Print project stats
   lux test        # Run tests (auto-detects rspec or minitest)          (alias: t)
 ```
 
 Run tests with `lux test` or `bundle exec hammer test`.
+
+### Port
+
+`lux s` resolves the dev port once - `-p 3001`, else `$PORT` (a shell variable
+or the app's `.env`), else 3000 - and exports it, so every `./Procfile` service
+inherits the same number:
+
+```sh
+lux s              # web on 3000, livereload on 35729
+PORT=3001 lux s    # web on 3001, livereload on 35730
+lux s -p 3002      # -p wins over an exported PORT
+```
+
+LiveReload follows the app port as `35729 + (PORT - 3000)`, so two apps running
+side by side never share a reload server. `LIVERELOAD_PORT` overrides it.
+
+A Procfile line that assigns `PORT` itself (`web: PORT=3000 bundle exec lux
+server`) shadows all of this - leave the port off the line.
 
 ---
 
