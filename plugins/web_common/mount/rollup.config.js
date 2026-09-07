@@ -14,7 +14,34 @@ import alias from '@rollup/plugin-alias';
 import fezPlugin from 'fez/rollup';
 
 const production = !process.env.ROLLUP_WATCH;
-const extensions = ['.js', '.coffee']
+const extensions = ['.js', '.coffee', '.ts']
+
+// Property mangling: opt-in per app, and only in a production build (the same
+// no-watch flag that turns on terser). Set "manglePropsRegex" in the app
+// package.json to a regex source string and every property whose name matches
+// is scrambled, e.g. "_$" for a trailing underscore convention on class
+// internals. Off by default: a blanket mangle silently breaks whatever is
+// reached by string - JSON round trips, HTML attributes, a window API.
+const manglePropsRegex = production && JSON.parse(fs.readFileSync('./package.json', 'utf8')).manglePropsRegex
+
+const terserOpts = manglePropsRegex
+  ? { mangle: { properties: { regex: new RegExp(manglePropsRegex) } } }
+  : {}
+
+if (manglePropsRegex) { console.log(`Mangling properties matching /${manglePropsRegex}/`) }
+
+// TypeScript sources go through esbuild. It is loaded on first use so apps with
+// no .ts do not need esbuild installed at all.
+let esbuild = null
+const typescript = () => ({
+  name: 'typescript',
+  async transform(code, id) {
+    if (!/\.ts$/.test(id) || /node_modules/.test(id)) return null
+    esbuild ||= await import('esbuild')
+    const out = await esbuild.transform(code, { loader: 'ts', sourcefile: id, sourcemap: true, target: 'es2022' })
+    return { code: out.code, map: out.map }
+  },
+})
 
 // Delete all files from public/assets when rollup starts
 execSync('rm -rf ./public/assets/*', { stdio: 'inherit' })
@@ -58,6 +85,7 @@ class Config {
           }
         },
         coffee({ include: /\.coffee$/ }),
+        typescript(),
         svelte({
           compilerOptions: {
             dev: !production,
@@ -85,7 +113,7 @@ class Config {
           exclude: [/fez[\/\\]dist[\/\\]fez\.js$/],
         }),
         fezPlugin(),
-        production && terser()
+        production && terser(terserOpts)
       ],
       onwarn: (warning, defaultHandler) => {
         let show = true
