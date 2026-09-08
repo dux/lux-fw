@@ -115,7 +115,8 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | Plugin            | What it is | Read |
 |-------------------|------------|------|
 | `db`              | Boots `Lux::Db` + Sequel extensions (hooks, links, paginate, enums) | [README](./plugins/db/README.md) |
-| `web_common`      | Shared web layer: html builders, assets, authcog controller, PG exception logger + `/admin` | [README](./plugins/web_common/README.md) |
+| `authcog`         | Central-auth sign-in: `AuthcogController` + `UserSession`           | [README](./plugins/authcog/README.md) |
+| `web_common`      | Shared web layer: html builders, assets, PG exception logger + `/admin`; pulls in `authcog` | [README](./plugins/web_common/README.md) |
 | `locale`          | Small, namespaced translation lookup with dotted keys              | [README](./plugins/locale/README.md) |
 | `oauth`           | Oauth interface (facebook, github, google, linkedin, slack, ...)   | [README](./plugins/oauth/README.md) |
 | `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks)         | [README](./plugins/job_runner/README.md) |

@@ -1,0 +1,5 @@
+# AuthcogController and UserSession moved to their own plugin so an app can
+# take sign-in without the rest of the web layer. Declared here so apps that
+# list web_common alone keep both constants.
+plugins:
+  - authcog

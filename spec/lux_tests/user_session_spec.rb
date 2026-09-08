@@ -1,5 +1,5 @@
 require 'test_helper'
-require_relative '../../plugins/web_common/load/lib/user_session'
+require_relative '../../plugins/authcog/load/user_session'
 
 describe UserSession do
   def with_user_lookup result, find: nil

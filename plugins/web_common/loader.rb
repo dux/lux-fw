@@ -6,13 +6,12 @@
 #   load/assets   - CdnAsset + ApplicationHelper template helpers
 #   load/favicon  - `favicon` routing DSL (serve /favicon.ico + <head> links)
 #   load/html     - form / input / table / menu / paginate / filter builders
-#   lib/authcog   - central-auth callback landing controller
 #   lib/lux_*     - PG-backed exception logger (+ mount/ for the /admin viewer)
+#
+# Sign-in lives in the authcog plugin, pulled in by config.yaml.
 #
 # load/**/*.rb is auto-required after this file; only the pieces that must
 # exist before that sweep, or that are not under load/, are wired here.
-
-require 'digest'
 
 # Persist framework-internal `Lux.error.log` calls into the LuxException table.
 module Lux::ErrorProxy

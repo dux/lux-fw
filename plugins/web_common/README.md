@@ -22,8 +22,12 @@ list it after `db`.
 | assets  | `CdnAsset` (manifest/CDN asset URLs) + `ApplicationHelper` template helpers (`svelte`, `request`, `response`) | `load/assets/` |
 | favicon | `favicon '/icon.svg'` routing DSL - serves the icon at `/favicon.ico` and injects web + `apple-touch-icon` `<link>` tags into `<head>` | `load/favicon.rb` |
 | html    | form / input / table builders plus `HtmlMenu`, `HtmlHelper.paginate`, `HtmlFilter`, timezone helpers | `load/html/` |
-| authcog | `AuthcogController` - central-auth hash-callback landing | `lib/authcog_controller.rb` |
 | admin_web | PG-backed exception logger (`LuxException` / `LuxExceptionLog`) and a mountable `/admin` viewer | `lib/`, `mount/` |
+
+Sign-in (`AuthcogController`, `UserSession`) moved to its own
+[`authcog`](../authcog/README.md) plugin. `config.yaml` here declares it as a
+dependency, so listing `web_common` alone still loads both constants. An app
+that wants sign-in without the rest of this layer lists `authcog` instead.
 
 The detailed per-builder docs live next to the code:
 
@@ -69,13 +73,13 @@ Then browse `/admin/plugins/exception_logger`. See the query/summary API on
 
 ```
 plugins/web_common/
-  loader.rb            # authcog + exception-logger wiring, ErrorProxy.log_custom hook
+  config.yaml          # declares the authcog plugin dependency
+  loader.rb            # exception-logger wiring, ErrorProxy.log_custom hook
   Hammerfile           # docker:* helpers (assets:* lives in lux-fw core)
   load/
     favicon.rb           # `favicon` routing DSL
     assets/  html/{form,input,table,...}
   lib/
-    authcog_controller.rb
     lux_exception.rb  lux_exception_log.rb
   mount/               # /admin controller + views (symlinked by `lux mount`)
   seeds/               # lux_exceptions seed data

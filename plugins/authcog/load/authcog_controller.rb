@@ -17,7 +17,8 @@ class AuthcogController < Lux::Controller
     path = "/domain:#{here.host}"
     path += "/port:#{here.port}" if here.port
 
-    "https://auth.authcog.com#{path}"
+    realm = Lux.config[:authcog_realm] || :auth
+    "https://#{realm}.authcog.com#{path}"
   end
 
   def call
@@ -60,13 +61,11 @@ class AuthcogController < Lux::Controller
     user.is_deleted = false
     user.save
 
+    # Store the provider avatar as given. Re-hosting it is an app concern -
+    # the old CDN upload here called a constant no plugin defines.
     if data[:avatar] && user.respond_to?(:cached_avatar) && user.cached_avatar.blank?
-      avatar = data[:avatar]
-      Lux.current.defer do
-        uploaded = Cdn.upload_hash(avatar, path: 'avatars/users') rescue avatar
-        user[:cached_avatar] = uploaded
-        user.save
-      end
+      user[:cached_avatar] = data[:avatar]
+      user.save
     end
 
     target = session.delete(:redirect_after_login) || '/'
