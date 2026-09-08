@@ -13,6 +13,10 @@ module LuxAssets
   module_function
 
   def auto_assets
+    # An app with no JS build (no web_common mount, no hand-written packs) has
+    # no auto/ tree at all; `lux s` runs this unconditionally, so do nothing.
+    return unless Dir.exist?('./app/assets/auto')
+
     system 'rm -f ./app/assets/auto-*'
 
     for folder in Dir.folders('./app/assets/auto')
