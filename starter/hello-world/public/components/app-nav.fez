@@ -1,0 +1,33 @@
+<info>
+  Main navigation. Reads the signed-in user the server exported to
+  window.app.current.user, so the same markup serves guests and members.
+</info>
+
+<demo>
+  <app-nav></app-nav>
+</demo>
+
+<script>
+  class {
+    init() {
+      // window.app is written by <script id="lux-state">, which the layout
+      // emits above this component. Read it, never cache it elsewhere.
+      this.state.user = (window.app && window.app.current && window.app.current.user) || null
+    }
+
+    label() {
+      const user = this.state.user
+      return user.name || user.email
+    }
+  }
+</script>
+
+<nav class="flex items-center gap-5 text-sm" aria-label="Main navigation">
+  <a class="hover:underline" href="/">Home</a>
+  {#if state.user}
+    <span class="text-slate-500">{fez.label()}</span>
+    <a class="hover:underline" href={state.user.logout_url}>Sign out</a>
+  {:else}
+    <a class="font-semibold hover:underline" href="/login">Sign in</a>
+  {/if}
+</nav>

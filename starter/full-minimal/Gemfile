@@ -1,0 +1,25 @@
+# lgem -> local gem. Resolved from ./.gems/<name> when present (dev: symlinks
+# to the gem checkouts), else from github dux/<name>, so a fresh clone with no
+# ./.gems still resolves. Anchored to __dir__, never the cwd: anything that
+# sets BUNDLE_GEMFILE and runs from elsewhere would otherwise miss ./.gems.
+#
+# NOTE: pick exactly ONE source. Passing both `path:` and `github:` to a single
+# `gem` call makes Bundler treat it as a git source and silently ignore `path:`.
+def lgem name
+  local = File.join(__dir__, '.gems', name)
+
+  if File.directory?(local)
+    gem name, path: local
+  else
+    gem name, github: "dux/#{name}"
+  end
+end
+
+###
+
+source 'https://rubygems.org'
+
+lgem 'lux-fw'
+lgem 'lux-hammer'
+
+gem 'puma'

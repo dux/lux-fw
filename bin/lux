@@ -9,6 +9,14 @@ if File.exist?('lux-fw.gemspec')
   exit
 end
 
+# `new` runs before any app boot - it needs no config/env.rb and must not load
+# the framework it is about to install.
+if ARGV.first == 'new'
+  require 'lux-hammer'
+  Hammer.run(ARGV) { load File.join(__dir__, 'cli/new_hammer.rb') }
+  exit
+end
+
 require_relative '../lib/overload/thread_simple'
 require_relative '../lib/lux/loader'
 

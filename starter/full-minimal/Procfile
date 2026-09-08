@@ -1,0 +1,2 @@
+js: NODE_PRESERVE_SYMLINKS=1 bun x rollup -cw
+web: bundle exec lux server

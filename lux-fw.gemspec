@@ -1,8 +1,10 @@
 # http://stackoverflow.com/questions/5159607/rails-engine-gems-dependencies-how-to-load-them-into-the-application
 
-gem_files = [:bin, :lib, :plugins]
-  .inject([]) { |t, el| t + `find ./#{el}`.split($/) }
-  .push('./.version')
+gem_files = %w[bin lib plugins assets starter].flat_map do |dir|
+  Dir.glob("#{dir}/**/*", File::FNM_DOTMATCH).select do |file|
+    File.file?(file) && !File.basename(file).include?('.tmp.')
+  end
+end.push('.version')
 
 Gem::Specification.new 'lux-fw' do |gem|
   gem.version     = File.read('.version')

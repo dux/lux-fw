@@ -1,0 +1,17 @@
+default:
+  plugins:
+    - db
+    - authcog
+
+  db:
+    main: postgresql://localhost/{{app}}_development
+
+  host: http://lvh.me:3000
+  app:
+    name: {{App}}
+
+  secret: {{secret}}
+
+production:
+  db:
+    main: postgresql://localhost/{{app}}_production

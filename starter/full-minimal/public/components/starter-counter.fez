@@ -1,0 +1,23 @@
+<info>
+  A small reactive counter styled with PostWind.
+</info>
+
+<demo>
+  <starter-counter></starter-counter>
+</demo>
+
+<script>
+  class {
+    init() {
+      this.state.count = 0
+    }
+
+    increment() {
+      this.state.count++
+    }
+  }
+</script>
+
+<button type="button" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100" onclick="fez.increment()">
+  Clicked {state.count} {state.count === 1 ? 'time' : 'times'}
+</button>

@@ -1,0 +1,9 @@
+/.env*
+/.gems/
+/config/config.yaml
+/log/
+/node_modules/
+/public/assets/
+/tmp/
+*.tmp.*
+.DS_Store

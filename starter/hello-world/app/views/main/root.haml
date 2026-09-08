@@ -1,0 +1,12 @@
+.max-w-2xl.space-y-6
+  - if @user
+    %p.text-sm.font-semibold.uppercase.tracking-widest.text-indigo-600 Signed in
+    %h1.text-4xl|5xl.font-bold.tracking-tight
+      Hello
+      &= @user.name.presence || @user.email
+    %p.text-lg.text-slate-600 You are signed in with AuthCog. Make this page your own.
+  - else
+    %p.text-sm.font-semibold.uppercase.tracking-widest.text-indigo-600 Hello world
+    %h1.text-4xl|5xl.font-bold.tracking-tight Welcome to {{App}}
+    %p.text-lg.text-slate-600 Your application is ready. Sign in to see your name here.
+    %a.inline-flex.rounded-lg.bg-indigo-600.px-5.py-3.font-semibold.text-white.hover:bg-indigo-700{ href: '/login' } Sign in with AuthCog

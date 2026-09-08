@@ -48,6 +48,42 @@ side by side never share a reload server. `LIVERELOAD_PORT` overrides it.
 A Procfile line that assigns `PORT` itself (`web: PORT=3000 bundle exec lux
 server`) shadows all of this - leave the port off the line.
 
+### New applications
+
+Run `lux new my-app` from the parent directory.
+Hammer's native picker lists the folders under `starter/`; use the arrow keys and Enter to select, or Escape / Ctrl-C to cancel.
+When stdin is piped, enter the numbered choice instead.
+The command does not load an existing application or overwrite an existing target.
+Like every other `lux` command, it refuses to run inside the framework checkout itself.
+
+* `hello-world` - one page with PostgreSQL and AuthCog sign-in. Loads the `db` and `authcog` plugins only, so nothing is mounted into the app. Tailwind and Fez come from a CDN and the navigation is a Fez component, so there is no JavaScript toolchain and no build step.
+* `full-minimal` - a public promo page at `/`, a signed-in workspace at `/app`, and an admin-only overview at `/admin`. Loads `web_common` too, so it gets the html builders, the mounted `/admin` area and the rollup asset pipeline.
+
+The app name supplies the display name and PostgreSQL database prefix: `my-app` becomes `my_app_development`.
+Each app receives a fresh session secret in its Git-ignored `config/config.yaml`.
+Both ship a `Procfile` and a `config/puma.rb` that calls `lux_boot`, and both load Tailwind through PostWind and Fez from pinned CDN script tags.
+Only `full-minimal` carries a `package.json`; `lux new` runs `bun install` when one is present.
+The generated README explains the routes, frontend components, production configuration and first-admin setup.
+Starter files ending in `.template` lose that suffix when copied, so `.gitignore.template` becomes the app's `.gitignore` without hiding configuration templates in the framework repository.
+
+After generation the command enters the app folder and runs:
+
+```sh
+bundle install
+bun install                            # only when the starter has a package.json
+psql --host=localhost --dbname=my_app_development --command='' || createdb --host=localhost my_app_development
+bundle exec lux db:am
+bundle exec lux s
+```
+
+Setup uses the generated app's bundle and development database.
+The database step connects before it creates, so setup can be re-run over a database that already exists.
+When invoked from a local Lux checkout, the generator links every checkout the starter declares into `./.gems`: each `lgem 'name'` in the Gemfile and each `"file:.gems/name"` in `package.json`, whichever exist next to the Lux checkout.
+An installed Lux gem links nothing; `lgem` then falls back to `github dux/<name>`.
+A failed step stops setup and leaves the generated files in place.
+The server runs in the foreground at http://lvh.me:3000; press Ctrl-C to stop it.
+To restart, enter the app directory and run `bundle exec lux s`.
+
 ---
 
 ## Superseded (historical Thor/Rake output - no longer accurate)

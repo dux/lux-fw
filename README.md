@@ -13,9 +13,12 @@ unified under a single shared DSL. Rack-based, Sequel ORM, PostgreSQL.
 
 ```bash
 gem install lux-fw
-lux new my-app && cd my-app && bundle install
-createdb my_app_development && lux db:am && lux s
+lux new my-app
 ```
+
+`lux new` opens Hammer's starter picker: `hello-world` for a single page with sign-in and no build step, or `full-minimal` for a promo site, workspace and admin area with the full asset pipeline.
+The command installs dependencies, creates and migrates the database, and starts the server.
+Both include PostgreSQL, AuthCog, Tailwind and Fez; see the [CLI guide](./bin/README.md#new-applications).
 
 ### Sinatra-simple if that's all you need
 
@@ -567,7 +570,8 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 | Plugin | What | Docs |
 |--------|------|------|
 | `db`               | Sequel model extensions, auto-migrate, `link` associations | [README](./plugins/db/README.md) |
-| `web_common`       | Shared web layer: html builders, assets, authcog controller, user session + sudo, PG exception logger + `/admin` | [README](./plugins/web_common/README.md) |
+| `authcog`          | Central-auth sign-in: `AuthcogController`, `UserSession` + sudo | [README](./plugins/authcog/README.md) |
+| `web_common`       | Shared web layer: html builders, assets, PG exception logger + `/admin`; pulls in `authcog` | [README](./plugins/web_common/README.md) |
 | `job_runner`       | Background job queue (LuxJob) | [README](./plugins/job_runner/README.md) |
 | `lux_logger`       | Structured database logger | [README](./plugins/lux_logger/README.md) |
 | `oauth`            | OAuth integration | [README](./plugins/oauth/README.md) |

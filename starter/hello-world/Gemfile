@@ -1,0 +1,4 @@
+source 'https://rubygems.org'
+
+gem 'lux-fw'{{lux_source}}
+gem 'puma'

@@ -1,0 +1,28 @@
+!!!
+%html{ lang: 'en' }
+  %head
+    %meta{ charset: 'utf-8' }
+    %meta{ name: 'viewport', content: 'width=device-width, initial-scale=1' }
+    %title= '{{App}}'
+    %script{ src: 'https://cdn.jsdelivr.net/npm/postwind@0.6.1/src/postwind.js' }
+    :javascript
+      PostWind.init({ tailwind: true });
+    %script{ src: 'https://cdn.jsdelivr.net/npm/@dinoreic/fez@0.6.0/dist/fez.js' }
+    %script{ fez: '/components/starter-counter.fez' }
+  %body.bg-slate-50.text-slate-900.font-sans.antialiased
+    .max-w-5xl.mx-auto.px-6
+      %header.flex.flex-wrap.items-center.justify-between.gap-4.py-6.border-b.border-slate-200
+        %a.font-bold.text-xl.tracking-tight{ href: '/' } {{App}}
+        %nav.flex.items-center.gap-5.text-sm{ 'aria-label': 'Main navigation' }
+          %a.hover:underline{ href: '/' } Home
+          %a.hover:underline{ href: '/app' } Workspace
+          - if @user
+            - if @user.can.admin?
+              %a.hover:underline{ href: '/admin' } Admin
+            %a.hover:underline{ href: UserSession.logout_link } Sign out
+          - else
+            %a.font-semibold.hover:underline{ href: '/login' } Sign in
+      %main.py-12|20
+        = yield
+      %footer.py-6.border-t.border-slate-200.text-sm.text-slate-500
+        Built with Lux, PostWind and Fez.

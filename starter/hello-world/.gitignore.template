@@ -1,0 +1,7 @@
+/.env*
+/.gems/
+/config/config.yaml
+/log/
+/tmp/
+*.tmp.*
+.DS_Store

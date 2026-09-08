@@ -1,0 +1,10 @@
+.space-y-8
+  %div
+    %p.text-sm.font-semibold.uppercase.tracking-widest.text-indigo-600 Your workspace
+    %h1.mt-3.text-4xl.font-bold.tracking-tight
+      Welcome,
+      &= @user.name.presence || @user.email
+    %p.mt-4.text-slate-600 This is your application's home. Start building here.
+  .rounded-xl.border.border-slate-200.bg-white.p-6.space-y-4
+    %h2.text-lg.font-semibold A little interaction
+    %starter-counter
