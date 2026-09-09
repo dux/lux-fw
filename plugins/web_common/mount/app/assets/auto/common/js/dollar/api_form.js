@@ -103,6 +103,7 @@ class ApiForm {
 
     const ask = new XMLHttpRequest()
     ask.open('POST', uploadUrl, true)
+    if (window.Lux && window.Lux.csrf) ask.setRequestHeader('x-csrf-token', window.Lux.csrf)
 
     ask.onload = () => {
       let response
@@ -151,6 +152,9 @@ class ApiForm {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', this.action, true)
     if (window.Intl) xhr.setRequestHeader('x-tz-name', Intl.DateTimeFormat().resolvedOptions().timeZone)
+    // HtmlForm injects a _csrf field, but raw <form> markup may not - send the
+    // header too so a hand-written api form is not rejected.
+    if (window.Lux && window.Lux.csrf) xhr.setRequestHeader('x-csrf-token', window.Lux.csrf)
 
     this.trackProgress(xhr)
 

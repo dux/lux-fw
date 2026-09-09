@@ -31,6 +31,12 @@ module Lux
         @forced_dirty  = false
       end
 
+      # Did the request actually present a session cookie? Distinguishes a browser
+      # carrying ambient credentials from a bare machine-to-machine call.
+      def cookie?
+        !@raw_cookie.nil?
+      end
+
       def [] key
         @hash[key.to_s.downcase]
       end
@@ -59,7 +65,9 @@ module Lux
       def generate_cookie
         return nil unless dirty?
 
-        encrypted     = Lux::Utils::Crypt.encrypt(@hash.to_json)
+        # Sign with the same lifetime the browser gets. Max-Age alone is a client
+        # hint - a copied cookie replays forever without a TTL inside the token.
+        encrypted     = Lux::Utils::Crypt.encrypt(@hash.to_json, ttl: Lux.config[:session_cookie_max_age])
         return nil if encrypted == @raw_cookie
 
         cookie_domain = Lux.current.var[:lux_cookie_domain] || Lux.current.nav.domain

@@ -235,6 +235,10 @@
     const type = (o.type || o.method || 'GET').toUpperCase()
     let url = o.url, body
     const headers = { 'x-requested-with': 'XMLHttpRequest', ...(o.headers || {}) }
+    // Cookie-authenticated mutations need the session token; #lux-state puts it
+    // on window.Lux before any pack runs. Safe verbs are never checked server-side.
+    const csrf = window.Lux && window.Lux.csrf
+    if (csrf && type != 'GET' && type != 'HEAD' && !headers['x-csrf-token']) headers['x-csrf-token'] = csrf
     if (o.data != null) {
       const enc = isStr(o.data) ? o.data : $.param(o.data)
       if (type == 'GET') url += (url.includes('?') ? '&' : '?') + enc

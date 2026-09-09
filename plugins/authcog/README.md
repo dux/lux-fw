@@ -21,7 +21,7 @@ Needs the `db` plugin and an app-side `User` model - see **Requirements**.
 
 | Constant | Role | Loaded from |
 |----------|------|-------------|
-| `AuthcogController` | Callback landing. Exchanges a one-time hash for a local session. | `load/authcog_controller.rb` |
+| `AuthcogController` | Sign-in entry point + callback landing. Exchanges a one-time hash, bound to a per-browser challenge, for a local session. | `load/authcog_controller.rb` |
 | `UserSession` | Session identity, `?sso_action=` links, sudo overlay, API-key login. | `load/user_session.rb` |
 
 ## Wiring
@@ -56,16 +56,27 @@ by the time a controller runs.
 
 ## The flow
 
-1. `/login` redirects to `https://<realm>.authcog.com/domain:<host>[/port:<port>]`.
-2. Central auth signs the person in and sends the browser back to
-   `/authcog?callback=<40-char hash>`.
-3. `AuthcogController#callback` exchanges that hash server-side for
-   `{ email, name, avatar, provider }`, calls `User.quick_create(email)`, and
-   writes `session[:user_ref]`.
-4. It redirects to `session[:redirect_after_login]` or `/`.
+1. `auth_link` is just `/authcog`, so it can be linked from any view or layout.
+2. Following it hits `AuthcogController#start`, which mints a one-time challenge,
+   keeps it in the visitor's session, and redirects to
+   `https://<realm>.authcog.com/domain:<host>[/port:<port>]?state=<challenge>`.
+3. Central auth signs the person in and sends the browser back to
+   `/authcog?callback=<40-char hash>&state=<challenge>`.
+4. `AuthcogController#callback` spends the challenge, then exchanges the hash
+   server-side for `{ email, name, avatar, provider }`, calls
+   `User.quick_create(email)`, and writes `session[:user_ref]`.
+5. It redirects to `session[:redirect_after_login]` or `/`.
 
 The hash is single-use and scoped to the requesting domain, so it is worthless
-to anyone who intercepts it on another host.
+to anyone who intercepts it on another host. The challenge is what makes the
+callback belong to this browser: a login someone else started cannot be landed
+in a visitor's session (RFC 9700).
+
+The challenge is minted when the link is followed, never when it is drawn, so
+`auth_link` holds no secret and stays safe in a shared layout or a cached page.
+A browser may hold several outstanding challenges (`CHALLENGE_LIMIT`), because a
+visitor can open the sign-in link in more than one tab; only a matching one is
+ever spent, so a bogus `?state=` cannot clear a real one.
 
 ## Sign-out
 
@@ -93,6 +104,7 @@ to anyone who intercepts it on another host.
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `authcog_realm` | `auth` | Subdomain of `authcog.com` to authenticate against. |
+| `authcog_path` | `/authcog` | Where this controller is mounted; what `auth_link` returns. |
 
 ## Redirect after login
 

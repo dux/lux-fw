@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'securerandom'
+
 module Lux
 module Utils
 class StringBase
@@ -73,8 +75,15 @@ class StringBase
   end
 
   # StringBase.medium.rand(16) -> ref 16 chars
+  #
+  # Draws WITH replacement from a CSPRNG. sample(n) drew without replacement off
+  # the global PRNG, so asking for more characters than the alphabet holds
+  # silently returned a shuffle of the whole alphabet - the same characters every
+  # time, in an order seeded RNG could reproduce. Callers use this for refs and
+  # credentials, where both of those are wrong.
   def rand num
-    @keys.chars.sample(num).join
+    chars = @keys.chars
+    Array.new(num.to_i) { chars[SecureRandom.random_number(chars.length)] }.join
   end
 end
 end

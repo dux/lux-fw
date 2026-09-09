@@ -40,9 +40,13 @@ module Lux
 
     # Should the auto-check fire for this request?
     # Skip safe verbs. Skip Bearer-authenticated requests (not CSRF-vulnerable).
+    # Skip requests that carry no session cookie: forgery works by making a
+    # browser spend credentials it already holds, and there are none here. This is
+    # what lets a webhook authenticated by a shared header token POST at all.
     def csrf_required?
       return false if CSRF_SAFE_METHODS.include?(@request.request_method)
       return false if bearer_token
+      return false unless @session.cookie?
       true
     end
   end

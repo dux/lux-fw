@@ -86,6 +86,22 @@ describe Lux::Utils::StringBase do
       _(result.length).must_equal 10
       result.chars.each { |c| _(c).must_match(/[a-z0-9]/) }
     end
+
+    # sample(n) drew without replacement, so asking for more than the alphabet
+    # holds returned a shuffle of the whole alphabet instead - always the same
+    # characters, always short of the requested length
+    it 'honours a length longer than the alphabet' do
+      result = Lux::Utils::StringBase.long.rand(64)
+      _(result.length).must_equal 64
+    end
+
+    # callers mint credentials with this, so a seeded global PRNG is not enough
+    it 'does not repeat after the global PRNG is reseeded' do
+      srand 1234
+      first = Lux::Utils::StringBase.long.rand(40)
+      srand 1234
+      _(Lux::Utils::StringBase.long.rand(40)).wont_equal first
+    end
   end
 
   describe '#extract' do
