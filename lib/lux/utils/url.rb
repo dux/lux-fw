@@ -218,8 +218,14 @@ module Lux
         @opt.port
       end
 
-      def proto
-        @opt.proto
+      # read when called bare, write when given a value (matches #port / #qs).
+      # Writing matters behind a TLS-terminating proxy, where the request the app
+      # sees is http even though the visitor is on https.
+      def proto value = :_nil
+        return @opt.proto if value == :_nil
+
+        @opt.proto = value.to_s.sub(%r{:?/*\z}, '').presence
+        self
       end
 
       # four modes: bare -> full qs hash; (hash) -> bulk merge (nil values delete);
