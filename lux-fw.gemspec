@@ -21,8 +21,10 @@ Gem::Specification.new 'lux-fw' do |gem|
   # added by analogy
   gem.add_dependency 'rack'
 
-  # we need json from gem
-  gem.add_dependency 'json'
+  # we need json from gem. Sequel's parse_json still calls
+  # JSON.parse(str, create_additions: false) and json 3 dropped that keyword,
+  # so any jsonb read blows up. Drop the cap once Sequel > 5.108 handles json 3.
+  gem.add_dependency 'json', '< 3'
 
   # session encryption
   gem.add_dependency 'jwt'
