@@ -1,6 +1,6 @@
 # {{App}}
 
-A minimal Lux application: one page, PostgreSQL, AuthCog sign-in, and a Fez
+A minimal Lux application: two pages, PostgreSQL, AuthCog sign-in, and a Fez
 navigation component styled with Tailwind. No build step and no JavaScript
 toolchain.
 
@@ -37,6 +37,7 @@ about forty files into the app. Add it to the list when you want them.
 ## Routes and authentication
 
 * `/` - the page. Shows a sign-in button, or `Hello NAME` once signed in.
+* `/about` - what this starter is.
 * `/login` - redirects to AuthCog for the current host and port.
 * `/authcog?callback=...` - exchanges the AuthCog callback for a local session.
 
@@ -66,6 +67,19 @@ the user's name plus a sign-out link.
 Add a component by dropping a `.fez` file in `./public/components/` and loading
 it with `<script fez="/components/name.fez"></script>`. The file name is the tag
 name, so `app-nav.fez` defines `<app-nav>`. Fez compiles it in the browser.
+
+## Navigation
+
+Fez ships Pjax, and binds it when the page declares a container - the layout's
+`%main#page.pjax`. Following a link then fetches the new page over XHR and swaps
+only that node, so the browser keeps its scroll, its assets and any state living
+outside `<main>`. Remove the `pjax` class to go back to full page loads, or put
+`no-pjax` on a single link to opt that one out.
+
+The nav is outside the container, so it is never swapped. Pjax re-runs the
+layout's inline `<head>` scripts on every navigation, which refreshes
+`window.app`; `app-nav.fez` listens for `pjax:render` and re-reads it, so
+signing out updates the nav without a reload.
 
 ## Configuration
 

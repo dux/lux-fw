@@ -41,6 +41,7 @@ build config to maintain here.
 ## Routes and authentication
 
 * `/` - public promo page.
+* `/about` - what this starter is.
 * `/app` - workspace; guests go to sign-in, then return here.
 * `/admin` - overview, available only to administrators.
 * `/login` - redirects to AuthCog for the current host and port.
@@ -50,6 +51,10 @@ Routes live in `./app/routes.rb`.
 `UserSession.resolve` restores the current user before routing and handles signed logout links.
 Locked and deleted users cannot keep an active local session.
 
+`PromoController` is mounted as `call 'promo#auto'`, the convention router from `Lux::Controller::Auto`.
+Public pages need no action and no route line: drop `./app/views/promo/NAME.haml` and `/NAME` serves it.
+`/app` and `/admin` are mounted explicitly, because they carry access rules.
+
 ## Frontend
 
 `./app/views/layouts/main.haml` loads pinned PostWind and Fez releases from jsDelivr.
@@ -57,6 +62,13 @@ PostWind loads the Tailwind browser runtime and styles HAML and Fez components w
 Browser internet access is required for these scripts.
 Edit `./public/components/starter-counter.fez` for the sample reactive component.
 Use `<script fez="/components/name.fez"></script>` to load another component.
+
+## Navigation
+
+Fez ships Pjax, and binds it when the page declares a container - the layout's `%main#page.pjax`.
+Following a link then fetches the new page over XHR and swaps only that node, so the browser keeps its scroll, its assets and any state living outside `<main>`.
+Remove the `pjax` class to go back to full page loads, or put `no-pjax` on a single link to opt that one out.
+The nav is rendered outside the container and is never swapped, so the sign-in and sign-out links carry `no-pjax`.
 
 ## Configuration
 

@@ -16,7 +16,10 @@
       %header.flex.flex-wrap.items-center.justify-between.gap-4.py-6.border-b.border-slate-200
         %a.font-bold.text-xl.tracking-tight{ href: '/' } {{App}}
         %app-nav
-      %main.py-12|20
+      -# the pjax container. Fez binds its Pjax navigation only when the page
+      -# has a `.pjax` (or <pjax>) node carrying an id; links then swap this
+      -# node instead of reloading the document.
+      %main#page.pjax.py-12|20
         = yield
       %footer.py-6.border-t.border-slate-200.text-sm.text-slate-500
         Built with Lux, PostWind and Fez.

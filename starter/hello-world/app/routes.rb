@@ -7,6 +7,7 @@ Lux.app do
   routes do
     map '/authcog', 'authcog#call'
     map '/login', 'main#login'
+    map '/about', 'main#about'
     root 'main'
   end
 end

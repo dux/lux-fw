@@ -1,0 +1,18 @@
+.max-w-2xl.space-y-6
+  %p.text-sm.font-semibold.uppercase.tracking-widest.text-indigo-600 About
+  %h1.text-4xl|5xl.font-bold.tracking-tight About {{App}}
+  %p.text-lg.text-slate-600
+    {{App}} is a simple Lux demo starter app: a public promo page, a workspace
+    behind AuthCog sign-in, and an admin area. Nothing here is precious - delete
+    it and build your own.
+  %ul.space-y-2.text-slate-600
+    %li URLs are declared in ./app/routes.rb; /app and /admin get their own controllers.
+    %li This page has no action - promo is convention routed, so app/views/promo/about.haml is enough.
+    %li PostgreSQL through Sequel, with the schema declared on the model.
+    %li Access is decided on the server by UserPolicy, never in the view.
+    %li PostWind classes and Fez components, bundled by the rollup watcher.
+  %p.text-sm.text-slate-500
+    This page arrived over pjax. The layout marks
+    %code.rounded.bg-slate-100.px-1 &lt;main&gt;
+    as the pjax container, so following a link swaps only that node and the
+    browser never reloads the document.

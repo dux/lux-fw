@@ -1,0 +1,18 @@
+.max-w-2xl.space-y-6
+  %p.text-sm.font-semibold.uppercase.tracking-widest.text-indigo-600 About
+  %h1.text-4xl|5xl.font-bold.tracking-tight About {{App}}
+  %p.text-lg.text-slate-600
+    {{App}} is a simple Lux demo starter app. It exists to show the shape of a
+    Lux application, not to do anything useful yet - delete this page and build
+    your own.
+  %ul.space-y-2.text-slate-600
+    %li URLs are declared in ./app/routes.rb, one line per page.
+    %li Actions live in ./app/controllers, templates in ./app/views.
+    %li PostgreSQL through Sequel, with the schema declared on the model.
+    %li AuthCog handles sign-in, so there are no passwords to store.
+    %li PostWind classes and Fez components come from a CDN - there is no build step.
+  %p.text-sm.text-slate-500
+    This page arrived over pjax. The layout marks
+    %code.rounded.bg-slate-100.px-1 &lt;main&gt;
+    as the pjax container, so following a link swaps only that node and the
+    browser never reloads the document.

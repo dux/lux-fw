@@ -16,6 +16,7 @@ Lux.app do
       root 'admin'
     end
 
-    root 'promo'
+    # public pages are convention routed - /about renders app/views/promo/about.haml
+    call 'promo#auto'
   end
 end

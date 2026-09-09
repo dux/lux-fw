@@ -15,14 +15,21 @@
         %a.font-bold.text-xl.tracking-tight{ href: '/' } {{App}}
         %nav.flex.items-center.gap-5.text-sm{ 'aria-label': 'Main navigation' }
           %a.hover:underline{ href: '/' } Home
+          %a.hover:underline{ href: '/about' } About
           %a.hover:underline{ href: '/app' } Workspace
           - if @user
             - if @user.can.admin?
               %a.hover:underline{ href: '/admin' } Admin
-            %a.hover:underline{ href: UserSession.logout_link } Sign out
+            -# this nav is rendered outside the pjax container, so it is never
+            -# swapped. Signing in or out changes it, so those two links opt out
+            -# of pjax and do a real navigation.
+            %a.hover:underline.no-pjax{ href: UserSession.logout_link } Sign out
           - else
-            %a.font-semibold.hover:underline{ href: '/login' } Sign in
-      %main.py-12|20
+            %a.font-semibold.hover:underline.no-pjax{ href: '/login' } Sign in
+      -# the pjax container. Fez binds its Pjax navigation only when the page
+      -# has a `.pjax` (or <pjax>) node carrying an id; links then swap this
+      -# node instead of reloading the document.
+      %main#page.pjax.py-12|20
         = yield
       %footer.py-6.border-t.border-slate-200.text-sm.text-slate-500
         Built with Lux, PostWind and Fez.

@@ -248,8 +248,15 @@ describe 'lux new' do
       assert_includes response.body, '@dinoreic/fez@'
       assert_includes response.body, '<app-nav>'
       assert_includes response.body, 'id="lux-state"'
+      # fez binds Pjax only when the layout ships a container carrying an id
+      assert_includes response.body, 'id="page"'
+      assert_includes response.body, 'pjax'
       assert_equal 200, (Lux.render.get('/components/app-nav.fez')).status
       assert_equal 404, (Lux.render.get('/missing')).status
+
+      about = Lux.render.get('/about')
+      assert_equal 200, (about).status
+      assert_includes about.body, 'simple Lux demo starter app'
       assert_equal 400, (Lux.render.get('/authcog')).status
 
       # no web_common: its constants and mounted admin area must be absent
@@ -287,7 +294,17 @@ describe 'lux new' do
       assert_equal 200, (promo).status
       assert_includes promo.body, 'Make room for your next idea.'
       assert_includes promo.body, 'href="/app"'
+      assert_includes promo.body, 'href="/about"'
       refute_includes promo.body, 'href="/admin"'
+      # fez binds Pjax only when the layout ships a container carrying an id
+      assert_includes promo.body, 'id="page"'
+      assert_includes promo.body, 'pjax'
+
+      # promo is convention routed, so /about is a template with no action
+      about = Lux.render.get('/about')
+      assert_equal 200, (about).status
+      assert_includes about.body, 'simple Lux demo starter app'
+      assert_equal 404, (Lux.render.get('/missing')).status
 
       %w[/app /admin].each do |path|
         guest = Lux.render.get(path)
