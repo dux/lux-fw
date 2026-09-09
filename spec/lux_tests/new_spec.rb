@@ -257,20 +257,25 @@ describe 'lux new' do
       about = Lux.render.get('/about')
       assert_equal 200, (about).status
       assert_includes about.body, 'simple Lux demo starter app'
-      assert_equal 400, (Lux.render.get('/authcog')).status
 
       # no web_common: its constants and mounted admin area must be absent
       refute defined?(LuxException), 'web_common should not load in hello-world'
       assert defined?(UserSession), 'authcog plugin should load standalone'
 
+      # the sign-in link is a local path; following it is what mints the challenge
       login = Lux.render.get('http://lvh.me:3000/login')
-      assert_equal 'https://auth.authcog.com/domain:lvh.me/port:3000', login.headers['location']
+      assert_equal '/authcog', URI.parse(login.headers['location']).path
+      start = Lux.render.get('http://lvh.me:3000/authcog')
+      assert_match %r{\Ahttps://auth\.authcog\.com/domain:lvh\.me/port:3000\?state=}, start.headers['location']
+
       AuthcogController.class_eval do
         def fetch_identity(_hash)
           { email: 'new@example.com', name: '<b>New user</b>', provider: 'test' }
         end
       end
-      callback = Lux.render.get('/authcog', params: { callback: 'a' * 40 })
+      state = Rack::Utils.parse_query(URI.parse(start.headers['location']).query)['state']
+      callback = Lux.render.get('http://lvh.me:3000/authcog',
+        params: { callback: 'a' * 40, state: state }, session: start.session.to_h)
       assert_equal 302, (callback).status
       member = User.first(email: 'new@example.com')
       refute_nil member
@@ -317,8 +322,10 @@ describe 'lux new' do
           { email: 'member@example.com', name: 'Member', provider: 'test' }
         end
       end
-      callback = Lux.render.get('/authcog', params: { callback: 'a' * 40 },
-        session: { redirect_after_login: '/app' })
+      start = Lux.render.get('http://lvh.me:3000/authcog', session: { redirect_after_login: '/app' })
+      state = Rack::Utils.parse_query(URI.parse(start.headers['location']).query)['state']
+      callback = Lux.render.get('http://lvh.me:3000/authcog',
+        params: { callback: 'a' * 40, state: state }, session: start.session.to_h)
       assert_equal '/app', URI.parse(callback.headers['location']).path
       member = User.first(email: 'member@example.com')
       auth = { user_ref: member.ref }

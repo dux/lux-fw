@@ -15,6 +15,10 @@ require 'net/http'
 class AuthcogController < Lux::Controller
   SESSION_STATE ||= :authcog_state
 
+  # Marks the one automatic restart a failed challenge is allowed, so a callback
+  # that keeps coming back wrong ends on the error rather than in a loop.
+  SESSION_RETRY ||= :authcog_retry
+
   # How many outstanding challenges a browser may hold. More than one because a
   # visitor can open the sign-in link in several tabs before finishing in any of
   # them, and each of those has to stay usable.
@@ -74,9 +78,22 @@ class AuthcogController < Lux::Controller
     callback_hash = params[:callback].to_s
     raise Lux.error.bad_request('Missing callback') unless callback_hash =~ /\A[A-Za-z0-9]{40}\z/
 
+    # A challenge this browser is not holding is not always an attack: a callback
+    # opened twice, or a stale one echoed by central auth, lands here too. Send
+    # the visitor back through the front door once instead of leaving them on an
+    # error page - the retry mints a fresh challenge, so nothing is signed in
+    # that this browser did not ask for.
     unless claim_challenge(params[:state])
-      raise Lux.error.bad_request('Unsolicited or expired login - please sign in again')
+      if session[SESSION_RETRY]
+        session.delete SESSION_RETRY
+        raise Lux.error.bad_request('Unsolicited or expired login - please sign in again')
+      end
+
+      session[SESSION_RETRY] = true
+      return redirect_to self.class.auth_link
     end
+
+    session.delete SESSION_RETRY
 
     data = fetch_identity(callback_hash)
     raise Lux.error.bad_request("AuthCog returned no email") if data[:email].blank?
