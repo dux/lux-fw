@@ -16,7 +16,7 @@
 #   threads         1, 100  (an open SSE stream parks one for its lifetime)
 #   plugin          :tmp_restart
 #   production      stdout -> ./log, workers 2 (environment derived from LUX_ENV)
-#   development     stdout on-screen (no redirect)
+#   development     stdout on-screen (no redirect), banner host rewritten to lvh.me
 #
 # When clustered (workers >= 2 after overrides) it installs three hooks:
 #
@@ -60,6 +60,16 @@ module Lux
         if is_prod
           stdout_redirect './log/puma.log', './log/puma_errors.log'
           workers 2
+        else
+          # Puma logs the resolved socket address ('0.0.0.0:3000', '[::]:3000'),
+          # which no terminal turns into a link. lvh.me resolves to 127.0.0.1 and
+          # is the dev host the rest of lux assumes (config.host, cookie domains),
+          # so swap the host in and keep the port puma actually bound. Dev only -
+          # a formatter here would also drop the [pid] prefix clustered prod logs
+          # get from Puma::LogWriter::PidFormatter.
+          log_formatter do |str|
+            str.sub %r{(?<=Listening on http://)(?:\[[^\]]*\]|[^:\s]+)}, 'lvh.me'
+          end
         end
 
         # let the host app override any directive at parse time (master)
