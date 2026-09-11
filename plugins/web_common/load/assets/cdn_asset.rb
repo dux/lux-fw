@@ -69,7 +69,7 @@ module CdnAsset
   # browser caches even when app/assets sources were not touched.
   def get_time_stamp
     (
-      Dir['./app/assets/**/*'] + Dir['./public/assets/**/*']
+      Lux.root.files('app/assets/**/*').map(&:to_s) + Dir['./public/assets/**/*']
     ).map { |f| File.mtime(f).to_i rescue 0 }.max || 0
   end
 

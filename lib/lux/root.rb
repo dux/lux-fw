@@ -120,6 +120,19 @@ module Lux
     def dirs(rel)    = self.class.dirs(rel)
     def resolve(rel) = self.class.resolve(rel)
 
+    # Map a path under any root to the matching path under the writable app
+    # root. Generated output (auto-*.tmp.*) must land in the app tree even when
+    # its source ships in a plugin mount.
+    def mirror(path)
+      path = Pathname.new(path)
+      self.class.roots.each do |root|
+        base = Pathname.new(root)
+        next unless path.to_s == base.to_s || path.to_s.start_with?(base.to_s + '/')
+        return join(path.relative_path_from(base))
+      end
+      path
+    end
+
     # Resolve a top-level app constant on demand: `ApplicationModel` ->
     # app/**/application_model.rb across every root. Used by Object.const_missing
     # so plugins can reference app base classes during boot, before config/app.rb
