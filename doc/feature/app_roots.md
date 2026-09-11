@@ -115,12 +115,13 @@ gitignored `Lux.root/rollup.config.js`.
 
 ### Object.const_missing
 
-The `Object.const_missing` autoloader is removed.
-Every starter already eager-loads with `Dir.require_all './app'`, and the
-starter comment records why the autoloader is not enough: it never fires for a
-constant looked up inside a module.
+The `Object.const_missing` autoloader is reduced to a thin safety net instead
+of a bespoke loader.
+It matters because plugins reference app base classes at load time:
+`web_common` defines `class LuxException < ApplicationModel`, and that runs
+before `config/app.rb` eager-loads `./app`.
 
-Concrete bugs in the current loader:
+The old loader was a mess:
 
 * keys by basename only, so files with the same basename silently collide.
 * no namespace support, so `Foo::Bar` can never autoload.
@@ -130,8 +131,12 @@ Concrete bugs in the current loader:
 * cwd-relative `require` that breaks with absolute gem paths.
 * pollutes `Object` with three constants.
 
-`Lux.root.require_all('app')` replaces it: roots-aware, deduped by relative
-path, first root wins, skipping `_spec.rb` and `app/views`.
+The replacement is one method that delegates to
+`Lux.root.autoload_const(name)`: it matches the underscored basename across
+every app root and requires the file, or falls through to the native
+`NameError`.
+Eager loading still happens in `config/app.rb` via `Lux.root.require_all 'app'`;
+the autoloader only covers the boot window before that runs.
 
 ## Changes
 
@@ -143,7 +148,7 @@ path, first root wins, skipping `_spec.rb` and `app/views`.
 
 ### Require and autoload
 
-* delete `Object.const_missing` from `lib/overload/object.rb`.
+* reduce `Object.const_missing` to delegate to `Lux.root.autoload_const`.
 * `lib/overload/dir.rb` - roots-aware `Dir.require_all` or `Lux::Root#require_all`.
 * `config/app.rb` and both starters - `Lux.root.require_all('app')`.
 * `lib/lux/application/lib/routes.rb` - debug caller match across roots.

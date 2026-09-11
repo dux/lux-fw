@@ -46,12 +46,14 @@ module Lux
         if path =~ /\.\w{2,4}$/
           file_name = path
         else
-          if (file = Dir['%s.*' % path].first)
-            file_name = file
+          file_name = if Pathname.new(path).absolute?
+            Dir['%s.*' % path].first
+          else
+            Lux.root.files('%s.*' % path).first&.to_s
           end
         end
 
-        unless File.exist?(file_name)
+        unless file_name && File.exist?(file_name)
           raise ArgumentError, 'Template "%s.*" not found' % [path.sub(Dir.pwd, '.')]
         end
 

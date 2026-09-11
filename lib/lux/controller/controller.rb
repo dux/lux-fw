@@ -376,7 +376,7 @@ module Lux
       cache   = (pointer[:_template_exists] ||= {})
       return cache[path] if cache.key?(path)
 
-      cache[path] = Lux::Template.tilt_extensions.any? { |ext| File.exist?("#{path}.#{ext}") }
+      cache[path] = Lux::Template.tilt_extensions.any? { |ext| Lux.root.resolve("#{path}.#{ext}") }
     end
 
     def render_cache key = :_nil

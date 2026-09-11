@@ -24,8 +24,8 @@ Rack::Mime::MIME_TYPES['.cjs']         ||= 'text/javascript'
 Rack::Mime::MIME_TYPES['.map']         ||= 'application/json'
 Rack::Mime::MIME_TYPES['.webmanifest'] ||= 'application/manifest+json'
 
-# Overloads required ahead of Lux core so const_missing autoloader (object.rb)
-# and core String/Dir helpers exist before lux/lux.rb runs.
+# Overloads required ahead of Lux core so core String/Dir helpers exist
+# before lux/lux.rb runs.
 require_relative '../overload/object'
 require_relative '../overload/string'
 require_relative '../overload/dir'

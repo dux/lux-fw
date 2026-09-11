@@ -114,9 +114,9 @@ describe 'lux new' do
     assert_includes File.read(File.join(path, 'config/puma.rb')), 'lux_boot'
     # hello-world is the zero-build starter: no JS toolchain
     refute File.exist?(File.join(path, 'package.json'))
-    # Object.const_missing never fires for a lookup inside a module, so
-    # UserSession cannot autoload User - config/app.rb must load ./app itself
-    assert_includes File.read(File.join(path, 'config/app.rb')), "Dir.require_all './app'"
+    # The old Object.const_missing autoloader never fired for a lookup inside a
+    # module, so config/app.rb loads every app root up front instead.
+    assert_includes File.read(File.join(path, 'config/app.rb')), "Lux.root.require_all 'app'"
     assert_includes File.read(File.join(path, 'config/config.yaml')), '- authcog'
     refute_includes File.read(File.join(path, 'config/config.yaml')), 'web_common'
     refute File.exist?(File.join(path, 'app/controllers/admin_controller.rb'))

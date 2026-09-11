@@ -54,7 +54,7 @@ module Lux
 
         base1 = '%s/layouts/%s.*' % [root, layout_template]
         base2 = '%s/%s/layout.*' % [root, layout_template]
-        path = Dir[base1][0] || Dir[base2][0]
+        path = (Lux.root.files(base1).first || Lux.root.files(base2).first)&.to_s
 
         if path
           cache[cache_key] = path.sub(/\.[\w]+$/, '')
@@ -135,8 +135,8 @@ module Lux
       Lux::Template.tilt_extensions.each do |ext|
         test = [template, ext].join('.')
 
-        if File.exist?(test)
-          @template = test
+        if found = Lux.root.resolve(test)
+          @template = found.to_s
           break
         end
       end

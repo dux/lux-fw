@@ -1,6 +1,5 @@
 require_relative 'env'
 
-# Load app files. The ./app autoloader hangs off Object.const_missing, which
-# never fires for a constant looked up inside a module - UserSession resolving
-# User is exactly that - so load them up front instead.
-Dir.require_all './app', skip: '/assets/auto/'
+# Load app files up front. The resolver walks every app root, so files shipped
+# by plugins in mount/ are loaded alongside ./app.
+Lux.root.require_all 'app', skip: '/assets/auto/'

@@ -120,6 +120,19 @@ module Lux
     def dirs(rel)    = self.class.dirs(rel)
     def resolve(rel) = self.class.resolve(rel)
 
+    # Resolve a top-level app constant on demand: `ApplicationModel` ->
+    # app/**/application_model.rb across every root. Used by Object.const_missing
+    # so plugins can reference app base classes during boot, before config/app.rb
+    # eager-loads ./app. Returns true once the file is required.
+    def autoload_const(name)
+      target = name.to_s.underscore
+      file = self.class.files('app/**/*.rb').find { |f| File.basename(f.to_s, '.rb') == target }
+      return false unless file
+
+      require file.to_s
+      true
+    end
+
     # Require every *.rb under `rel` across all roots, deduped by relative path.
     # Mirrors Dir.require_all: skips specs and view templates.
     def require_all rel = 'app', opts = {}

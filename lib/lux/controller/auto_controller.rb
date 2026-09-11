@@ -105,7 +105,7 @@ module Lux
         return AUTO_PATH_CACHE[key] if AUTO_PATH_CACHE.key?(key)
 
         AUTO_PATH_CACHE[key] = [tpl_root, "#{tpl_root}/root"].find do |check|
-          AUTO_EXTS.any? { |ext| File.exist?("#{root}#{check}.#{ext}") }
+          AUTO_EXTS.any? { |ext| Lux.root.resolve("#{root}#{check}.#{ext}") }
         end
       end
 

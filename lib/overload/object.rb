@@ -1,42 +1,13 @@
 class Object
-  LUX_AUTO_LOAD ||= {}
-  LUX_AUTO_LOAD_MUTEX ||= Monitor.new
-  LUX_AUTO_LOAD_SCANNED ||= [false]
+  # Boot safety net. Plugins reference app base classes (ApplicationModel and
+  # friends) while loading, before config/app.rb eager-loads ./app. Resolve the
+  # constant across every app root; fall through to the native NameError when
+  # nothing matches, so the standard message and backtrace are kept.
+  def self.const_missing name
+    return super unless defined?(Lux) && Lux.respond_to?(:root)
+    return Object.const_get(name) if Lux.root.autoload_const(name)
 
-  def self.const_missing klass, path=nil
-    LUX_AUTO_LOAD_MUTEX.synchronize do
-      klass = klass.to_s
-
-      # return if another thread already loaded it
-      return Object.const_get(klass) if Object.const_defined?(klass, false)
-
-      unless LUX_AUTO_LOAD_SCANNED[0]
-        for file in Dir.glob('./app/**/*.rb').sort
-          klass_file = file
-            .split('/')
-            .last
-            .sub('.rb', '')
-            .camelize
-          LUX_AUTO_LOAD[klass_file] ||= [false, file]
-        end
-        LUX_AUTO_LOAD_SCANNED[0] = true
-      end
-
-      path  = LUX_AUTO_LOAD[klass]
-      error = %{Can't find and autoload module/class "%s"} % klass
-
-      if path
-        if path[0]
-          raise NameError.new('%s, found file "%s" does not define it.' % [error, path[1]])
-        else
-          path[0] = true
-          require path[1].sub('.rb', '')
-          Object.const_get(klass)
-        end
-      else
-        raise NameError.new('%s. Scanned all files in ./app folder' % error)
-      end
-    end
+    super
   end
 
   ###
