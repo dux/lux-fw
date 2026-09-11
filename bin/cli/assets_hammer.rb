@@ -219,6 +219,8 @@ namespace :assets do
 
   task :build do
     desc 'Compile production JS/CSS bundles (bun run rollup -c)'
+    # :app so sync_rollup_config can resolve the plugin mount overlay
+    needs :app
     proc do |_opts|
       LuxAssets.build
     end
