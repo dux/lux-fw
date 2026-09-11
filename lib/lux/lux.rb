@@ -1,3 +1,5 @@
+require_relative './root'
+
 module ::Lux
   extend self
 
@@ -9,7 +11,7 @@ module ::Lux
   end.freeze
 
   def root
-    @lux_app_root ||= Pathname.new(ENV.fetch('APP_ROOT') { Dir.pwd }).freeze
+    @lux_app_root ||= Root.new(ENV.fetch('APP_ROOT') { Dir.pwd }).freeze
   end
 
   def fw_root
@@ -31,7 +33,7 @@ module ::Lux
       git = `git rev-parse --short=8 HEAD 2>/dev/null`.chomp
       raw =
         (git.empty? ? nil : git) ||
-        Dir[root.join('app/**/*').to_s].map { |f| File.mtime(f).to_i rescue 0 }.max&.to_s ||
+        root.files('app/**/*').map { |f| File.mtime(f).to_i rescue 0 }.max&.to_s ||
         Time.now.to_i.to_s
       ENV['DEPLOY_ID'] = raw.md5[0, 8]
     end

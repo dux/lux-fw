@@ -13,6 +13,7 @@
 
 require 'yaml'
 require 'deep_merge'
+require_relative '../root'
 
 module Lux
   module Plugin
@@ -58,6 +59,11 @@ module Lux
 
       DESCRIPTOR_MIXINS.each { |m| opts.extend(m) }
       PLUGIN[opts.name] ||= opts
+
+      # Mount mirrors the app root; expose it as an overlay root so plugin
+      # files resolve in place instead of being symlinked into ./app.
+      mount_root = root.join('mount')
+      Lux::Root.add(mount_root) if mount_root.directory?
 
       # Config is data, loaded before boot code so loader.rb can read defaults.
       load_config root
