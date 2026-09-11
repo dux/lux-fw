@@ -95,7 +95,18 @@
           background: #111; color: #fff; padding: 10px 16px; border-radius: 8px;
           font: 600 13px sans-serif; text-decoration: none;
           box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+          display: inline-flex; align-items: center; gap: 7px;
         }
+        /* Busy state while the server renders the PDF: dim the button, block
+           further clicks (pointer-events beats the 1s JS release), show spinner. */
+        #pdf-dl[aria-busy='true'] { opacity: .65; pointer-events: none; }
+        #pdf-dl .pdf-dl-spinner {
+          display: none; width: 13px; height: 13px; flex: none;
+          border: 2px solid rgba(255, 255, 255, .35); border-top-color: #fff;
+          border-radius: 50%; animation: pdf-dl-spin .7s linear infinite;
+        }
+        #pdf-dl[aria-busy='true'] .pdf-dl-spinner { display: inline-block; }
+        @keyframes pdf-dl-spin { to { transform: rotate(360deg); } }
         .pagedjs_pages {
           display: flex !important;
           flex-direction: column;
@@ -114,5 +125,49 @@
   %body
     / Plain link, always in the markup - /<path>.pdf renders server-side, so the
     / button must not wait on (or be lost to) a Paged.js run that stalls.
-    %a#pdf-dl{ href: @pdf_url, download: true } Preuzmi PDF
+    %a#pdf-dl{ href: @pdf_url, download: true }
+      %span.pdf-dl-spinner{ 'aria-hidden': 'true' }
+      %span.pdf-dl-label Preuzmi PDF
     = yield
+    :javascript
+      // Serve the PDF through fetch instead of native link navigation: a link
+      // gives no completion event, so the button cannot show progress or stop
+      // re-clicks, and every click re-runs the headless render. Delegated on
+      // document because Paged.js reparents/clones the button during pagination.
+      document.addEventListener('click', event => {
+        const btn = event.target.closest('#pdf-dl')
+        if (!btn) return
+        event.preventDefault()
+        if (btn.dataset.busy) return
+
+        btn.dataset.busy = '1'
+        btn.setAttribute('aria-busy', 'true')
+
+        fetch(btn.href, { headers: { Accept: 'application/pdf' } })
+          .then(res => {
+            if (!res.ok) throw new Error(res.status)
+            return res.blob()
+          })
+          .then(blob => {
+            const name = btn.getAttribute('download')
+            const url = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = (name && !['download', 'true'].includes(name))
+              ? name
+              : (document.title || 'document') + '.pdf'
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            setTimeout(() => URL.revokeObjectURL(url), 1000)
+          })
+          .catch(() => alert('PDF nije generiran. Pokušaj ponovno.'))
+          .finally(() => {
+            // Hold the lock a beat past completion so a fast double click cannot
+            // start a second render, then release.
+            setTimeout(() => {
+              delete btn.dataset.busy
+              btn.removeAttribute('aria-busy')
+            }, 1000)
+          })
+      })
