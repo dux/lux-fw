@@ -20,10 +20,9 @@
 #   # Start the runner (blocks)
 #   LuxJob.run
 #
-# Admin dashboard ships as haml templates + an API class under mount/.
-# After `Lux.plugin :job_runner`, run `lux mount job_runner` once to
-# symlink them into the host app. The dashboard then lives at
-# /admin/plugins/lux_jobs (requires the admin_web plugin).
+# The JSON API ships in lib/lux_jobs_api.rb. The admin dashboard views ship
+# with the web_common plugin under /admin/plugins/lux_jobs, resolved through
+# the Lux::Root overlay, so nothing is copied into the host app.
 
 require_relative 'lib/lux_job'
 require_relative 'lib/lux_job_lock'

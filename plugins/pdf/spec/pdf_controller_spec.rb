@@ -2,7 +2,7 @@ require 'test_helper'
 require 'digest'
 
 # PdfController is a mount/ file - it subclasses the host's FrontendController
-# and is normally loaded by `lux mount pdf` into an app. Stand that parent in so
+# and is normally resolved from the plugin mount by the app. Stand that parent in so
 # the controller can be loaded here, then test the part that has no app in it:
 # the signed-URL contract.
 #

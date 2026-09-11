@@ -31,7 +31,9 @@ require 'lux-hammer'
 # puma -e <env>, boots development regardless of .env).
 Lux.dotenv
 
-PLUGINS ||= Lux::Plugin.normalize_names(Lux.config[:plugins])
+# Transitive: a plugin's config.yaml `plugins:` deps ship CLI tasks too, and
+# resolving them needs no boot - just each config.yaml.
+PLUGINS ||= Lux::Plugin.dependency_names(Lux.config[:plugins])
 
 Hammer.run ARGV do
   load File.join(LUX_ROOT, 'bin/cli')

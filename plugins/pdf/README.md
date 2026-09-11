@@ -12,7 +12,7 @@ renders the on-screen preview and the downloadable PDF, so they are identical.
   (European cents formatting) so the bundled demo renders in any app.
 * `routes.rb` - the `/pdf/` dispatch (loads models in router scope, gates access
   in the controller). Wire it in the host with `plugin_route :pdf`.
-* `mount/` (symlinked into the app by `lux mount`):
+* `mount/` (resolved in place through the `Lux::Root` overlay):
   * `app/controllers/pdf_controller.rb` - `PdfController < FrontendController`
   * `app/views/layouts/pdf.haml` - the Paged.js A4 layout
   * `app/views/pdf/demo.haml` - the only bundled page (a paginated example)
@@ -30,7 +30,7 @@ plugins:
 plugin_route :pdf
 ```
 
-Then `lux mount`. Drop your own printable pages in `app/views/pdf/<name>.haml`
+Drop your own printable pages in `app/views/pdf/<name>.haml`
 (they stay local to the app); visit `/pdf/<name>` for the preview and
 `/pdf/<name>.pdf` for the download. To format money through your app's own
 formatter, reopen `PdfHelper` in `app/helpers/pdf_helper.rb`.

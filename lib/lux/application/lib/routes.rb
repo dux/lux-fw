@@ -329,7 +329,8 @@ module Lux
       #     plugin_route :my_plugin   # mount under /admin
       #   end
       def plugin_route name
-        plugin = Lux::Plugin::PLUGIN[name.to_s] or raise "Plugin :#{name} not loaded - call Lux.plugin :#{name} first"
+        raise "Plugin :#{name} not loaded - call Lux.plugin :#{name} first" unless Lux::Plugin.loaded?(name)
+        plugin = Lux::Plugin.get(name)
         path   = ::File.join(plugin.folder, 'routes.rb')
 
         raise "Plugin :#{name} has no routes.rb at #{path}" unless ::File.exist?(path)
@@ -344,7 +345,7 @@ module Lux
       # Usage in app routes:
       #   plugin_routes
       def plugin_routes
-        Lux::Plugin::PLUGIN.each_value do |plugin|
+        Lux::Plugin.loaded.each do |plugin|
           path = ::File.join(plugin.folder, 'routes.rb')
           next unless ::File.exist?(path)
           eval_plugin_routes path

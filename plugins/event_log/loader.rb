@@ -8,9 +8,9 @@
 #   LuxEventLog.log ['page_view', 'mobile'],
 #     user_ref: user.ref, info: 'Viewed pricing', path: '/pricing'
 #
-# Admin dashboard ships as a haml template under mount/. After
-# `Lux.plugin :event_log`, run `lux mount event_log` once to symlink it
-# into the host app. The dashboard then lives at /admin/plugins/event_log.
+# Admin dashboard ships as a haml template under mount/, which Lux::Root
+# exposes to the host app. The dashboard is live at /admin/plugins/event_log
+# as soon as the plugin loads.
 
 require_relative 'lib/lux_event_log'
 require_relative 'lib/lux_event_log_view'

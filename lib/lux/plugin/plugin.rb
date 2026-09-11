@@ -1,6 +1,6 @@
 # Plugin layout (canonical):
 #   plugins/<name>/
-#     config.yaml   # OPTIONAL. Config defaults, merged first.
+#     config.yaml   # OPTIONAL. Config defaults + `plugins:` dependencies.
 #     loader.rb     # OPTIONAL. Boot logic, required before load/.
 #     load/         # OPTIONAL. All *.rb auto-required after loader.rb.
 #     Hammerfile    # OPTIONAL. Single-file CLI tasks.
@@ -21,54 +21,78 @@ module Lux
 
     PLUGIN ||= {}
 
-    # Subsystems append their own instance-method mixin here, and every
-    # descriptor returned by Lux.plugin(:name) gets `extend`ed with each
-    # registered mixin during `load`. Convention for a subsystem file:
-    #
-    #   require_relative './plugin'   # ensure this constant exists
-    #
-    #   module Lux::Plugin::Foo
-    #     module Descriptor
-    #       def foo!; ...; end
-    #     end
-    #   end
-    #
-    #   Lux::Plugin::DESCRIPTOR_MIXINS << Lux::Plugin::Foo::Descriptor \
-    #     unless Lux::Plugin::DESCRIPTOR_MIXINS.include?(Lux::Plugin::Foo::Descriptor)
-    DESCRIPTOR_MIXINS ||= []
+    # Names mid-activation, so a dependency cycle (A -> B -> A) stops instead
+    # of recursing forever. A name is dropped once its plugin finishes.
+    LOADING ||= {}
 
-    # Lux.plugin :foo
-    # Lux.plugin 'foo/bar'
-    # Lux.plugin.folders
-    # Lux.plugin(:api).folder
+    # Low-level: activate a plugin folder. Dependencies are not chased here;
+    # use `load_named` (or `Lux.plugin :name`) for that.
     def load plugin_name
-      plugin_name = Pathname.new(plugin_name) unless plugin_name.is_a?(Pathname)
+      activate Pathname.new(plugin_name)
+    end
 
-      opts = { folder: plugin_name.to_s, name: plugin_name.basename.to_s }.to_lux_hash
+    # Name-level: find the plugin, load its `plugins:` dependencies first, then
+    # activate it. Dependencies load first so their files and constants already
+    # exist when the dependent's loader.rb and load/ sweep run, and so their
+    # config is the base the dependent's own config overrides.
+    def load_named name
+      name = name.to_s
+      return PLUGIN[name] if PLUGIN.key?(name)
+      return nil if LOADING[name]
 
-      return PLUGIN[opts.name] if PLUGIN[opts.name]
+      root = find(name)
+      if root.nil?
+        Lux.shell.die [
+          "Lux plugin '#{name}' not found",
+          "searched: #{search_paths(name).map(&:to_s).join(', ')}"
+        ]
+      end
 
-      root = Pathname.new(opts.folder)
+      LOADING[name] = true
+      begin
+        config = read_config(root)
+        config_plugins(config).each { |dep| load_named(dep) }
+        activate root, config
+      ensure
+        LOADING.delete(name)
+      end
+    end
 
-      die(%{Plugin "#{opts.name}" not found in "#{root}"}) unless root.directory?
+    # Resolve a plugin name to its folder, app root before framework root. An
+    # absolute path that points at a directory is used as-is.
+    def find name
+      path = Pathname.new(name.to_s)
+      return path if path.absolute? && path.directory?
 
-      loader   = root.join('loader.rb')
-      load_dir = root.join('load')
+      search_paths(name).find(&:exist?)
+    end
 
-      DESCRIPTOR_MIXINS.each { |m| opts.extend(m) }
-      PLUGIN[opts.name] ||= opts
+    def search_paths name
+      [Lux.root, Lux.fw_root].map { Pathname.new(_1).join('plugins', name.to_s) }
+    end
 
-      # Mount mirrors the app root; expose it as an overlay root so plugin
-      # files resolve in place instead of being symlinked into ./app.
-      mount_root = root.join('mount')
-      Lux::Root.add(mount_root) if mount_root.directory?
+    # Transitive plugin closure for a set of names, without loading anything.
+    # Reads each plugin's config.yaml `plugins:` list. The CLI uses this so a
+    # dependency's Hammerfile/hammer tasks are discovered even when the app
+    # only lists the dependent.
+    def dependency_names names
+      result = []
+      seen   = {}
+      queue  = normalize_names(names).dup
 
-      # Config is data, loaded before boot code so loader.rb can read defaults.
-      load_config root
-      require loader.to_s            if loader.exist?
-      Dir.require_all load_dir.to_s  if load_dir.directory?
+      until queue.empty?
+        name = queue.shift
+        next if seen[name]
+        seen[name] = true
 
-      PLUGIN[opts.name]
+        root = find(name)
+        next unless root
+
+        result << name
+        config_plugins(read_config(root)).each { |dep| queue << dep unless seen[dep] }
+      end
+
+      result
     end
 
     def normalize_names *values
@@ -77,6 +101,7 @@ module Lux
       Array(values).flatten.compact
         .reject { |it| it == false || it.to_s.empty? }
         .map(&:to_s)
+        .uniq
     end
 
     def get name
@@ -96,24 +121,65 @@ module Lux
     end
 
     def plugins
-      PLUGIN
+      PLUGIN.dup
     end
 
-    # get all folders in a namespace
-    def folders namespace=:main
+    # Forget a loaded plugin (or all of them when name is nil). Boot never
+    # unloads; specs use this to load a throwaway plugin and stay isolated.
+    def unload name = nil
+      return PLUGIN.clear if name.nil?
+
+      PLUGIN.delete(name.to_s)
+    end
+
+    # get all plugin folders
+    def folders
       PLUGIN.values.map { |it| it.folder }
     end
 
     private
 
-    def load_config root
+    def activate root, config = nil
+      root = Pathname.new(root)
+      name = root.basename.to_s
+      die(%{Plugin "#{name}" not found in "#{root}"}) unless root.directory?
+
+      if existing = PLUGIN[name]
+        return existing if existing.folder == root.to_s
+        Lux.shell.die(%{Plugin "#{name}" already loaded from #{existing.folder}; cannot also load #{root}})
+      end
+
+      config ||= read_config(root)
+
+      mount_root = root.join('mount')
+      Lux::Root.add(mount_root) if mount_root.directory?
+
+      merge_config(config) if config
+
+      loader   = root.join('loader.rb')
+      load_dir = root.join('load')
+      require loader.to_s           if loader.exist?
+      Dir.require_all load_dir.to_s if load_dir.directory?
+
+      PLUGIN[name] = { folder: root.to_s, name: name }.to_lux_hash
+    end
+
+    def config_plugins config
+      return [] unless config
+
+      plugins = config['plugins']
+      plugins = config[:plugins] if plugins.nil?
+      normalize_names(plugins)
+    end
+
+    def read_config root
       source = root.join('config.yaml')
-      return unless source.exist?
+      return nil unless source.exist?
 
       data = YAML.safe_load(source.read, aliases: true) || {}
       die(%{Plugin config "#{source}" must be a hash}) unless data.is_a?(::Hash)
 
-      merge_config config_for_env(data)
+      config_for_env data
     end
 
     def config_for_env data

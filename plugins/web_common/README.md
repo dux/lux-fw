@@ -43,7 +43,7 @@ The detailed per-builder docs live next to the code:
 Lux do
   routes do
     map 'authcog', 'authcog#call'    # central-auth callback landing
-    map 'admin',   'admin#call'      # admin viewer (after `lux mount web_common`)
+    map 'admin',   'admin#call'      # admin viewer (ships in mount/)
   end
 end
 ```
@@ -59,13 +59,9 @@ logging. If the exception tables are not migrated yet, the framework logs the
 custom hook failure without masking the original error; the first auto-migrate
 creates `lux_exceptions` + `lux_exception_logs` from the model schemas.
 
-Mount the `/admin` controller + views into the host:
-
-```sh
-lux mount web_common
-```
-
-Then browse `/admin/plugins/exception_logger`. See the query/summary API on
+The `/admin` controller and views ship in the plugin's `mount/` tree and
+resolve through the `Lux::Root` overlay, so they are live once the plugin
+loads. Browse `/admin/plugins/exception_logger`. See the query/summary API on
 `LuxException` (`get_list`, `get_exp`, `quick_summary`, ...) in
 `lib/lux_exception.rb`.
 
@@ -81,7 +77,7 @@ plugins/web_common/
     assets/  html/{form,input,table,...}
   lib/
     lux_exception.rb  lux_exception_log.rb
-  mount/               # /admin controller + views (symlinked by `lux mount`)
+  mount/               # /admin controller + views (Lux::Root overlay)
   seeds/               # lux_exceptions seed data
   spec/                # exception logger end-to-end flow
 
@@ -95,5 +91,5 @@ is hand-written as-is (no banner there).
 
 ## See also
 
-* [`../../lib/lux/plugin/README.md`](../../lib/lux/plugin/README.md) - plugin layout, `lux mount`
+* [`../../lib/lux/plugin/README.md`](../../lib/lux/plugin/README.md) - plugin layout, mount overlays
 * [`../../lib/lux/application/README.md`](../../lib/lux/application/README.md) - `plugin_routes`, routing DSL

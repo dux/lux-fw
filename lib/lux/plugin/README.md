@@ -32,10 +32,6 @@ Lux.root.path 'app/views/foo.haml'   # walks the app root, then plugin mounts
 Lux.root.file 'rollup.config.js'     # raises Lux::Root::NotFound when missing
 ```
 
-Subsystems that want to attach their own per-plugin behavior can push a module
-into `Lux::Plugin::DESCRIPTOR_MIXINS`; every loaded descriptor is `extend`ed
-with each registered mixin.
-
 ## Canonical layout
 
 ```
@@ -54,11 +50,14 @@ A plugin needs at least `config.yaml`, `loader.rb`, or `load/`. Otherwise
 
 ## Load order
 
-1. `config.yaml` if present - merged into `Lux.config`; a top-level
+1. `config.yaml` `plugins:` dependencies load first, recursively - so their
+   files and constants already exist when this plugin's boot code runs, and
+   their config is the base this plugin's own config overrides
+2. `config.yaml` if present - merged into `Lux.config`; a top-level
    `plugins:` list appends to the configured plugin list
-2. `loader.rb` if present (use for hooks, config registration, ordering)
-3. `load/**/*.rb` via `Dir.require_all` - depth-first, alphabetical;
-   files matching `*_spec.rb` / `*_hammer.rb` are skipped
+3. `loader.rb` if present (use for hooks, config registration, ordering)
+4. `load/**/*.rb` via `Dir.require_all` - depth-first, alphabetical; files
+   matching `*_spec.rb` and anything under `/app/views/` are skipped
 
 `Hammerfile` and `hammer/` are NOT loaded at runtime - the `lux` CLI
 discovers them at startup so commands are visible without loading the
@@ -73,7 +72,8 @@ default:
     enabled: true
 
 plugins:
-  - bar                              # plugin dependency; appended to plugin list
+  - bar                              # loaded before this plugin; also appended
+                                     # to the configured plugin list
 ```
 
 ```ruby
@@ -120,7 +120,7 @@ end
 
 | Folder | Auto-loaded? | Purpose |
 |--------|--------------|---------|
-| `config.yaml` | merged first | plugin defaults; `plugins:` entries append to configured plugins |
+| `config.yaml` | deps then merge | plugin defaults; `plugins:` entries load first and append to configured plugins |
 | `loader.rb`  | yes, after config | boot logic; required-before-load |
 | `load/`      | yes        | classes/modules that must be ready when the plugin is loaded |
 | `routes.rb`  | only via `plugin_route :name` or `plugin_routes` | routing DSL body |

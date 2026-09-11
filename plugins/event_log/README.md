@@ -9,12 +9,14 @@ Lux.plugin :db
 Lux.plugin :event_log
 ```
 
-Then create the table and mount the admin interface:
+Then create the table:
 
 ```bash
 lux db:am              # creates/syncs the lux_event_logs table
-lux mount event_log    # symlinks the admin dashboard into the app
 ```
+
+The admin dashboard ships in the plugin's `mount/` tree and resolves in place,
+so it is live at `/admin/plugins/event_log` as soon as the plugin loads.
 
 ## Usage
 

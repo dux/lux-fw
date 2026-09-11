@@ -12,27 +12,10 @@ Load the plugin in your app:
 Lux.plugin 'job_runner'
 ```
 
-Symlink the JSON API into the host:
-
-```sh
-lux mount job_runner
-```
-
-That places under your app root:
-
-```
-app/api/lux_jobs_api.rb
-```
-
+The JSON API (`LuxJobsApi`) ships in `lib/lux_jobs_api.rb` and is mounted by
+the host's `Lux::Api` auto-mount, typically at `/api/lux_jobs`.
 The admin dashboard views (`/admin/plugins/lux_jobs`) ship with the
-`admin_web` plugin instead - mount that to get them:
-
-```sh
-lux mount admin_web
-```
-
-Edit either set in place - they're your files now; the plugin only provides
-the starting point. `lux mount` is idempotent.
+`web_common` plugin, resolved through the `Lux::Root` overlay.
 
 ## Usage
 
@@ -83,7 +66,7 @@ LuxJob.run  # blocks; uses LISTEN + advisory lock on one pinned connection
 
 ### Admin Dashboard
 
-After `lux mount job_runner`, the dashboard lives at:
+With `web_common` loaded, the dashboard lives at:
 
 * `/admin/plugins/lux_jobs` - list of registered jobs and recent log
 * `/admin/plugins/lux_jobs/show?name=<job>` - per-job page with trigger
@@ -145,10 +128,8 @@ plugins/job_runner/
   lib/
     lux_job.rb               # model + runner (LISTEN/NOTIFY)
     lux_job_lock.rb          # pg_try_advisory_lock guard
+    lux_jobs_api.rb          # LuxJobsApi (auto-mounted by Lux::Api)
     lux_job_policy.rb
     lux_job_exporter.rb
-  mount/                     # symlinked into the host via `lux mount`
-    app/
-      api/lux_jobs_api.rb
   Hammerfile                 # `lux job_runner:start`, `:restart`
 ```
