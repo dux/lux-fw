@@ -12,13 +12,11 @@ class Class
     end - [self]
   end
 
-  # OrgsController.source_location -> ./apps/controllers/orgs_controller.rb
+  # OrgsController.source_location -> ./app/controllers/orgs_controller.rb
   def source_location as_folder=false
-    root = Lux.root.to_s
-
     for name in instance_methods(false)
-      src = instance_method(name).source_location.first.split(root)[1] || next
-      src = '.%s' % src
+      src = Lux.root.pretty(instance_method(name).source_location.first)
+      next unless src.start_with?('.')
       return as_folder ? File.dirname(src) : src
     end
 

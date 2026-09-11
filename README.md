@@ -64,7 +64,7 @@ run Lux
 ```
 
 CLI tasks declare `needs :app` and the `:app` task in `bin/lux` runs
-`Lux.boot!` for you. Light commands like `lux mount` or `lux --help`
+`Lux.boot!` for you. Light commands like `lux routes` or `lux --help`
 never call it, so they stay fast. `Lux::Application#call` also calls
 `Lux.boot!` defensively on the first request, so hosts that skip
 `config/env.rb` in `config.ru` still work.
@@ -583,7 +583,6 @@ lux server         # Start web server (alias: s, ss)
 lux console        # Start Pry console (alias: c)
 lux render /path   # Render any path locally (session, bearer, headers)
 lux routes         # Print mounted route tree
-lux mount          # Print plugin/app mount map
 lux generate       # Generate models, cells, controllers
 lux evaluate CODE  # Evaluate Ruby in app context (alias: eval, e)
 lux test           # Run the test suite (alias: t)

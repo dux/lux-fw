@@ -67,6 +67,6 @@ module ::Lux
 
   def app_caller
     app_line   = caller.find { |line| !line.include?('/lux-') && !line.include?('/.') && !line.include?('(eval)') }
-    app_line ? app_line.split(':in ').first.sub(Lux.root.to_s, '.') : nil
+    app_line ? Lux.root.pretty(app_line.split(':in ').first) : nil
   end
 end

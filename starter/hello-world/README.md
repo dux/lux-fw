@@ -31,8 +31,8 @@ All `lux` commands use Hammer; run `lux --help` to see the available tasks.
 * `authcog` - `AuthcogController` and `UserSession`.
 
 The larger `web_common` plugin is deliberately absent. It brings html builders,
-an asset pipeline, an exception logger and an `/admin` area, and it symlinks
-about forty files into the app. Add it to the list when you want them.
+an asset pipeline, an exception logger and an `/admin` area, and overlays
+about forty files onto the app. Add it to the list when you want them.
 
 ## Routes and authentication
 

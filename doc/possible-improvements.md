@@ -31,7 +31,7 @@ Differentiators. The places lux is ahead of Sinatra/Roda/Hanami, not just at par
 * **CSRF + CORS first-class on the response object.** `response.cors :all`, auto-injected CSRF token in `HtmlForm`,
   preflight handled at the application level (`lib/lux/response/lib/cors.rb`, `lib/lux/current/lib/csrf.rb`).
 * **Job runner with PG LISTEN/NOTIFY trigger + advisory lock + exponential backoff.** Single-DB, no Redis required, no
-  Sidekiq tax (`plugins/job_runner/lib/lux_job.rb`). Admin dashboard mounts via `lux mount job_runner`.
+  Sidekiq tax (`plugins/job_runner/lib/lux_job.rb`). Admin dashboard views ship in the job_runner plugin mount.
 * **`rescue_from` at app and controller level** (`Lux::Application.rescue_from`, `Lux::Controller.rescue_from`) with a
   documented resolution order (app > controller :error > framework default).
 * **Pagination** end-to-end: `Lux::Utils::PaginatedArray`, Sequel `paginate` ext (`plugins/db/ext/paginate.rb`), and
@@ -118,7 +118,7 @@ Recurring but lower frequency. Each is small and self-contained.
   `form_for(schema)` helper that reads errors and renders them next to the offending input. The unified DSL makes this
   almost free.
 * **Job runner dead-letter view.** Retry + backoff are in; verify dead-letter handling and surface a Sidekiq-Web
-  equivalent through `admin_web` (the `lux mount job_runner` views are the seed).
+  equivalent through `admin_web` (the job_runner plugin mount views are the seed).
 
 ## Intentionally out of scope
 

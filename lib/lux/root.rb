@@ -120,6 +120,17 @@ module Lux
     def dirs(rel)    = self.class.dirs(rel)
     def resolve(rel) = self.class.resolve(rel)
 
+    # Strip whichever app root a path lives under, for logs and debug links.
+    # Absolute paths that live under no root are returned unchanged.
+    def pretty(path)
+      str = path.to_s
+      self.class.roots.each do |root|
+        base = Pathname.new(root).to_s
+        return '.' + str[base.size..] if str == base || str.start_with?(base + '/')
+      end
+      str
+    end
+
     # Map a path under any root to the matching path under the writable app
     # root. Generated output (auto-*.tmp.*) must land in the app tree even when
     # its source ships in a plugin mount.

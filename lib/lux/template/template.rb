@@ -6,10 +6,10 @@ module Lux
 
         files = [files] unless files.is_a?(Array)
         files = files.compact.map do |file|
-          file, prefix = file.sub(/'$/, '').sub(Lux.root.to_s, '.').split(':in `')
+          file, prefix = file.sub(/'$/, '').split(':in `')
           prefix = ' # %s' % prefix if prefix
 
-          %[<a href="vscode://file/%s" style="color: #fff;">%s%s</a>] % [Lux.root.join(file).to_s, file.split(':').first, prefix]
+          %[<a href="vscode://file/%s" style="color: #fff;">%s%s</a>] % [file, Lux.root.pretty(file).split(':').first, prefix]
         end.join(' &bull; ')
 
         opts[:color] ||= '#fff'

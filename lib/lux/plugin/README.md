@@ -23,23 +23,18 @@ Lux.plugin.keys                     # names
 Lux.plugin.folders                  # filesystem folders
 ```
 
-Each descriptor exposes `.name`, `.folder`, plus mount accessors:
+Each descriptor exposes `.name` and `.folder`.
+A plugin with a `mount/` folder has that folder registered as a `Lux::Root`
+overlay root on load, so its files resolve in place:
 
 ```ruby
-Lux.plugin(:foo).mounts do |src, dst|
-  # src = Pathname inside plugins/foo/mount
-  # dst = matching Pathname under Lux.root
-end
-
-Lux.plugin(:foo).mounts.to_a       # no block -> Enumerator
-Lux.plugin(:foo).mount!            # symlink missing/stale/broken entries; silent on :ok
-Lux.plugin(:foo).unmount!          # unlink only this plugin's owned symlinks
+Lux.root.path 'app/views/foo.haml'   # walks the app root, then plugin mounts
+Lux.root.file 'rollup.config.js'     # raises Lux::Root::NotFound when missing
 ```
 
-`lux mount` / `lux mount -u` (the CLI) iterate plugin descriptors and call
-`mount!` / `unmount!`. Subsystems that want to attach their own per-plugin
-behavior can push a module into `Lux::Plugin::DESCRIPTOR_MIXINS`; every
-loaded descriptor is `extend`ed with each registered mixin.
+Subsystems that want to attach their own per-plugin behavior can push a module
+into `Lux::Plugin::DESCRIPTOR_MIXINS`; every loaded descriptor is `extend`ed
+with each registered mixin.
 
 ## Canonical layout
 
@@ -51,7 +46,7 @@ plugins/<name>/
   routes.rb       # OPTIONAL. routing DSL evaluated by plugin_route :name / plugin_routes
   Hammerfile      # OPTIONAL. single-file CLI tasks
   hammer/         # OPTIONAL. multi-file CLI tasks (*_hammer.rb)
-  mount/          # OPTIONAL. files symlinked into the app by `lux mount`
+  mount/          # OPTIONAL. mirrors app root; registered as a Lux::Root overlay
 ```
 
 A plugin needs at least `config.yaml`, `loader.rb`, or `load/`. Otherwise
@@ -131,20 +126,23 @@ end
 | `routes.rb`  | only via `plugin_route :name` or `plugin_routes` | routing DSL body |
 | `Hammerfile` | only by CLI | tasks for `lux <cmd>` |
 | `hammer/`    | only by CLI | multi-file CLI tasks |
-| `mount/`     | only by `lux mount` | files symlinked into the app |
+| `mount/`     | registered on load | mirrors app root; resolved through Lux::Root |
 
 ## Mount semantics (`mount/`)
 
-`lux mount` walks every leaf file under `mount/` and creates a relative
-symlink at the matching path in `Lux.root`. Use for assets, initializers,
-or config templates a plugin needs to drop into the host app.
+A plugin's `mount/` folder mirrors the app root.
+On load it is appended to `Lux::Root`, the ordered overlay the framework
+resolves app paths against.
+Files are used in place - nothing is copied or symlinked into the host app.
 
-* Symlinks pointing at the same plugin/path but a different filesystem
-  location (gem path drift across machines) are silently rewritten.
-* Foreign files at the destination are skipped with a warning. Never
-  overwritten.
-* `lux mount:list` / `lux mount:doctor` to inspect; `lux mount:remove NAME`
-  to unlink.
+* The app root comes first, so an app file shadows a plugin file with no
+  special handling.
+* `Lux.root.path` / `.file` / `.lib` resolve across every root and raise
+  `Lux::Root::NotFound` naming each location tried.
+* The same roots feed eager loading (`Lux.root.require_all 'app'`), template
+  lookup and the asset pipeline.
+* Node build files (`rollup.config.js`) cannot read `Lux::Root`, so
+  `lux assets:auto` materializes the first one found into the app root.
 
 ## See also
 

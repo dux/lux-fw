@@ -17,12 +17,11 @@ $ lux
   lux generate    # Generate models, cells, ...
   lux hi          # Print hello world
   lux memory      # Show memory usage
-  lux mount       # Symlink missing entries from each plugin's mount/ into the app root
   lux render      # Render page via Lux.render (lux render /login -t TOKEN -s user_id=1 -i)
   lux routes      # Print mounted route tree (verb, path, target, source)
   lux secrets     # Edit, show and compile secrets
   lux server      # Start web server (puma only)
-  lux start       # Mount assets, then run ./Procfile                   (alias: s)
+  lux start       # Compile auto assets, then run ./Procfile               (alias: s)
   lux procfile    # Run all Procfile services color-prefixed            (alias: pf)
   lux stats       # Print project stats
   lux test        # Run tests (auto-detects rspec or minitest)          (alias: t)
@@ -56,8 +55,8 @@ When stdin is piped, enter the numbered choice instead.
 The command does not load an existing application or overwrite an existing target.
 Like every other `lux` command, it refuses to run inside the framework checkout itself.
 
-* `hello-world` - one page with PostgreSQL and AuthCog sign-in. Loads the `db` and `authcog` plugins only, so nothing is mounted into the app. Tailwind and Fez come from a CDN and the navigation is a Fez component, so there is no JavaScript toolchain and no build step.
-* `full-minimal` - a public promo page at `/`, a signed-in workspace at `/app`, and an admin-only overview at `/admin`. Loads `web_common` too, so it gets the html builders, the mounted `/admin` area and the rollup asset pipeline.
+* `hello-world` - one page with PostgreSQL and AuthCog sign-in. Loads the `db` and `authcog` plugins only, so no plugin files overlay the app. Tailwind and Fez come from a CDN and the navigation is a Fez component, so there is no JavaScript toolchain and no build step.
+* `full-minimal` - a public promo page at `/`, a signed-in workspace at `/app`, and an admin-only overview at `/admin`. Loads `web_common` too, so it gets the html builders, the `/admin` area and the rollup asset pipeline.
 
 The app name supplies the display name and PostgreSQL database prefix: `my-app` becomes `my_app_development`.
 Each app receives a fresh session secret in its Git-ignored `config/config.yaml`.

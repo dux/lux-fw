@@ -14,7 +14,7 @@ bundle exec lux s
 ```
 
 Open http://lvh.me:3000.
-`lux s` mounts plugin files, compiles the auto assets and then runs `./Procfile`, which starts the rollup watcher and the server.
+`lux s` compiles the auto assets and then runs `./Procfile`, which starts the rollup watcher and the server.
 Use `lux s -p 3001` or `PORT=3001 lux s` to serve on another port; LiveReload follows it.
 The database name comes from the application name.
 `lux db:am` loads the model schemas through `./db/auto_migrate.rb`.
@@ -35,8 +35,8 @@ The `.gems` directory is ignored by Git.
 `bun` is required. `lux new` runs `bun install` for you.
 `./Procfile` runs `bun x rollup -cw`, which bundles `./app/assets/auto-*.tmp.js`
 into `./public/assets/`, compiles the SCSS, and serves LiveReload.
-`web_common` supplies `./rollup.config.js` as a mount symlink, so there is no
-build config to maintain here.
+`web_common` supplies `rollup.config.js`, which `lux assets:auto` (run by
+`lux s`) copies into the app root, so there is no build config to maintain here.
 
 ## Routes and authentication
 

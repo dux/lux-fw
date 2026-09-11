@@ -126,4 +126,4 @@ Haml::Template.options[:escape_html] = false
 #   end
 #
 # `bin/lux` invokes Lux.boot! from its :env / :app tasks; light CLI
-# commands (`lux mount`, `lux --help`) skip it and stay fast.
+# commands (`lux routes`, `lux --help`) skip it and stay fast.

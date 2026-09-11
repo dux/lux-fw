@@ -1,5 +1,7 @@
-> STATUS: PLANNED. Replace `lux mount` symlinks with `Lux::Root`, an ordered
-> overlay of app roots that the framework resolves against directly.
+> STATUS: IMPLEMENTED. `lux mount` symlinks are replaced by `Lux::Root`, an
+> ordered overlay of app roots that the framework resolves against directly.
+> `Object.const_missing` is kept as a thin roots-aware safety net rather than
+> removed (plugins reference app base classes during boot).
 
 ## app_roots
 

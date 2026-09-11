@@ -20,7 +20,7 @@ module Lux
 
       if watched_files.first
         for file in watched_files
-          Lux.log ' Reloaded: %s' % file.sub(Lux.root.to_s, '.').colorize(:yellow)
+          Lux.log ' Reloaded: %s' % Lux.root.pretty(file).colorize(:yellow)
           load file
         end
       else
