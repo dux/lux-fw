@@ -1,5 +1,4 @@
 require 'fileutils'
-require 'find'
 require 'pathname'
 require 'shellwords'
 
@@ -9,9 +8,8 @@ require 'shellwords'
 # is excluded by definition. Gitignored-but-needed dirs are re-added via
 # AUTO_INCLUDES; compiled assets are expected to be prepared beforehand.
 #
-# Lux plugin mounts (`lux mount`) are symlinks into plugins/<name>/mount/,
-# kept out of git on purpose. Pack discovers those live links and ships their
-# content as real files (rsync -L). User/app symlinks are never auto-added.
+# Local gem checkouts under ./.gems are symlinks; pack ships their content as
+# real files (rsync -L). User/app symlinks are never auto-added.
 module LuxPack
   module_function
 
@@ -22,12 +20,6 @@ module LuxPack
   # Includes are copied wholesale (no per-dir git filter), so strip VCS/build
   # junk that local gem checkouts under ./.gems drag along.
   INCLUDE_EXCLUDES ||= %w[.git .gitignore node_modules tmp log coverage .DS_Store .build DerivedData]
-
-  # Same skip set as Lux::Plugin::Mount::SCAN_SKIP_DIRS (+ pack noise dirs).
-  MOUNT_SCAN_SKIP ||= %w[node_modules dist build tmp .next .git coverage .gems vendor public].freeze
-
-  # Target path written by `lux mount` for every plugin-owned link.
-  PLUGIN_MOUNT_TARGET ||= %r{/plugins/[^/]+/mount/}
 
   # only_gems drops the tracked app tree from the pack - .gems plus whatever
   # --include asks for, nothing else. For a box that materializes the app from
@@ -43,7 +35,6 @@ module LuxPack
     raise Hammer::Error, 'refusing unsafe --dest' if dest.to_s.strip.empty? || %w[. /].include?(dest)
 
     files   = []
-    mounts  = []
     missing = []
 
     if only_gems
@@ -58,10 +49,6 @@ module LuxPack
       # abort the whole deploy.
       missing, files = files.partition { |f| !File.exist?(f) }
 
-      # Live lux-plugin mount symlinks only (not in git). User symlinks stay out.
-      mounts = plugin_mount_symlinks
-      files |= mounts
-
       AUTO_INCLUDES.each { |p| includes |= [p] if Dir.exist?(p) }
     end
     includes.select! { |p| File.exist?(p) }
@@ -69,7 +56,6 @@ module LuxPack
     puts 'Pack -> %s'         % dest.colorize(:yellow)
     puts 'Mode          : %s' % 'only-gems'.colorize(:yellow) if only_gems
     puts 'Tracked files : %s' % files.size.to_s.colorize(:yellow) unless only_gems
-    puts 'Plugin mounts : %s' % mounts.size.to_s.colorize(:yellow) if mounts.any?
     puts 'Skipped (gone): %s' % missing.size.to_s.colorize(:red) if missing.any?
     puts 'Includes      : %s' % (includes.empty? ? '-' : includes.join(', ')).colorize(:yellow)
 
@@ -79,7 +65,7 @@ module LuxPack
       FileUtils.rm_rf dest
       FileUtils.mkdir_p dest
 
-      # -L dereferences every symlink into a real file (local gems, plugin mounts)
+      # -L dereferences every symlink into a real file (local gems)
       unless files.empty?
         IO.popen(['rsync', '-aL', '--from0', '--files-from=-', './', dest + '/'], 'w') do |io|
           io.write files.join("\x0")
@@ -128,36 +114,6 @@ module LuxPack
     bad.each do |link, top, issues|
       puts '  %s -> %s (%s)' % [link.colorize(:yellow), top.colorize(:light_black), issues.colorize(:red)]
     end
-  end
-
-  # Walk the app tree for symlinks whose resolved target lives under a lux
-  # plugin mount/ tree. Those are created by `lux mount` and excluded from git
-  # (machine-specific relative targets). User/app symlinks are ignored.
-  def plugin_mount_symlinks
-    paths = []
-    Find.find('.') do |path|
-      base = File.basename(path)
-      if path != '.' && File.directory?(path) && MOUNT_SCAN_SKIP.include?(base)
-        Find.prune
-        next
-      end
-      next unless File.symlink?(path)
-
-      target = resolve_symlink(path) or next
-      next unless target.to_s.match?(PLUGIN_MOUNT_TARGET)
-      next unless target.exist? # broken mount link -> skip
-
-      paths << path.sub(%r{\A\./}, '')
-    end
-    paths
-  end
-
-  def resolve_symlink path
-    raw = Pathname.new(File.readlink(path))
-    raw = Pathname.new(path).dirname.join(raw) unless raw.absolute?
-    raw.cleanpath
-  rescue Errno::ENOENT, Errno::ELOOP
-    nil
   end
 
   # Every symlink rsync -L will dereference: tracked symlinks plus any symlink

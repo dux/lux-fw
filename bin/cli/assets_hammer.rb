@@ -224,6 +224,15 @@ namespace :assets do
     end
   end
 
+  task :config do
+    desc 'Materialize the plugin rollup.config.js into the app root'
+    # :app so plugin mounts are registered and resolvable through Lux::Root.
+    needs :app
+    proc do |_opts|
+      LuxAssets.sync_rollup_config
+    end
+  end
+
   task :upload do
     desc 'Fingerprint public/assets, upload to the CDN, regenerate manifest.json'
     # :app (not :env) so the host app's Cdn class is autoloaded for the upload.

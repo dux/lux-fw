@@ -1,5 +1,5 @@
 task :start do
-  desc 'Prepare env and autorun app (mount, assets:auto, then Procfile)'
+  desc 'Prepare env and autorun app (assets:auto, then Procfile)'
   alt :s
   needs :app
   opt :port, alias: :p, desc: 'Port number (default: $PORT or 3000)'
@@ -13,7 +13,6 @@ task :start do
     ENV['PORT']            = port.to_s
     ENV['LIVERELOAD_PORT'] = (35729 + port - 3000).to_s
 
-    hammer 'mount'
     hammer 'assets:auto'
 
     file = opts[:file] || (opts[:prod] ? './Procfile.prod' : './Procfile')

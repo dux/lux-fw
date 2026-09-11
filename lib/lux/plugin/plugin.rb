@@ -5,8 +5,8 @@
 #     load/         # OPTIONAL. All *.rb auto-required after loader.rb.
 #     Hammerfile    # OPTIONAL. Single-file CLI tasks.
 #     hammer/       # OPTIONAL. *_hammer.rb CLI tasks.
-#     mount/        # OPTIONAL. Mirrors app root. `lux mount` symlinks
-#                   # every leaf file into the app at the matching path.
+#     mount/        # OPTIONAL. Mirrors app root. Registered as a Lux::Root
+#                   # overlay so its files resolve in place.
 #
 # Any combination is valid; a plugin with only mount/ (or even just a
 # README) is registered and silently does nothing on Lux.plugin :name.
@@ -35,8 +35,6 @@ module Lux
     #
     #   Lux::Plugin::DESCRIPTOR_MIXINS << Lux::Plugin::Foo::Descriptor \
     #     unless Lux::Plugin::DESCRIPTOR_MIXINS.include?(Lux::Plugin::Foo::Descriptor)
-    #
-    # Mount uses this for `.mounts` / `.mount!` / `.unmount!`.
     DESCRIPTOR_MIXINS ||= []
 
     # Lux.plugin :foo

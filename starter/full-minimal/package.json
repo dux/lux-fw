@@ -21,7 +21,7 @@
   },
   "scripts": {
     "build": "bundle exec lux assets:auto && bundle exec lux assets:build",
-    "prod": "NODE_PRESERVE_SYMLINKS=1 bun run rollup -c",
-    "dev": "NODE_PRESERVE_SYMLINKS=1 bun run rollup -cw"
+    "prod": "bundle exec lux assets:config && NODE_PRESERVE_SYMLINKS=1 bun run rollup -c",
+    "dev": "bundle exec lux assets:config && NODE_PRESERVE_SYMLINKS=1 bun run rollup -cw"
   }
 }
