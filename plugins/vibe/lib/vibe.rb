@@ -14,6 +14,7 @@ module Vibe
   class Error < StandardError; end
 
   DEFAULT_MODEL  ||= 'openrouter/anthropic/claude-sonnet-4.5'
+  DEEPSEEK_MODEL ||= 'deepseek/deepseek-flash'
   DEFAULT_BRANCH ||= 'vibe'
 
   module_function
@@ -56,10 +57,39 @@ module Vibe
   end
 
   # opencode model id: provider/model, e.g. openrouter/anthropic/claude-sonnet-4.5
+  # Explicit VIBE_MODEL wins; otherwise the provider with a key in the
+  # environment decides, so an app with only a deepseek key runs DeepSeek.
   def model
-    ENV['VIBE_MODEL'] || DEFAULT_MODEL
+    explicit = ENV['VIBE_MODEL'].to_s.strip
+    return explicit unless explicit.empty?
+
+    return DEEPSEEK_MODEL unless ENV['DEEPSEEK_API_KEY'].to_s.strip.empty?
+
+    DEFAULT_MODEL
   end
 
+  # provider segment of the model id (openrouter, deepseek, ...)
+  def provider
+    model.to_s.split('/').first.to_s
+  end
+
+  # {providerID, modelID} for the configured model, as opencode prompt overrides want
+  def model_ref
+    provider_id, model_id = model.to_s.split('/', 2)
+    { providerID: provider_id, modelID: model_id }
+  end
+
+  # env var opencode reads for the selected provider's key
+  def provider_key_env
+    provider == 'openrouter' ? 'OPENROUTER_API_KEY' : "#{provider.upcase}_API_KEY"
+  end
+
+  # key for the configured model, from ENV
+  def provider_key
+    ENV[provider_key_env].to_s.strip
+  end
+
+  # OpenRouter key for the commit-message helper (always OpenRouter)
   def openrouter_key
     ENV['OPENROUTER_API_KEY'].to_s.strip
   end

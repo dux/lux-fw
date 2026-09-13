@@ -41,7 +41,9 @@
       this.state.permissions = []
       this.state.revert      = null   // session.revert {messageID, ...} when the session is in reverted state
       this.state.online      = null   // null unknown, true/false after first contact
-      this.state.noKey       = false  // harness reports OPENROUTER_API_KEY empty
+      this.state.noKey       = false  // harness reports the selected provider's key empty
+      this.state.keyEnv      = ''     // env var the selected provider reads (e.g. DEEPSEEK_API_KEY)
+      this.state.model       = ''     // configured opencode model (provider/model...)
       this.state.openTools   = {}     // partId -> true (expanded cards)
       this.state.hidden      = 0      // messages hidden by a revert
 
@@ -59,6 +61,8 @@
         const was = this.state.online
         this.state.online = !!h.opencode
         if (h.key !== undefined && this.state.noKey !== !h.key) this.state.noKey = !h.key
+        if (h.key_env !== undefined) this.state.keyEnv = h.key_env
+        if (h.model) this.state.model = h.model
         // agent came (back) up -> (re)connect
         if (h.opencode && !was) this.boot()
         if (!h.opencode && this.state.es) { this.state.es.close(); this.state.es = null }
@@ -346,7 +350,13 @@
         this.state.pinned = true
         this.render()
 
-        await Vibe.oc(`/session/${this.state.sessionId}/prompt_async`, { json: { parts: [{ type: 'text', text }] } })
+        // Send the configured model with every prompt so a session created
+        // before a model change still runs (opencode otherwise uses the
+        // session's pinned model, which may no longer exist).
+        const json = { parts: [{ type: 'text', text }] }
+        const ref  = (this.state.model || '').split('/')
+        if (ref.length > 1) json.model = { providerID: ref[0], modelID: ref.slice(1).join('/') }
+        await Vibe.oc(`/session/${this.state.sessionId}/prompt_async`, { json })
         this.startPoll()
         this.setTimeout(() => this.refresh(), 600)
       } catch (e) { this.fail(e) }
@@ -732,7 +742,7 @@
 
 <div class="thread" fez:this="threadEl">
   {#if state.noKey}
-    <div class="err">OPENROUTER_API_KEY is empty - the agent cannot call a model. Put the key into .env and restart the vibe container (lux docker:vibe:run --stop, then run again).</div>
+    <div class="err">{state.keyEnv || 'The provider API key'} is empty - the agent cannot call a model. Put it into .env (or the app config) and restart the vibe container (lux docker:vibe:run --stop, then run again).</div>
   {/if}
   {#if state.revert}
     <div class="revert">

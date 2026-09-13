@@ -62,7 +62,7 @@ module Vibe
     end
 
     def prompt id, text
-      post "/session/#{id}/prompt_async", { parts: [{ type: 'text', text: text }] }
+      post "/session/#{id}/prompt_async", { parts: [{ type: 'text', text: text }], model: Vibe.model_ref }
     end
 
     def abort id

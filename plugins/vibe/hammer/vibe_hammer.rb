@@ -33,11 +33,26 @@ module VibeHammer
     name  = Vibe.run('git', 'config', 'user.name',  timeout: 5).then { |ok, out| ok ? out.strip : '' }
     email = Vibe.run('git', 'config', 'user.email', timeout: 5).then { |ok, out| ok ? out.strip : '' }
     {
-      'OPENROUTER_API_KEY' => '',
-      'VIBE_MODEL'         => Vibe::DEFAULT_MODEL,
-      'VIBE_GIT_NAME'      => name.empty?  ? 'vibe' : name,
-      'VIBE_GIT_EMAIL'     => email.empty? ? 'vibe@localhost' : email,
+      Vibe.provider_key_env => '',
+      'VIBE_MODEL'          => '', # blank = auto-detect from available provider keys
+      'VIBE_GIT_NAME'       => name.empty?  ? 'vibe' : name,
+      'VIBE_GIT_EMAIL'      => email.empty? ? 'vibe@localhost' : email,
     }
+  end
+
+  # The harness container reads provider keys from the app config (see
+  # entrypoint.vibe.sh); mirror them on the host so model auto-detection and the
+  # run/init warnings see the same keys without a copy in .env.
+  def load_provider_keys
+    return unless defined?(Lux) && Lux.respond_to?(:config)
+
+    %w[deepseek openrouter].each do |provider|
+      env = "#{provider.upcase}_API_KEY"
+      next unless ENV[env].to_s.strip.empty?
+
+      key = Lux.config.public_send(:"#{provider}_api_key") rescue nil
+      ENV[env] = key.to_s if key && !key.to_s.empty?
+    end
   end
 
   def template_vars
@@ -107,7 +122,7 @@ module VibeHammer
   # base, then the vibe service, then the personal override last so its volume
   # mounts (live gem checkouts) win for both app and vibe
   def compose_cmd
-    files = %w[docker-compose.yml docker-compose.vibe.yml docker-compose.override.yml]
+    files = %w[docker-compose.yml docker-compose.vibe.yml docker-compose.override.yml docker-compose.local.yml]
       .map { |f| File.join(DOCKER, f) }
       .select { |f| File.file?(File.join(Vibe.root, f)) }
     unless files.include?(File.join(DOCKER, 'docker-compose.vibe.yml'))
@@ -120,13 +135,16 @@ module VibeHammer
   # an override that remounts gems for `app` only leaves the vibe container with
   # the clone-mode mounts, which are empty on a live-mode machine
   def override_warning
-    path = File.join(Vibe.root, DOCKER, 'docker-compose.override.yml')
-    return nil unless File.file?(path)
+    %w[docker-compose.override.yml docker-compose.local.yml].each do |name|
+      path = File.join(Vibe.root, DOCKER, name)
+      next unless File.file?(path)
 
-    body = File.read(path)
-    return nil unless body =~ /^\s{2}app:/ && body !~ /^\s{2}vibe:/
+      body = File.read(path)
+      next unless body =~ /^\s{2}app:/ && body !~ /^\s{2}vibe:/
 
-    "#{DOCKER}/docker-compose.override.yml overrides `app` but has no `vibe:` service - if it mounts live gem checkouts, mirror those volumes under `vibe:` too"
+      return "#{DOCKER}/#{name} overrides `app` but has no `vibe:` service - if it mounts live gem checkouts, mirror those volumes under `vibe:` too"
+    end
+    nil
   end
 end
 
@@ -136,12 +154,13 @@ namespace :docker do
       desc <<~TXT
         Generate the vibe harness files into this app, all under #{VibeHammer::DOCKER}/:
         docker-compose.vibe.yml, Dockerfile.vibe, entrypoint.vibe.sh, vibe/{opencode.json,instructions.md},
-        plus OPENROUTER_API_KEY / VIBE_MODEL / VIBE_GIT_* lines in .env. Existing files are kept unless --force.
+        plus the provider key / VIBE_MODEL / VIBE_GIT_* lines in .env. Existing files are kept unless --force.
       TXT
       example 'docker:vibe:init'
       example 'docker:vibe:init --force'
       opt :force, type: :boolean, alias: :f, desc: 'overwrite generated files'
       proc do |opts|
+        VibeHammer.load_provider_keys
         vars = VibeHammer.template_vars
         say.cyan "generating vibe files in #{Vibe.root}"
         VibeHammer::FILES.each do |rel, tpl|
@@ -151,7 +170,7 @@ namespace :docker do
         say.green "  .env    added #{added.join(', ')}" if added.any?
         say.green '  .gitignore  added local/opencode' if VibeHammer.ensure_gitignore
         say ''
-        say.yellow 'Set OPENROUTER_API_KEY in .env, then: lux docker:vibe:run' if Vibe.openrouter_key.empty?
+        say.yellow "Set #{Vibe.provider_key_env} in .env, then: lux docker:vibe:run" if Vibe.provider_key.empty?
         say.gray  "model: #{vars[:model]}  (VIBE_MODEL in .env, opencode id: provider/model)"
       end
     end
@@ -173,9 +192,10 @@ namespace :docker do
         cmd = VibeHammer.compose_cmd
         exec "#{cmd} down" if opts[:stop]
 
+        VibeHammer.load_provider_keys
         branch = Vibe::Git.ensure_branch!
         say.green "on branch #{branch}"
-        say.yellow 'OPENROUTER_API_KEY is empty - the agent will not be able to call a model (set it in .env)' if Vibe.openrouter_key.empty?
+        say.yellow "#{Vibe.provider_key_env} is empty - the agent will not be able to call a model (set it in .env)" if Vibe.provider_key.empty?
         if (warning = VibeHammer.override_warning)
           say.yellow warning
         end
