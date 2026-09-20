@@ -80,22 +80,22 @@
 
 <article id={fez.anchor()} class="scroll-mt-20">
   <h3>
-    {local.entry.action}
+    {state.entry.action}
     <button type="button" class={'permalink' + (state.copied ? ' copied' : '')} onclick="fez.copyLink()" title="copy link to this method">
       {state.copied ? '✓' : '#'}
     </button>
   </h3>
 
   <div class="mt-3">
-    <lux-api-runner api_name={local.api_name} :entry="local.entry" />
+    <lux-api-runner api_name={state.api_name} :entry="state.entry" />
   </div>
 
-  {#if local.entry.desc}
-    <p class="text-gray-700 mt-4 mb-0">{@html window.luxMd(local.entry.desc)}</p>
+  {#if state.entry.desc}
+    <p class="text-gray-700 mt-4 mb-0">{@html window.luxMd(state.entry.desc)}</p>
   {/if}
 
-  {#if local.entry.detail}
-    <p class="small-text text-gray-500 mt-2">{@html window.luxMd(local.entry.detail)}</p>
+  {#if state.entry.detail}
+    <p class="small-text text-gray-500 mt-2">{@html window.luxMd(state.entry.detail)}</p>
   {/if}
 
   {#if fez.hasParams()}
@@ -105,7 +105,7 @@
         <span>{state.show_params ? 'Hide' : 'Show'} params</span>
       </button>
       <div class={'params-slide mt-2' + (state.show_params ? ' is-open' : '')}>
-        <lux-api-params :params="local.entry.params" />
+        <lux-api-params :params="state.entry.params" />
       </div>
     </div>
   {/if}

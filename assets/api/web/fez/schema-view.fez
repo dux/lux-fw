@@ -21,12 +21,12 @@
   }
 </script>
 
-{#if local.fields}
+{#if state.fields}
   <div class="-mt-4 mb-10">
     <div class="flex items-center gap-2 mb-4">
       <span class="label gray">schema</span>
-      <code class="small-text text-gray-600">{local.name}</code>
+      <code class="small-text text-gray-600">{state.name}</code>
     </div>
-    <lux-api-params :params="local.fields" />
+    <lux-api-params :params="state.fields" />
   </div>
 {/if}

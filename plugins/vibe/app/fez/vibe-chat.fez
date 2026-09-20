@@ -34,7 +34,7 @@
     init(props) {
       this.state.sessions    = []
       this.state.sessionId   = localStorage.getItem('vibe.session') || null
-      this.state.messages    = []     // render model, built from local.msgs
+      this.state.messages    = []     // render model, built from state.msgs
       this.state.busy        = false
       this.state.error       = ''
       this.state.questions   = []

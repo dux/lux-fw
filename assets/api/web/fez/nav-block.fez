@@ -83,8 +83,8 @@
 
 <div class={'nav-group' + (state.collapsed ? ' is-collapsed' : '')}>
   <button class="nav-group-toggle" onclick="fez.toggle()" title="expand / collapse">›</button>
-  <a href={local.href} class="nav-group-title" onclick="fez.clickTitle(event)">
-    <h6>{local.title}</h6>
+  <a href={state.href} class="nav-group-title" onclick="fez.clickTitle(event)">
+    <h6>{state.title}</h6>
   </a>
   <ul class="nav-items">
     <slot />

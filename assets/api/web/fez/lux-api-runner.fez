@@ -90,7 +90,7 @@ ${JSON.stringify(body, null, 2)}`
   // handler (window.luxJvToggle, defined in boot.js) so collapse/expand
   // works without per-render listener rebinding.
   function escapeHtmlStr(s) {
-    return String(s).replace(/[&<>"']/g, c => ({
+    return String(s).replace(/[&<>\x22\x27]/g, c => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]))
   }
