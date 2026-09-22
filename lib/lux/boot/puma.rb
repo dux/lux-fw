@@ -13,6 +13,7 @@
 # host app can override any directive at parse time. Defaults:
 #
 #   port            ENV['PUMA_PORT'] || ENV['PORT'] || 3000
+#   host            ENV['PUMA_HOST'] || 127.0.0.1  (the proxy is always on the same box)
 #   threads         1, 100  (an open SSE stream parks one for its lifetime)
 #   plugin          :tmp_restart
 #   production      stdout -> ./log, workers 2 (environment derived from LUX_ENV)
@@ -42,8 +43,14 @@ module Lux
         is_prod   = ENV['LUX_ENV'] == 'production'
         puma_port = ENV['PUMA_PORT'] || ENV['PORT'] || 3000
 
+        # Puma's `port` defaults the host to 0.0.0.0. The proxy (dboss, nginx) runs on the same
+        # box and dials 127.0.0.1, so binding every interface only opens a second door into the
+        # app, past whatever auth the proxy enforces. PUMA_HOST=0.0.0.0 is the escape hatch for
+        # a container, or for reaching a dev server from another device.
+        puma_host = ENV['PUMA_HOST'] || '127.0.0.1'
+
         plugin       :tmp_restart # restart on touch of tmp/restart.txt
-        port          puma_port
+        port          puma_port, puma_host
         log_requests  false
         pidfile       './tmp/puma.%s.pid'   % puma_port
         state_path    './tmp/puma.%s.state' % puma_port
