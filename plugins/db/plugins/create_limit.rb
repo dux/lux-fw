@@ -22,9 +22,6 @@ module Sequel::Plugins::LuxCreateLimit
     end
   end
 
-  module DatasetMethods
-  end
-
   module InstanceMethods
     def validate
       super
@@ -49,19 +46,30 @@ module Sequel::Plugins::LuxCreateLimit
 
         max_count, sec_or_field, name = *data
 
+        mine = self.class.where(creator_ref: ::User.current.ref)
+
         if sec_or_field.is_a?(Symbol)
-          current_count = self.class.my.xwhere(sec_or_field => self[sec_or_field]).count
+          current_count = mine.where(sec_or_field => self[sec_or_field]).count
         else
-          sec_or_field = sec_or_field.to_i
-          current_count = self.class.my.xwhere("created_at > (now() - interval '#{sec_or_field} seconds')").count
+          current_count = mine.where(Sequel.lit("created_at > (now() - interval '#{sec_or_field.to_i} seconds')")).count
         end
 
         if !Lux.env.test? && current_count >= max_count
-          time   = data[1].class == AS::Duration ? data[1].parts[0].to_a.reverse.join(' ') : "#{data[1].to_i/60} minutes"
-          name ||= (self.class.display_name.pluralize rescue self.class.to_s.tableize.humanize).downcase
-          errors.add(:base, "You are allowed to create max of #{max_count} #{name} in #{time} (Spam protection).")
+          errors.add(:base, create_limit_message(*data))
         end
       end
+    end
+
+    def create_limit_message max_count, sec_or_field, name = nil
+      span =
+        case sec_or_field
+        when Symbol                  then "per #{sec_or_field.to_s.humanize.downcase}"
+        when AS::Duration            then "in #{sec_or_field.parts[0].reverse.join(' ')}"
+        else                              "in #{sec_or_field.to_i / 60} minutes"
+        end
+
+      name ||= (self.class.display_name.pluralize rescue self.class.to_s.tableize.humanize).downcase
+      "You are allowed to create max of #{max_count} #{name} #{span} (Spam protection)."
     end
   end
 end

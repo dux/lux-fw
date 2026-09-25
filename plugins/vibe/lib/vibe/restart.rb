@@ -4,8 +4,9 @@
 #        lib/lux/boot/puma.rb) reloads the Ruby side in about a second. Enough
 #        for .rb/.haml/route changes; JS/CSS are rebuilt by the rollup watcher.
 # hard - `docker restart` of the app container through the docker socket, for
-#        Gemfile/package.json changes that need a full boot. The socket is only
-#        mounted into the vibe container, never where the agent runs shell.
+#        Gemfile/package.json changes that need a full boot. The socket is
+#        mounted into the vibe container, where the agent also runs shell, so
+#        the agent can reach the host's docker too.
 
 module Vibe
   module Restart

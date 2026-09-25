@@ -8,7 +8,6 @@ Sequel::Model.plugin :dirty
 
 require File.expand_path('../../plugins/db/loader.rb', __dir__)
 Sequel::Model.plugin :ref_linker
-Sequel::Model.plugin :lux_links
 Sequel::Model.plugin :lux_hooks
 
 DB.drop_table?(:cg_docs)

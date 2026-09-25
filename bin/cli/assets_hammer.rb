@@ -163,24 +163,25 @@ module LuxAssets
 
   # Compile production JS/CSS bundles. rollup.config.js cleans public/assets
   # and emits the compiled bundles via the app's bun/rollup toolchain.
-  # NODE_PRESERVE_SYMLINKS keeps node_modules/fez (a symlink to .gems/fez)
+  # NODE_PRESERVE_SYMLINKS keeps node_modules/fez (a symlink to .libs/fez)
   # resolving through the app's node_modules.
   def build
     sync_rollup_config
     system({ 'NODE_PRESERVE_SYMLINKS' => '1' }, 'bun run rollup -c') || abort('asset build failed: bun run rollup -c')
   end
 
-  # Copy the first rollup.config.js found across app roots into the app root as
-  # a real file. Node cannot resolve through Lux::Root, and rollup-plugin-*
-  # imports must resolve from the app's node_modules, so the gem copy is not
-  # usable in place.
+  # Copy the plugin's rollup.config.js into the app root as a real file. Node
+  # cannot resolve through Lux::Root, and rollup-plugin-* imports must resolve
+  # from the app's node_modules, so the gem copy is not usable in place.
+  #
+  # The app-root copy is generated (gitignored), so always source the plugin
+  # overlay - resolving through Lux.root would return the app copy itself and
+  # freeze the app on the first version it ever materialized.
   def sync_rollup_config
-    src = Lux.root.resolve('rollup.config.js')
+    src = Lux::Root.overlays.map { _1.join('rollup.config.js') }.find(&:file?)
     return unless src
 
     dst = Lux.root.join('rollup.config.js')
-    return if src.to_s == dst.to_s
-
     content = src.read
     return if dst.exist? && dst.read == content
 

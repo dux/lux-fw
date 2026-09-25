@@ -41,12 +41,14 @@ plugins/<name>/
   load/           # OPTIONAL. *.rb auto-required after loader
   routes.rb       # OPTIONAL. routing DSL evaluated by plugin_route :name / plugin_routes
   Hammerfile      # OPTIONAL. single-file CLI tasks
-  hammer/         # OPTIONAL. multi-file CLI tasks (*_hammer.rb)
+  hammer/         # OPTIONAL. multi-file CLI tasks (*_hammer.rb) - use one or the other
   mount/          # OPTIONAL. mirrors app root; registered as a Lux::Root overlay
+  lib/            # OPTIONAL. code loader.rb requires by hand, in its own order
+  spec/           # OPTIONAL. Minitest specs, run by `bundle exec hammer test`
 ```
 
-A plugin needs at least `config.yaml`, `loader.rb`, or `load/`. Otherwise
-`Lux.plugin :x` raises.
+Any combination is valid. A plugin with only `mount/` or only CLI tasks is
+registered and does nothing else on `Lux.plugin :x`.
 
 ## Load order
 
@@ -126,7 +128,9 @@ end
 | `routes.rb`  | only via `plugin_route :name` or `plugin_routes` | routing DSL body |
 | `Hammerfile` | only by CLI | tasks for `lux <cmd>` |
 | `hammer/`    | only by CLI | multi-file CLI tasks |
-| `mount/`     | registered on load | mirrors app root; resolved through Lux::Root |
+| `mount/`     | registered on load | mirrors app root; resolved through Lux::Root; `mount/app/**/*.rb` is eager-loaded with the app's `./app` |
+| `lib/`       | no         | required explicitly by `loader.rb` when load order matters |
+| `spec/`      | no         | plugin specs; `hammer test` runs each plugin folder in its own process |
 
 ## Mount semantics (`mount/`)
 

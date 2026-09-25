@@ -28,7 +28,7 @@ describe UserSession do
   it 'delays a rejected API key by 200 milliseconds' do
     with_user_lookup nil do
       without_real_sleep do |delays|
-        assert_nil UserSession.api_key_user('wrong-key')
+        assert_nil UserSession.api_key_load('wrong-key')
         assert_equal [0.2], delays
       end
     end
@@ -39,7 +39,7 @@ describe UserSession do
 
     with_user_lookup user, find: user do
       without_real_sleep do |delays|
-        assert_equal user, UserSession.api_key_user('valid-key')
+        assert_equal user, UserSession.api_key_load('valid-key')
         assert_empty delays
       end
     end
@@ -47,7 +47,7 @@ describe UserSession do
 
   it 'does not delay when no API key was supplied' do
     without_real_sleep do |delays|
-      assert_nil UserSession.api_key_user(nil)
+      assert_nil UserSession.api_key_load(nil)
       assert_empty delays
     end
   end

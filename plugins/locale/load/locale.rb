@@ -329,7 +329,7 @@ module Lux
     end
 
     def read_doc(ext, path, lc)
-      file = dir.join(ext, "#{path.tr('.', '/')}.#{lc}.#{ext}")
+      file = inside!(dir, dir.join(ext, "#{path.tr('.', '/')}.#{lc}.#{ext}"))
       file.exist? ? file.read : nil
     end
 
@@ -352,8 +352,18 @@ module Lux
     def read_view(path, lc)
       ext  = File.extname(path)            # '.html'
       base = path.delete_suffix(ext)       # '/main/legal/policy'
-      file = Pathname.new(views_root).join("#{base.delete_prefix('/')}.#{lc}#{ext}")
+      root = Pathname.new(views_root)
+      file = inside!(root, root.join("#{base.delete_prefix('/')}.#{lc}#{ext}"))
       file.exist? ? file.read : nil
+    end
+
+    # Doc keys become file paths. A `..` segment or an absolute path (join
+    # drops the root) would read outside it, so check where the file resolved.
+    def inside! root, file
+      base = File.expand_path(root.to_s)
+      return file if File.expand_path(file.to_s).start_with?(base + '/')
+
+      raise ArgumentError, "path escapes #{root}: #{file}"
     end
 
     def views_root

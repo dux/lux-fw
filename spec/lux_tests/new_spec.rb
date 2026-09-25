@@ -34,8 +34,8 @@ describe 'lux new' do
       end
       module Hammer::Shell
         def sh(command)
-          if command == 'bundle install' && File.read('Gemfile').include?("path: '.gems/lux-fw'")
-            raise 'local Lux is missing before bundle install' unless File.directory?('.gems/lux-fw')
+          if command == 'bundle install' && File.read('Gemfile').include?("path: '.libs/lux-fw'")
+            raise 'local Lux is missing before bundle install' unless File.directory?('.libs/lux-fw')
           end
           puts "SETUP #{JSON.generate([Dir.pwd, command, ENV.values_at('BUNDLE_GEMFILE', 'LUX_ENV', 'DB_MAIN')])}"
           error "command failed: #{command}" if command == ENV['LUX_NEW_FAIL_ON']
@@ -122,10 +122,10 @@ describe 'lux new' do
     refute File.exist?(File.join(path, 'app/controllers/admin_controller.rb'))
     refute File.exist?(File.join(path, '.gitignore.template'))
     assert_includes File.read(File.join(path, '.gitignore')), '/config/config.yaml'
-    assert_includes File.read(File.join(path, '.gitignore')), '/.gems/'
-    assert File.symlink?(File.join(path, '.gems/lux-fw'))
-    assert_equal Lux.fw_root.realpath.to_s, File.realpath(File.join(path, '.gems/lux-fw'))
-    assert_includes File.read(File.join(path, 'Gemfile')), "gem 'lux-fw', path: '.gems/lux-fw'"
+    assert_includes File.read(File.join(path, '.gitignore')), '/.libs/'
+    assert File.symlink?(File.join(path, '.libs/lux-fw'))
+    assert_equal Lux.fw_root.realpath.to_s, File.realpath(File.join(path, '.libs/lux-fw'))
+    assert_includes File.read(File.join(path, 'Gemfile')), "gem 'lux-fw', path: '.libs/lux-fw'"
 
     _, _, status = scaffold 'another-app'
     assert status.success?
@@ -137,7 +137,7 @@ describe 'lux new' do
     output, errors, status = scaffold installed: true
     assert status.success?, output + errors
     path = File.join(@workspace, 'my-app')
-    refute File.exist?(File.join(path, '.gems'))
+    refute File.exist?(File.join(path, '.libs'))
     gemfile = File.read(File.join(path, 'Gemfile'))
     assert_includes gemfile, "gem 'lux-fw'\n"
     refute_includes gemfile, 'path:'
@@ -178,13 +178,13 @@ describe 'lux new' do
     gemfile = File.read(File.join(path, 'Gemfile'))
     assert_includes gemfile, "lgem 'lux-fw'"
     assert_includes gemfile, "lgem 'lux-hammer'"
-    # every lgem and every "file:.gems/x" dep gets a link when the checkout exists
+    # every lgem and every "file:.libs/x" dep gets a link when the checkout exists
     %w[lux-fw lux-hammer].each do |name|
-      assert File.symlink?(File.join(path, ".gems/#{name}")), "missing .gems/#{name}"
+      assert File.symlink?(File.join(path, ".libs/#{name}")), "missing .libs/#{name}"
     end
     package = File.read(File.join(path, 'package.json'))
-    assert_includes package, '"fez": "file:.gems/fez"'
-    assert_includes package, '"postwind": "file:.gems/postwind"'
+    assert_includes package, '"fez": "file:.libs/fez"'
+    assert_includes package, '"postwind": "file:.libs/postwind"'
     assert_equal 'my_app', JSON.parse(package)['name']
 
     procfile = File.read(File.join(path, 'Procfile'))
@@ -192,6 +192,8 @@ describe 'lux new' do
     assert_includes procfile, 'web: bundle exec lux server'
     assert_includes File.read(File.join(path, '.gitignore')), '/node_modules/'
     assert_includes File.read(File.join(path, 'config/config.yaml')), '- web_common'
+    # web_common no longer pulls authcog in; the starter lists it itself
+    assert_includes File.read(File.join(path, 'config/config.yaml')), '- authcog'
   end
 
   it 'refuses to generate inside a framework checkout' do
@@ -233,7 +235,7 @@ describe 'lux new' do
     # the extracted plugin has to ship too, or authcog apps break on install
     assert_includes spec.files, 'plugins/authcog/load/authcog_controller.rb'
     assert_includes spec.files, 'plugins/authcog/load/user_session.rb'
-    assert_includes spec.files, 'plugins/web_common/config.yaml'
+    assert_includes spec.files, 'plugins/job_runner/config.yaml'
     assert_includes spec.files, 'assets/controller/error_page.html.erb'
     refute spec.files.any? { |file| File.basename(file).include?('.tmp.') }
     refute spec.files.any? { |file| file.start_with?('assets/new_app/') }
@@ -245,7 +247,7 @@ describe 'lux new' do
       assert_equal 200, (response).status
       assert_includes response.body, 'Welcome to My App'
       assert_includes response.body, 'postwind@'
-      assert_includes response.body, '@dinoreic/fez@'
+      assert_includes response.body, 'dux.github.io/fez/dist/fez.min.js'
       assert_includes response.body, '<app-nav>'
       assert_includes response.body, 'id="lux-state"'
       # fez binds Pjax only when the layout ships a container carrying an id
@@ -261,6 +263,10 @@ describe 'lux new' do
       # no web_common: its constants and mounted admin area must be absent
       refute defined?(LuxException), 'web_common should not load in hello-world'
       assert defined?(UserSession), 'authcog plugin should load standalone'
+
+      # requests below hit the starter's own host; test_helper points config.host
+      # at http://test, and sign-in only trusts hosts in the configured domain
+      Lux.config.host = 'http://lvh.me:3000'
 
       # the sign-in link is a local path; following it is what mints the challenge
       login = Lux.render.get('http://lvh.me:3000/login')

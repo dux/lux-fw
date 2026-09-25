@@ -236,6 +236,6 @@ describe Lux::Plugin do
   end
 
   it 'expands configured plugin names with their config.yaml dependencies' do
-    _(Lux::Plugin.dependency_names(['web_common'])).must_equal ['web_common', 'authcog']
+    _(Lux::Plugin.dependency_names(['job_runner'])).must_equal ['job_runner', 'db']
   end
 end

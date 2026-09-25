@@ -11,7 +11,7 @@ import terser from '@rollup/plugin-terser'
 import coffee from 'rollup-plugin-coffee-script'
 import livereload from 'rollup-plugin-livereload'
 import alias from '@rollup/plugin-alias';
-import fezPlugin from 'fez/rollup';
+import fezPlugin from 'fez/plugin';
 
 const production = !process.env.ROLLUP_WATCH;
 const extensions = ['.js', '.coffee', '.ts']
@@ -69,22 +69,25 @@ class Config {
         name: name,
         inlineDynamicImports: true,
       },
-      external: [ 'window' ],
+      // `window` is provided by the IIFE context; URL imports stay native
+      // dynamic imports (rollup keeps import('https://...') as-is in an IIFE)
+      // instead of being hoisted to guessed globals.
+      external: (id) => id === 'window' || /^https?:\/\//.test(id),
       plugins: [
         alias({
           entries: [
             { find: '@lib', replacement: `${process.cwd()}/app/assets/js/lib` },
             // resolve bare `fez` from app node_modules even when imported by a
             // gem-symlinked source file (nodeResolve would look in the gem dir)
-            { find: /^fez$/, replacement: `${process.cwd()}/node_modules/fez/dist/fez.js` },
+            { find: /^fez$/, replacement: `${process.cwd()}/node_modules/fez/dist/fez.esm.js` },
           ]
         }),
-        // chain fez's own sourcemap (dist/fez.js.map -> src/fez/*) so app stack
-        // traces resolve into fez source instead of the minified bundle
+        // chain fez's own sourcemap (dist/fez.esm.js.map -> src/fez/*) so app
+        // stack traces resolve into fez source instead of the built bundle
         {
           name: 'chain-fez-sourcemap',
           load(id) {
-            if (!/fez[\/\\]dist[\/\\]fez\.js$/.test(id)) return null
+            if (!/fez[\/\\]dist[\/\\]fez\.esm\.js$/.test(id)) return null
             return {
               code: fs.readFileSync(id, 'utf8'),
               map: JSON.parse(fs.readFileSync(id + '.map', 'utf8')),
@@ -114,12 +117,10 @@ class Config {
           extensions: extensions,
           ignoreGlobal: true,
           sourceMap: true,
-          // fez dist is a self-running IIFE that sets window.Fez; if commonjs
-          // wraps it, its side effects only fire when a binding is required,
-          // which a bare `import 'fez'` never does. Let rollup run it inline.
-          exclude: [/fez[\/\\]dist[\/\\]fez\.js$/],
+          // keep the fez ESM bundle native: commonjs must not wrap it
+          exclude: [/fez[\/\\]dist[\/\\]fez\.esm\.js$/],
         }),
-        fezPlugin(),
+        fezPlugin({ runtime: 'fez' }),
         production && terser(terserOpts)
       ],
       onwarn: (warning, defaultHandler) => {

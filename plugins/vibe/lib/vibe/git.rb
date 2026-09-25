@@ -36,6 +36,19 @@ module Vibe
       text.to_s.lines.map(&:strip).reject(&:empty?)
     end
 
+    # A path from the browser, confined to the repo. `diff --no-index` would
+    # otherwise read any file the container can see.
+    def repo_path! path
+      path = path.to_s
+      raise Error, 'No path given' if path.empty?
+
+      root = File.expand_path(Vibe.root)
+      full = File.expand_path(path, root)
+      raise Error, 'Path is outside the repo: %s' % path unless full.start_with?(root + '/')
+
+      path
+    end
+
     # --- branch guard ------------------------------------------------------
 
     def current_branch
@@ -58,10 +71,8 @@ module Vibe
     # dirty tree is refused rather than stashed on the caller's behalf - the
     # harness must never lose uncommitted work silently.
     def ensure_branch!
-      # inside the container the checkout is owned by the host uid; without this
-      # every git call is refused as "dubious ownership"
-      git? 'config', '--global', '--add', 'safe.directory', Vibe.root
-
+      # safe.directory for the container checkout is set once by the entrypoint;
+      # adding it here wrote a new ~/.gitconfig line on every call on the host
       current = current_branch
       return current if current == Vibe.branch
 
@@ -174,6 +185,7 @@ module Vibe
     # diffed against /dev/null so they show as all-added
     def diff path = nil
       if path
+        repo_path! path
         tracked = git?('ls-files', '--error-unmatch', '--', path).first
         return git('diff', 'HEAD', '--', path) if tracked
 
@@ -283,8 +295,7 @@ module Vibe
 
     def discard_file path
       ensure_branch!
-      path = path.to_s
-      raise Error, 'No path given' if path.empty?
+      path = repo_path!(path)
 
       if git?('ls-files', '--error-unmatch', '--', path).first
         git 'checkout', 'HEAD', '--', path

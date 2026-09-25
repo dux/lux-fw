@@ -24,10 +24,7 @@ Sequel::Model.plugin :dirty
 require File.expand_path('../../plugins/db/loader.rb', __dir__)
 
 # Register Sequel plugins so models can use `plugin :name`.
-# :lux_links and :parent_model are aliases of :ref_linker (kept for compat).
 Sequel::Model.plugin :ref_linker
-Sequel::Model.plugin :parent_model
-Sequel::Model.plugin :lux_links
 Sequel::Model.plugin :primary_keys
 Sequel::Model.plugin :lux_hooks
 Sequel::Model.plugin :lux_before_save
@@ -173,8 +170,7 @@ class Task < Sequel::Model
   set_primary_key :ref
   unrestrict_primary_key
 
-  plugin :parent_model
-  plugin :lux_links
+  plugin :ref_linker
 
   link :user
 end
@@ -203,7 +199,7 @@ class Project < Sequel::Model
   set_primary_key :ref
   unrestrict_primary_key
 
-  plugin :lux_links
+  plugin :ref_linker
   link :users  # plural, array-based (user_refs text[])
 end
 
@@ -211,11 +207,8 @@ class Note < Sequel::Model
   set_primary_key :ref
   unrestrict_primary_key
 
-  plugin :parent_model
+  plugin :ref_linker
   plugin :lux_create_limit
-
-  # .my scope required by create_limit (filters to current user's records)
-  scope(:my) { |user = nil| where(creator_ref: (user || User.current).ref) }
 
   create_limit 3, 1.hour
 end
@@ -223,19 +216,19 @@ end
 class Memo < Sequel::Model
   set_primary_key :ref
   unrestrict_primary_key
-  plugin :parent_model
+  plugin :ref_linker
 end
 
 class BothPoly < Sequel::Model(:both_polys)
   set_primary_key :ref
   unrestrict_primary_key
-  plugin :parent_model
+  plugin :ref_linker
 end
 
 class BareModel < Sequel::Model(:bare_models)
   set_primary_key :ref
   unrestrict_primary_key
-  plugin :parent_model
+  plugin :ref_linker
 end
 
 class EnumWidget < Sequel::Model(:enum_widgets)
@@ -266,7 +259,7 @@ end
 
 # Add plural reverse-lookup link after both classes exist
 Comment.scope(:default) { self }
-Task.plugin :lux_links
+Task.plugin :ref_linker
 Task.class_eval { link :comments }
 
 # Singular link setter was untested - Task already has `link :user`
@@ -1947,6 +1940,15 @@ describe 'plugins/db/create_limit.rb' do
     end
   end
 
+  describe '#create_limit_message' do
+    it 'names the window for a duration, seconds, or a field' do
+      note = Note.new
+      _(note.create_limit_message(3, 1.hour, 'notes')).must_include 'max of 3 notes in 1 hours'
+      _(note.create_limit_message(3, 600, 'notes')).must_include 'max of 3 notes in 10 minutes'
+      _(note.create_limit_message(3, :org_ref, 'notes')).must_include 'max of 3 notes per org ref'
+    end
+  end
+
   describe 'validate' do
     it 'raises when no user is logged in' do
       User.current = nil
@@ -1993,6 +1995,7 @@ describe 'plugins/db/create_limit.rb' do
 
         _(note.errors[:base]).must_be_kind_of Array
         _(note.errors[:base].first).must_include 'max of 3'
+        _(note.errors[:base].first).must_include 'in 1 hours'
         _(note.errors[:base].first).must_include 'Spam protection'
       end
 

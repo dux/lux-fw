@@ -29,7 +29,9 @@ module Vibe
     set :server, :puma
     set :bind, ENV['VIBE_BIND'] || '0.0.0.0'
     set :port, Vibe.port
-    set :protection, except: [:json_csrf, :http_origin] # fetch() posts from the same page
+    # http_origin stays on: it is what stops other sites posting here. :deny,
+    # because Sinatra's default reaction drops a session this server never has.
+    set :protection, except: [:json_csrf], reaction: :deny
 
     helpers do
       def h text
@@ -79,8 +81,7 @@ module Vibe
       def fez_js
         [
           File.join(Vibe.root, 'node_modules/@dinoreic/fez/dist/fez.js'),
-          File.join(Vibe.root, '.gems/fez/dist/fez.js'),
-          File.join(Dir.home, 'dev/gems/fez/dist/fez.js'),
+          File.join(Vibe.root, '.libs/fez/dist/fez.js'),
         ].find { |f| File.file?(f) }
       end
 
@@ -124,7 +125,7 @@ module Vibe
 
     get '/fez.js' do
       file = fez_js
-      halt 404, 'fez.js not found - install @dinoreic/fez in the app (bun add @dinoreic/fez) or mount .gems/fez' unless file
+      halt 404, 'fez.js not found - install @dinoreic/fez in the app (bun add @dinoreic/fez) or mount .libs/fez' unless file
       serve_static file, 'application/javascript'
     end
 

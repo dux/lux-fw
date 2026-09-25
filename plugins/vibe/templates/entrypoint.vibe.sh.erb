@@ -5,8 +5,8 @@
 #   [oc]   opencode serve on 127.0.0.1:4096 (the agent; <%= docker_dir %>/vibe/opencode.json)
 #   [vibe] lux docker:vibe:server on :4000 (the harness page + api + proxy to opencode)
 # Both log to stdout with a prefix so `docker compose logs vibe` reads as one stream.
-# If either dies the container exits, so compose restarts/reports it instead of
-# leaving a half-working harness behind.
+# opencode is restarted in place when it dies; the harness is the main process,
+# so the container exits (and compose reports it) only when the harness does.
 set -euo pipefail
 
 cd /app
@@ -16,7 +16,7 @@ say() { printf '\n\033[35m==> %s\033[0m\n' "$*"; }
 mkdir -p log tmp local/opencode
 
 # the checkout is owned by the host uid; git refuses to touch it otherwise
-git config --global --add safe.directory /app
+git config --global --get-all safe.directory | grep -qx /app || git config --global --add safe.directory /app
 git config --global user.name  "${VIBE_GIT_NAME:-vibe}"            >/dev/null 2>&1 || true
 git config --global user.email "${VIBE_GIT_EMAIL:-vibe@localhost}" >/dev/null 2>&1 || true
 

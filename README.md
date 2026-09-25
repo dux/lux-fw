@@ -571,10 +571,11 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 |--------|------|------|
 | `db`               | Sequel model extensions, auto-migrate, `link` associations | [README](./plugins/db/README.md) |
 | `authcog`          | Central-auth sign-in: `AuthcogController`, `UserSession` + sudo | [README](./plugins/authcog/README.md) |
-| `web_common`       | Shared web layer: html builders, assets, PG exception logger + `/admin`; pulls in `authcog` | [README](./plugins/web_common/README.md) |
-| `job_runner`       | Background job queue (LuxJob) | [README](./plugins/job_runner/README.md) |
-| `lux_logger`       | Structured database logger | [README](./plugins/lux_logger/README.md) |
-| `oauth`            | OAuth integration | [README](./plugins/oauth/README.md) |
+| `web_common`       | Shared web layer: html builders, assets, PG exception logger + `/admin`; list `authcog` next to it | [README](./plugins/web_common/README.md) |
+| `locale`           | Namespaced translation lookup with dotted keys | [README](./plugins/locale/README.md) |
+| `job_runner`       | Background job queue (LuxJob) + admin dashboard | [README](./plugins/job_runner/README.md) |
+| `pdf`              | Printable A4 pages + PDF download | [README](./plugins/pdf/README.md) |
+| `vibe`             | Docker harness for agent-driven app editing | [README](./plugins/vibe/README.md) |
 
 ## CLI
 

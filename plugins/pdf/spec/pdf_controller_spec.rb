@@ -1,5 +1,5 @@
 require 'test_helper'
-require 'digest'
+require 'openssl'
 
 # PdfController is a mount/ file - it subclasses the host's FrontendController
 # and is normally resolved from the plugin mount by the app. Stand that parent in so
@@ -7,7 +7,7 @@ require 'digest'
 # the signed-URL contract.
 #
 # The flow being pinned: a request to /pdf/<page>.pdf signs the canonical path
-# and hands the URL to a headless browser, which fetches /pdf/<page>?s=<sig>
+# and hands the URL to a headless browser, which fetches /pdf/<page>?s=<sig>&e=<expiry>
 # unauthenticated. The signature is built in one request and verified in
 # another, so it has to be identical across both - and stable against whatever
 # load_models or an app before-filter did to nav.path in between.
@@ -79,18 +79,24 @@ describe PdfController do
   end
 
   describe '.sign' do
-    it 'is stable for the same path' do
-      _(PdfController.sign('/pdf/demo')).must_equal PdfController.sign('/pdf/demo')
+    EXPIRES ||= 2_000_000_000
+
+    it 'is stable for the same path and expiry' do
+      _(PdfController.sign('/pdf/demo', EXPIRES)).must_equal PdfController.sign('/pdf/demo', EXPIRES)
     end
 
     it 'differs per path' do
-      _(PdfController.sign('/pdf/demo')).wont_equal PdfController.sign('/pdf/other')
+      _(PdfController.sign('/pdf/demo', EXPIRES)).wont_equal PdfController.sign('/pdf/other', EXPIRES)
+    end
+
+    it 'differs per expiry' do
+      _(PdfController.sign('/pdf/demo', EXPIRES)).wont_equal PdfController.sign('/pdf/demo', EXPIRES + 1)
     end
 
     it 'depends on the app secret' do
-      first = PdfController.sign('/pdf/demo')
+      first = PdfController.sign('/pdf/demo', EXPIRES)
       Lux.config[:secret] = 'a-different-secret'
-      _(PdfController.sign('/pdf/demo')).wont_equal first
+      _(PdfController.sign('/pdf/demo', EXPIRES)).wont_equal first
     end
   end
 
@@ -100,17 +106,38 @@ describe PdfController do
       PdfController.new.send(:verify_access!)
     end
 
+    def later = Time.now.to_i + 60
+
     # the real two-request round trip: sign on /pdf/demo.pdf, verify on /pdf/demo
     it 'accepts the signature minted by the .pdf request' do
       Lux::Current.new 'http://test/pdf/demo.pdf'
-      signed = PdfController.sign(PdfController.new.send(:pdf_path))
+      expires = later
+      signed  = PdfController.sign(PdfController.new.send(:pdf_path), expires)
 
-      verify "http://test/pdf/demo?s=#{signed}"
+      verify "http://test/pdf/demo?s=#{signed}&e=#{expires}"
     end
 
     it 'rejects a signature for a different path' do
-      signed = PdfController.sign('/pdf/other')
-      _{ verify "http://test/pdf/demo?s=#{signed}" }.must_raise Lux::Error
+      signed = PdfController.sign('/pdf/other', later)
+      _{ verify "http://test/pdf/demo?s=#{signed}&e=#{later}" }.must_raise Lux::Error
+    end
+
+    it 'rejects an expired signature' do
+      expires = Time.now.to_i - 1
+      signed  = PdfController.sign('/pdf/demo', expires)
+      _{ verify "http://test/pdf/demo?s=#{signed}&e=#{expires}" }.must_raise Lux::Error
+    end
+
+    it 'rejects a signature whose expiry was pushed out' do
+      signed = PdfController.sign('/pdf/demo', Time.now.to_i - 1)
+      _{ verify "http://test/pdf/demo?s=#{signed}&e=#{later}" }.must_raise Lux::Error
+    end
+
+    # a signature only admits the HTML page; the PDF needs a signed-in user
+    it 'rejects a signature on the .pdf itself' do
+      expires = later
+      signed  = PdfController.sign('/pdf/demo', expires)
+      _{ verify "http://test/pdf/demo.pdf?s=#{signed}&e=#{expires}" }.must_raise Lux::Error
     end
 
     it 'rejects a missing signature' do
@@ -118,7 +145,7 @@ describe PdfController do
     end
 
     it 'rejects an empty signature' do
-      _{ verify 'http://test/pdf/demo?s=' }.must_raise Lux::Error
+      _{ verify "http://test/pdf/demo?s=&e=#{later}" }.must_raise Lux::Error
     end
   end
 end

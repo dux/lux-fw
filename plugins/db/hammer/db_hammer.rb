@@ -162,12 +162,6 @@ namespace :db do
     end
   end
 
-  task :destroy do
-    desc 'Drop databases (alias for db:drop)'
-    needs :env
-    proc { |_opts| hammer 'db:drop' }
-  end
-
   task :drop do
     desc 'Drop databases (including test)'
     needs :env
@@ -309,18 +303,13 @@ namespace :db do
     end
   end
 
-  task :console do
-    desc 'Run PSQL console'
-    needs :env
-    proc { |opts| hammer 'db:psql', *opts[:args] }
-  end
-
   task :am do
     desc 'Automigrate schema (drops removed columns by default; --ask to confirm each)'
     needs :env
     opt :ask, type: :boolean, desc: 'Prompt before dropping columns (default: drop without asking)'
     proc do |opts|
       ENV['DB_MIGRATE'] = 'true' unless ENV['DB_MIGRATE'] == 'true'
+      require File.expand_path('../migrate/auto_create_tables', __dir__)
 
       # AutoMigrate is auto-loaded by `Lux.plugin :db` (see plugins/db/migrate/auto_migrate.rb).
       # Column drops apply automatically; --ask restores the interactive y/N confirmation.

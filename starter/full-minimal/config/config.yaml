@@ -1,6 +1,7 @@
 default:
   plugins:
     - db
+    - authcog
     - web_common
 
   db:

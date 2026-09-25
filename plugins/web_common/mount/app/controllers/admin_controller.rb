@@ -1,6 +1,14 @@
 class AdminController < FrontendController
   layout :admin
 
+  # Plugin pages (/admin/plugins/*) load no models, so the per-model check in
+  # #call alone would let anyone in.
+  before do
+    next if @error
+
+    raise Lux.error.forbidden('Admin access required') unless user&.can&.admin?
+  end
+
   allow :get
   def call
     nav.load_models.each { |o| o.can.update! }

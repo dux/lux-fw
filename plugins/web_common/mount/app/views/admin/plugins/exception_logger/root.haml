@@ -45,5 +45,5 @@
   - t.col(title: 'Class', width: 250) { |o| { class: 'badge', href: '%s/?klass=%s' % [@prefix, CGI.escape(o.klass.to_s)], onclick: 'event.stopPropagation()' }.tag(:a, CGI.escapeHTML(o.klass.to_s)) }
   - t.col(title: 'Message')              { |o| CGI.escapeHTML(LuxException.trim(o.message, 200)) }
   - t.col(title: 'Times', width: 60, align: :c) { |o| o.times }
-  - t.col(title: 'Last & first', width: 180)    { |o| [LuxException.time_ago(o.last_at), LuxException.time_ago(o.first_at)].join('<br>') }
+  - t.col(title: 'Last & first', width: 180)    { |o| [Time.ago(o.last_at), Time.ago(o.first_at)].join('<br>') }
   - t.col(title: 'Resolved', width: 80, align: :c) { |o| { class: o.is_resolved ? 'badge badge-success' : 'badge' }.tag(:span, o.is_resolved ? 'yes' : 'no') }

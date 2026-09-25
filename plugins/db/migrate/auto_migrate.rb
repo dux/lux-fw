@@ -546,7 +546,7 @@ class AutoMigrate
     return if exists.first
 
     sql = %{ALTER TABLE #{@table_name} ADD CONSTRAINT "#{constraint_name}" FOREIGN KEY ("#{local_field}") REFERENCES "#{foreign_table}"("#{foreign_id}") ON DELETE CASCADE}
-    db.run(sql) rescue nil
+    db.run(sql)
     puts " added foreign_key #{constraint_name} -> #{foreign_table}.#{foreign_id}"
   end
 

@@ -1,8 +1,7 @@
 # Lux.plugin :authcog
 
-Central-auth sign-in for a Lux app. Split out of `web_common` so an app can
-take authentication without the html builders, asset helpers and exception
-logger that come with the full web layer.
+Central-auth sign-in for a Lux app, usable without the html builders, asset
+helpers and exception logger of `web_common`.
 
 ```yaml
 # config/config.yaml
@@ -12,8 +11,8 @@ default:
     - authcog
 ```
 
-`web_common` declares this plugin as a dependency, so an app that lists
-`web_common` gets both constants without naming `authcog` itself.
+An app with `web_common` lists `authcog` next to it; `web_common` does not
+pull it in.
 
 Needs the `db` plugin and an app-side `User` model - see **Requirements**.
 
@@ -68,7 +67,10 @@ by the time a controller runs.
 5. It redirects to `session[:redirect_after_login]` or `/`.
 
 The hash is single-use and scoped to the requesting domain, so it is worthless
-to anyone who intercepts it on another host. The challenge is what makes the
+to anyone who intercepts it on another host. The domain comes from the request
+only when it sits inside the domain of `Lux.config.host` (subdomains
+included); any other Host header falls back to the configured host, so a
+forged header cannot pick the domain a stolen hash is exchanged for. The challenge is what makes the
 callback belong to this browser: a login someone else started cannot be landed
 in a visitor's session (RFC 9700).
 
@@ -105,6 +107,7 @@ ever spent, so a bogus `?state=` cannot clear a real one.
 |-----|---------|---------|
 | `authcog_realm` | `auth` | Subdomain of `authcog.com` to authenticate against. |
 | `authcog_path` | `/authcog` | Where this controller is mounted; what `auth_link` returns. |
+| `host` | - | The app's own URL; its domain bounds which request hosts sign-in trusts. |
 
 ## Redirect after login
 
@@ -113,4 +116,6 @@ UserSession.redirect_after_login = request.path   # before bouncing to /login
 ```
 
 `AuthcogController#callback` consumes the same session key, so a guest who hits
-a protected page lands back on it after signing in.
+a protected page lands back on it after signing in. Only site-local paths are
+kept (`UserSession.local_path`): a full URL or a protocol-relative `//host`
+is dropped, so the redirect cannot be turned into an open redirect.

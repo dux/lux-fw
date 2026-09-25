@@ -11,12 +11,4 @@ namespace :job_runner do
       LuxJob.run
     end
   end
-
-  task :restart do
-    desc 'Restart job server'
-
-    proc do |_opts|
-      # job-runner-soho_tasks
-    end
-  end
 end

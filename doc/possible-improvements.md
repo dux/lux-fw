@@ -103,8 +103,8 @@ Recurring but lower frequency. Each is small and self-contained.
   encrypted-at-rest is a one-liner.
 * **HTTP outbound client wrapper.** Every app pulls Faraday/HTTP.rb separately. A thin `Lux.http` with timeouts +
   retries + structured logging keyed by request id matches the "batteries where it matters" stance.
-* **Structured (JSON) request logger mode.** `plugins/lux_logger` is a DB-backed event audit log, not the request log.
-  Verify (or add) JSON-lines output keyed by request id for prod log shipping.
+* **Structured (JSON) request logger mode.** Verify (or add) JSON-lines output keyed by request id for prod log
+  shipping.
 * **Test helpers shipping with framework.** Specs live under `spec/lux_tests/` but there's no `Lux::Spec::Request` for
   host apps to consume - they reinvent `Rack::MockRequest` wrappers. Extracting one would help adoption more than
   another README.
@@ -131,7 +131,7 @@ they don't get re-pitched.
 * **GraphQL / batch endpoint.** The API + schema story covers the same need with less ceremony.
 * **Asset pipeline beyond CDN URLs.** Sprockets / Propshaft is a full-time job; we delegate to the browser and the
   CDN. `plugins/web_common/load/assets/cdn_asset.rb` is enough for the lux philosophy.
-* **OAuth provider mode.** Big scope, narrow audience; consumer-side via `plugins/oauth` is enough.
+* **OAuth provider mode.** Big scope, narrow audience; sign-in goes through central AuthCog (`plugins/authcog`).
 * **Per-mount DI container (Hanami slices).** Plugin layout already scopes ownership; another container layer is more
   complexity than payoff.
 * **Zeitwerk-style lazy autoloader.** Considered as a replacement for the boot-time `Dir.require_all` sweep over

@@ -5,6 +5,13 @@ module Sequel::Plugins::LuxBeforeSave
       self[:created_at] = Time.now.utc if new? && respond_to?(:created_at)
       self[:updated_at] = Time.now.utc if respond_to?(:updated_at)
 
+      # audit fields are written once, at create; a later write cannot rewrite
+      # them, however the update was constructed
+      if !new?
+        self[:created_at] = initial_value(:created_at) if respond_to?(:created_at) && column_changed?(:created_at)
+        self[:creator_ref] = initial_value(:creator_ref) if respond_to?(:creator_ref) && column_changed?(:creator_ref)
+      end
+
       if defined?(User)
         # updater audit
         ref = default_current_user_ref

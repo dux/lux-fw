@@ -8,14 +8,17 @@ for single-instance guarding - no polling, no row-based heartbeat.
 
 Load the plugin in your app:
 
-```ruby
-Lux.plugin 'job_runner'
+```yaml
+# config/config.yaml
+plugins:
+  - job_runner      # pulls in db (declared in the plugin's config.yaml)
 ```
 
-The JSON API (`LuxJobsApi`) ships in `lib/lux_jobs_api.rb` and is mounted by
-the host's `Lux::Api` auto-mount, typically at `/api/lux_jobs`.
-The admin dashboard views (`/admin/plugins/lux_jobs`) ship with the
-`web_common` plugin, resolved through the `Lux::Root` overlay.
+The JSON API (`LuxJobsApi`) and the admin dashboard views ship under
+`mount/app/`, which the `Lux::Root` overlay treats as part of the app: the
+API is eager-loaded with `./app` and mounted at `/api/lux_jobs`, the views
+render at `/admin/plugins/lux_jobs`. Both need `web_common` (`ModelApi`,
+the admin layout).
 
 ## Usage
 
@@ -66,7 +69,7 @@ LuxJob.run  # blocks; uses LISTEN + advisory lock on one pinned connection
 
 ### Admin Dashboard
 
-With `web_common` loaded, the dashboard lives at:
+The dashboard lives at:
 
 * `/admin/plugins/lux_jobs` - list of registered jobs and recent log
 * `/admin/plugins/lux_jobs/show?name=<job>` - per-job page with trigger
@@ -76,16 +79,17 @@ Admin auth is enforced by `LuxJobsApi` via `user.can.admin!`.
 
 ### API
 
-`LuxJobsApi` is mounted by the host's `Lux::Api` auto-mount, typically
-at `/api/lux_jobs`. Actions:
+`LuxJobsApi` is mounted at `/api/lux_jobs`. Actions:
 
 | Action            | Type       | Purpose                                  |
 |-------------------|------------|------------------------------------------|
 | `trigger`         | collection | Enqueue a defined job by name + opts     |
 | `poll`            | collection | Return last log timestamp for polling    |
 | `log`             | collection | Tail recent log lines (filterable)       |
-| `restart`         | member     | Reset a job row to run now               |
-| `run`             | member     | Run the job synchronously in a thread    |
+| `restart`         | member     | Reset a job row to run now and wake the runner |
+
+Nothing runs a job in a web process: only the runner holds the advisory lock
+that keeps a job from running twice.
 
 ## Schema
 
@@ -120,16 +124,23 @@ Jobs that exceed their timeout are treated as failures and follow the same retry
 
 Logs are written to `./log/lux_job.log`
 
+`LuxJob.error 'message'` inside a job raises `LuxJobError`: an expected
+failure. The job is marked failed with that message, nothing goes to the
+exception log, and there is no backoff retry - it runs again at its next
+scheduled time (`every:`, or an hour later for a one-off).
+
 ## Layout
 
 ```
 plugins/job_runner/
-  loader.rb                  # requires LuxJob + LuxJobLock
-  lib/
+  config.yaml                # plugins: [db]
+  load/
     lux_job.rb               # model + runner (LISTEN/NOTIFY)
     lux_job_lock.rb          # pg_try_advisory_lock guard
-    lux_jobs_api.rb          # LuxJobsApi (auto-mounted by Lux::Api)
-    lux_job_policy.rb
     lux_job_exporter.rb
-  Hammerfile                 # `lux job_runner:start`, `:restart`
+  mount/app/
+    api/lux_jobs_api.rb      # LuxJobsApi, /api/lux_jobs
+    views/admin/plugins/lux_jobs/   # dashboard
+  Hammerfile                 # `lux job_runner:start`
+  spec/lux_job_spec.rb
 ```

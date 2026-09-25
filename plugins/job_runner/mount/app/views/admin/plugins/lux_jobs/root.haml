@@ -55,12 +55,12 @@
         %td #{row[:timeout]}s
         %td
           - if row[:db]&.updated_at
-            #{LuxJob.time_relative(row[:db].updated_at)}
+            #{Time.ago(row[:db].updated_at)}
           - else
             \-
         %td
           - if row[:db]&.run_at
-            #{LuxJob.time_relative(row[:db].run_at)}
+            #{Time.ago(row[:db].run_at)}
           - else
             \-
         %td
@@ -78,7 +78,7 @@
     - recent.each do |line|
       - parsed = LuxJob.parse_log_line(line)
       .lj-line{ class: ('error' if line.include?('ERROR')) }
-        %span.lj-time= LuxJob.time_ago(parsed[:time])
+        %span.lj-time= Time.ago(parsed[:time])
         = parsed[:message]
 
 :javascript
@@ -95,12 +95,7 @@
     $.setInterval('luxJobsPoll', async function() {
       try {
         var body = { name: job || null };
-        var resp = await fetch('/api/lux_jobs/poll', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify(body)
-        });
+        var resp = await Lux.fetch('/api/lux_jobs/poll', { body: body });
         var data = await resp.json();
         var newId = data && data.data && data.data.last_id;
         if (newId && newId !== lastId) {

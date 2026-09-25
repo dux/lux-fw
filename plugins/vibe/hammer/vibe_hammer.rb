@@ -10,7 +10,7 @@
 # app's own `lux docker:run`.
 
 require 'erb'
-require_relative '../loader'
+require_relative '../lib/vibe'
 
 module VibeHammer
   TEMPLATES ||= File.join(Vibe.plugin_root, 'templates')

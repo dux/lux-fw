@@ -56,25 +56,6 @@ class ModelApi < ApplicationApi
 
   ###
 
-  def same_as_last?
-    return unless respond_to?(:creator_ref)
-
-    @last = self.class.xorder('id desc').my.first
-
-    return unless @last
-
-    if respond_to?(:created_at)
-      diff = (Time.now.to_i - @last.created_at.to_i)
-      return diff < 2
-    end
-
-    if respond_to?(:name)
-      return true if name == @last.name
-    end
-
-    false
-  end
-
   # toggles value in postgre array field
   def toggle_value field, value, object = nil
     object ||= @object
@@ -101,9 +82,16 @@ class ModelApi < ApplicationApi
     end
   end
 
+  # Params a client may never set: the audit quartet is framework-owned and
+  # filled by the before_save filters. generated_create/update assign any field
+  # with a setter, and that runs before the policy; remove the keys at every
+  # depth so a nested payload cannot smuggle one in.
+  PROTECTED_PARAMS ||= Sequel::Plugins::LuxSchema::AUDIT_COLUMNS
+
   def object_params
     base = params[@object.class.to_s.underscore]
-    base.respond_to?(:values) ? base : params
+    base = base.respond_to?(:values) ? base : params
+    base.deep_destroy(*PROTECTED_PARAMS)
   end
 
   def display_name
@@ -150,6 +138,11 @@ class ModelApi < ApplicationApi
 
   def generated_update
     error "Object not found" unless @object
+
+    # Policy runs on the stored record first, so a caller cannot write the
+    # fields the policy reads (owner refs) and then pass on their new values.
+    # The check after assignment still guards the state being written.
+    @object.can.update!
 
     # toggle array or hash field presence
     # toggle__field__value = 0 | 1

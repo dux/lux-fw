@@ -33,6 +33,30 @@ class Hash
     end
   end
 
+  # Recursively remove the named keys from this hash and every nested hash
+  # (Array-of-Hash included). Returns a new hash; deep_destroy! mutates in place.
+  def deep_destroy *keys
+    keys = keys.flatten.map(&:to_s)
+
+    each_with_object({}) do |(k, v), h|
+      next if keys.include?(k.to_s)
+
+      h[k] =
+        case v
+        when Hash
+          v.deep_destroy(*keys)
+        when Array
+          v.map { |e| e.is_a?(Hash) ? e.deep_destroy(*keys) : e }
+        else
+          v
+        end
+    end
+  end
+
+  def deep_destroy! *keys
+    replace deep_destroy(*keys)
+  end
+
   # Recursively convert keys to strings (nested Hash + Array of Hash).
   def deep_stringify_keys
     each_with_object({}) do |(k, v), h|

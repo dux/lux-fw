@@ -50,7 +50,7 @@ class LuxStat
 
   def total_ext
     exts = {}
-    excluding = %w(.git tmp .gems vendor node_modules log).sort
+    excluding = %w(.git tmp .libs vendor node_modules log).sort
     puts '  Excluding: %s' % excluding.join(', ')
     puts '  To find: find . -type file | grep \\\\.ext$'
     puts

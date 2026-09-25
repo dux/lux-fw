@@ -35,6 +35,8 @@ class Time
 
     # How long ago?
     def ago start_time, end_time = nil
+      return unless start_time
+
       start = Time.parse start_time.to_s if [String, Date].include?(start_time.class)
       Lux::Utils::TimeDifference.new(start || start_time, end_time, start_time.class).humanize
     end

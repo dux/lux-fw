@@ -77,7 +77,7 @@ bundle exec lux s
 
 Setup uses the generated app's bundle and development database.
 The database step connects before it creates, so setup can be re-run over a database that already exists.
-When invoked from a local Lux checkout, the generator links every checkout the starter declares into `./.gems`: each `lgem 'name'` in the Gemfile and each `"file:.gems/name"` in `package.json`, whichever exist next to the Lux checkout.
+When invoked from a local Lux checkout, the generator links every checkout the starter declares into `./.libs`: each `lgem 'name'` in the Gemfile and each `"file:.libs/name"` in `package.json`, whichever exist next to the Lux checkout.
 An installed Lux gem links nothing; `lgem` then falls back to `github dux/<name>`.
 A failed step stops setup and leaves the generated files in place.
 The server runs in the foreground at http://lvh.me:3000; press Ctrl-C to stop it.
@@ -108,7 +108,7 @@ Rake tasks:
   rake assets:compile    # Build and generate manifest
   rake assets:install    # Install example rollup.config.js, package.json and Procfile
   rake db:am             # Automigrate schema
-  rake db:console        # Run PSQL console
+  rake db:psql           # Run PSQL console
   rake db:create         # Create database
   rake db:drop           # Drop database
   rake db:dump[name]     # Dump database backup

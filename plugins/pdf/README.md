@@ -34,3 +34,16 @@ Drop your own printable pages in `app/views/pdf/<name>.haml`
 (they stay local to the app); visit `/pdf/<name>` for the preview and
 `/pdf/<name>.pdf` for the download. To format money through your app's own
 formatter, reopen `PdfHelper` in `app/helpers/pdf_helper.rb`.
+
+## Access
+
+The preview and the `.pdf` download both need a signed-in user.
+The download works by pointing headless Chrome at the HTML page, and that browser has no session, so the controller builds a signed URL for it: HMAC-SHA256 of the page path and an expiry (`?s=<sig>&e=<unix time>`), valid for `PdfController::SIGNATURE_TTL` seconds (120).
+A signature opens only the HTML page, never the `.pdf`, so a leaked link cannot keep a server Chrome busy.
+Chrome fetches the page from `Lux.config.host`, never from the request's Host header.
+
+## Requirements
+
+* the `db` plugin - `routes.rb` loads models with `nav.load_models`
+* an app `FrontendController` for `PdfController` to subclass
+* `bun`, the `puppeteer` package and system Google Chrome, for the download

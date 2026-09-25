@@ -1,7 +1,7 @@
 # Vibe coding harness: a Sinatra page (chat + preview + diff + git) in front of a
 # headless `opencode serve`, pinned to one git branch of the host app.
 #
-# Pure Ruby, no Lux boot: everything here runs from the `lux vibe:*` hammer tasks
+# Pure Ruby, no Lux boot: everything here runs from the `lux docker:vibe:*` hammer tasks
 # on the host and from the harness process inside the `vibe` container, and both
 # configure themselves from ENV alone. See README.md in this plugin.
 
@@ -94,11 +94,10 @@ module Vibe
     ENV['OPENROUTER_API_KEY'].to_s.strip
   end
 
-  # where the app keeps its compose files (config/docker by convention, root as fallback)
+  # where the app keeps its compose file, or nil when it has none
   def compose_file
-    %w[config/docker/docker-compose.yml docker-compose.yml]
-      .map { |f| File.join(root, f) }
-      .find { |f| File.file?(f) }
+    file = File.join(root, 'config/docker/docker-compose.yml')
+    file if File.file?(file)
   end
 
   # compose project the app container belongs to; docker-compose.yml `name:` wins

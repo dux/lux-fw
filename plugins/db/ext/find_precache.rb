@@ -38,7 +38,4 @@ class Sequel::Model
       end
     end
   end
-
-  module InstanceMethods
-  end
 end

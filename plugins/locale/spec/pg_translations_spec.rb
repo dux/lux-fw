@@ -1,13 +1,16 @@
-require 'spec_helper'
+require 'test_helper'
 
-# plugin boot resolves DB :main, and the model below needs a live connection
-ENV['DB_MAIN'] ||= 'postgres:///lux_fw_test'
-DB ||= Sequel.connect(ENV['DB_MAIN'])
+# --- DB bootstrap ---------------------------------------------------------
+Object.send(:remove_const, :DB) if defined?(DB)
+DB ||= Sequel.connect('postgres:///lux_fw_test')
+DB.extension :pg_json
+DB.loggers.clear
 
-Lux.plugin Lux.fw_root.join('plugins/locale')
+Lux::Plugin.load File.expand_path('..', __dir__)
 
-# table must exist before Sequel::Model() resolves the schema
-DB.create_table?(:_translation_tests) do
+# Fresh table; it must exist before Sequel::Model() resolves the schema.
+DB.drop_table?(:_translation_tests)
+DB.create_table(:_translation_tests) do
   primary_key :id
   column :name_t, :jsonb
   column :desc_t, :jsonb
@@ -34,18 +37,19 @@ describe Sequel::Plugins::PgTranslations do
 
   describe '.t_columns' do
     it 'detects columns ending with _t' do
-      expect(TranslationTestModel.t_columns).to include(:name_t, :desc_t)
+      _(TranslationTestModel.t_columns).must_include :name_t
+      _(TranslationTestModel.t_columns).must_include :desc_t
     end
 
     it 'excludes non _t columns' do
-      expect(TranslationTestModel.t_columns).not_to include(:code)
-      expect(TranslationTestModel.t_columns).not_to include(:id)
+      refute_includes TranslationTestModel.t_columns, :code
+      refute_includes TranslationTestModel.t_columns, :id
     end
   end
 
   describe 'localized getter' do
-    let(:record) do
-      TranslationTestModel.create(
+    def record
+      @record ||= TranslationTestModel.create(
         name_t: Sequel.pg_jsonb('en' => 'Hello', 'hr' => 'Bok'),
         desc_t: Sequel.pg_jsonb('en' => 'A description', 'hr' => 'Opis'),
         code: 'test'
@@ -54,29 +58,29 @@ describe Sequel::Plugins::PgTranslations do
 
     it 'returns value for current locale' do
       Lux.current.locale = 'en'
-      expect(record.name).to eq('Hello')
+      _(record.name).must_equal 'Hello'
     end
 
     it 'returns value for switched locale' do
       Lux.current.locale = 'hr'
-      expect(record.name).to eq('Bok')
+      _(record.name).must_equal 'Bok'
     end
 
     it 'falls back to default locale when current locale is missing' do
       Lux.current.locale = 'de'
       Lux.locale.default = :en
-      expect(record.name).to eq('Hello')
+      _(record.name).must_equal 'Hello'
     end
 
     it 'returns nil when translation data is nil' do
       obj = TranslationTestModel.create(name_t: nil)
-      expect(obj.name).to be_nil
+      _(obj.name).must_be_nil
     end
 
     it 'returns nil when both locale and default are missing' do
       Lux.current.locale = 'de'
       Lux.locale.default = :fr
-      expect(record.name).to be_nil
+      _(record.name).must_be_nil
     end
 
     it 'falls back when current locale value is empty string' do
@@ -85,13 +89,13 @@ describe Sequel::Plugins::PgTranslations do
       )
       Lux.current.locale = 'en'
       Lux.locale.default = :hr
-      expect(obj.name).to eq('Bok')
+      _(obj.name).must_equal 'Bok'
     end
 
     it 'works for multiple _t columns independently' do
       Lux.current.locale = 'hr'
-      expect(record.name).to eq('Bok')
-      expect(record.desc).to eq('Opis')
+      _(record.name).must_equal 'Bok'
+      _(record.desc).must_equal 'Opis'
     end
   end
 
@@ -100,56 +104,56 @@ describe Sequel::Plugins::PgTranslations do
       record = TranslationTestModel.create(
         name_t: Sequel.pg_jsonb('en' => 'Hello', 'hr' => 'Bok')
       )
-      expect(record.name_t['en']).to eq('Hello')
-      expect(record.name_t['hr']).to eq('Bok')
+      _(record.name_t['en']).must_equal 'Hello'
+      _(record.name_t['hr']).must_equal 'Bok'
     end
   end
 
   describe '#respond_to?' do
-    let(:record) do
-      TranslationTestModel.create(name_t: Sequel.pg_jsonb('en' => 'Hi'))
+    def record
+      @record ||= TranslationTestModel.create(name_t: Sequel.pg_jsonb('en' => 'Hi'))
     end
 
     it 'returns true for translated accessors' do
-      expect(record.respond_to?(:name)).to be(true)
-      expect(record.respond_to?(:desc)).to be(true)
+      _(record.respond_to?(:name)).must_equal true
+      _(record.respond_to?(:desc)).must_equal true
     end
 
     it 'returns false for non-existent translated accessors' do
-      expect(record.respond_to?(:unknown)).to be(false)
+      _(record.respond_to?(:unknown)).must_equal false
     end
   end
 
   describe 'method_missing passthrough' do
-    let(:record) do
-      TranslationTestModel.create(name_t: Sequel.pg_jsonb('en' => 'Hi'), code: 'abc')
+    def record
+      @record ||= TranslationTestModel.create(name_t: Sequel.pg_jsonb('en' => 'Hi'), code: 'abc')
     end
 
     it 'raises NoMethodError for undefined methods' do
-      expect { record.nonexistent_method }.to raise_error(NoMethodError)
+      assert_raises(NoMethodError) { record.nonexistent_method }
     end
 
     it 'does not interfere with regular column access' do
-      expect(record.code).to eq('abc')
+      _(record.code).must_equal 'abc'
     end
   end
 
   describe 'method caching' do
-    let(:record) do
-      TranslationTestModel.create(name_t: Sequel.pg_jsonb('en' => 'Hello', 'hr' => 'Bok'))
+    def record
+      @record ||= TranslationTestModel.create(name_t: Sequel.pg_jsonb('en' => 'Hello', 'hr' => 'Bok'))
     end
 
     it 'defines a real method after first call' do
       record.name
-      expect(TranslationTestModel.method_defined?(:name)).to be(true)
+      _(TranslationTestModel.method_defined?(:name)).must_equal true
     end
 
     it 'still returns correct locale after method is cached' do
       Lux.current.locale = 'en'
-      expect(record.name).to eq('Hello')
+      _(record.name).must_equal 'Hello'
 
       Lux.current.locale = 'hr'
-      expect(record.name).to eq('Bok')
+      _(record.name).must_equal 'Bok'
     end
   end
 end

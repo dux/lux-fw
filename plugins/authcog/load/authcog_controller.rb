@@ -34,7 +34,15 @@ class AuthcogController < Lux::Controller
 
   # Absolute central-auth endpoint for this host. Used both to send the visitor
   # there and to exchange the returned hash server to server.
+  #
+  # The host comes from the request, so it is trusted only inside the app's own
+  # configured domain (subdomains included). Otherwise a forged Host header
+  # would pick the domain a callback hash is exchanged for, and a hash leaked
+  # from another site could be spent here.
   def self.exchange_base here = Url.current
+    home = Url.new(Lux.config.host.to_s)
+    here = home unless here.domain == home.domain
+
     path = "/domain:#{here.host}"
     path += "/port:#{here.port}" if here.port
 
@@ -55,20 +63,6 @@ class AuthcogController < Lux::Controller
     session[SESSION_STATE] = (held + [state]).last(CHALLENGE_LIMIT)
 
     redirect_to "#{self.class.exchange_base}?state=#{Rack::Utils.escape(state)}"
-  end
-
-  # Verify the ?check= hash against the session, end it, back to /.
-  # Checks session[:user_ref] directly (not User.current): this action runs on
-  # AuthcogController, which the app's user-loading before-filter never touches,
-  # so it must not depend on the current user being resolved.
-  #
-  # Not routed by default - UserSession#logout_link (?sso_action=) is the
-  # supported path. Mount it explicitly if you want the bare URL:
-  #   map 'log-off', 'authcog#log_off'
-  def log_off
-    ref = Lux::Utils::Crypt.short_decrypt(params[:check].to_s) rescue nil
-    UserSession.destroy_session if ref && ref == session[:user_ref]
-    redirect_to '/', info: 'Signed out'
   end
 
   # GET /authcog?callback=<hash>&state=<challenge> - exchange the single-use hash
@@ -119,8 +113,8 @@ class AuthcogController < Lux::Controller
       user.save
     end
 
-    target = session.delete(:redirect_after_login) || '/'
-    redirect_to "#{target}?login=authcog"
+    target = UserSession.local_path(session.delete(:redirect_after_login)) || '/'
+    redirect_to Url.new(target).qs(:login, :authcog).to_s
   end
 
   private

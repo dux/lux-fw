@@ -1,5 +1,5 @@
 /.env*
-/.gems/
+/.libs/
 /config/config.yaml
 /log/
 /node_modules/

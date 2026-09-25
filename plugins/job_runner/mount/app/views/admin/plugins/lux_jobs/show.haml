@@ -60,14 +60,14 @@
         %th Last Run
         %td
           - if db_job.updated_at
-            #{db_job.updated_at.strftime('%Y-%m-%d %H:%M:%S')} (#{LuxJob.time_relative(db_job.updated_at)})
+            #{db_job.updated_at.strftime('%Y-%m-%d %H:%M:%S')} (#{Time.ago(db_job.updated_at)})
           - else
             \-
       %tr
         %th Next Run
         %td
           - if db_job.run_at
-            #{db_job.run_at.strftime('%Y-%m-%d %H:%M:%S')} (#{LuxJob.time_relative(db_job.run_at)})
+            #{db_job.run_at.strftime('%Y-%m-%d %H:%M:%S')} (#{Time.ago(db_job.run_at)})
           - else
             \-
       %tr
@@ -96,7 +96,7 @@
       - lines.each do |line|
         - parsed = LuxJob.parse_log_line(line)
         .lj-line{ class: ('error' if line.include?('ERROR')) }
-          %span.lj-time= LuxJob.time_ago(parsed[:time])
+          %span.lj-time= Time.ago(parsed[:time])
           = parsed[:message]
 
   :javascript
@@ -120,12 +120,7 @@
           }
         }
         try {
-          var resp = await fetch('/api/lux_jobs/trigger', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({ name: jobName, opts: opts })
-          });
+          var resp = await Lux.fetch('/api/lux_jobs/trigger', { body: { name: jobName, opts: opts } });
           var data = await resp.json();
           if (resp.ok && data && (data.ok || (data.data && data.data.ok))) {
             var ref = (data.data && data.data.ref) || data.ref;
@@ -149,12 +144,7 @@
       // visits replace the poller instead of stacking a new one each time
       $.setInterval('luxJobsPoll', async function() {
         try {
-          var resp = await fetch('/api/lux_jobs/poll', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({ name: jobName })
-          });
+          var resp = await Lux.fetch('/api/lux_jobs/poll', { body: { name: jobName } });
           var data = await resp.json();
           var newId = data && data.data && data.data.last_id;
           if (newId && newId !== lastId) {

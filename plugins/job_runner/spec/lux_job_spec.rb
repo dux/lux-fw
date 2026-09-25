@@ -1,7 +1,56 @@
-# require 'spec_helper'
+require 'test_helper'
 
-RSpec.describe LuxJob do
-  before(:each) do
+# --- DB bootstrap ---------------------------------------------------------
+Object.send(:remove_const, :DB) if defined?(DB)
+DB ||= Sequel.connect('postgres:///lux_fw_test')
+DB.extension :pg_array, :pg_json
+DB.loggers.clear
+
+# Load just enough of the db plugin to get the schema DSL, hooks and enums.
+require_relative '../../db/loader.rb'
+Sequel::Model.plugin :lux_schema
+Sequel::Model.plugin :lux_hooks
+Sequel::Model.plugin :lux_before_save
+
+# Host-level ApplicationModel stand-in: ref primary key with auto-fill.
+unless defined?(ApplicationModel)
+  ApplicationModel = Class.new(Sequel::Model) do
+    set_primary_key :ref
+    unrestrict_primary_key
+    plugin :lux_schema
+
+    def before_create
+      self[:ref] ||= Lux::Utils::Ref.generate
+      super
+    end
+  end
+end
+
+# Fresh table for each run, matching the LuxJob schema.
+DB.drop_table?(:lux_jobs)
+
+DB.create_table :lux_jobs do
+  String  :ref, primary_key: true
+  String  :name
+  jsonb   :opts, default: Sequel.lit("'{}'::jsonb"), null: false
+  Integer :retry_count, default: 0
+  Time    :run_at, index: true
+  String  :status_sid, size: 1, default: 's'
+  String  :response, text: true
+  Time    :created_at
+  Time    :updated_at
+end
+
+# job.log writes through Lux.logger(:lux_job); keep it off disk.
+Lux::LOGGER_CACHE[:lux_job] = Logger.new(IO::NULL)
+
+# Sweeps load/ (LuxJob, LuxJobLock, the lux_job exporter).
+Lux::Plugin.load File.expand_path('..', __dir__)
+
+###
+
+describe LuxJob do
+  before do
     LuxJob.dataset.delete
     LuxJob::JOBS.clear
   end
@@ -10,27 +59,27 @@ RSpec.describe LuxJob do
     it 'registers a job without interval' do
       LuxJob.define(:test_job) { 'done' }
 
-      expect(LuxJob::JOBS[:test_job]).to be_a(Hash)
-      expect(LuxJob::JOBS[:test_job][:name]).to eq('test_job')
-      expect(LuxJob::JOBS[:test_job][:every]).to be_nil
+      assert_kind_of ::Hash, LuxJob::JOBS[:test_job]
+      _(LuxJob::JOBS[:test_job][:name]).must_equal 'test_job'
+      assert_nil LuxJob::JOBS[:test_job][:every]
     end
 
     it 'registers a job with interval' do
       LuxJob.define(:recurring_job, every: 1.hour) { 'done' }
 
-      expect(LuxJob::JOBS[:recurring_job][:every]).to eq(1.hour)
+      _(LuxJob::JOBS[:recurring_job][:every]).must_equal 1.hour
     end
 
     it 'uses default timeout when none specified' do
       LuxJob.define(:no_timeout) { 'done' }
 
-      expect(LuxJob::JOBS[:no_timeout][:timeout]).to eq(LuxJob::DEFAULT_TIMEOUT)
+      _(LuxJob::JOBS[:no_timeout][:timeout]).must_equal LuxJob::DEFAULT_TIMEOUT
     end
 
     it 'accepts custom timeout' do
       LuxJob.define(:custom_timeout, timeout: 300) { 'done' }
 
-      expect(LuxJob::JOBS[:custom_timeout][:timeout]).to eq(300)
+      _(LuxJob::JOBS[:custom_timeout][:timeout]).must_equal 300
     end
   end
 
@@ -40,11 +89,12 @@ RSpec.describe LuxJob do
 
       job = LuxJob.add(:send_email, { to: 'test@example.com' })
 
-      expect(job).to be_a(LuxJob)
-      expect(job.name).to eq('send_email')
-      expect(job.opts[:to]).to eq('test@example.com')
-      expect(job.run_at).to be < Time.now
-      expect(job.status_sid).to eq('s')
+      assert_kind_of LuxJob, job
+      _(job.name).must_equal 'send_email'
+      # jsonb round-trips with string keys; run_job hands the proc a Lux::Hash
+      _(job.opts['to']).must_equal 'test@example.com'
+      assert job.run_at < Time.now
+      _(job.status_sid).must_equal 's'
     end
   end
 
@@ -55,7 +105,8 @@ RSpec.describe LuxJob do
 
       LuxJob.run_job(job)
 
-      expect(LuxJob.count).to eq(0) # one-off jobs are deleted
+      # one-off jobs are deleted
+      _(LuxJob.count).must_equal 0
     end
 
     it 'reschedules recurring jobs' do
@@ -65,8 +116,8 @@ RSpec.describe LuxJob do
       LuxJob.run_job(job)
       job.reload
 
-      expect(job.status_sid).to eq('d')
-      expect(job.run_at).to be > Time.now
+      _(job.status_sid).must_equal 'd'
+      assert job.run_at > Time.now
     end
 
     it 'handles job failures with retry and 60% backoff' do
@@ -76,10 +127,10 @@ RSpec.describe LuxJob do
       LuxJob.run_job(job)
       job.reload
 
-      expect(job.status_sid).to eq('f')
-      expect(job.retry_count).to eq(1)
-      # First retry: RETRY_BASE_WAIT * 1.6^0 = 60s
-      expect(job.run_at).to be_within(5).of(Time.now + LuxJob::RETRY_BASE_WAIT)
+      _(job.status_sid).must_equal 'f'
+      _(job.retry_count).must_equal 1
+      # first retry: RETRY_BASE_WAIT * 1.6^0 = 60s
+      assert_in_delta (Time.now + LuxJob::RETRY_BASE_WAIT).to_f, job.run_at.to_f, 5
     end
 
     it 'increases retry delay by 60% each attempt' do
@@ -91,8 +142,8 @@ RSpec.describe LuxJob do
 
       # retry_count is now 4, delay = 60 * 1.6^3 = 245.76s
       expected_delay = LuxJob::RETRY_BASE_WAIT * (1.6 ** 3)
-      expect(job.run_at).to be_within(5).of(Time.now + expected_delay)
-      expect(job.status_sid).to eq('f')
+      assert_in_delta (Time.now + expected_delay).to_f, job.run_at.to_f, 5
+      _(job.status_sid).must_equal 'f'
     end
 
     it 'permanently fails after MAX_RETRIES' do
@@ -106,9 +157,9 @@ RSpec.describe LuxJob do
       LuxJob.run_job(job)
       job.reload
 
-      expect(job.status_sid).to eq('x')
-      expect(job.status).to eq('Permanently failed')
-      expect(job.retry_count).to eq(LuxJob::MAX_RETRIES)
+      _(job.status_sid).must_equal 'x'
+      _(job.status).must_equal 'Permanently failed'
+      _(job.retry_count).must_equal LuxJob::MAX_RETRIES
     end
 
     it 'times out jobs that exceed their timeout' do
@@ -118,17 +169,17 @@ RSpec.describe LuxJob do
       LuxJob.run_job(job)
       job.reload
 
-      expect(job.status_sid).to eq('f')
-      expect(job.retry_count).to eq(1)
-      expect(job.response).to include('Timeout')
+      _(job.status_sid).must_equal 'f'
+      _(job.retry_count).must_equal 1
+      _(job.response).must_include 'Timeout'
     end
 
     it 'deletes undefined jobs' do
       job = LuxJob.create(name: 'undefined_job', run_at: Time.now - 1.minute)
 
-      LuxJob.run_job(job)
+      capture_stdout { capture_stderr { LuxJob.run_job(job) } }
 
-      expect(LuxJob.count).to eq(0)
+      _(LuxJob.count).must_equal 0
     end
   end
 
@@ -142,8 +193,8 @@ RSpec.describe LuxJob do
 
       LuxJob.process_jobs
 
-      expect(LuxJob.count).to eq(1)
-      expect(LuxJob.first.name).to eq('job2')
+      _(LuxJob.count).must_equal 1
+      _(LuxJob.first.name).must_equal 'job2'
     end
 
     it 'skips running jobs' do
@@ -152,8 +203,8 @@ RSpec.describe LuxJob do
 
       LuxJob.process_jobs
 
-      # Job still exists and still marked as running (not picked up again)
-      expect(LuxJob.first.status_sid).to eq('r')
+      # still there and still marked running, not picked up again
+      _(LuxJob.first.status_sid).must_equal 'r'
     end
 
     it 'skips permanently failed jobs' do
@@ -162,33 +213,33 @@ RSpec.describe LuxJob do
 
       LuxJob.process_jobs
 
-      expect(LuxJob.first.status_sid).to eq('x')
+      _(LuxJob.first.status_sid).must_equal 'x'
     end
   end
 
   describe 'status enum' do
     it 'maps status codes to labels' do
       job = LuxJob.new(status_sid: 's')
-      expect(job.status).to eq('Scheduled')
+      _(job.status).must_equal 'Scheduled'
 
       job.status_sid = 'r'
-      expect(job.status).to eq('Running')
+      _(job.status).must_equal 'Running'
 
       job.status_sid = 'f'
-      expect(job.status).to eq('Failed')
+      _(job.status).must_equal 'Failed'
 
       job.status_sid = 'd'
-      expect(job.status).to eq('Done')
+      _(job.status).must_equal 'Done'
 
       job.status_sid = 'x'
-      expect(job.status).to eq('Permanently failed')
+      _(job.status).must_equal 'Permanently failed'
     end
   end
 
   describe '#admin_path' do
-    it 'returns admin path' do
+    it 'links to the admin show page by name' do
       job = LuxJob.create(name: 'test', run_at: Time.now)
-      expect(job.admin_path).to eq("/admin/lux_jobs/#{job.sid}")
+      _(job.admin_path).must_equal '/admin/plugins/lux_jobs/show?name=test'
     end
   end
 end

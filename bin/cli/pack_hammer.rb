@@ -4,24 +4,24 @@ require 'shellwords'
 
 # Build a deployable, symlink-flattened copy of the app under a cache dir,
 # ready for rsync to production. Tracked files come from `git ls-files`, so
-# everything in .gitignore (tmp, log, .gems, public/assets, secrets, .git)
+# everything in .gitignore (tmp, log, .libs, public/assets, secrets, .git)
 # is excluded by definition. Gitignored-but-needed dirs are re-added via
 # AUTO_INCLUDES; compiled assets are expected to be prepared beforehand.
 #
-# Local gem checkouts under ./.gems are symlinks; pack ships their content as
+# Local gem checkouts under ./.libs are symlinks; pack ships their content as
 # real files (rsync -L). User/app symlinks are never auto-added.
 module LuxPack
   module_function
 
   DEFAULT_DEST  ||= './tmp/lux-app-cache'
-  GEMS_DIR      ||= '.gems'                          # local gem checkouts, symlinked
+  GEMS_DIR      ||= '.libs'                          # local gem checkouts, symlinked
   AUTO_INCLUDES ||= [GEMS_DIR, 'public/assets']      # gitignored, but needed on prod
 
   # Includes are copied wholesale (no per-dir git filter), so strip VCS/build
-  # junk that local gem checkouts under ./.gems drag along.
+  # junk that local gem checkouts under ./.libs drag along.
   INCLUDE_EXCLUDES ||= %w[.git .gitignore node_modules tmp log coverage .DS_Store .build DerivedData]
 
-  # only_gems drops the tracked app tree from the pack - .gems plus whatever
+  # only_gems drops the tracked app tree from the pack - .libs plus whatever
   # --include asks for, nothing else. For a box that materializes the app from
   # git itself (a release that is a real checkout, reset to the deployed sha):
   # the tracked files are already there, so shipping them again is dead weight.
@@ -117,7 +117,7 @@ module LuxPack
   end
 
   # Every symlink rsync -L will dereference: tracked symlinks plus any symlink
-  # nested inside a wholesale-copied include dir (e.g. .gems/* -> local gems).
+  # nested inside a wholesale-copied include dir (e.g. .libs/* -> local gems).
   def linked_symlinks files, includes
     links = files.select { |f| File.symlink?(f) }
     includes.each do |inc|
@@ -160,7 +160,7 @@ task :pack do
   opt :dest,    alias: :d, type: :string,  default: LuxPack::DEFAULT_DEST, desc: 'Destination dir'
   opt :include, alias: :i, type: :string,  default: '',                    desc: 'Extra gitignored paths to bundle (comma-sep)'
   opt :dry_run, alias: :n, type: :boolean, default: false,                 desc: 'List what would be packed, write nothing'
-  opt :only_gems,          type: :boolean, default: false,                 desc: 'Pack ./.gems only - no app files, no other includes'
+  opt :only_gems,          type: :boolean, default: false,                 desc: 'Pack ./.libs only - no app files, no other includes'
 
   proc do |opts|
     LuxPack.build dest:      opts[:dest],

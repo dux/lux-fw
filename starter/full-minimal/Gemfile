@@ -1,12 +1,12 @@
-# lgem -> local gem. Resolved from ./.gems/<name> when present (dev: symlinks
+# lgem -> local gem. Resolved from ./.libs/<name> when present (dev: symlinks
 # to the gem checkouts), else from github dux/<name>, so a fresh clone with no
-# ./.gems still resolves. Anchored to __dir__, never the cwd: anything that
-# sets BUNDLE_GEMFILE and runs from elsewhere would otherwise miss ./.gems.
+# ./.libs still resolves. Anchored to __dir__, never the cwd: anything that
+# sets BUNDLE_GEMFILE and runs from elsewhere would otherwise miss ./.libs.
 #
 # NOTE: pick exactly ONE source. Passing both `path:` and `github:` to a single
 # `gem` call makes Bundler treat it as a git source and silently ignore `path:`.
 def lgem name
-  local = File.join(__dir__, '.gems', name)
+  local = File.join(__dir__, '.libs', name)
 
   if File.directory?(local)
     gem name, path: local

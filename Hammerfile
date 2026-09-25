@@ -14,21 +14,27 @@ SPEC_DIRS ||= %w[
 ].freeze
 
 task :test do
-  desc 'Run the Minitest suite (one ruby process per spec folder)'
+  desc 'Run the Minitest suite (one ruby process per spec folder, plugin specs included)'
   alt :t
-  opt :folder,   desc: 'Run a single spec folder (e.g. lux_tests)'
+  opt :folder,   desc: 'Run a single spec folder (e.g. lux_tests, or plugins/pdf/spec)'
   opt :isolated, type: :boolean, desc: 'Every spec in a fresh ruby process (max isolation, slow)'
 
   proc do |o|
+    # each plugin ships its own spec/ folder next to the code it tests
+    folders = SPEC_DIRS.map { "spec/#{_1}" } + Dir.glob('plugins/*/spec').sort
+    run_folder = ->(dir) { system %(bundle exec ruby -Ilib -Ispec -e "Dir.glob('#{dir}/**/*_spec.rb').sort.each { |f| require_relative f }") }
+
     # one-folder mode
     if o[:folder]
-      next sh %(bundle exec ruby -Ilib -Ispec -e "Dir.glob('spec/#{o[:folder]}/**/*_spec.rb').sort.each { |f| require_relative f }")
+      dir = o[:folder].include?('/') ? o[:folder] : "spec/#{o[:folder]}"
+      next error("FAILED folder: #{dir}") unless run_folder.(dir)
+      next
     end
 
     # isolated mode - every spec in its own ruby
     if o[:isolated]
       failed = []
-      Dir.glob('spec/**/*_spec.rb').sort.each do |f|
+      folders.flat_map { Dir.glob("#{_1}/**/*_spec.rb").sort }.each do |f|
         ok = system "bundle exec ruby -Ilib -Ispec #{f} > /dev/null 2>&1"
         print ok ? '.' : 'F'
         failed << f unless ok
@@ -40,12 +46,10 @@ task :test do
 
     # default - folder-isolated
     failed = []
-    SPEC_DIRS.each do |dir|
-      next if Dir.glob("spec/#{dir}/**/*_spec.rb").empty?
-      say.yellow "== spec/#{dir} =="
-      cmd = %(bundle exec ruby -Ilib -Ispec -e "Dir.glob('spec/#{dir}/**/*_spec.rb').sort.each { |f| require_relative f }")
-      ok = system(cmd)
-      failed << dir unless ok
+    folders.each do |dir|
+      next if Dir.glob("#{dir}/**/*_spec.rb").empty?
+      say.yellow "== #{dir} =="
+      failed << dir unless run_folder.(dir)
     end
     error "FAILED folders: #{failed.join(', ')}" if failed.any?
   end

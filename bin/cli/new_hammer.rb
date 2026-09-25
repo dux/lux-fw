@@ -24,7 +24,7 @@ task :new do
     local_fw  = !Gem.path.any? { |path| framework.start_with?("#{File.expand_path(path)}/gems/") }
     vars      = {
       'app' => app_under, 'App' => app_name, 'secret' => secret,
-      'lux_source' => local_fw ? ", path: '.gems/lux-fw'" : ''
+      'lux_source' => local_fw ? ", path: '.libs/lux-fw'" : ''
     }
 
     starters = File.join(framework, 'starter')
@@ -51,20 +51,20 @@ task :new do
     end
 
     # Which local checkouts the starter wants linked, read from what it declares:
-    # `lgem 'x'` in the Gemfile and `"file:.gems/x"` in package.json.
+    # `lgem 'x'` in the Gemfile and `"file:.libs/x"` in package.json.
     package_json = File.join(target, 'package.json')
     wanted = ['lux-fw']
     wanted += File.read(File.join(target, 'Gemfile')).scan(/^\s*lgem '([^']+)'/).flatten
-    wanted += File.read(package_json).scan(%r{"file:\.gems/([^"]+)"}).flatten if File.exist?(package_json)
+    wanted += File.read(package_json).scan(%r{"file:\.libs/([^"]+)"}).flatten if File.exist?(package_json)
 
     if local_fw
-      FileUtils.mkdir_p File.join(target, '.gems')
+      FileUtils.mkdir_p File.join(target, '.libs')
       wanted.uniq.each do |gem_name|
         source = File.expand_path("../#{gem_name}", framework)
         next unless File.directory?(source)
 
-        File.symlink source, File.join(target, ".gems/#{gem_name}")
-        say.green '  link    %s/.gems/%s -> %s' % [name, gem_name, source]
+        File.symlink source, File.join(target, ".libs/#{gem_name}")
+        say.green '  link    %s/.libs/%s -> %s' % [name, gem_name, source]
       end
     end
 

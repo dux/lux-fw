@@ -36,11 +36,21 @@ unless defined?(ApplicationModel)
   end
 end
 
-# Stub User so LuxException.add's `User.current.email rescue nil` resolves.
+# Stub User so LuxException.add's `User.current.email rescue nil` resolves,
+# and so the toggle API sees whichever stand-in a test puts in place.
 unless defined?(User)
   class User
-    def self.current = nil
+    class << self
+      attr_accessor :current
+    end
   end
+end
+
+# Stand-in user whose policy answers admin! the way the test needs.
+def policy_user admin:
+  can = Object.new
+  can.define_singleton_method(:admin!) { admin || raise(Lux.error.forbidden('Admin access required')) }
+  Struct.new(:can, :ref).new(can, "admin-ref")
 end
 
 # Fresh tables for each run.
@@ -68,10 +78,9 @@ DB.create_table :lux_exception_logs do
   Time   :created_at, index: true
 end
 
-# Boot the plugin: registers the LuxException + LuxExceptionLog models.
-# The GET pages (list + show) are rendered directly via Lux::Template.render
-# in this spec; show.haml handles the inline toggle itself when the request
-# carries a `?toggle=<uid>` param.
+# Boot the plugin: registers the LuxException + LuxExceptionLog models and
+# LuxExceptionsApi. The GET pages (list + show) are rendered directly via
+# Lux::Template.render in this spec; the resolve toggle goes through the API.
 # Load through the plugin system - it sweeps load/**/*.rb (models + the
 # table/paginate view helpers); a bare require of loader.rb loads none of it.
 Lux::Plugin.load File.expand_path('..', __dir__)
@@ -92,15 +101,19 @@ describe 'exception_logger admin flow' do
     LuxExceptionLog.dataset.delete
   end
 
+  after do
+    User.current = nil
+  end
+
   def render_view path, params: {}
     Lux::Current.new('http://test%s' % path, query_string: params)
     # :html mixes in HtmlHelper (paginate); ApplicationHelper (table) comes free
     scope = Lux::Template::Helper.new self, :html
-    # show.haml's inline toggle path calls redirect_to, which `throw :done`.
-    # The host controller wraps render with catch(:done); mirror that here.
-    catch :done do
-      Lux::Template.render(scope, '%s%s' % [VIEWS_ROOT, path])
-    end
+    Lux::Template.render(scope, '%s%s' % [VIEWS_ROOT, path])
+  end
+
+  def toggle uid
+    LuxExceptionsApi.render :toggle, params: { uid: uid }
   end
 
   it 'flows through add, list, show, resolve' do
@@ -131,16 +144,23 @@ describe 'exception_logger admin flow' do
     _(body).must_include 'Mark resolved'
     _(body).must_include 'something blew up'
 
-    # 5. Hitting the show page with `?toggle=<uid>` flips is_resolved inline
-    #    and redirects to the clean URL (redirect_to throws :done, which
-    #    render_view catches).
-    render_view '/admin/plugins/exception_logger/show', params: { uid: exep.uid, toggle: exep.uid }
-    _(Lux.current.response.status).must_equal 302
-    _(Lux.current.response.headers['location']).must_match %r{\A/admin/plugins/exception_logger/show\?.*uid=#{exep.uid}}
-    _(exep.refresh.is_resolved).must_equal true
-
-    # 6. Same trigger flips it back.
+    # 5. A GET cannot change state - the old ?toggle= param is ignored.
     render_view '/admin/plugins/exception_logger/show', params: { uid: exep.uid, toggle: exep.uid }
     _(exep.refresh.is_resolved).must_equal false
+
+    # 6. The toggle API flips is_resolved for an admin, and flips it back.
+    User.current = policy_user(admin: true)
+    _(toggle(exep.uid)[:data][:is_resolved]).must_equal true
+    _(exep.refresh.is_resolved).must_equal true
+    toggle(exep.uid)
+    _(exep.refresh.is_resolved).must_equal false
+  end
+
+  it 'refuses the toggle API to a non-admin' do
+    exep = LuxException.add(RuntimeError.new('nope'))
+
+    User.current = policy_user(admin: false)
+    _(toggle(exep.uid)[:success]).must_equal false
+    refute exep.refresh.is_resolved
   end
 end

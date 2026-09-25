@@ -6,17 +6,13 @@
 # overlay. Links are plain URLs, so they work in mailers and across hosts.
 # Sudo is an overlay: the target wins everywhere except /admin, where the real
 # admin identity is kept.
-#
-# Apps with bespoke session logic (e.g. cms-lux multi-site) keep their own
-# ./app/lib/user_session.rb; the guard below defers to it (the app autoloader
-# only fires on an undefined constant).
 
 module UserSession
   extend self
   extend Lux::Lifecycle
 
-  USER_REF      = :user_ref
-  SUDO_USER_REF = :sudo_user_ref
+  USER_REF      ||= :user_ref
+  SUDO_USER_REF ||= :sudo_user_ref
   API_KEY_CACHE_TTL ||= 1.hour
 
   def resolve
@@ -55,10 +51,6 @@ module UserSession
 
     Lux.cache.set cache_key, user.ref, API_KEY_CACHE_TTL.to_i
     user
-  end
-
-  def api_key_user api_key
-    api_key_load api_key
   end
 
   # login magic link (mailers, cross-host, dev/admin login-as).
@@ -123,11 +115,18 @@ module UserSession
   end
 
   def redirect_after_login= location
-    session[:redirect_after_login] = location
+    session[:redirect_after_login] = local_path(location)
+  end
+
+  # `path` when it stays on this site, else nil. "//host" and "/\\host" are
+  # protocol-relative to browsers, so they count as leaving.
+  def local_path path
+    path = path.to_s
+    path if path.start_with?('/') && !path.start_with?('//', '/\\')
   end
 
   def redirect_after_login! where = nil
-    if location = session.delete(:redirect_after_login)
+    if location = local_path(session.delete(:redirect_after_login))
       redirect_to location
     elsif where
       redirect_to where
@@ -210,7 +209,7 @@ module UserSession
 
   def resolve_redirect info = nil
     if session[USER_REF]
-      redirect_to session.delete(:redirect_after_login) || request.path, info: info
+      redirect_to local_path(session.delete(:redirect_after_login)) || request.path, info: info
     else
       redirect_to '/', error: 'Session ended, please login again'
     end

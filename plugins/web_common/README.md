@@ -1,33 +1,34 @@
 # Lux.plugin :web_common
 
-The shared web layer for a Lux app, bundled as one plugin. It folds
-together formerly separate plugins - `assets`, `favicon`, `html`,
-`authcog`, `admin_web` - so an app lists a single entry:
+The shared web layer for a Lux app, bundled as one plugin: asset URLs, the
+favicon DSL, html builders, the PG exception logger and the `/admin` area.
 
 ```yaml
 # config/config.yaml
 default:
   plugins:
     - db
+    - authcog
     - web_common
 ```
 
-`web_common` builds on `db` (the exception logger needs Sequel models), so
-list it after `db`.
+`web_common` builds on `db` (the exception logger needs Sequel models) and on
+`authcog` (`ApplicationApi` and `/admin` read the signed-in user through
+`UserSession`). It does not pull `authcog` in; list both.
 
 ## What's inside
 
 | Area | Provides | Loaded from |
 |------|----------|-------------|
-| assets  | `CdnAsset` (manifest/CDN asset URLs) + `ApplicationHelper` template helpers (`svelte`, `request`, `response`) | `load/assets/` |
+| assets  | `CdnAsset` (manifest/CDN asset URLs) + `ApplicationHelper` template helpers (`request`, `response`) | `load/assets/` |
 | favicon | `favicon '/icon.svg'` routing DSL - serves the icon at `/favicon.ico` and injects web + `apple-touch-icon` `<link>` tags into `<head>` | `load/favicon.rb` |
 | html    | form / input / table builders plus `HtmlMenu`, `HtmlHelper.paginate`, `HtmlFilter`, timezone helpers | `load/html/` |
-| admin_web | PG-backed exception logger (`LuxException` / `LuxExceptionLog`) and a mountable `/admin` viewer | `lib/`, `mount/` |
+| api     | `ApplicationApi` (mounted at `/api`), `ModelApi` (generated CRUD), `SchemaMap` | `load/lib/` |
+| admin_web | PG-backed exception logger (`LuxException` / `LuxExceptionLog`, `LuxExceptionsApi`) and the `/admin` area | `load/lib/`, `mount/` |
+| dev     | `/dev` pages: schema map, login-as | `mount/app/controllers/dev_controller.rb`, `mount/app/views/dev/` |
 
-Sign-in (`AuthcogController`, `UserSession`) moved to its own
-[`authcog`](../authcog/README.md) plugin. `config.yaml` here declares it as a
-dependency, so listing `web_common` alone still loads both constants. An app
-that wants sign-in without the rest of this layer lists `authcog` instead.
+Sign-in (`AuthcogController`, `UserSession`) is the separate
+[`authcog`](../authcog/README.md) plugin.
 
 The detailed per-builder docs live next to the code:
 
@@ -61,26 +62,30 @@ creates `lux_exceptions` + `lux_exception_logs` from the model schemas.
 
 The `/admin` controller and views ship in the plugin's `mount/` tree and
 resolve through the `Lux::Root` overlay, so they are live once the plugin
-loads. Browse `/admin/plugins/exception_logger`. See the query/summary API on
-`LuxException` (`get_list`, `get_exp`, `quick_summary`, ...) in
-`lib/lux_exception.rb`.
+loads. Browse `/admin/plugins/exception_logger`. The plugin's
+`AdminController` requires `user.can.admin?`; an app that ships its own
+`AdminController` owns that check. Resolving an exception posts to
+`/api/lux_exceptions/toggle` (admin only, CSRF-checked). See the
+query/summary API on `LuxException` (`get_list`, `get_exp`, `quick_summary`,
+...) in `load/lib/lux_exception.rb`.
+
+The jobs dashboard (`/admin/plugins/lux_jobs`) ships with the
+[`job_runner`](../job_runner/README.md) plugin. Server logs are read in dboss,
+not in `/admin`.
 
 ## Layout
 
 ```
 plugins/web_common/
-  config.yaml          # declares the authcog plugin dependency
-  loader.rb            # exception-logger wiring, ErrorProxy.log_custom hook
-  Hammerfile           # docker:* helpers (assets:* lives in lux-fw core)
+  loader.rb            # ErrorProxy.log_custom hook -> LuxException
+  hammer/              # docker:* tasks, `lux generate` (assets:* lives in lux-fw core)
   load/
     favicon.rb           # `favicon` routing DSL
     assets/  html/{form,input,table,...}
-  lib/
-    lux_exception.rb  lux_exception_log.rb
-  mount/               # /admin controller + views (Lux::Root overlay)
-  seeds/               # lux_exceptions seed data
+    lib/                 # ApplicationApi, ModelApi, SchemaMap, LuxException(s), LuxExceptionsApi
+  mount/               # /admin + /dev controllers and views (Lux::Root overlay)
+  demo/                # fake lux_exceptions for UI work; loaded by hand (see the file header)
   spec/                # exception logger end-to-end flow
-
 ```
 
 Asset pipeline (`lux assets:auto|build|upload|deploy`) is core:

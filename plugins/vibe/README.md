@@ -60,7 +60,7 @@ same checkout); `lux docker:vibe:run` warns when the override has `app:` but no 
 
 `sinatra` and `puma` must be in the app's Gemfile (`group :manual` is enough - the
 harness is started with `bundle exec lux docker:vibe:server`). The page needs
-`@dinoreic/fez` (`dist/fez.js`) from the app's `node_modules` or `.gems/fez`.
+`@dinoreic/fez` (`dist/fez.js`) from the app's `node_modules` or `.libs/fez`.
 
 ## Tasks
 
@@ -80,12 +80,13 @@ lux docker:vibe:logs                  compose logs -f vibe app
 
 The git tasks run on the host checkout with the same `Vibe::Git` code the UI uses.
 
-## Environment (all optional except the key)
+## Environment (all optional except one key)
 
 | var | default | meaning |
 | --- | --- | --- |
-| `OPENROUTER_API_KEY` | - | model access for the agent and the commit-message helper |
-| `VIBE_MODEL` | `openrouter/anthropic/claude-sonnet-4.5` | opencode model id |
+| `OPENROUTER_API_KEY` | - | model access for the agent (default provider) and the commit-message helper |
+| `DEEPSEEK_API_KEY` | - | when set and `VIBE_MODEL` is not, the agent runs `deepseek/deepseek-flash`; the entrypoint also reads `deepseek_api_key` from `config/config.yaml` |
+| `VIBE_MODEL` | `openrouter/anthropic/claude-sonnet-4.5` | opencode model id; its provider picks the key (`<PROVIDER>_API_KEY`) |
 | `VIBE_COMMIT_MODEL` | `anthropic/claude-haiku-4.5` | OpenRouter model for "auto message" |
 | `VIBE_BRANCH` / `VIBE_MAIN` | `vibe` / `main` | harness branch, merge source |
 | `VIBE_ROOT` | cwd | checkout (`/app` in the container) |
@@ -128,4 +129,6 @@ bundler step; edit a `.fez` and reload.
 
 The agent runs shell in the vibe container with `permission: allow`, and that container
 holds the docker socket for the restart button. Whoever reaches :4000 can drive both. It
-is a local dev tool; do not expose the port without an identity gate in front.
+is a local dev tool: compose publishes the port on `127.0.0.1` only, and the server
+rejects cross-origin writes (Rack::Protection http_origin). Do not publish it wider
+without an identity gate in front.

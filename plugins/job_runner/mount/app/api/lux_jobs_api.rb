@@ -1,14 +1,8 @@
 class LuxJobsApi < ModelApi
-  # Admin-only across the board. Same gate the previous Sinatra dashboard
-  # used (basic auth password); here it leans on the host's authorization.
+  # Admin-only across the board; leans on the host's authorization.
   before do
     user.can.admin!
   end
-
-  # generate :show
-  # generate :create
-  # generate :update
-  # generate :destroy
 
   define :trigger do
     desc 'Enqueue a defined job to run now'
@@ -46,18 +40,14 @@ class LuxJobsApi < ModelApi
     end
   end
 
+  # Runs go through the runner, never a web thread: only the runner holds the
+  # advisory lock that keeps a job from running twice.
   ref do
     define :restart do
       proc do
         @lux_job.this.update run_at: Time.now, status_sid: 's', retry_count: 0
+        LuxJob.notify_listeners
         'Scheduled to run now'
-      end
-    end
-
-    define :run do
-      proc do
-        Thread.new { LuxJob.run_job @lux_job }
-        'Running in background'
       end
     end
   end

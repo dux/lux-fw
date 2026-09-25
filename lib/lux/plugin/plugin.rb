@@ -8,8 +8,8 @@
 #     mount/        # OPTIONAL. Mirrors app root. Registered as a Lux::Root
 #                   # overlay so its files resolve in place.
 #
-# Any combination is valid; a plugin with only mount/ (or even just a
-# README) is registered and silently does nothing on Lux.plugin :name.
+# Any combination is valid; a plugin with only mount/ (or only CLI tasks) is
+# registered and does nothing else on Lux.plugin :name.
 
 require 'yaml'
 require 'deep_merge'
@@ -167,9 +167,7 @@ module Lux
     def config_plugins config
       return [] unless config
 
-      plugins = config['plugins']
-      plugins = config[:plugins] if plugins.nil?
-      normalize_names(plugins)
+      normalize_names(config['plugins'])
     end
 
     def read_config root
@@ -191,14 +189,12 @@ module Lux
       base.deep_merge!(data[Lux.env.to_s] || {})
       base['production'] = data['production'] if data.key?('production')
       base['plugins'] = normalize_names(base['plugins'], data['plugins']) if data.key?('plugins')
-      base['plugins'] = normalize_names(base['plugins'], data[:plugins]) if data.key?(:plugins)
       base
     end
 
     def merge_config data
-      has_plugins = data.key?('plugins') || data.key?(:plugins)
+      has_plugins = data.key?('plugins')
       plugin_names = data.delete('plugins')
-      plugin_names = data.delete(:plugins) if plugin_names.nil? && data.key?(:plugins)
 
       merge_hash! Lux.config, data
 

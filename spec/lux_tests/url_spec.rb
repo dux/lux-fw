@@ -58,6 +58,22 @@ describe Lux::Utils::Url do
       _(url.qs(:baz)).must_equal '123'
     end
 
+    it 'keeps a fragment after the query it gains' do
+      _(Lux.url('/a/b#h').qs(:x, 1).to_s).must_equal '/a/b?x=1#h'
+      _(Lux.url('/a?y=2#h').qs(:x, 1).to_s).must_equal '/a?x=1&y=2#h'
+    end
+
+    it 'keeps short domains whole' do
+      url = Lux.url('https://x.com/a')
+      _(url.domain).must_equal 'x.com'
+      _(url.subdomain).must_be_nil
+      _(url.to_s).must_equal 'https://x.com/a'
+
+      url = Lux.url('https://app.fly.io/')
+      _(url.domain).must_equal 'fly.io'
+      _(url.subdomain).must_equal 'app'
+    end
+
     it 'detects co.uk-style two-letter TLD' do
       url = Lux.url('https://www.example.co.uk/')
       _(url.domain).must_equal 'example.co.uk'

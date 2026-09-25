@@ -2,7 +2,7 @@
   <ul>
     <li>Color picker input with preview swatch</li>
     <li>Pure Fez, no external dependencies</li>
-    <li>Fires <code>change</code> events, supports <code>onPropsChange()</code> monitoring</li>
+    <li>Fires <code>change</code> events, <code>setColor(value)</code> sets it from outside</li>
   </ul>
 </info>
 
@@ -84,12 +84,6 @@
   closePicker(e) {
     if (!this.root.contains(e.target)) {
       this.state.showPicker = false
-    }
-  }
-
-  onPropsChange(name, value) {
-    if (name == 'value') {
-      this.setColor(value)
     }
   }
 

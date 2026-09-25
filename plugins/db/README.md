@@ -9,9 +9,14 @@ extensions (hooks, links, parent_model, enums, paginate, ...).
 Lux.plugin :db
 ```
 
-`loader.rb` calls `Lux::Db.boot!` and configures
-`Sequel::Model.require_valid_table = false` under rake tasks. All Sequel
-plugins and helpers in `load/` are then auto-required.
+`loader.rb` requires the plugin in an explicit order (`lib/`, `ext/`,
+`plugins/`, `migrate/`) and sets `Sequel::Model.require_valid_table = false`
+under rake tasks. It opens no connection: `Lux::Db.connection` connects on
+first use (`Lux::Db.boot!` connects everything eagerly, if an app wants that).
+
+`lux db:am` installs a hook that gives a model whose table is missing a bare
+`ref` table on class load, so AutoMigrate can add the columns. No other
+command does - a missing table there is an error, not a new table.
 
 ## CLI
 
@@ -73,7 +78,7 @@ Public surface:
 
 ```ruby
 class Task < ApplicationModel
-  plugin :ref_linker        # or :lux_links / :parent_model (aliases)
+  plugin :ref_linker
   link :user                # belongs_to via user_ref
   link :comments            # has_many via Comment.task_ref OR parent_key
 end
@@ -83,9 +88,6 @@ Task.dataset.for(@user)     # dataset-level scope (alias: where_ref)
 note.parent = @user         # writes parent_key OR parent_model+parent_ref OR parent_type+parent_ref
 note.parent                 # reads back the parent
 ```
-
-The old `for_parent` / `where_parent` / `where_for` methods were removed
-in favour of `for` / `where_ref`.
 
 ## Enums
 
@@ -153,7 +155,7 @@ plugins/db/
     model_tree.rb
     enums_plugin.rb
   plugins/                   # Sequel plugins (registered via `plugin :name`)
-    _ref_linker.rb           # Sequel::Plugins::RefLinker (+ :LuxLinks / :ParentModel aliases)
+    _ref_linker.rb           # Sequel::Plugins::RefLinker
     hooks.rb
     before_save_filters.rb
     create_limit.rb

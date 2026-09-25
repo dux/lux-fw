@@ -1,21 +1,19 @@
-require 'spec_helper'
+require 'test_helper'
 require 'fileutils'
 require 'tmpdir'
 
-Lux.plugin Lux.fw_root.join('plugins/locale')
+Lux::Plugin.load File.expand_path('..', __dir__)
 
 describe Lux::Locale do
-  let(:tmp) { Pathname.new(Dir.mktmpdir('lux-locale-')) }
+  def tmp
+    @tmp ||= Pathname.new(Dir.mktmpdir('lux-locale-'))
+  end
 
   before do
     Lux::Current.new('http://test-locale')
-    Lux.locale.instance_variable_set(:@default, nil)
-    Lux.locale.instance_variable_set(:@available, nil)
-    Lux.locale.instance_variable_set(:@dir, nil)
-    Lux.locale.instance_variable_set(:@before_get, nil)
-    Lux.locale.instance_variable_set(:@before_set, nil)
-    Lux.locale.instance_variable_set(:@namespaces, nil)
-    Lux.locale.instance_variable_set(:@store, nil)
+    %i[@default @available @dir @before_get @before_set @namespaces @store].each do |ivar|
+      Lux.locale.instance_variable_set(ivar, nil)
+    end
     Lux.locale.reload!
 
     Lux.locale.dir       = tmp
@@ -38,54 +36,55 @@ describe Lux::Locale do
 
   describe '#current' do
     it 'falls back to default when Lux.current.locale is unset' do
-      expect(Lux.locale.current).to eq(:en)
+      _(Lux.locale.current).must_equal :en
     end
 
     it 'reads from Lux.current.locale' do
       Lux.current.locale = 'de'
-      expect(Lux.locale.current).to eq(:de)
+      _(Lux.locale.current).must_equal :de
     end
 
     it 'raises Unknown for a locale not in available' do
       Lux.current.locale = 'fr'
-      expect { Lux.locale.current }.to raise_error(Lux::Locale::Unknown)
+      assert_raises(Lux::Locale::Unknown) { Lux.locale.current }
     end
   end
 
   describe '#t' do
     it 'returns the current locale when called with no key' do
-      expect(Lux.locale.t).to eq(:en)
+      _(Lux.locale.t).must_equal :en
       Lux.current.locale = 'de'
-      expect(Lux.locale.t).to eq(:de)
+      _(Lux.locale.t).must_equal :de
     end
 
     it 'looks up dotted keys in the YAML file' do
-      expect(Lux.locale.t('users.profile.title')).to eq('Profile')
+      _(Lux.locale.t('users.profile.title')).must_equal 'Profile'
     end
 
     it 'interpolates %{vars}' do
-      expect(Lux.locale.t('users.welcome', name: 'Joe')).to eq('Hi Joe')
+      _(Lux.locale.t('users.welcome', name: 'Joe')).must_equal 'Hi Joe'
     end
 
     it 'honors an explicit locale: override' do
-      expect(Lux.locale.t('users.welcome', name: 'Joe', locale: :de)).to eq('Hallo Joe')
+      _(Lux.locale.t('users.welcome', name: 'Joe', locale: :de)).must_equal 'Hallo Joe'
     end
 
     it 'falls back to the default locale when key missing in requested' do
       Lux.current.locale = 'de'
-      expect(Lux.locale.t('users.profile.title')).to eq('Profile')
+      _(Lux.locale.t('users.profile.title')).must_equal 'Profile'
     end
 
     it 'uses the fallback: arg when nothing matches' do
-      expect(Lux.locale.t('users.missing', fallback: 'X')).to eq('X')
+      _(Lux.locale.t('users.missing', fallback: 'X')).must_equal 'X'
     end
 
     it 'returns [key] when fully missing' do
-      expect(Lux.locale.t('users.unknown')).to eq('[users.unknown]')
+      _(Lux.locale.t('users.unknown')).must_equal '[users.unknown]'
     end
 
     it 'requires a namespace' do
-      expect { Lux.locale.t('hi') }.to raise_error(ArgumentError, /namespaced/)
+      err = assert_raises(ArgumentError) { Lux.locale.t('hi') }
+      assert_match(/namespaced/, err.message)
     end
   end
 
@@ -100,46 +99,61 @@ describe Lux::Locale do
     end
 
     it 'returns the whole file for a single-segment key' do
-      expect(Lux.locale.t('md:service')).to eq("# Service\n\nWelcome %{name}\n")
+      _(Lux.locale.t('md:service')).must_equal "# Service\n\nWelcome %{name}\n"
     end
 
     it 'maps leading segments to folders and the last to the filename' do
       Lux.current.locale = 'de'
-      expect(Lux.locale.t('md:legal.terms')).to eq("# Terms DE\n")
+      _(Lux.locale.t('md:legal.terms')).must_equal "# Terms DE\n"
     end
 
     it 'honors an explicit locale: override' do
-      expect(Lux.locale.t('md:legal.terms', locale: :de)).to eq("# Terms DE\n")
+      _(Lux.locale.t('md:legal.terms', locale: :de)).must_equal "# Terms DE\n"
     end
 
     it 'falls back to the default locale when the file is missing' do
       Lux.current.locale = 'de'
-      expect(Lux.locale.t('md:service')).to eq("# Service\n\nWelcome %{name}\n")
+      _(Lux.locale.t('md:service')).must_equal "# Service\n\nWelcome %{name}\n"
     end
 
     it 'returns [key] when fully missing' do
-      expect(Lux.locale.t('md:unknown')).to eq('[md:unknown]')
+      _(Lux.locale.t('md:unknown')).must_equal '[md:unknown]'
     end
 
     it 'uses the fallback: arg when nothing matches' do
-      expect(Lux.locale.t('md:unknown', fallback: 'X')).to eq('X')
+      _(Lux.locale.t('md:unknown', fallback: 'X')).must_equal 'X'
     end
 
     it 'interpolates %{vars} when passed' do
-      expect(Lux.locale.t('md:service', name: 'Joe')).to eq("# Service\n\nWelcome Joe\n")
+      _(Lux.locale.t('md:service', name: 'Joe')).must_equal "# Service\n\nWelcome Joe\n"
     end
 
     it 'resolves the prefix as the file extension' do
-      expect(Lux.locale.t('html:page')).to eq("<h1>Page</h1>\n")
+      _(Lux.locale.t('html:page')).must_equal "<h1>Page</h1>\n"
     end
 
     it 'raises on a blank path' do
-      expect { Lux.locale.t('md:') }.to raise_error(ArgumentError, /blank path/)
+      err = assert_raises(ArgumentError) { Lux.locale.t('md:') }
+      assert_match(/blank path/, err.message)
+    end
+
+    it 'raises when the extension part climbs with ..' do
+      # ext '../md' -> <dir>/../md/service.en.../md, outside dir
+      err = assert_raises(ArgumentError) { Lux.locale.t('../md:service') }
+      assert_match(/path escapes/, err.message)
+      assert_raises(ArgumentError) { Lux.locale.t('..:service') }
+    end
+
+    # join drops the root for an absolute path, so this has to be caught too
+    it 'raises on an absolute path' do
+      assert_raises(ArgumentError) { Lux.locale.t('md:/etc/hosts') }
     end
   end
 
   describe '#t view loader' do
-    let(:views) { Pathname.new(Dir.mktmpdir('lux-views-')) }
+    def views
+      @views ||= Pathname.new(Dir.mktmpdir('lux-views-'))
+    end
 
     before do
       Lux.current.var.views_root = views.to_s
@@ -151,97 +165,106 @@ describe Lux::Locale do
     after { FileUtils.remove_entry views if views.exist? }
 
     it 'inserts the locale before the extension, rooted at views' do
-      expect(Lux.locale.t('/main/legal/policy.html')).to eq("<h1>Policy EN %{name}</h1>\n")
+      _(Lux.locale.t('/main/legal/policy.html')).must_equal "<h1>Policy EN %{name}</h1>\n"
     end
 
     it 'accepts language: as an alias for locale:' do
-      expect(Lux.locale.t('/main/legal/policy.html', language: :de)).to eq("<h1>Policy DE</h1>\n")
+      _(Lux.locale.t('/main/legal/policy.html', language: :de)).must_equal "<h1>Policy DE</h1>\n"
     end
 
     it 'falls back to the default locale when the file is missing' do
       Lux.current.locale = 'de'
       File.delete views.join('main/legal/policy.de.html')
-      expect(Lux.locale.t('/main/legal/policy.html')).to eq("<h1>Policy EN %{name}</h1>\n")
+      _(Lux.locale.t('/main/legal/policy.html')).must_equal "<h1>Policy EN %{name}</h1>\n"
     end
 
     it 'interpolates %{vars} when passed' do
-      expect(Lux.locale.t('/main/legal/policy.html', name: 'Joe')).to eq("<h1>Policy EN Joe</h1>\n")
+      _(Lux.locale.t('/main/legal/policy.html', name: 'Joe')).must_equal "<h1>Policy EN Joe</h1>\n"
     end
 
     it 'returns [key] when fully missing' do
-      expect(Lux.locale.t('/main/legal/missing.html')).to eq('[/main/legal/missing.html]')
+      _(Lux.locale.t('/main/legal/missing.html')).must_equal '[/main/legal/missing.html]'
+    end
+
+    it 'raises when the path climbs with ..' do
+      err = assert_raises(ArgumentError) { Lux.locale.t('/main/../../etc/passwd.html') }
+      assert_match(/path escapes/, err.message)
+    end
+
+    it 'raises on an absolute path' do
+      assert_raises(ArgumentError) { Lux.locale.t('//etc/hosts.html') }
     end
   end
 
   describe '#namespace' do
     it 'wins over the YAML file when handler returns non-nil' do
       Lux.locale.namespace(:users) { |sub, _lc| sub == 'profile.title' ? 'Dynamic' : nil }
-      expect(Lux.locale.t('users.profile.title')).to eq('Dynamic')
+      _(Lux.locale.t('users.profile.title')).must_equal 'Dynamic'
     end
 
     it 'falls through to YAML when handler returns nil' do
       Lux.locale.namespace(:users) { |_sub, _lc| nil }
-      expect(Lux.locale.t('users.welcome', name: 'Joe')).to eq('Hi Joe')
+      _(Lux.locale.t('users.welcome', name: 'Joe')).must_equal 'Hi Joe'
     end
 
     it 'receives subkey and locale' do
       seen = []
       Lux.locale.namespace(:users) { |sub, lc| seen << [sub, lc]; nil }
       Lux.locale.t('users.welcome', name: 'Joe')
-      expect(seen).to eq([['welcome', :en]])
+      _(seen).must_equal [['welcome', :en]]
     end
   end
 
   describe '#before_get' do
     it 'short-circuits the lookup when it returns non-nil' do
       Lux.locale.before_get { |_lc, _key| 'Hijacked' }
-      expect(Lux.locale.t('users.welcome', name: 'Joe')).to eq('Hijacked')
+      _(Lux.locale.t('users.welcome', name: 'Joe')).must_equal 'Hijacked'
     end
 
     it 'falls through when nil' do
       Lux.locale.before_get { |_lc, _key| nil }
-      expect(Lux.locale.t('users.welcome', name: 'Joe')).to eq('Hi Joe')
+      _(Lux.locale.t('users.welcome', name: 'Joe')).must_equal 'Hi Joe'
     end
   end
 
   describe '#set' do
     it 'writes a new key to the text file' do
       Lux.locale.set('users.farewell', 'Bye', locale: :en)
-      expect(Lux.locale.t('users.farewell')).to eq('Bye')
+      _(Lux.locale.t('users.farewell')).must_equal 'Bye'
 
       raw = tmp.join('users.en.txt').read
-      expect(raw).to include('farewell: Bye')
+      _(raw).must_include 'farewell: Bye'
     end
 
     it 'creates the file when missing' do
       Lux.locale.set('cart.empty', 'Empty', locale: :en)
-      expect(tmp.join('cart.en.txt')).to exist
-      expect(Lux.locale.t('cart.empty')).to eq('Empty')
+      assert tmp.join('cart.en.txt').exist?
+      _(Lux.locale.t('cart.empty')).must_equal 'Empty'
     end
 
     it 'sorts keys alphabetically on save' do
       Lux.locale.set('users.zeta',  'Z', locale: :en)
       Lux.locale.set('users.alpha', 'A', locale: :en)
       lines = tmp.join('users.en.txt').read.lines.map(&:chomp).reject(&:empty?)
-      expect(lines).to eq(lines.sort)
+      _(lines).must_equal lines.sort
     end
 
     it 'invalidates the in-process cache' do
       Lux.locale.t('users.welcome', name: 'Joe')  # warm cache
       Lux.locale.set('users.welcome', 'Hey %{name}', locale: :en)
-      expect(Lux.locale.t('users.welcome', name: 'Joe')).to eq('Hey Joe')
+      _(Lux.locale.t('users.welcome', name: 'Joe')).must_equal 'Hey Joe'
     end
 
     it 'runs before_set and stores its return value when non-nil' do
       Lux.locale.before_set { |_lc, _key, v| v.to_s.strip }
       Lux.locale.set('users.foo', "  trimmed  ", locale: :en)
-      expect(Lux.locale.t('users.foo')).to eq('trimmed')
+      _(Lux.locale.t('users.foo')).must_equal 'trimmed'
     end
 
     it 'leaves value untouched when before_set returns nil' do
       Lux.locale.before_set { |_lc, _key, _v| nil }
       Lux.locale.set('users.foo', 'raw', locale: :en)
-      expect(Lux.locale.t('users.foo')).to eq('raw')
+      _(Lux.locale.t('users.foo')).must_equal 'raw'
     end
   end
 
@@ -250,14 +273,14 @@ describe Lux::Locale do
       Lux.locale.t('users.welcome', name: 'Joe')          # warm
       File.write tmp.join('users.en.txt'), "welcome: Yo %{name}\n"
       Lux.locale.reload!
-      expect(Lux.locale.t('users.welcome', name: 'Joe')).to eq('Yo Joe')
+      _(Lux.locale.t('users.welcome', name: 'Joe')).must_equal 'Yo Joe'
     end
   end
 
   describe '#store' do
     # Minimal duck for Lux::Locale.store: responds to .get and .set
-    let(:store) do
-      Class.new do
+    def store
+      @store ||= Class.new do
         def initialize; @rows = {}; end
         def get(lc, ns, sub);        @rows[[lc, ns, sub]]; end
         def set(lc, ns, sub, value); @rows[[lc, ns, sub]] = value.to_s; end
@@ -268,17 +291,17 @@ describe Lux::Locale do
 
     it 'reads from store before falling back to file' do
       store.set(:en, :users, 'welcome', 'From DB %{name}')
-      expect(Lux.locale.t('users.welcome', name: 'Joe')).to eq('From DB Joe')
+      _(Lux.locale.t('users.welcome', name: 'Joe')).must_equal 'From DB Joe'
     end
 
     it 'falls through to file when store returns nil' do
-      expect(Lux.locale.t('users.welcome', name: 'Joe')).to eq('Hi Joe')
+      _(Lux.locale.t('users.welcome', name: 'Joe')).must_equal 'Hi Joe'
     end
 
     it 'writes through store instead of file' do
       Lux.locale.set('users.farewell', 'Bye', locale: :en)
-      expect(store.get(:en, :users, 'farewell')).to eq('Bye')
-      expect(tmp.join('users.en.txt').read).not_to include('farewell:')
+      _(store.get(:en, :users, 'farewell')).must_equal 'Bye'
+      refute_includes tmp.join('users.en.txt').read, 'farewell:'
     end
   end
 end

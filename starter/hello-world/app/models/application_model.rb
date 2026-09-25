@@ -2,7 +2,7 @@ ApplicationModel ||= Sequel::Model(Lux.db)
 
 ApplicationModel.plugin :lux_schema
 ApplicationModel.plugin :lux_before_save
-ApplicationModel.plugin :lux_links
+ApplicationModel.plugin :ref_linker
 ApplicationModel.include Lux::Policy::Model
 
 ApplicationModel.class_eval do

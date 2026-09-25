@@ -129,7 +129,7 @@ For `Lux.locale.t('users.welcome', name: 'Joe')` in current locale `:de`:
 
 1. `before_get.call(:de, 'users.welcome')` - non-nil wins.
 2. `namespace(:users)` handler called with `('welcome', :de)` - non-nil wins.
-3. `store.get(:users, :de, 'welcome')` if a store is configured.
+3. `store.get(:de, :users, 'welcome')` if a store is configured.
 4. File `./config/locales/users.de.txt`, line `welcome: ...`.
 5. Same chain in `default` locale (skipped if already default).
 6. `fallback:` arg.

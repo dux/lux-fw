@@ -4,8 +4,8 @@
   "name": "{{app}}",
   "version": "1.0.0",
   "devDependencies": {
-    "fez": "file:.gems/fez",
-    "postwind": "file:.gems/postwind",
+    "fez": "file:.libs/fez",
+    "postwind": "file:.libs/postwind",
     "@rollup/plugin-alias": "^5.0.0",
     "@rollup/plugin-commonjs": "^29.0.0",
     "@rollup/plugin-node-resolve": "^15.3.0",

@@ -79,9 +79,6 @@ class LuxJob < ApplicationModel
       end
       puts
 
-      # Sweep any leftover rows from the previous row-based lock scheme.
-      LuxJob.where(name: '__job_runner_lock__').delete
-
       main_thread = Thread.current
       first_run = true
 
@@ -276,31 +273,6 @@ class LuxJob < ApplicationModel
     # Kept on the model so templates don't need helper-module wiring; these
     # only format LuxJob fields and never grow into general utilities.
 
-    def time_ago(time)
-      return '' unless time
-      diff = Time.now - time
-      case diff
-      when 0..59       then "#{diff.to_i}s ago"
-      when 60..3599    then "#{(diff / 60).to_i}m ago"
-      when 3600..86399 then "#{(diff / 3600).to_i}h ago"
-      else                  "#{(diff / 86400).to_i}d ago"
-      end
-    end
-
-    def time_relative(time)
-      return '' unless time
-      diff = time - Time.now
-      past = diff < 0
-      diff = diff.abs
-      val = case diff
-            when 0..59       then "#{diff.to_i}s"
-            when 60..3599    then "#{(diff / 60).to_i}m"
-            when 3600..86399 then "#{(diff / 3600).to_i}h"
-            else                  "#{(diff / 86400).to_i}d"
-            end
-      past ? "#{val} ago" : "in #{val}"
-    end
-
     # self-contained pill classes; styles ship inline with the dashboard views
     def status_css(status)
       case status
@@ -368,21 +340,17 @@ class LuxJob < ApplicationModel
     self[:run_at] ||= Time.now
   end
 
+  # ModelApi's after hook reports @object.path; a job has no public page.
   def path
   end
 
   def admin_path
-    "/admin/lux_jobs/#{sid}"
+    "/admin/plugins/lux_jobs/show?name=#{Url.escape(name.to_s)}"
   end
 
   def log line, verbose: false
     msg = "[#{self.name}] #{line}"
     Lux.logger(:lux_job).info msg
     print "[#{Time.now.strftime('%H:%M:%S')}] #{msg}\n" if verbose
-  end
-
-  def log_lines
-    safe_name = name.to_s.gsub(/[^a-zA-Z0-9_\-]/, '')
-    Lux.shell.capture("grep -i '\\[#{safe_name}\\]' ./log/lux_job.log | tac | tail -n 100", shell: true)
   end
 end

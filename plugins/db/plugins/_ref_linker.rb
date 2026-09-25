@@ -1,8 +1,7 @@
 # Sequel::Plugins::RefLinker
 #
 # Single source of truth for the `*_ref` column conventions used across
-# models. Replaces the old, scattered `:lux_links` + `:parent_model`
-# plugins (those names remain as aliases for compatibility).
+# models.
 #
 # Recognised field shapes
 # -----------------------
@@ -322,17 +321,4 @@ module Sequel::Plugins::RefLinker
       !!(db_schema[:parent_key] || db_schema[:parent_model] || db_schema[:parent_type])
     end
   end
-
-  # ------------------------------------------------------------------
-  # DatasetMethods (kept minimal; `for` lives in dataset_methods.rb
-  # and routes here so it works on every Sequel model, plugged or not)
-  # ------------------------------------------------------------------
-
-  module DatasetMethods
-  end
 end
-
-# Compatibility aliases so existing `plugin :lux_links` and
-# `plugin :parent_model` calls in consumer apps keep working.
-Sequel::Plugins.const_set(:LuxLinks,   Sequel::Plugins::RefLinker) unless defined?(Sequel::Plugins::LuxLinks)
-Sequel::Plugins.const_set(:ParentModel, Sequel::Plugins::RefLinker) unless defined?(Sequel::Plugins::ParentModel)

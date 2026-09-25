@@ -32,8 +32,6 @@ require_relative 'ext/model_tree'
 require_relative 'ext/enums_plugin'
 
 # --- plugins/ : Sequel plugins (defined here, registered in app code) --
-# _ref_linker loads first (underscore prefix) because it const_sets the
-# :LuxLinks and :ParentModel aliases that consumer apps register by name.
 require_relative 'plugins/_ref_linker'
 require_relative 'plugins/hooks'
 require_relative 'plugins/before_save_filters'
@@ -41,5 +39,5 @@ require_relative 'plugins/create_limit'
 require_relative 'plugins/composite_primary_keys'
 
 # --- migrate/ : schema migration runtime -------------------------------
-require_relative 'migrate/auto_create_tables'
+require_relative 'migrate/auto_create_tables' if ENV['DB_MIGRATE'] == 'true'
 require_relative 'migrate/auto_migrate'

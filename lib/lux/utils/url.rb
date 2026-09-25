@@ -19,6 +19,7 @@ module Lux
 
       # default ports stripped from rendered URLs when proto matches
       DEFAULT_PORTS ||= { 'http' => '80', 'https' => '443', 'ws' => '80', 'wss' => '443' }.freeze
+      COUNTRY_SLDS  ||= %w[co com net org gov edu ac ltd plc].freeze
 
       # locales accepted as a path prefix: "en" or "en-UK"
       LOCALE_RE ||= /\A[a-z]{2}(-[A-Z]{2})?\z/
@@ -97,11 +98,11 @@ module Lux
       def initialize url
         @opt = OPTS.new
 
-        url, qs_part = url.split('?', 2)
-
-        # querysting hash
-        qs_part, @opt.qs_hash = qs_part.to_s.split('#')
+        # fragment first: it may follow the path directly, with no query string
+        url, @opt.qs_hash = url.split('#', 2)
         @opt.qs_hash = '#%s' % @opt.qs_hash if @opt.qs_hash
+
+        url, qs_part = url.split('?', 2)
 
         # querystring
         @opt.qs = qs_part.to_s.split('&').inject({}) do |qs, el|
@@ -122,7 +123,9 @@ module Lux
           # domain and subdomain
           parts = host.split('.').map(&:downcase)
           @opt.domain = parts.pop(2)
-          @opt.domain.unshift parts.pop if @opt.domain.join('').length == 4 # co.uk
+          # co.uk style: a registry label under a country TLD. Matching on
+          # label length alone turned x.com into ".x.com".
+          @opt.domain.unshift parts.pop if parts.any? && @opt.domain.last.length == 2 && COUNTRY_SLDS.include?(@opt.domain.first)
           @opt.domain = @opt.domain.join('.')
           @opt.subdomain = parts.first ? parts.join('.') : nil
         else

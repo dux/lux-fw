@@ -5,7 +5,8 @@
 module PdfGenerator
   extend self
 
-  PUPPETEER_SCRIPT = File.join('tmp', 'pdf_render.mjs')
+  PUPPETEER_SCRIPT ||= File.join('tmp', 'pdf_render.mjs')
+  SCRIPT_LOCK      ||= Mutex.new
 
   class RenderError < RuntimeError; end
 
@@ -32,18 +33,23 @@ module PdfGenerator
 
   private
 
-  # Store PDF to local filesystem. In production, replace with S3/CDN upload.
-  def store_pdf(pdf_data, filename)
-    dir = File.join('tmp', 'pdfs')
-    FileUtils.mkdir_p(dir)
-    path = File.join(dir, filename)
-    File.binwrite(path, pdf_data)
-    "/pdfs/#{filename}"
+  # Written once per process, so an updated script replaces a stale tmp copy
+  # on boot. The rename is atomic, so a render in another worker never runs a
+  # half-written file.
+  def ensure_puppeteer_script
+    SCRIPT_LOCK.synchronize do
+      return if @script_written
+
+      FileUtils.mkdir_p(File.dirname(PUPPETEER_SCRIPT))
+      tmp = "#{PUPPETEER_SCRIPT}.#{Process.pid}"
+      File.write(tmp, puppeteer_script)
+      File.rename(tmp, PUPPETEER_SCRIPT)
+      @script_written = true
+    end
   end
 
-  # Always (re)write so an updated script is never shadowed by a stale tmp copy.
-  def ensure_puppeteer_script
-    File.write(PUPPETEER_SCRIPT, <<~JS)
+  def puppeteer_script
+    <<~JS
       import puppeteer from 'puppeteer';
 
       const [url, pdfPath] = process.argv.slice(2);

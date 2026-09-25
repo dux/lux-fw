@@ -114,13 +114,15 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 
 | Plugin            | What it is | Read |
 |-------------------|------------|------|
-| `db`              | Boots `Lux::Db` + Sequel extensions (hooks, links, paginate, enums) | [README](./plugins/db/README.md) |
+| `db`              | Sequel extensions (hooks, links, paginate, enums) + auto-migrate | [README](./plugins/db/README.md) |
 | `authcog`         | Central-auth sign-in: `AuthcogController` + `UserSession`           | [README](./plugins/authcog/README.md) |
-| `web_common`      | Shared web layer: html builders, assets, PG exception logger + `/admin`; pulls in `authcog` | [README](./plugins/web_common/README.md) |
+| `web_common`      | Shared web layer: html builders, assets, PG exception logger + `/admin`; list `authcog` next to it | [README](./plugins/web_common/README.md) |
 | `locale`          | Small, namespaced translation lookup with dotted keys              | [README](./plugins/locale/README.md) |
-| `oauth`           | Oauth interface (facebook, github, google, linkedin, slack, ...)   | [README](./plugins/oauth/README.md) |
-| `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks)         | [README](./plugins/job_runner/README.md) |
-| `lux_logger`      | Database-backed structured logger                                  | [README](./plugins/lux_logger/README.md) |
+| `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks) + `/admin/plugins/lux_jobs` | [README](./plugins/job_runner/README.md) |
+| `pdf`             | Paged.js A4 pages under `/pdf/` + headless-Chrome PDF download     | [README](./plugins/pdf/README.md) |
+| `vibe`            | Docker harness: opencode agent + preview page for editing an app   | [README](./plugins/vibe/README.md) |
+
+Plugin specs live in `plugins/<name>/spec/` and run with `bundle exec hammer test`.
 
 ## Repo layout
 

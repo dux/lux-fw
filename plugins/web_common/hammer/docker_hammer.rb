@@ -7,7 +7,7 @@ namespace :docker do
     opt :tag, alias: :t, type: :string, default: 'latest', desc: 'image tag'
     proc do |opts|
       hammer 'pack'
-      # Context is the pack output: symlinks (./.gems) are flattened to real
+      # Context is the pack output: symlinks (./.libs) are flattened to real
       # files there, so `docker build .` would break on them.
       sh "docker build --target production -t #{File.basename(Dir.pwd)}:#{opts[:tag]} ./tmp/lux-app-cache"
     end

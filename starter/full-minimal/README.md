@@ -22,13 +22,13 @@ All `lux` commands use Hammer; run `lux --help` to see the available tasks.
 
 ## Local gem and library checkouts
 
-The Gemfile resolves each `lgem` from `./.gems/<name>` when that directory
+The Gemfile resolves each `lgem` from `./.libs/<name>` when that directory
 exists, and from `github dux/<name>` when it does not, so a fresh clone with no
-`.gems` still installs.
-`package.json` pulls Fez and PostWind from `./.gems` the same way.
+`.libs` still installs.
+`package.json` pulls Fez and PostWind from `./.libs` the same way.
 Generating from a local Lux checkout links every one of them that is present
 next to it.
-The `.gems` directory is ignored by Git.
+The `.libs` directory is ignored by Git.
 
 ## JavaScript
 
