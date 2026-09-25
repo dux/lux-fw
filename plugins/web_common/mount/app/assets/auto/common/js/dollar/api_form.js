@@ -176,7 +176,7 @@ class ApiForm {
         if (func[0] == '/') {
           // done is a path: swap REF for the created/updated ref, then navigate
           const ref = this.response.meta.ref || this.response.data.ref
-          Pjax.load(func.replaceAll('REF', ref))
+          Fez.load(func.replaceAll('REF', ref))
           return
         } else if (func[0] == '#') {
           this.opts = func
@@ -271,7 +271,7 @@ ApiForm.on('error', function (response) {
   }
 })
 
-// default - reload via Pjax; close the topmost dialog first so a form opened in a
+// default - re-fetch via Fez.refresh; close the topmost dialog first so a form opened in a
 // modal (e.g. the new-document dialog) dismisses itself on success
 ApiForm.on('refresh', function (response, path) {
   path = path || ''
@@ -280,7 +280,7 @@ ApiForm.on('refresh', function (response, path) {
     path = path.replaceAll('REF', ref)
   }
   if (window.Dialog?.isOpen()) Dialog.close()
-  Pjax.refresh(path)
+  Fez.refresh(path)
 })
 
 // done: :stream - the request only queued the work, so keep the dialog open and
@@ -317,7 +317,7 @@ ApiForm.on('stream', function (response) {
     stop()
     if (msg.ok === false) return
     if (window.Dialog?.isOpen()) Dialog.close()
-    Pjax.refresh()
+    Fez.refresh()
   }
 
   // Nothing is replayed, so a frame sent while the connection was down is gone
@@ -347,12 +347,12 @@ ApiForm.on('stream', function (response) {
 
 ApiForm.on('edit', function (data) {
   const path = data.meta.path || Toast.error('No path in API response')
-  Pjax.load(path + '/edit')
+  Fez.load(path + '/edit')
 })
 
 ApiForm.on('follow', function (data) {
   const path = data.path || this.response.meta.path || Toast.error('No path in API response')
-  Pjax.load(path)
+  Fez.load(path)
 })
 
 // bound once: any .lux-form posting to /api/ is handled here

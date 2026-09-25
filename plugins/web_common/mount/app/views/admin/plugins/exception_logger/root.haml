@@ -14,8 +14,8 @@
   @total = LuxException.size  klass: @klass_filter, since: @since, status: @status
 
 :javascript
-  window.exceptionPickUser  = () => Dialog.load('#{@prefix}/select_user_dialog',        (email) => Pjax.qs('user',  email));
-  window.exceptionPickClass = () => Dialog.load('#{@prefix}/select_error_class_dialog', (klass) => Pjax.qs('klass', klass));
+  window.exceptionPickUser  = () => Dialog.load('#{@prefix}/select_user_dialog',        (email) => Fez.load(Fez.qs('user',  email, { href: true })));
+  window.exceptionPickClass = () => Dialog.load('#{@prefix}/select_error_class_dialog', (klass) => Fez.load(Fez.qs('klass', klass, { href: true })));
 
 .flex.items-center.justify-between.mb-4
   %h1.h1 Exceptions

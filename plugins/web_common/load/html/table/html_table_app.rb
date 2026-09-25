@@ -25,7 +25,7 @@ class AppTable < HtmlTable
     end
     onclick do |o|
       path = block.call(o)
-      path.present? ? "Pjax.load('%s');" % path : nil
+      path.present? ? "Fez.load('%s');" % path : nil
     end
   end
 

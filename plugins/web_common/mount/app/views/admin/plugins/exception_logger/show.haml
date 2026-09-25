@@ -9,7 +9,7 @@
   @prefix = '/admin/plugins/exception_logger'
 
   @exp = LuxException.get_exp(lux.params[:uid]) or raise Lux.error.not_found
-  @toggle_js = "Lux.fetch('/api/lux_exceptions/toggle', { body: { uid: #{@exp[:uid].to_json} } }).then(() => Pjax.refresh())"
+  @toggle_js = "Lux.fetch('/api/lux_exceptions/toggle', { body: { uid: #{@exp[:uid].to_json} } }).then(() => Fez.refresh())"
 
 %p.mb-3
   %a.text-sm.text-blue-600.hover:underline{ href: @prefix + '/' } &larr; Back

@@ -1,7 +1,7 @@
 // arrow-key list navigation driven by a [data-keynav] attribute.
 //   <p data-keynav href="/foo">...</p>
 // ArrowUp/ArrowDown move a `.selected` highlight between visible
-// [data-keynav] nodes; Enter follows the node's href (via Pjax) or clicks it.
+// [data-keynav] nodes; Enter follows the node's href (via Fez.load) or clicks it.
 // the selection lives in the DOM (the `.selected` class), so it survives
 // re-renders and ajax-injected results without any per-view wiring.
 const $ = window.$
@@ -21,7 +21,7 @@ $(document).on('keydown', e => {
     if (!current) return
     e.preventDefault()
     const href = current.getAttribute('href')
-    href ? Pjax.load(href) : current.click()
+    href ? Fez.load(href) : current.click()
     return
   }
 

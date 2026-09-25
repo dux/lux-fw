@@ -175,7 +175,7 @@ module Lux
         # defensive `window.app ||= {}` guards). The per-request window hash is
         # owned by lux.browser; emit it here via #window_script - the single
         # emitter, so layouts must not also call it. Pjax re-runs <head> inline
-        # scripts on navigation (see Pjax.setPageBody), so this refreshes on
+        # scripts on navigation (see Fez.pjax.setPageBody), so this refreshes on
         # every page change.
         out.push %[<script>window.DEV = true;</script>] if Lux.env.dev?
         out.push (browser || Lux.current.browser).window_script

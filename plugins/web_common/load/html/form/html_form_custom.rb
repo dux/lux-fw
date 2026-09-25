@@ -32,7 +32,7 @@ class HtmlForm
     end
 
     opts[:value]    = Lux.current.request.params[name] if !@object && opts[:value].nil?
-    opts[:onchange] = "Pjax.load('?'+$(this.form).serialize())" if opts.delete(:autosubmit)
+    opts[:onchange] = "Fez.load('?'+$(this.form).serialize())" if opts.delete(:autosubmit)
 
     node  = input(name, opts)
     label = opts[:label]

@@ -67,14 +67,14 @@ ApiResponse.define({
   refresh(what) {
     if (what != false) {
       if (what == true) what = undefined
-      Pjax.refresh(what) // page, dialog, smart, all
+      Fez.refresh(what) // page, dialog, smart, all
     }
     return this
   },
 
   // reload page and scroll to top
   reload() {
-    Pjax.reload()
+    Fez.refresh(null, { scroll: true })
     return this
   },
 
@@ -84,14 +84,14 @@ ApiResponse.define({
     if (arg) {
       // Api('posts/create', name: 'New post').follow('/admin/posts/show/ulid:{ulid}')
       const path = arg.replace(/\{(\w+)\}/g, (_, r1) => this.data[r1])
-      Pjax.load(path)
+      Fez.load(path)
     } else if ((header_location = this.api_response.getResponseHeader('location'))) {
-      Pjax.load(header_location)
+      Fez.load(header_location)
     } else if (location.pathname.includes('/admin/')) {
       const base = location.pathname.split('/')[2]
-      Pjax.load(`/admin/${base}/${this.data.ref}`)
+      Fez.load(`/admin/${base}/${this.data.ref}`)
     } else if (this.response.meta.path) {
-      Pjax.load(this.response.meta.path)
+      Fez.load(this.response.meta.path)
     } else {
       alert('Nothing to follow')
     }
@@ -100,8 +100,8 @@ ApiResponse.define({
   // custom function when api request is done
   done(func) {
     if (typeof func == 'string') {
-      if (func[0] == '#') Pjax.refresh(func)
-      else Pjax.load(func)
+      if (func[0] == '#') Fez.refresh(func)
+      else Fez.load(func)
     } else {
       func(this.response)
     }
