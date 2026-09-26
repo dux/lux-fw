@@ -3,7 +3,7 @@
 #   load/assets   - CdnAsset + ApplicationHelper template helpers
 #   load/favicon  - `favicon` routing DSL (serve /favicon.ico + <head> links)
 #   load/html     - form / input / table / menu / paginate / filter builders
-#   load/lib      - ApplicationApi, ModelApi, PG-backed exception logger
+#   load/lib      - ApplicationApi, ModelApi, exception writer, legacy exception logger
 #   mount/        - /admin + /dev controllers and views
 #
 # Sign-in is the authcog plugin; apps list it next to this one.
@@ -11,9 +11,10 @@
 # load/**/*.rb is auto-required after this file; only the pieces that must
 # exist before that sweep are wired here.
 
-# Persist framework-internal `Lux.error.log` calls into the LuxException table.
+# Persist framework-internal `Lux.error.log` calls as JSON lines in
+# log/app.exceptions.log (read by dboss).
 module Lux::ErrorProxy
   def self.log_custom(err)
-    LuxException.add err
+    ExceptionWriter.new(err).write
   end
 end

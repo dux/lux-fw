@@ -1,7 +1,8 @@
 # Lux.plugin :web_common
 
 The shared web layer for a Lux app, bundled as one plugin: asset URLs, the
-favicon DSL, html builders, the PG exception logger and the `/admin` area.
+favicon DSL, html builders, the exception writer (dboss reads its file) and the
+`/admin` area.
 
 ```yaml
 # config/config.yaml
@@ -12,9 +13,10 @@ default:
     - web_common
 ```
 
-`web_common` builds on `db` (the exception logger needs Sequel models) and on
-`authcog` (`ApplicationApi` and `/admin` read the signed-in user through
-`UserSession`). It does not pull `authcog` in; list both.
+`web_common` builds on `db` (the legacy exception viewer needs Sequel models)
+and on `authcog` (`ApplicationApi` and `/admin` read the signed-in user through
+`UserSession`). It does not pull `authcog` in; list both. The exception writer
+itself needs neither.
 
 ## What's inside
 
@@ -51,23 +53,35 @@ end
 
 Everything is wired explicitly by the app, as above.
 
-### Exception logger
+### Exception writer
 
 Loading the plugin defines `Lux::ErrorProxy.log_custom` so framework errors
-flowing through `Lux.error.log` are recorded in `lux_exceptions` after the
-framework has handled duplicate suppression, screen logging, and error-file
-logging. If the exception tables are not migrated yet, the framework logs the
-custom hook failure without masking the original error; the first auto-migrate
-creates `lux_exceptions` + `lux_exception_logs` from the model schemas.
+flowing through `Lux.error.log` are written as compact JSON lines to
+`<Lux.root>/log/app.exceptions.log` after the framework has handled duplicate
+suppression, screen logging and error-file logging. dboss tails that file into
+its per-app `exceptions` tables (one summary row per fingerprint, one count row
+per UTC minute). A writer failure is logged by the hook and never masks the
+original exception.
 
-The `/admin` controller and views ship in the plugin's `mount/` tree and
-resolve through the `Lux::Root` overlay, so they are live once the plugin
-loads. Browse `/admin/plugins/exception_logger`. The plugin's
+```ruby
+ExceptionWriter.new(error).write
+ExceptionWriter.new(error).write(user: user.ref, ip: '203.0.113.7',
+                                tags: ['checkout'], description: 'Confirming an order')
+```
+
+Each line carries `uid` (SHA-256 of `[file, line, class]` from the first
+application backtrace frame), `dump` (`error.full_message(highlight: false)`),
+`message`, optional `user`, `ip`, `tags`, `description` (absent by default;
+`ip` falls back to the current request address) and `ts` (UTC RFC3339). Appends
+are flocked, so concurrent processes never interleave records.
+
+The legacy PG models (`LuxException` / `LuxExceptionLog`), their `/admin` pages
+and the `/api/lux_exceptions/toggle` API stay in the plugin but are no longer
+the hook target; `LuxException` (`get_list`, `get_exp`, `quick_summary`, ...)
+still backs the old viewer. The `/admin` controller and views ship in the
+plugin's `mount/` tree and resolve through the `Lux::Root` overlay. The plugin's
 `AdminController` requires `user.can.admin?`; an app that ships its own
-`AdminController` owns that check. Resolving an exception posts to
-`/api/lux_exceptions/toggle` (admin only, CSRF-checked). See the
-query/summary API on `LuxException` (`get_list`, `get_exp`, `quick_summary`,
-...) in `load/lib/lux_exception.rb`.
+`AdminController` owns that check.
 
 The jobs dashboard (`/admin/plugins/lux_jobs`) ships with the
 [`job_runner`](../job_runner/README.md) plugin. Server logs are read in dboss,
@@ -77,15 +91,15 @@ not in `/admin`.
 
 ```
 plugins/web_common/
-  loader.rb            # ErrorProxy.log_custom hook -> LuxException
+  loader.rb            # ErrorProxy.log_custom hook -> ExceptionWriter
   hammer/              # docker:* tasks, `lux generate` (assets:* lives in lux-fw core)
   load/
     favicon.rb           # `favicon` routing DSL
     assets/  html/{form,input,table,...}
-    lib/                 # ApplicationApi, ModelApi, SchemaMap, LuxException(s), LuxExceptionsApi
+    lib/                 # ApplicationApi, ModelApi, SchemaMap, ExceptionWriter, legacy LuxException(s)
   mount/               # /admin + /dev controllers and views (Lux::Root overlay)
   demo/                # fake lux_exceptions for UI work; loaded by hand (see the file header)
-  spec/                # exception logger end-to-end flow
+  spec/                # exception writer/hook specs + legacy logger end-to-end flow
 ```
 
 Asset pipeline (`lux assets:auto|build|upload|deploy`) is core:
