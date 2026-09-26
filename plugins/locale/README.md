@@ -146,12 +146,51 @@ Interpolation (`%{name}`) runs on the resolved string at the end.
 | `dir=`, `dir` | Pathname |
 | `store=`, `store` | any object responding to `.get(locale, ns, sub)` / `.set(locale, ns, sub, value)`; replaces the file backend for reads (after namespace handler) and writes |
 | `current` | symbol (validated against `available`) |
+| `detect` | symbol; peels `/xx` off `nav.path`, stores it in the session, sets `Lux.current.locale` |
 | `t(key, locale:, fallback:, **vars)` | string |
 | `set(key, value, locale:)` | the stored value |
 | `namespace(name) { \|subkey, locale\| ... }` | registers handler |
 | `before_get { \|locale, key\| ... }` | registers hook |
 | `before_set { \|locale, key, value\| ... }` | registers hook |
 | `reload!` | drops the in-process file cache |
+
+## URL locale prefix
+
+Two pieces work together:
+
+* `Lux.locale.detect` peels a leading `/xx` (or `/xx-YY`) off the request
+  path, remembers it in the session, and sets `Lux.current.locale`. Call it
+  once in a `before` filter; without it the prefix is treated as an ordinary
+  path segment.
+* The `localized` routing directive enforces the URL shape for a route
+  scope, at the point it is declared. The request's state is kept on
+  `Lux.current[:locale_localized]` and `Lux.current[:locale_force]`.
+
+```ruby
+Lux.app do
+  before { Lux.locale.detect }
+
+  map 'admin' do                 # /en/admin -> /admin
+    localized(false) { call 'admin#call' }
+  end
+
+  localized force: true do       # / and /users -> /<current>, /<current>/...
+    root 'main'
+    map 'users'
+  end
+end
+```
+
+| directive | no prefix | with prefix |
+|-----------|-----------|-------------|
+| `localized` | pass | pass (peeled by `detect`) |
+| `localized force: true` | redirect to `/<current>/<path>` | pass |
+| `localized(false)` | pass | redirect to `<path>` |
+
+An un-localized scope must be declared before a `force: true` one: the first
+dispatch ends routing, and `force` redirects as soon as it is reached. `force`
+uses the current locale, so a `de` visitor hitting `/users` lands on
+`/de/users`.
 
 ## DB-backed store
 
@@ -171,7 +210,7 @@ LuxTranslation.set(:en, :users, 'welcome', 'Hi %{name}')
 To keep the file backend in a DB-enabled app, set `Lux.locale.store = nil`
 after the plugin loads.
 
-`current` reads `Lux.current.locale` (typically set by `Nav` from the URL
+`current` reads `Lux.current.locale` (set by `Lux.locale.detect` from the URL
 prefix). Falls back to `default`. Unknown locale -> `Lux::Locale::Unknown`.
 
 ## Translated columns (`pg_translations`)

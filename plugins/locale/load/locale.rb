@@ -405,3 +405,50 @@ module Lux
     end
   end
 end
+
+# Route-scope locale policy. Records whether the request is localized (and
+# whether the prefix is forced) on Lux.current, then enforces the URL shape
+# where it is declared. Outside a `localized` scope nothing is enforced, so a
+# page is not localized unless it says so.
+#
+#   localized                    # prefix optional; /xx selects the locale
+#   localized force: true        # /foo -> /<current>/foo
+#   localized(false) do ... end  # /en/admin -> /admin
+#
+# `Lux.locale.detect` must have run (typically in a before filter) so the
+# prefix is peeled and nav.locale is populated. An un-localized scope has to
+# be declared before a force: true one - the first dispatch ends routing.
+module Lux
+  class Application
+    def localized value = true, force: false, &block
+      return if lux.response.body?
+
+      # opts-hash first arg: localized(force: true)
+      if value.is_hash?
+        force = value[:force] unless value[:force].nil?
+        value = true
+      end
+
+      lux[:locale_localized] = value
+      lux[:locale_force]     = force
+
+      if value
+        redirect_to Lux::Utils::Url.locale(Lux.locale.current) if force && !lux.nav.locale
+      elsif lux.nav.locale
+        redirect_to localized_target
+      end
+
+      instance_exec(&block) if block
+    end
+
+    private
+
+    # nav.path is already prefix-free (detect peeled it); keep the query string.
+    def localized_target
+      path = lux.nav.path.join('/')
+      path = "/#{path}".sub(%r{/+\z}, '')
+      qs   = lux.request.query_string.to_s
+      qs.empty? ? path : "#{path}?#{qs}"
+    end
+  end
+end

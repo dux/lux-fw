@@ -132,6 +132,12 @@ module Lux
         record verb: 'GET', path: '/favicon.ico', target: '[favicon] %s' % path
       end
 
+      # Locale policy does not change the route tree - descend so nested
+      # routes are still listed.
+      def localized value = true, force: false, &block
+        instance_exec(&block) if block
+      end
+
       def plugin_route name
         record verb: '*', path: build_path, target: '[plugin] %s' % name
       end
