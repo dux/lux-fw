@@ -22,7 +22,7 @@ require_relative '../lib/lux/loader'
 
 LUX_ROOT ||= File.expand_path '../..', __FILE__
 
-puts 'Lux v%s (%s)' % [File.read('%s/.version' % LUX_ROOT).strip, LUX_ROOT] unless ARGV[0]
+puts 'Lux %s (%s)' % [Lux::Version.string, LUX_ROOT] unless ARGV[0]
 
 require 'lux-hammer'
 

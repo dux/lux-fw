@@ -1,5 +1,7 @@
 # http://stackoverflow.com/questions/5159607/rails-engine-gems-dependencies-how-to-load-them-into-the-application
 
+require_relative 'lib/lux/version'
+
 gem_files = %w[bin lib plugins assets starter].flat_map do |dir|
   Dir.glob("#{dir}/**/*", File::FNM_DOTMATCH).select do |file|
     File.file?(file) && !File.basename(file).include?('.tmp.')
@@ -7,7 +9,7 @@ gem_files = %w[bin lib plugins assets starter].flat_map do |dir|
 end.push('.version')
 
 Gem::Specification.new 'lux-fw' do |gem|
-  gem.version     = File.read('.version')
+  gem.version     = Lux::Version.gem
   gem.summary     = 'Lux - the ruby framework'
   gem.description = 'Ruby framework optimized for speed and lightness'
   gem.homepage    = 'http://github.com/dux/lux-fw'

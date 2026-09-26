@@ -56,8 +56,19 @@ task :test do
 end
 
 task :version do
-  desc 'Print the current gem version'
-  proc { say File.read('.version').strip }
+  desc 'Print the build version'
+  proc do
+    require_relative 'lib/lux/version'
+    say Lux::Version.string
+  end
+end
+
+task :hooks do
+  desc 'Point git at .githooks (pre-commit stamps .version with the commit count)'
+  proc do
+    system('git', 'config', 'core.hooksPath', '.githooks') or error 'git config core.hooksPath failed'
+    say 'core.hooksPath -> .githooks'
+  end
 end
 
 task :console do
@@ -69,7 +80,7 @@ task :console do
     require 'overload/thread_simple'
     require 'lux/loader'
     require 'pry'
-    say "Lux v#{File.read('.version').strip} loaded from #{Dir.pwd}", :green
+    say "Lux #{Lux::Version.string} loaded from #{Dir.pwd}", :green
     Pry.start
   end
 end

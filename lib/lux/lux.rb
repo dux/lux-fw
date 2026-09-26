@@ -1,4 +1,5 @@
 require_relative './root'
+require_relative './version'
 
 module ::Lux
   extend self
@@ -18,7 +19,7 @@ module ::Lux
     @lux_fw_root ||= Pathname.new(__dir__).join('../..').expand_path.freeze
   end
 
-  VERSION ||= fw_root.join('.version').read.chomp
+  VERSION ||= Version.gem
 
   # Stable per-deploy identifier: same across restarts and across all app
   # servers of one deploy, changes when code/assets are redeployed. Used for

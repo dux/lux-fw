@@ -1,0 +1,10 @@
+#!/bin/sh
+# Stamp .version with the commit count this commit lands on (dboss-style
+# v<count>, rendered dotted by Lux::Version). Installed with
+# `git config core.hooksPath .githooks` (see `hammer hooks`).
+set -e
+
+count=$(git rev-list --count HEAD 2>/dev/null || echo 0)
+printf 'v%s\n' "$((count + 1))" > .version
+
+git add .version
