@@ -3,8 +3,6 @@
 
 import fs from 'fs';
 import { execSync, spawn } from 'child_process';
-import svelte from 'rollup-plugin-svelte'
-import { sveltePreprocess } from 'svelte-preprocess';
 import { nodeResolve } from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
 import terser from '@rollup/plugin-terser'
@@ -96,19 +94,6 @@ class Config {
         },
         coffee({ include: /\.coffee$/ }),
         typescript(),
-        svelte({
-          compilerOptions: {
-            dev: !production,
-            accessors: true,
-          },
-          emitCss: false,
-          preprocess: sveltePreprocess({
-            scss: {
-              silenceDeprecations: ['legacy-js-api'],
-              quietDeps: true
-            }
-          })
-        }),
         nodeResolve({
           browser: true,
           extensions: extensions
@@ -128,9 +113,6 @@ class Config {
         if (warning.code === 'EVAL') { show = false }
         if (warning.pluginCode === 'missing-declaration') { show = false }
         if (warning.message === 'Empty block') { show = false }
-        if (warning.message.includes('A11y')) { show = false }
-        if (warning.message.includes("was created with unknown prop")) return;
-        if (warning.message.includes("has unused export property")) return;
         if (show) { console.log(warning) }
       }
     }

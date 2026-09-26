@@ -40,14 +40,7 @@ module LuxAssets
           data.push file
         else
           ext = file.split('.').last.to_sym
-          if ext == :svelte
-            name = file.split('/').last.split('.').first.gsub('-', '_')
-            data.push <<~DATA
-              import Svelte_#{name} from '#{file}';
-              Svelte.bind('s-#{name.gsub('_', '-')}', Svelte_#{name});
-            DATA
-              .chomp
-          elsif [:js, :coffee, :fez].include?(ext)
+          if [:js, :coffee, :fez].include?(ext)
             data.push %[import "#{file}";]
           else
             raise "Unknown extension on #{file}"
