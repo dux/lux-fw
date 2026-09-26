@@ -47,7 +47,7 @@ class ApiResponse {
 $.apiResponse = ApiResponse
 
 // apps override or add chainable response methods to match their own stack
-// (Dialog / Pjax / Info, etc.); methods should return `this` to stay chainable.
+// (Dialog / Fez.load / Info, etc.); methods should return `this` to stay chainable.
 //   $.apiResponse.define({ close() { MyDialog.close(); return this } })
 ApiResponse.define = methods => (Object.assign(ApiResponse.prototype, methods), ApiResponse)
 

@@ -13,7 +13,7 @@
       this.readUser()
 
       // The nav sits outside the pjax container, so a navigation never swaps
-      // it. Pjax re-runs the layout head scripts on every page, so window.app
+      // it. Fez re-runs the layout head scripts on every page, so window.app
       // is fresh here - re-read it to follow sign-in and sign-out.
       this.on('pjax:render', () => this.readUser())
     }

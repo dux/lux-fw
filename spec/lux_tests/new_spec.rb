@@ -250,7 +250,7 @@ describe 'lux new' do
       assert_includes response.body, 'dux.github.io/fez/dist/fez.min.js'
       assert_includes response.body, '<app-nav>'
       assert_includes response.body, 'id="lux-state"'
-      # fez binds Pjax only when the layout ships a container carrying an id
+      # fez binds pjax navigation only when the layout ships a container carrying an id
       assert_includes response.body, 'id="page"'
       assert_includes response.body, 'pjax'
       assert_equal 200, (Lux.render.get('/components/app-nav.fez')).status
@@ -307,7 +307,7 @@ describe 'lux new' do
       assert_includes promo.body, 'href="/app"'
       assert_includes promo.body, 'href="/about"'
       refute_includes promo.body, 'href="/admin"'
-      # fez binds Pjax only when the layout ships a container carrying an id
+      # fez binds pjax navigation only when the layout ships a container carrying an id
       assert_includes promo.body, 'id="page"'
       assert_includes promo.body, 'pjax'
 

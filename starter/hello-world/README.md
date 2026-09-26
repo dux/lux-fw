@@ -70,13 +70,13 @@ name, so `app-nav.fez` defines `<app-nav>`. Fez compiles it in the browser.
 
 ## Navigation
 
-Fez ships Pjax, and binds it when the page declares a container - the layout's
+Fez ships pjax, and binds it when the page declares a container - the layout's
 `%main#page.pjax`. Following a link then fetches the new page over XHR and swaps
 only that node, so the browser keeps its scroll, its assets and any state living
 outside `<main>`. Remove the `pjax` class to go back to full page loads, or put
 `no-pjax` on a single link to opt that one out.
 
-The nav is outside the container, so it is never swapped. Pjax re-runs the
+The nav is outside the container, so it is never swapped. Fez re-runs the
 layout's inline `<head>` scripts on every navigation, which refreshes
 `window.app`; `app-nav.fez` listens for `pjax:render` and re-reads it, so
 signing out updates the nav without a reload.

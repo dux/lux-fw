@@ -65,7 +65,7 @@ Use `<script fez="/components/name.fez"></script>` to load another component.
 
 ## Navigation
 
-Fez ships Pjax, and binds it when the page declares a container - the layout's `%main#page.pjax`.
+Fez ships pjax, and binds it when the page declares a container - the layout's `%main#page.pjax`.
 Following a link then fetches the new page over XHR and swaps only that node, so the browser keeps its scroll, its assets and any state living outside `<main>`.
 Remove the `pjax` class to go back to full page loads, or put `no-pjax` on a single link to opt that one out.
 The nav is rendered outside the container and is never swapped, so the sign-in and sign-out links carry `no-pjax`.

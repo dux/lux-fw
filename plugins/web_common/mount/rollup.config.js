@@ -120,7 +120,7 @@ class Config {
           // keep the fez ESM bundle native: commonjs must not wrap it
           exclude: [/fez[\/\\]dist[\/\\]fez\.esm\.js$/],
         }),
-        fezPlugin({ runtime: 'fez' }),
+        fezPlugin(),
         production && terser(terserOpts)
       ],
       onwarn: (warning, defaultHandler) => {
