@@ -10,6 +10,12 @@ describe 'Lux::Db' do
     %w[DB_MAIN DB_LOG].each { |k| ENV.delete(k) }
   end
 
+  # Tests here set DB_MAIN/DB_LOG; clear them so a later spec (new_spec reads
+  # the env when scaffolding) does not inherit a leaked value.
+  after do
+    %w[DB_MAIN DB_LOG].each { |k| ENV.delete(k) }
+  end
+
   describe '.configured_names' do
     it 'returns empty when no db configured' do
       _(Lux::Db.configured_names).must_equal []
