@@ -572,7 +572,7 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 | `db`               | Sequel model extensions, auto-migrate, `link` associations | [README](./plugins/db/README.md) |
 | `authcog`          | Central-auth sign-in: `AuthcogController`, `UserSession` + sudo | [README](./plugins/authcog/README.md) |
 | `web_common`       | Shared web layer: html builders, assets, PG exception logger + `/admin`; list `authcog` next to it | [README](./plugins/web_common/README.md) |
-| `locale`           | Namespaced translation lookup with dotted keys | [README](./plugins/locale/README.md) |
+| `locale`           | Namespaced translation lookup + `/<xx>` URL prefixes (`localized`, `lux.lpath`) | [README](./plugins/locale/README.md) |
 | `job_runner`       | Background job queue (LuxJob) + admin dashboard | [README](./plugins/job_runner/README.md) |
 | `pdf`              | Printable A4 pages + PDF download | [README](./plugins/pdf/README.md) |
 | `vibe`             | Docker harness for agent-driven app editing | [README](./plugins/vibe/README.md) |
@@ -692,7 +692,7 @@ Specs live under `spec/<area>_tests/` and are Minitest::Spec - named
 
 ## Status
 
-* Version: see [`.version`](./.version)
+* Version: `Lux::Version.string`, from [`.version`](./.version) (a `v<commit count>` stamp written by the tracked `.githooks/pre-commit` hook; run `hammer hooks` once)
 * License: MIT, (c) 2017 Dino Reic
 * GitHub: <https://github.com/dux/lux-fw>
 * Author: Dino Reic ([@dux](https://github.com/dux))

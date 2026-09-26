@@ -134,7 +134,7 @@ module Lux
 
       # Locale policy does not change the route tree - descend so nested
       # routes are still listed.
-      def localized value = true, force: false, &block
+      def localized value = true, force: false, geo: true, &block
         instance_exec(&block) if block
       end
 

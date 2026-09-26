@@ -23,6 +23,11 @@ module's `README.md`.** Links are in the tables below.
 * ASCII only - `-` not `—`, `*` not `•`. No emojis unless asked.
 * Models use `ref` (string ULID) as primary key. Sequel-based ORM.
 * `Lux.current` (alias `lux`) is the thread-local request context.
+* Versioning mirrors dboss: `.version` holds `v<commit count>`, stamped on
+  every commit by the tracked `.githooks/pre-commit` hook (install with
+  `hammer hooks`); `Lux::Version.string` renders `v<a>.<b>.<c>` and
+  `Lux::VERSION` is the semver gem form. An unstamped checkout reports `dev`.
+  `Format` and `Version` live in `lib/lux/version.rb`.
 
 ## Routing invariants
 
@@ -117,7 +122,7 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | `db`              | Sequel extensions (hooks, links, paginate, enums) + auto-migrate | [README](./plugins/db/README.md) |
 | `authcog`         | Central-auth sign-in: `AuthcogController` + `UserSession`           | [README](./plugins/authcog/README.md) |
 | `web_common`      | Shared web layer: html builders, assets, PG exception logger + `/admin`; list `authcog` next to it | [README](./plugins/web_common/README.md) |
-| `locale`          | Small, namespaced translation lookup with dotted keys              | [README](./plugins/locale/README.md) |
+| `locale`          | Small, namespaced translation lookup + `/<xx>` URL prefixes (`localized`, `lux.lpath`) | [README](./plugins/locale/README.md) |
 | `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks) + `/admin/plugins/lux_jobs` | [README](./plugins/job_runner/README.md) |
 | `pdf`             | Paged.js A4 pages under `/pdf/` + headless-Chrome PDF download     | [README](./plugins/pdf/README.md) |
 | `vibe`            | Docker harness: opencode agent + preview page for editing an app   | [README](./plugins/vibe/README.md) |

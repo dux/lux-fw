@@ -146,6 +146,10 @@ Interpolation (`%{name}`) runs on the resolved string at the end.
 | `dir=`, `dir` | Pathname |
 | `store=`, `store` | any object responding to `.get(locale, ns, sub)` / `.set(locale, ns, sub, value)`; replaces the file backend for reads (after namespace handler) and writes |
 | `current` | symbol (validated against `available`) |
+| `force?` | bool; the active `localized` scope required the prefix |
+| `path(value, locale:)` | locale-prefixed path from a String or a `path`/`to_path` object; default locale stays bare unless forced |
+| `seo_links(value, base:)` | canonical + per-locale hreflang + x-default link attribute hashes for a locale-free path |
+| `geo_locale(country)` | available locale for an IP-geo country code (CF-IPCountry), else nil |
 | `detect` | symbol; peels `/xx` off `nav.path`, stores it in the session, sets `Lux.current.locale` |
 | `t(key, locale:, fallback:, **vars)` | string |
 | `set(key, value, locale:)` | the stored value |
@@ -183,14 +187,84 @@ end
 
 | directive | no prefix | with prefix |
 |-----------|-----------|-------------|
-| `localized` | pass | pass (peeled by `detect`) |
+| `localized` | pass | pass; the default locale redirects to the bare path |
 | `localized force: true` | redirect to `/<current>/<path>` | pass |
 | `localized(false)` | pass | redirect to `<path>` |
+
+With `localized` (not forced) the default locale is canonical without a
+prefix, so `/en/service` (default `:en`) redirects to `/service`; a non-default
+prefix such as `/de/service` passes through. `force: true` keeps the prefix,
+default included.
 
 An un-localized scope must be declared before a `force: true` one: the first
 dispatch ends routing, and `force` redirects as soon as it is reached. `force`
 uses the current locale, so a `de` visitor hitting `/users` lands on
 `/de/users`.
+
+### First-visit geo redirect
+
+A visitor who arrives with no `/xx` prefix and no remembered choice can be sent
+to their country's locale in one hop. A true `localized` scope reads the country
+from the request - `CF-IPCountry` (Cloudflare) or `X-Geo-Country` / `X-Country` -
+maps it through `LANGUAGES`, and redirects only when it lands on a non-default
+available locale. The choice is recorded in the session, so it fires once and
+never fights a visitor's own choice. `geo:` defaults to `true`; pass
+`geo: false` to keep a scope localized without the redirect.
+
+```ruby
+Lux.app do
+  before { Lux.locale.detect }
+
+  localized true do     # a German visitor to / -> 302 /de
+    call 'promo#auto'
+  end
+end
+```
+
+`Lux.locale.geo_locale('DE')` returns `:de` (`nil` for unknown codes such as
+`XX`/`T1`, and for countries that map to the bare default). Since the redirect
+is IP-based and temporary (302), keep the canonical/hreflang links so crawlers
+still see every locale - see [SEO links](#seo-links).
+
+### Path helper
+
+`Lux.locale.path` builds a locale-prefixed path with the same convention - the
+default locale stays bare unless the request is forced. It takes a String, or
+any object that knows its own path (`object.path`, else `object.to_path`). The
+`lux.lpath` shortcut (the current-thread pointer) and the `lpath` template
+helper both delegate to it:
+
+```ruby
+Lux.locale.path('/service')              # "/service", or "/en/service" when forced
+Lux.locale.path('/service', locale: :de) # "/de/service"
+Lux.locale.path('/')                     # "/" or "/de"
+Lux.locale.path(user)                    # user.path, locale-prefixed
+
+lux.lpath('/service')                    # current-thread shortcut
+lpath('/service')                        # template helper
+```
+
+`Lux.locale.force?` reads the current request's flag. The state lives on
+`Lux.current[:locale_localized]` and `Lux.current[:locale_force]`.
+
+### SEO links
+
+For a localized site, `seo_links` returns the canonical and hreflang tags a
+crawler needs: a self-canonical for the current locale, one `alternate` per
+available locale, and `x-default` for the default. Pass a locale-free path and
+the absolute origin; the tags are plain hashes a view renders as-is.
+
+```haml
+- Lux.locale.seo_links(here, base: 'https://example.com').each do |link|
+  %link{ link }
+```
+
+```html
+<link href="https://example.com/de/docs" rel="canonical">
+<link href="https://example.com/docs" hreflang="en" rel="alternate">
+<link href="https://example.com/de/docs" hreflang="de" rel="alternate">
+<link href="https://example.com/docs" hreflang="x-default" rel="alternate">
+```
 
 ## DB-backed store
 

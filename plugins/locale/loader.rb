@@ -17,10 +17,16 @@ module ::Lux
   def locale = Lux::Locale
 end
 
+# Current-thread shortcut: lux.lpath('/service') / lux.lpath(@user)
+class ::Lux::Current
+  def lpath(value = '/', **opts) = Lux.locale.path(value, **opts)
+end
+
 # Template helper: = t('users.welcome', name: @user.name)
 # Bare t() returns the current (or default) locale.
 module Lux::Template::Helper
   def t(key = nil, **opts) = Lux.locale.t(key, **opts)
+  def lpath(value = '/', **opts) = Lux.locale.path(value, **opts)
 end
 
 # DB-backed store. Apps that don't have a DB (or just want the file backend)

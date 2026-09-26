@@ -138,6 +138,88 @@ module Lux
       lc
     end
 
+    # True when the active `localized` scope was declared force: true - the
+    # prefix is then required, including for the default locale.
+    def force?
+      !!Lux.current[:locale_force]
+    end
+
+    # Locale-prefixed path. Accepts a String ("/foo") or an object that knows
+    # its own path (object.path, else object.to_path); anything else falls back
+    # to to_s. The default locale stays bare unless the request is forced; every
+    # other locale carries the /xx prefix. Reachable as lux.lpath from a request
+    # and as the lpath template helper.
+    #
+    #   Lux.locale.path('/service')              # "/service" (default) or "/hr/service"
+    #   Lux.locale.path('/service', locale: :hr) # "/hr/service"
+    #   Lux.locale.path('/')                     # "/" or "/hr"
+    #   Lux.locale.path(user)                    # user.path, locale-prefixed
+    def path value = '/', locale: nil
+      value  = localized_path(value)
+      value  = '/' if value.to_s.empty?
+      locale = (locale || current).to_s
+
+      if locale == default.to_s && !force?
+        value
+      elsif value == '/'
+        "/#{locale}"
+      else
+        "/#{locale}#{value}"
+      end
+    end
+
+    # SEO link attributes for a locale-free path: a self-canonical for the
+    # current locale, an alternate per available locale, and x-default for the
+    # default locale. `base` is the absolute origin (trailing slash ignored).
+    # Returns an array of attribute hashes a view renders as-is:
+    #
+    #   - Lux.locale.seo_links('/docs', base: 'https://example.com').each do |link|
+    #     %link{ link }
+    def seo_links value = '/', base: ''
+      base = base.to_s.sub(%r{/+\z}, '')
+
+      links = [{ rel: 'canonical', href: "#{base}#{path(value, locale: current)}" }]
+
+      available.each do |loc|
+        links << { rel: 'alternate', hreflang: loc.to_s, href: "#{base}#{path(value, locale: loc)}" }
+      end
+
+      links << { rel: 'alternate', hreflang: 'x-default', href: "#{base}#{path(value, locale: default)}" }
+      links
+    end
+
+    # Locale for an IP-geo country code, so a first-time visitor can be sent to
+    # the right /xx page. Reads CF-IPCountry (Cloudflare), then X-Geo-Country /
+    # X-Country for other proxies; pass `country` to map one directly. Countries
+    # are matched through LANGUAGES' country field, so only an available locale
+    # wins and unknown codes (XX, T1) return nil.
+    #
+    #   Lux.locale.geo_locale('DE')  # :de
+    #   Lux.locale.geo_locale('US')  # nil (en maps to gb; default stays bare)
+    def geo_locale country = nil
+      request = Lux.current.request
+      country ||= request.get_header('HTTP_CF_IPCOUNTRY') ||
+                  request.get_header('HTTP_X_GEO_COUNTRY') ||
+                  request.get_header('HTTP_X_COUNTRY')
+
+      code = country.to_s.downcase
+      return nil if code.empty?
+
+      loc = available.map(&:to_s).find { |lc| (LANGUAGES.dig(lc, :locale) || lc) == code }
+      loc&.to_sym
+    end
+
+    private
+
+    def localized_path value
+      return value if value.is_a?(::String)
+      return value.path    if value.respond_to?(:path)
+      return value.to_path if value.respond_to?(:to_path)
+      value.to_s
+    end
+
+    public
+
     # Resolve the locale for a web request and remember it across pages
     # that carry no URL prefix ("silent" translated pages).
     #
@@ -411,29 +493,46 @@ end
 # where it is declared. Outside a `localized` scope nothing is enforced, so a
 # page is not localized unless it says so.
 #
-#   localized                    # prefix optional; /xx selects the locale
-#   localized force: true        # /foo -> /<current>/foo
+#   localized                    # prefix optional; the default locale stays bare
+#   localized force: true        # /foo -> /<current>/foo, default included
+#   localized geo: false         # ... but do not IP-geo-redirect a first visit
 #   localized(false) do ... end  # /en/admin -> /admin
+#
+# A true scope also sends a first-time visitor (no /xx prefix, no remembered
+# choice) to their IP-geo country's locale - see `first_visit_locale`.
 #
 # `Lux.locale.detect` must have run (typically in a before filter) so the
 # prefix is peeled and nav.locale is populated. An un-localized scope has to
 # be declared before a force: true one - the first dispatch ends routing.
 module Lux
   class Application
-    def localized value = true, force: false, &block
+    def localized value = true, force: false, geo: true, &block
       return if lux.response.body?
 
-      # opts-hash first arg: localized(force: true)
+      # opts-hash first arg: localized(force: true) / localized(geo: false)
       if value.is_hash?
         force = value[:force] unless value[:force].nil?
+        geo   = value[:geo]   unless value[:geo].nil?
         value = true
       end
 
       lux[:locale_localized] = value
       lux[:locale_force]     = force
+      lux[:locale_geo]       = geo
 
       if value
-        redirect_to Lux::Utils::Url.locale(Lux.locale.current) if force && !lux.nav.locale
+        if !lux.nav.locale
+          # no /xx prefix: route a first-time visitor by IP-geo country, else
+          # leave the bare default (non-forced) or send a forced scope to it.
+          if (loc = first_visit_locale)
+            redirect_to Lux.locale.path(localized_target, locale: loc)
+          elsif force
+            redirect_to Lux::Utils::Url.locale(Lux.locale.current)
+          end
+        elsif !force && lux.nav.locale.to_s == Lux.locale.default.to_s
+          # not forced: the default locale is canonical without the prefix
+          redirect_to localized_target
+        end
       elsif lux.nav.locale
         redirect_to localized_target
       end
@@ -443,10 +542,21 @@ module Lux
 
     private
 
+    # A non-default locale to send a first-time visitor to, from IP-geo country.
+    # `localized geo: false` opts a scope out; nil once the browser remembers a
+    # choice, so it only fires on the first hit.
+    def first_visit_locale
+      return nil unless lux[:locale_geo]
+      return nil unless lux.session[:locale].to_s.empty?
+
+      loc = Lux.locale.geo_locale
+      loc if loc && loc.to_s != Lux.locale.default.to_s
+    end
+
     # nav.path is already prefix-free (detect peeled it); keep the query string.
     def localized_target
       path = lux.nav.path.join('/')
-      path = "/#{path}".sub(%r{/+\z}, '')
+      path = path.empty? ? '/' : "/#{path}".sub(%r{/+\z}, '')
       qs   = lux.request.query_string.to_s
       qs.empty? ? path : "#{path}?#{qs}"
     end
