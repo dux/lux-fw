@@ -110,7 +110,7 @@ marker and interpolation rules as above.
 ## On-disk format
 
 One flat text file per `(namespace, locale)` at
-`./config/locales/<namespace>.<locale>.txt`. One entry per line,
+`./config/locales/<namespace>/<locale>.txt`. One entry per line,
 `key: value`:
 
 ```
@@ -130,7 +130,7 @@ For `Lux.locale.t('users.welcome', name: 'Joe')` in current locale `:de`:
 1. `before_get.call(:de, 'users.welcome')` - non-nil wins.
 2. `namespace(:users)` handler called with `('welcome', :de)` - non-nil wins.
 3. `store.get(:de, :users, 'welcome')` if a store is configured.
-4. File `./config/locales/users.de.txt`, line `welcome: ...`.
+4. File `./config/locales/users/de.txt`, line `welcome: ...`.
 5. Same chain in `default` locale (skipped if already default).
 6. `fallback:` arg.
 7. `"[users.welcome]"` as a visible-but-non-fatal marker.

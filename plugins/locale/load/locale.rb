@@ -9,7 +9,7 @@
 #
 # Every key is namespaced - the first dotted segment is the namespace, the
 # rest is the subkey stored inside the flat text file at
-# `./config/locales/<namespace>.<locale>.txt`. Single-segment keys raise.
+# `./config/locales/<namespace>/<locale>.txt`. Single-segment keys raise.
 #
 # File format - one entry per line, `key: value`:
 #
@@ -120,7 +120,7 @@ module Lux
       @available ||= [default]
     end
 
-    # Directory containing `<namespace>.<locale>.txt` files.
+    # Directory containing `<namespace>/<locale>.txt` files.
     def dir
       @dir ||= Pathname.new('./config/locales')
     end
@@ -154,12 +154,16 @@ module Lux
     #   Lux.locale.path('/service', locale: :hr) # "/hr/service"
     #   Lux.locale.path('/')                     # "/" or "/hr"
     #   Lux.locale.path(user)                    # user.path, locale-prefixed
-    def path value = '/', locale: nil
+    #
+    # `prefix: true` emits the prefix for the default locale too, so a switcher
+    # can record an explicit return to it; the `localized` scope canonicalizes
+    # /en/service back to the bare /service.
+    def path value = '/', locale: nil, prefix: false
       value  = localized_path(value)
       value  = '/' if value.to_s.empty?
       locale = (locale || current).to_s
 
-      if locale == default.to_s && !force?
+      if locale == default.to_s && !force? && !prefix
         value
       elsif value == '/'
         "/#{locale}"
@@ -364,7 +368,7 @@ module Lux
     end
 
     def file_path(ns, lc)
-      dir.join("#{ns}.#{lc}.txt")
+      dir.join(ns.to_s, "#{lc}.txt")
     end
 
     def cache
@@ -455,7 +459,7 @@ module Lux
     # Load -> merge subkey -> sort -> atomic rewrite -> drop cache row.
     def file_set(ns, lc, subkey, value)
       path = file_path(ns, lc)
-      dir.mkpath unless dir.exist?
+      path.dirname.mkpath unless path.dirname.exist?
 
       table = path.exist? ? parse(path.read) : {}
       table[subkey] = value.to_s

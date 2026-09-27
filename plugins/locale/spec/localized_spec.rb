@@ -135,6 +135,11 @@ describe 'Lux::Locale#path' do
     _(Lux.locale.path('/service')).must_equal '/en/service'
   end
 
+  it 'prefixes the default locale on request' do
+    _(Lux.locale.path('/service', locale: :en, prefix: true)).must_equal '/en/service'
+    _(Lux.locale.path('/', locale: :en, prefix: true)).must_equal '/en'
+  end
+
   it 'uses the current locale' do
     Lux.current.locale = 'de'
     _(Lux.locale.path('/service')).must_equal '/de/service'

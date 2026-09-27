@@ -20,12 +20,13 @@ describe Lux::Locale do
     Lux.locale.default   = :en
     Lux.locale.available = %i[en de]
 
-    File.write tmp.join('users.en.txt'), <<~TXT
+    FileUtils.mkdir_p tmp.join('users')
+    File.write tmp.join('users/en.txt'), <<~TXT
       welcome: Hi %{name}
       profile.title: Profile
     TXT
 
-    File.write tmp.join('users.de.txt'), <<~TXT
+    File.write tmp.join('users/de.txt'), <<~TXT
       welcome: Hallo %{name}
     TXT
   end
@@ -232,20 +233,20 @@ describe Lux::Locale do
       Lux.locale.set('users.farewell', 'Bye', locale: :en)
       _(Lux.locale.t('users.farewell')).must_equal 'Bye'
 
-      raw = tmp.join('users.en.txt').read
+      raw = tmp.join('users/en.txt').read
       _(raw).must_include 'farewell: Bye'
     end
 
     it 'creates the file when missing' do
       Lux.locale.set('cart.empty', 'Empty', locale: :en)
-      assert tmp.join('cart.en.txt').exist?
+      assert tmp.join('cart/en.txt').exist?
       _(Lux.locale.t('cart.empty')).must_equal 'Empty'
     end
 
     it 'sorts keys alphabetically on save' do
       Lux.locale.set('users.zeta',  'Z', locale: :en)
       Lux.locale.set('users.alpha', 'A', locale: :en)
-      lines = tmp.join('users.en.txt').read.lines.map(&:chomp).reject(&:empty?)
+      lines = tmp.join('users/en.txt').read.lines.map(&:chomp).reject(&:empty?)
       _(lines).must_equal lines.sort
     end
 
@@ -271,7 +272,7 @@ describe Lux::Locale do
   describe '#reload!' do
     it 'forces a re-read of files' do
       Lux.locale.t('users.welcome', name: 'Joe')          # warm
-      File.write tmp.join('users.en.txt'), "welcome: Yo %{name}\n"
+      File.write tmp.join('users/en.txt'), "welcome: Yo %{name}\n"
       Lux.locale.reload!
       _(Lux.locale.t('users.welcome', name: 'Joe')).must_equal 'Yo Joe'
     end
@@ -301,7 +302,7 @@ describe Lux::Locale do
     it 'writes through store instead of file' do
       Lux.locale.set('users.farewell', 'Bye', locale: :en)
       _(store.get(:en, :users, 'farewell')).must_equal 'Bye'
-      refute_includes tmp.join('users.en.txt').read, 'farewell:'
+      refute_includes tmp.join('users/en.txt').read, 'farewell:'
     end
   end
 end
