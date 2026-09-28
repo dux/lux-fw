@@ -87,6 +87,18 @@ The jobs dashboard (`/admin/plugins/lux_jobs`) ships with the
 [`job_runner`](../job_runner/README.md) plugin. Server logs are read in dboss,
 not in `/admin`.
 
+## Browser API response event
+
+`Api(...)` and `ApiForm` dispatch `api:response` on `document` after a successful HTTP response and before their completion callbacks.
+The event detail is `{ path, response }`, containing the request path and parsed API envelope.
+Apps can subscribe to update client caches before callbacks refresh or navigate the UI.
+
+```js
+document.addEventListener('api:response', ({ detail }) => {
+  console.log(detail.path, detail.response.data)
+})
+```
+
 ## Layout
 
 ```

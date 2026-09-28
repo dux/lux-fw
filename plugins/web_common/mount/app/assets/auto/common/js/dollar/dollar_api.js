@@ -37,6 +37,9 @@ class ApiResponse {
     if (this.response.error) {
       (execHash.error || this.error)()
     } else if (this.api_response.status == 200) {
+      document.dispatchEvent(new CustomEvent('api:response', {
+        detail: { path: this.path, response: this.response }
+      }))
       for (const m of Object.keys(execHash)) this[m](execHash[m])
     } else {
       alert('API strange error')
@@ -145,6 +148,7 @@ $.api = window.Api = (path, opts = {}) => {
 
   if (path.indexOf('/api/') != 0) path = `/api/${path}`
   const apiResponse = new ApiResponse()
+  apiResponse.path = path
 
   const execHash = {}
   const execOpts = {}

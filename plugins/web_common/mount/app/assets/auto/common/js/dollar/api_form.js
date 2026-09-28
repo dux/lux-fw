@@ -166,6 +166,12 @@ class ApiForm {
         return
       }
 
+      if (xhr.status == 200 && !this.response.error) {
+        document.dispatchEvent(new CustomEvent('api:response', {
+          detail: { path: this.action, response: this.response }
+        }))
+      }
+
       this.call('after')
 
       if (!(this.form.attr('silent') || this.form.attr('data-silent'))) Toast.api(this.response)
