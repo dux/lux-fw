@@ -9,7 +9,7 @@
 #   plugins/  - Sequel plugins (loaded for later `plugin :name` registration)
 #   migrate/  - schema migration runtime (used by `lux db:am`)
 
-Sequel::Model.require_valid_table = false if Lux.runtime.rake?
+Sequel::Model.require_valid_table = false if Lux.runtime.task_runner?
 
 root = File.expand_path(__dir__)
 
