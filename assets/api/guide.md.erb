@@ -20,6 +20,34 @@ truth; this page is the human view of it.
 | AGENTS.md (for LLMs) | <%= absolute("#{mount_on}/sys/AGENTS.md") %> |
 | Health probe | <%= absolute("#{mount_on}/sys/health") %> |
 
+## Calling the API
+
+Every action accepts POST. Send params as form keys, a JSON object, or the
+JSON-RPC envelope; all three reach the same action.
+
+```sh
+# form keys (simplest - -d makes it POST + form content-type)
+curl '<%= base_url %><%= mount_on %>/<api>/<action>' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d 'key=value&flag=true'
+
+# JSON body
+curl -X POST '<%= base_url %><%= mount_on %>/<api>/<action>' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"value","flag":true}'
+
+# JSON-RPC envelope: one endpoint, the path is ignored
+curl -X POST '<%= base_url %><%= mount_on %>' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"class":"<api>","action":"<action>","ref":"<ref>","params":{"key":"value"}}'
+```
+
+Member actions carry the id in the path (`/<api>/<ref>/<action>`) or as the
+envelope `ref`. The bearer token can also be sent as an `api_token` form or
+query param.
+
 ## Connect
 
 * Base URL: <%= base_url %><%= mount_on.empty? ? '/' : mount_on %>
@@ -66,7 +94,7 @@ Model schema: `<%= api[:schema_ref] %>`
 #### <%= title %>
 <%   actions.each do |action_name, entry| -%>
 
-##### <%= http_verbs(entry).join(' / ') %> <%= entry[:path] %>
+##### [<%= http_verbs(entry).join(' / ') %> <%= entry[:path] %>](<%= mount_on %>/sys/web#method-<%= api_name %>-<%= action_name %>)
 <% if entry[:desc] && !entry[:desc].to_s.empty? -%>
 
 <%= entry[:desc] %>

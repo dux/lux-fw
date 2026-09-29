@@ -26,6 +26,13 @@ module Lux
         host    = view.request ? view.request.host : 'API'
         content = Lux::Utils::Markdown.to_html view.render(MD_TEMPLATE)
 
+        # Action headings link to the explorer's method anchors; open those in
+        # a new tab (commonmarker cannot carry target= from markdown).
+        content = content.gsub(
+          %r{<a href="(/[^"]*/sys/web\#method-[^"]*)"},
+          '<a href="\1" target="_blank" rel="noopener"'
+        )
+
         File.read(HTML_SHELL)
             .gsub('{{title}}', "#{host} API")
             .gsub('{{raw}}', "#{mount}/sys/md")

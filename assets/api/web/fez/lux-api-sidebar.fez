@@ -81,8 +81,13 @@
       document.querySelectorAll('[id^="method-"]').forEach(el => this._io.observe(el))
 
       if (location.hash) {
-        const link = linkFor(location.hash.slice(1))
+        const id   = location.hash.slice(1)
+        const link = linkFor(id)
         if (link) requestAnimationFrame(() => setActive(link))
+        // methods render after the schema fetch, so the browser's own fragment
+        // scroll misses them; land on the linked method once it exists.
+        const el = document.getElementById(id)
+        if (el) requestAnimationFrame(() => el.scrollIntoView({ block: 'start' }))
       }
     }
 

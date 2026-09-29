@@ -7,7 +7,7 @@ require 'stringio'
 class SysMockApiHost
   attr_reader :request, :response
 
-  def initialize(path:, method: 'GET')
+  def initialize(path:, method: 'GET', accept: nil)
     env = {
       'REQUEST_METHOD'  => method,
       'PATH_INFO'       => path,
@@ -19,6 +19,7 @@ class SysMockApiHost
       'rack.url_scheme' => 'http',
       'SCRIPT_NAME'     => ''
     }
+    env['HTTP_ACCEPT'] = accept if accept
     @request  = Rack::Request.new(env)
     @response = Struct.new(:header, :status).new({}, 200)
   end
@@ -179,6 +180,35 @@ describe 'Lux::Api::SysApi endpoints' do
     result = Lux::Api::SysApi.new(:web, params: { file: 'boot.rb' }, api_host: host).execute_call
     _(result[:success]).must_equal false
     _(result[:error][:messages].first).must_include 'extension not allowed'
+  end
+
+  it 'guide shows multiple call styles on top, mount-aware' do
+    host = SysMockApiHost.new(path: '/api/sys/guide', method: 'GET')
+    md   = Lux::Api::SysApi.render(:guide, api_host: host)
+    _(md).must_include '## Calling the API'
+    _(md).must_include %q(-d 'key=value&flag=true')            # form keys
+    _(md).must_include %q(-d '{"key":"value","flag":true}')    # JSON body
+    _(md).must_include '"class":"<api>"'                       # JSON-RPC envelope
+    _(md).must_include 'http://example.com/api/<api>/<action>'
+  end
+
+  it 'guide links each action to its explorer anchor' do
+    host = SysMockApiHost.new(path: '/api/sys/guide', method: 'GET')
+    md   = Lux::Api::SysApi.render(:guide, api_host: host)
+    _(md).must_include '](/api/sys/web#method-company-show)'
+  end
+
+  it 'guide action links open the explorer in a new tab (HTML)' do
+    host = SysMockApiHost.new(path: '/api/sys/guide', method: 'GET', accept: 'text/html')
+    html = Lux::Api::SysApi.render(:guide, api_host: host)
+    _(html).must_match(%r{<a href="/api/sys/web#method-company-show" target="_blank" rel="noopener">})
+  end
+
+  it 'guide links honour a custom mount' do
+    host = SysMockApiHost.new(path: '/kapi/sys/guide', method: 'GET')
+    md   = Lux::Api::SysApi.render(:guide, api_host: host)
+    _(md).must_include '](/kapi/sys/web#method-company-show)'
+    _(md).must_include 'http://example.com/kapi/<api>/<action>'
   end
 end
 
