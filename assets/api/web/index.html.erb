@@ -6,7 +6,7 @@
   <title>Lux::Api</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 
-  <script src="?file=vendor/postwind.js"></script>
+  <script src="<%= mount_on %>/sys/web/vendor/postwind.js"></script>
   <script src="https://dux.github.io/fez/dist/fez.min.js"></script>
 
   <style>
@@ -126,22 +126,23 @@
     <lux-api-apis></lux-api-apis>
   </main>
 
-  <script src="?file=boot.js"></script>
+  <script src="<%= mount_on %>/sys/web/boot.js"></script>
 
-  <!-- fez components: reusable widgets (lib/web/fez/*.fez) -->
-  <script fez="?file=/fez/lux-api-btn.fez"></script>
-  <script fez="?file=/fez/material-icon.fez"></script>
-  <script fez="?file=/fez/input-date.fez"></script>
-  <script fez="?file=/fez/input-color.fez"></script>
-  <script fez="?file=/fez/nav-block.fez"></script>
-  <script fez="?file=/fez/lux-api-header.fez"></script>
-  <script fez="?file=/fez/lux-api-sidebar.fez"></script>
-  <script fez="?file=/fez/lux-api-apis.fez"></script>
-  <script fez="?file=/fez/lux-api.fez"></script>
-  <script fez="?file=/fez/lux-api-method.fez"></script>
-  <script fez="?file=/fez/lux-api-params.fez"></script>
-  <script fez="?file=/fez/lux-api-runner.fez"></script>
-  <script fez="?file=/fez/schema-view.fez"></script>
+  <!-- fez components: reusable widgets (lib/web/fez/*.fez). Path-based src so
+       fez derives each tag name from the URL (Fez.nameFromPath). -->
+  <script fez="<%= mount_on %>/sys/web/fez/lux-api-btn.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/material-icon.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/input-date.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/input-color.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/nav-block.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/lux-api-header.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/lux-api-sidebar.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/lux-api-apis.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/lux-api.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/lux-api-method.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/lux-api-params.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/lux-api-runner.fez"></script>
+  <script fez="<%= mount_on %>/sys/web/fez/schema-view.fez"></script>
 </body>
 </html>
 

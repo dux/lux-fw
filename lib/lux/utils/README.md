@@ -12,6 +12,7 @@ via their full namespace, or through monkey-patches on stdlib classes
 | Constant | File | Purpose |
 |----------|------|---------|
 | `Lux::Utils::Crypt`         | `crypt.rb`           | JWT-based encrypt/decrypt + hashes + uid |
+| `Lux::Utils::Markdown`      | `markdown.rb`        | Markdown -> HTML (CommonMark + GFM) via Commonmarker |
 | `Lux::Utils::StringBase`    | `string_base.rb`     | base-N integer encoding (short/medium/long key sets) |
 | `Lux::Utils::TimeDifference`| `time_difference.rb` | humanise relative time ("3 minutes ago") |
 | `Lux::Utils::Boolean`       | `boolean.rb`         | string -> boolean parser, mixed into TrueClass/FalseClass |

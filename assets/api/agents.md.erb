@@ -29,6 +29,7 @@ drift from the running code. Pick the one that matches your tooling:
 | `<%= absolute("#{mount_on}/sys/postman") %>` | Postman 2.1 collection. | Postman, Insomnia, Bruno |
 | `<%= absolute("#{mount_on}/sys/hammer") %>` | Ready-to-run lux-hammer CLI client (Ruby source). | `gem install lux-hammer`, then `curl ... > Hammerfile` |
 | `<%= absolute("#{mount_on}/sys/web") %>` | Interactive browser explorer. | Humans poking at the API |
+| `<%= absolute("#{mount_on}/sys/guide") %>` | Human API guide as markdown, rendered to HTML for browsers. | Quick orientation; raw source at `<%= absolute("#{mount_on}/sys/md") %>` |
 | `<%= absolute("#{mount_on}/sys/health") %>` | Liveness probe (`{ ok: true }`). | Uptime checks, k8s readiness |
 | `<%= absolute("#{mount_on}/sys/AGENTS.md") %>` | This document. | Re-fetch latest agent guide |
 

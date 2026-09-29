@@ -88,7 +88,7 @@ module Lux
         path = entry[:path].dup
         path = path.gsub(':ref', '123') if type == :member
 
-        auth = ' \\\n  -H "Authorization: Bearer $TOKEN"'
+        auth = " \\\n  -H \"Authorization: Bearer $TOKEN\""
         url  = absolute(path)
 
         if verb == 'GET'

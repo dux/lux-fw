@@ -1,4 +1,1 @@
 gem 'lux-fw'
-
-# server-side Markdown views (.md), rendered through Tilt
-gem 'commonmarker'

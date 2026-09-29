@@ -9,6 +9,8 @@ module Lux
 
       # action -> one-line description, also the source for the /sys/ index.
       ENDPOINTS ||= {
+        guide:   'Human guide (markdown; HTML for browsers)',
+        md:      'Raw markdown of the guide (always text/markdown)',
         schema:  'Canonical introspection JSON',
         openapi: 'OpenAPI 3 spec',
         postman: 'Postman 2.1 collection',
@@ -23,6 +25,33 @@ module Lux
       define :index do
         proc do
           response('text/plain; charset=utf-8') { sys_index }
+        end
+      end
+
+      allow :get
+      desc 'Raw markdown of the human API guide (always text/markdown).'
+      define :md do
+        proc do
+          response('text/markdown; charset=utf-8') do
+            Lux::Api::Guide.markdown(@api, mount_on: derive_mount_on)
+          end
+        end
+      end
+
+      allow :get
+      desc 'Human-readable API guide generated from introspection. Rendered to HTML for browsers, raw markdown otherwise (or with ?format=md).'
+      define :guide do
+        proc do
+          mount = derive_mount_on
+          if @api.params[:format].to_s == 'md' || !browser?
+            response('text/markdown; charset=utf-8') do
+              Lux::Api::Guide.markdown(@api, mount_on: mount)
+            end
+          else
+            response('text/html; charset=utf-8') do
+              Lux::Api::Guide.html(@api, mount_on: mount)
+            end
+          end
         end
       end
 
@@ -120,6 +149,12 @@ module Lux
           lines << '  %s   %s   %s' % [action.rjust(name_w), url.ljust(url_w), desc]
         end
         lines.join("\n") + "\n"
+      end
+
+      # A page load from a real browser accepts HTML; curl/scripts default to
+      # */* and get the raw markdown.
+      def browser?
+        @api.request && @api.request.env['HTTP_ACCEPT'].to_s.include?('text/html')
       end
 
       # Recover the actual mount prefix from the live request path. With

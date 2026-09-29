@@ -76,6 +76,9 @@ Gem::Specification.new 'lux-fw' do |gem|
   # best server side templateing
   gem.add_dependency 'haml'
 
+  # server-side markdown (CommonMark + GFM) for the API guide and .md views
+  gem.add_dependency 'commonmarker'
+
   # used by Lux::ViewCell.css to compile SCSS blocks defined in cells
   gem.add_dependency 'sassc'
 

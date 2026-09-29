@@ -1,0 +1,98 @@
+# <%= request && request.host %> API
+
+Server: <%= base_url %>
+
+Every documented action below is generated from the running code, so this
+guide cannot drift from the API. The machine-readable schema is the source of
+truth; this page is the human view of it.
+
+## Start here
+
+| What | Where |
+|---|---|
+| This guide, rendered | <%= absolute(mount_on.empty? ? '/' : mount_on) %> |
+| This guide, raw markdown | <%= absolute("#{mount_on}/sys/md") %> |
+| Interactive explorer | <%= absolute("#{mount_on}/sys/web") %> |
+| Introspection schema (JSON) | <%= absolute("#{mount_on}/sys/schema") %> |
+| OpenAPI 3 spec | <%= absolute("#{mount_on}/sys/openapi") %> |
+| Postman collection | <%= absolute("#{mount_on}/sys/postman") %> |
+| lux-hammer CLI client | <%= absolute("#{mount_on}/sys/hammer") %> |
+| AGENTS.md (for LLMs) | <%= absolute("#{mount_on}/sys/AGENTS.md") %> |
+| Health probe | <%= absolute("#{mount_on}/sys/health") %> |
+
+## Connect
+
+* Base URL: <%= base_url %><%= mount_on.empty? ? '/' : mount_on %>
+* Auth: send a bearer token as `Authorization: Bearer <token>`, or `api_token` as a query/form param, or `token` inside a JSON-RPC envelope. Actions marked unsafe need no token.
+* Call: `POST <base>/<api>/<action>` with a JSON object of params as the body. Member actions carry the id in the path: `POST <base>/<api>/<ref>/<action>`.
+* Response: `{ "data": ... }` on success, `{ "error": ..., "status": ... }` on failure. Some actions return a bare value instead of a `data` envelope.
+
+Error codes:
+
+<% if doc[:errors] && !doc[:errors].empty? -%>
+| Code | Meaning |
+|---|---|
+<% doc[:errors].each do |code, desc| -%>
+| `<%= code %>` | <%= desc %> |
+<% end -%>
+<% else -%>
+_No custom errors registered via `rescue_from` in this API._
+<% end -%>
+
+## APIs
+<% if (doc[:apis] || {}).empty? -%>
+_No documented API classes. Mark a class with `documented` and give actions a
+`desc` to list them here._
+<% end -%>
+<% (doc[:apis] || {}).each do |api_name, api| -%>
+
+### <%= api_name %>
+<% if api[:desc] && !api[:desc].to_s.empty? -%>
+
+<%= api[:desc] %>
+<% end -%>
+<% if api[:detail] && !api[:detail].to_s.empty? -%>
+
+<%= api[:detail] %>
+<% end -%>
+<% if api[:schema_ref] -%>
+
+Model schema: `<%= api[:schema_ref] %>`
+<% end -%>
+<% { collection: 'Collection actions', member: 'Member actions' }.each do |type, title| -%>
+<%   actions = api[type] || {} -%>
+<%   next if actions.empty? -%>
+
+#### <%= title %>
+<%   actions.each do |action_name, entry| -%>
+
+##### <%= http_verbs(entry).join(' / ') %> <%= entry[:path] %>
+<% if entry[:desc] && !entry[:desc].to_s.empty? -%>
+
+<%= entry[:desc] %>
+<% end -%>
+<% if entry[:detail] && !entry[:detail].to_s.empty? -%>
+
+<%= entry[:detail] %>
+<% end -%>
+<% if entry[:params] && !entry[:params].empty? -%>
+
+<%= params_table(entry[:params]) %>
+<% end -%>
+<% if entry[:schema_ref] -%>
+
+Body schema: `<%= entry[:schema_ref] %>`
+<% end -%>
+
+```sh
+<%= curl_example(entry, api_name, action_name, type) %>
+```
+<%   end -%>
+<% end -%>
+<% end -%>
+
+## Notes for agents
+
+* Call a collection `list`/`index` action first to discover resource ids.
+* Read-only actions (`allow :get` actions that only read) are safe to repeat. Ask the operator before any action that deletes data or runs code.
+* A failed action is not retried automatically; read the `error` field before trying again.

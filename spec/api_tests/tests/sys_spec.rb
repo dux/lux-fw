@@ -123,11 +123,11 @@ describe 'Lux::Api::SysApi endpoints' do
     html = Lux::Api::SysApi.render(:web, api_host: host)
 
     _(html).must_be_kind_of String
-    _(html).must_include '<script src="?file=boot.js">'
-    _(html).must_include '<script fez="?file=/fez/lux-api.fez">'
-    _(html).must_include '<script fez="?file=/fez/lux-api-method.fez">'
-    _(html).must_include '<script fez="?file=/fez/lux-api-runner.fez">'
-    _(html).must_include '?file=vendor/postwind.js'
+    _(html).must_include '<script src="/api/sys/web/boot.js">'
+    _(html).must_include '<script fez="/api/sys/web/fez/lux-api.fez">'
+    _(html).must_include '<script fez="/api/sys/web/fez/lux-api-method.fez">'
+    _(html).must_include '<script fez="/api/sys/web/fez/lux-api-runner.fez">'
+    _(html).must_include '/api/sys/web/vendor/postwind.js'
     _(html).must_include 'https://dux.github.io/fez/dist/fez.min.js'
     _(html).must_include '<lux-api-header>'       # header component mount
     _(html).must_include 'lux-api-header.fez'     # header component registered
@@ -183,8 +183,8 @@ describe 'Lux::Api::SysApi endpoints' do
 end
 
 describe 'Lux::Api rack call' do
-  def rack_env(path:, method: 'GET')
-    {
+  def rack_env(path:, method: 'GET', accept: nil)
+    env = {
       'REQUEST_METHOD'  => method,
       'PATH_INFO'       => path,
       'QUERY_STRING'    => '',
@@ -195,14 +195,64 @@ describe 'Lux::Api rack call' do
       'rack.url_scheme' => 'http',
       'SCRIPT_NAME'     => ''
     }
+    env['HTTP_ACCEPT'] = accept if accept
+    env
   end
 
-  it 'redirects the mount root GET to /<mount>/sys/web' do
-    # ApplicationApi sets mount_on '/api'
+  it 'serves the guide as HTML at the mount root for a browser' do
     ApplicationApi.mount_on '/api'  # ensure for this test (kitchen_sink may clobber)
-    status, headers, _ = Lux::Api.call(rack_env(path: '/api'))
-    _(status).must_equal 302
-    _(headers['Location']).must_equal '/api/sys/web'
+    status, headers, body = Lux::Api.call(rack_env(path: '/api', accept: 'text/html'))
+    _(status).must_equal 200
+    _(headers['Content-Type']).must_match(/\Atext\/html/)
+    _(body.first).must_include '<article class="markdown">'
+    _(body.first).must_include '<table>'          # markdown rendered server-side
+    _(body.first).must_include '/api/sys/md'      # raw source link
+  end
+
+  it 'serves the guide as markdown at the mount root for non-browsers' do
+    ApplicationApi.mount_on '/api'
+    status, headers, body = Lux::Api.call(rack_env(path: '/api'))
+    _(status).must_equal 200
+    _(headers['Content-Type']).must_match(/\Atext\/markdown/)
+    _(body.first).must_include '# example.com API'
+    _(body.first).must_include '## APIs'
+  end
+
+  it 'serves raw markdown at /<mount>/sys/md even for a browser' do
+    ApplicationApi.mount_on '/api'
+    status, headers, body = Lux::Api.call(rack_env(path: '/api/sys/md', accept: 'text/html'))
+    _(status).must_equal 200
+    _(headers['Content-Type']).must_match(/\Atext\/markdown/)
+    _(body.first).must_include '# example.com API'
+    _(body.first).must_include 'company'          # documented fixture api listed
+  end
+
+  it 'serves the guide when mounted via SCRIPT_NAME (routes mount_at)' do
+    ApplicationApi.mount_on '/api'
+    # a rack mount_at sets SCRIPT_NAME and often leaves PATH_INFO as '/'
+    env = rack_env(path: '/')
+    env['SCRIPT_NAME'] = '/api'
+    status, headers, body = Lux::Api.call(env)
+    _(status).must_equal 200
+    _(headers['Content-Type']).must_match(/\Atext\/markdown/)
+    _(body.first).must_include '# example.com API'
+  end
+
+  it 'serves the guide when mounted via SCRIPT_NAME with empty PATH_INFO' do
+    ApplicationApi.mount_on '/api'
+    env = rack_env(path: '')
+    env['SCRIPT_NAME'] = '/api'
+    status, _headers, body = Lux::Api.call(env)
+    _(status).must_equal 200
+    _(body.first).must_include '# example.com API'
+  end
+
+  it 'lists the guide and raw /sys/md in the /sys index' do
+    ApplicationApi.mount_on '/api'
+    status, _headers, body = Lux::Api.call(rack_env(path: '/api/sys'))
+    _(status).must_equal 200
+    _(body.first).must_include 'http://example.com/api/sys/md'
+    _(body.first).must_include 'http://example.com/api/sys/guide'
   end
 
   it 'serves sys/schema with Content-Type application/json (CT bug regression)' do
@@ -230,7 +280,20 @@ describe 'Lux::Api rack call' do
     _(status).must_equal 200
     _(headers['Content-Type']).must_match(/\Atext\/html/)
     _(body.first).must_include '<lux-api-apis>'
-    _(body.first).must_include '?file=vendor/postwind.js'
+    _(body.first).must_include '/api/sys/web/vendor/postwind.js'
     _(body.first).must_include 'https://dux.github.io/fez/dist/fez.min.js'
+  end
+
+  it 'serves explorer assets by path so component URLs end in .fez' do
+    ApplicationApi.mount_on '/api'
+    status, headers, body = Lux::Api.call(rack_env(path: '/api/sys/web/fez/lux-api.fez'))
+    _(status).must_equal 200
+    _(headers['Content-Type']).must_match(/\Atext\/plain/)
+    _(body.first).must_include 'class {'        # raw component source, not the shell
+
+    status, headers, body = Lux::Api.call(rack_env(path: '/api/sys/web/boot.js'))
+    _(status).must_equal 200
+    _(headers['Content-Type']).must_match(/\Aapplication\/javascript/)
+    _(body.first).must_include 'window.lux_api'
   end
 end

@@ -180,11 +180,17 @@ member endpoints.
 
 ## Built-in introspection
 
+* root `/<mount_on>` GET - human API guide generated from introspection; HTML
+  for browsers, raw markdown otherwise (see `Lux::Api::Guide`)
+* `/<mount_on>/sys/guide`      - the same guide as a sys action
+* `/<mount_on>/sys/md`         - raw markdown of the guide, always `text/markdown`
 * `/<mount_on>/sys/web`        - interactive HTML explorer (Lux::Api::Web)
 * `/<mount_on>/sys/openapi.json` - OpenAPI 3 schema
 * `/<mount_on>/sys/postman.json` - Postman collection
 * `/<mount_on>/sys/AGENTS.md`   - LLM-readable surface of every endpoint
-* root `/` GET → redirect to the explorer
+
+The guide is markdown rendered server-side by `Lux::Utils::Markdown`
+(Commonmarker, GFM).
 
 ## See also
 

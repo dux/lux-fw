@@ -67,10 +67,24 @@ module Lux
         mount_on ||= (script_name && !script_name.empty? ? script_name : self.mount_on)
         mount_on   = [request.base_url, mount_on].join('') unless mount_on.to_s.include?('//')
 
-        if request.url == mount_on && request.request_method == 'GET'
-          # root GET -> redirect to interactive explorer at <mount_on>/sys/web
-          prefix = self.mount_on.to_s.chomp('/')
-          { _redirect: "#{prefix}/sys/web" }
+        # GET /<mount> serves the human guide (HTML for browsers, markdown
+        # otherwise). The raw source brother lives at /<mount>/sys/md.
+        # request.path carries SCRIPT_NAME (the mount_at prefix); a rack mount
+        # may leave PATH_INFO as '' or '/', so compare with trailing / ignored.
+        mount_path = mount_on.to_s.sub(/\A#{Regexp.escape(request.base_url)}/, '')
+        mount_path = '/' if mount_path.empty?
+        root_hit   = request.path.chomp('/') == mount_path.chomp('/')
+
+        # GET /<mount>/sys/web/<asset> serves the explorer's files by path, so a
+        # component URL ends in .fez and fez can name it from the path
+        # (Fez.nameFromPath). The ?file= form still works.
+        web_asset = "#{mount_path.chomp('/')}/sys/web/"
+
+        if request.request_method == 'GET' && root_hit
+          render 'guide', api_host: api_host, development: development, bearer: bearer, class: 'sys'
+        elsif request.request_method == 'GET' && request.path.start_with?(web_asset)
+          file = request.path[web_asset.length..]
+          render 'web', api_host: api_host, development: development, bearer: bearer, class: 'sys', params: { file: file }
         else
           response.header['Content-Type'] = 'application/json' if response
 
