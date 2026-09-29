@@ -54,11 +54,6 @@ module Lux
         Array(entry[:http]).uniq
       end
 
-      def primary_verb entry
-        verbs = http_verbs(entry)
-        verbs.find { |v| v != 'POST' } || 'POST'
-      end
-
       def has_methods? api_doc
         (api_doc[:collection] && !api_doc[:collection].empty?) ||
         (api_doc[:member]     && !api_doc[:member].empty?)
@@ -81,49 +76,6 @@ module Lux
           ]
         end
         rows.join("\n")
-      end
-
-      def curl_example entry, api_name, action_name, type
-        verb = primary_verb(entry)
-        path = entry[:path].dup
-        path = path.gsub(':ref', '123') if type == :member
-
-        auth = " \\\n  -H \"Authorization: Bearer $TOKEN\""
-        url  = absolute(path)
-
-        if verb == 'GET'
-          "curl '#{url}'#{auth}"
-        else
-          body = sample_body(entry[:params])
-          if body
-            "curl -X #{verb} '#{url}'#{auth} \\\n  -H 'Content-Type: application/json' \\\n  -d '#{body}'"
-          else
-            "curl -X #{verb} '#{url}'#{auth}"
-          end
-        end
-      end
-
-      private
-
-      def sample_body params
-        return nil if params.nil? || params.empty?
-        sample = {}
-        params.each { |name, spec| sample[name] = sample_value_for(spec) }
-        JSON.generate(sample)
-      end
-
-      def sample_value_for spec
-        return spec[:default] unless spec[:default].nil?
-        return spec[:values].first if spec[:values].is_a?(Array) && spec[:values].any?
-
-        case spec[:type].to_s
-        when 'integer' then 0
-        when 'float'   then 0.0
-        when 'boolean' then false
-        when 'array'   then []
-        when 'hash'    then {}
-        else                '...'
-        end
       end
     end
   end
