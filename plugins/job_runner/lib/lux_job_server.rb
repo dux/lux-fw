@@ -267,9 +267,14 @@ class LuxJob
       # Puma prints its own banner during run!; on_booted is the first point
       # after it (and the only one where the server is actually up), so the
       # URL lands at the end of boot instead of scrolling past it.
+      # require 'puma' first: puma/events.rb uses Puma.deprecate_method_change,
+      # defined in puma.rb, so events alone blows up on Puma 8.
+      require 'puma'
       require 'puma/events'
       events = Puma::Events.new
-      events.on_booted { Lux.shell.info "LuxJob web on #{display_url} (#{Lux.env})" }
+      # Puma 8 renamed on_booted -> after_booted (on_booted warns); keep both.
+      hook = events.respond_to?(:after_booted) ? :after_booted : :on_booted
+      events.public_send(hook) { Lux.shell.info "LuxJob web on #{display_url} (#{Lux.env})" }
       set :server_settings, server_settings.merge(events: events)
 
       run!
