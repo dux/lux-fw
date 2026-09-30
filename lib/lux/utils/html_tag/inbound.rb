@@ -156,9 +156,11 @@ module Lux
         end
 
         # Use single quotes when value contains " (e.g. embedded JSON) so the
-        # markup stays readable.
+        # markup stays readable. `&` is escaped first: without it a value that
+        # already looks like an entity (`&quot;`, `&#39;`) would be decoded a
+        # second time by the browser and corrupt embedded JSON.
         def _escape(value)
-          s = value.to_s
+          s = value.to_s.gsub('&', '&amp;')
           s.include?('"') ? "'#{s.gsub(/'/, '&apos;')}'" : %("#{s}")
         end
 

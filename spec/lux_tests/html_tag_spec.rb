@@ -1,4 +1,5 @@
 require 'test_helper'
+require 'cgi'
 
 describe 'Lux::Utils::HtmlTag' do
   it 'is the same object as the top-level HtmlTag constant' do
@@ -75,5 +76,15 @@ describe 'Lux::Utils::HtmlTag' do
   it 'treats a second-positional Hash as attrs, not inner content' do
     out = HtmlTag.call('ui-favorite', { key: 'User/abc', exists: false })
     _(out).must_equal '<ui-favorite key="User/abc" exists="false"></ui-favorite>'
+  end
+
+  it 'escapes & so entity-like values survive one browser decode' do
+    json = { title: 'Tom &quot;Jerry&quot; & Co' }.to_json
+    out = { 'data-props': json }.tag('link-list')
+
+    attr = out[/data-props=('[^']*'|"[^"]*")/, 1]
+    decoded = CGI.unescapeHTML(attr[1..-2])
+
+    _(decoded).must_equal json
   end
 end
