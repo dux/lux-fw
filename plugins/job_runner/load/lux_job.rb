@@ -39,6 +39,12 @@ class LuxJob < ApplicationModel
   # holding it). Bounded so we don't hammer pg_try_advisory_lock.
   RELOCK_WAIT_SECS ||= 5
 
+  # How long a starting runner waits for a still-draining copy to release the
+  # lock before giving up. A rolling restart brings the new copy up beside the
+  # old one, so the old copy holds the lock for a few seconds after this one
+  # starts; die only if it never lets go.
+  INITIAL_LOCK_WAIT_SECS ||= 120
+
   class << self
     def define name, every: nil, timeout: nil, &block
       JOBS[name] = { proc: block }
@@ -93,8 +99,17 @@ class LuxJob < ApplicationModel
           # unwinds back to the outer loop.
           DB.synchronize do |conn|
             if first_run
-              # Initial startup: die loudly if another runner is already up.
-              LuxJobLock.acquire!(conn)
+              # Initial startup: wait out a still-draining copy from a rolling
+              # restart, which holds the lock for a few seconds after this copy
+              # boots. Die only when the lock never frees.
+              deadline = Time.now + INITIAL_LOCK_WAIT_SECS
+              until LuxJobLock.try_acquire(conn)
+                if Time.now >= deadline
+                  Lux.shell.die ['Job runner already running', "pid: #{LuxJobLock.holder_pid.inspect}"]
+                end
+                Lux.shell.info "LuxJob: lock held by pid=#{LuxJobLock.holder_pid.inspect}; waiting #{RELOCK_WAIT_SECS}s"
+                sleep RELOCK_WAIT_SECS
+              end
               first_run = false
             else
               # Re-acquire after a transient loss: poll politely. If a
