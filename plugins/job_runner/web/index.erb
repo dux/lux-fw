@@ -1,0 +1,56 @@
+<h1>LuxJob Dashboard</h1>
+<p class="lj-user">
+  Signed in as <b><%= h(session[:admin_email]) %></b>
+  &middot; <a class="no-pjax" href="/logout">Sign out</a>
+</p>
+
+<h2>Registered Jobs</h2>
+<div class="lj-card">
+  <table class="lj-table">
+    <tr>
+      <th>Name</th>
+      <th>Schedule</th>
+      <th>Timeout</th>
+      <th>Last Run</th>
+      <th>Next Run</th>
+      <th>Status</th>
+      <th>Response</th>
+    </tr>
+    <% jobs.each do |row| %>
+      <tr>
+        <td><a href="/jobs/<%= h(row[:name]) %>"><%= h(row[:name]) %></a></td>
+        <td>
+          <% if row[:every] %>
+            every <%= row[:every].parts.map { |u, v| "#{v} #{u}" }.join(', ') %>
+          <% else %>
+            on demand
+          <% end %>
+        </td>
+        <td><%= row[:timeout] %>s</td>
+        <td><%= row[:db]&.updated_at ? Time.ago(row[:db].updated_at) : '-' %></td>
+        <td><%= row[:db]&.run_at ? Time.ago(row[:db].run_at) : '-' %></td>
+        <td>
+          <% if row[:db]&.status %>
+            <span class="<%= LuxJob.status_css(row[:db].status) %>"><%= row[:db].status %></span>
+          <% else %>
+            -
+          <% end %>
+        </td>
+        <td><%= (row[:db]&.response.to_s[0, 20]).presence || '-' %></td>
+      </tr>
+    <% end %>
+  </table>
+</div>
+
+<h2>Recent Log (last 100 entries)</h2>
+<input id="log-search" class="lj-search" type="search" placeholder="Filter log lines...">
+<div class="lj-log" id="log-box" data-last-id="<%= h(last_id) %>" data-job="">
+  <% if recent.empty? %>
+    <div class="lj-line">No log entries yet</div>
+  <% else %>
+    <% recent.each do |line| %>
+      <% parsed = LuxJob.parse_log_line(line) %>
+      <div class="lj-line<%= ' error' if line.include?('ERROR') %>"><span class="lj-time"><%= parsed[:time] ? Time.ago(parsed[:time]) : '' %></span><%= h(parsed[:message]) %></div>
+    <% end %>
+  <% end %>
+</div>

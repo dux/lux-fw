@@ -1,4 +1,4 @@
-require 'net/http'
+require_relative '../lib/authcog'
 
 # Central-auth sign-in for AuthCog. A single controller, mapped once at /authcog:
 #
@@ -43,11 +43,7 @@ class AuthcogController < Lux::Controller
     home = Url.new(Lux.config.host.to_s)
     here = home unless here.domain == home.domain
 
-    path = "/domain:#{here.host}"
-    path += "/port:#{here.port}" if here.port
-
-    realm = Lux.config[:authcog_realm] || :auth
-    "https://#{realm}.authcog.com#{path}"
+    Authcog.auth_url(here.host, here.port)
   end
 
   def call
@@ -141,20 +137,9 @@ class AuthcogController < Lux::Controller
   def fetch_identity callback_hash
     # Exchange is scoped to the relying domain: central auth only releases the
     # hash to the same host it was issued for (this request's own host).
-    uri = URI("#{self.class.exchange_base}?user=#{callback_hash}")
-    res = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') do |http|
-      http.get(uri.request_uri)
-    end
-
-    case res.code.to_i
-    when 200
-      JSON.parse(res.body, symbolize_names: true)
-    when 404
-      raise Lux.error.bad_request('AuthCog callback unknown - expired session?')
-    when 410
-      raise Lux.error.bad_request('AuthCog callback already used or expired')
-    else
-      raise Lux.error.bad_request("AuthCog exchange failed (#{res.code})")
-    end
+    here = Url.current
+    Authcog.exchange(callback_hash, host: here.host, port: here.port)
+  rescue Authcog::Error => e
+    raise Lux.error.bad_request(e.message)
   end
 end

@@ -340,12 +340,8 @@ class LuxJob < ApplicationModel
     self[:run_at] ||= Time.now
   end
 
-  # ModelApi's after hook reports @object.path; a job has no public page.
+  # A job has no public page; the standalone web app links by name.
   def path
-  end
-
-  def admin_path
-    "/admin/plugins/lux_jobs/show?name=#{Url.escape(name.to_s)}"
   end
 
   def log line, verbose: false

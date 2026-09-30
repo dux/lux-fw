@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LuxJob Dashboard</title>
+  <%# Fez drives pjax and components. Prefer the copy installed in the app
+      (node_modules / .libs); fall back to the published build. %>
+  <script src="<%= h(fez_src) %>"></script>
+  <style>
+    body { margin: 0; padding: 24px; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1f2937; background: #f8fafc; }
+    .lj-wrap { max-width: 1100px; margin: 0 auto; }
+    h1 { margin: 0 0 6px; font-size: 24px; }
+    h2 { margin: 28px 0 12px; font-size: 17px; }
+    .lj-user { margin: 0 0 4px; color: #6b7280; font-size: 14px; }
+    .lj-user a { color: #2563eb; text-decoration: none; }
+    .lj-user a:hover { text-decoration: underline; }
+    .lj-card { border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; overflow: hidden; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+    .lj-table { border-collapse: collapse; width: 100%; font-size: 14px; }
+    .lj-table th { text-align: left; padding: 11px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+    .lj-table td { padding: 13px 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color: #374151; }
+    .lj-table tbody tr:last-child td { border-bottom: none; }
+    .lj-table tbody tr:hover td { background: #f8fafc; }
+    .lj-table a { color: #2563eb; text-decoration: none; font-weight: 500; }
+    .lj-table a:hover { text-decoration: underline; }
+    .lj-kv-card { max-width: 720px; margin-top: 8px; }
+    .lj-kv { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .lj-kv th { width: 170px; text-align: left; padding: 13px 16px; color: #6b7280; font-weight: 600; vertical-align: top; white-space: nowrap; }
+    .lj-kv td { padding: 13px 16px; color: #111827; vertical-align: top; }
+    .lj-kv tr + tr th, .lj-kv tr + tr td { border-top: 1px solid #f1f5f9; }
+    .lj-kv-code { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: #334155; word-break: break-word; }
+    .lj-kv-empty { color: #9ca3af; }
+    .lj-st { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; background: #e5e7eb; color: #374151; }
+    .lj-st-ok   { background: #d1fae5; color: #047857; }
+    .lj-st-run  { background: #dbeafe; color: #1d4ed8; }
+    .lj-st-wait { background: #fef3c7; color: #92400e; }
+    .lj-st-err  { background: #fee2e2; color: #b91c1c; }
+    .lj-log { margin-top: 12px; padding: 12px 14px; border-radius: 8px; background: #0f172a; color: #cbd5e1; font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .lj-log .lj-line { white-space: pre-wrap; word-break: break-word; padding: 1px 0; }
+    .lj-log .lj-line.error { color: #fca5a5; }
+    .lj-log .lj-line .lj-time { color: #64748b; margin-right: 10px; }
+    .lj-log-head { display: flex; align-items: baseline; gap: 10px; }
+    .lj-raw { font-size: 13px; color: #2563eb; text-decoration: none; }
+    .lj-raw:hover { text-decoration: underline; }
+    .lj-search { width: 100%; max-width: 720px; margin: 0 0 12px; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+    .lj-search:focus, .lj-form textarea:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+    .lj-back { display: inline-block; margin-bottom: 12px; color: #2563eb; text-decoration: none; font-size: 14px; }
+    .lj-back:hover { text-decoration: underline; }
+    .lj-form { margin-top: 24px; max-width: 720px; padding: 18px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f9fafb; }
+    .lj-form h3 { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
+    .lj-form textarea { width: 100%; min-height: 90px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font: 13px ui-monospace, Menlo, monospace; box-sizing: border-box; }
+    .lj-btn { display: inline-block; margin-top: 12px; padding: 9px 18px; border: 1px solid #2563eb; border-radius: 8px; background: #2563eb; color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; transition: filter .12s ease; }
+    .lj-btn:hover { filter: brightness(.95); }
+    .lj-result { margin-top: 10px; font-size: 14px; }
+    .lj-result.success { color: #047857; }
+    .lj-result.error { color: #b91c1c; }
+    .lj-denied { max-width: 560px; margin: 80px auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; text-align: center; }
+    .lj-denied code { background: #f3f4f6; padding: 1px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="lj-wrap">
+    <%# pjax region: Fez swaps this node on navigation instead of reloading the
+        document, so state outside it survives. %>
+    <main id="page" class="pjax">
+      <%= yield %>
+    </main>
+  </div>
+
+  <%# One boot for the page. The pjax swap does not touch this node, and the
+      window flag keeps the head re-run from binding twice. %>
+  <script>
+    (function () {
+      if (window.luxJobWeb) return;
+      window.luxJobWeb = true;
+
+      function logBox() { return document.getElementById('log-box'); }
+
+      // Local filter: show only log lines containing the search text.
+      function applyLogFilter() {
+        var input = document.getElementById('log-search');
+        var box = logBox();
+        if (!input || !box) return;
+
+        var query = input.value.trim().toLowerCase();
+        Array.prototype.forEach.call(box.querySelectorAll('.lj-line'), function (line) {
+          line.style.display = (!query || line.textContent.toLowerCase().indexOf(query) !== -1) ? '' : 'none';
+        });
+      }
+
+      // Trigger: delegated, so it keeps working across pjax swaps.
+      document.addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('#trigger-btn') : null;
+        if (!btn) return;
+        e.preventDefault();
+
+        var job = btn.dataset.job;
+        var input = document.getElementById('payload');
+        var result = document.getElementById('trigger-result');
+        var opts = {};
+        var raw = input ? input.value.trim() : '';
+
+        if (raw) {
+          try { opts = JSON.parse(raw); }
+          catch (err) {
+            if (result) { result.className = 'lj-result error'; result.textContent = 'Invalid JSON: ' + err.message; }
+            return;
+          }
+        }
+
+        fetch('/jobs/' + encodeURIComponent(job) + '/trigger', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ opts: opts })
+        }).then(function (resp) {
+          return resp.json().then(function (data) { return { ok: resp.ok, data: data }; });
+        }).then(function (r) {
+          if (!result) return;
+          if (r.ok && r.data.ok) {
+            result.className = 'lj-result success';
+            result.textContent = 'Job added: ' + r.data.ref;
+          } else {
+            result.className = 'lj-result error';
+            result.textContent = 'Error: ' + (r.data.error || 'Unknown error');
+          }
+        }).catch(function (err) {
+          if (result) { result.className = 'lj-result error'; result.textContent = 'Request failed: ' + err.message; }
+        });
+      });
+
+      // Live log tail: one poller that re-reads the current #log-box every tick,
+      // so it follows pjax swaps. pjax:render resets the cursor for the new page.
+      var cursor = null;
+
+      function tick() {
+        var box = logBox();
+        if (!box) return;
+
+        var job = box.dataset.job || '';
+        var current = box.dataset.lastId || '';
+        if (cursor === null) { cursor = current; return; }
+
+        fetch('/api/poll' + (job ? '?name=' + encodeURIComponent(job) : ''), { credentials: 'same-origin' })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data.last_id || data.last_id === cursor) return;
+            cursor = data.last_id;
+            return fetch(window.location.href, { credentials: 'same-origin' })
+              .then(function (r) { return r.text(); })
+              .then(function (html) {
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var src = doc.getElementById('log-box');
+                var dst = logBox();
+                if (src && dst) {
+                  dst.innerHTML = src.innerHTML;
+                  dst.dataset.lastId = data.last_id;
+                  applyLogFilter();
+                }
+              });
+          })
+          .catch(function (err) { console.error('poll error:', err); });
+      }
+
+      document.addEventListener('input', function (e) {
+        if (e.target && e.target.id === 'log-search') applyLogFilter();
+      });
+
+      setInterval(tick, 3000);
+      document.addEventListener('pjax:render', function () { cursor = null; applyLogFilter(); });
+    })();
+  </script>
+</body>
+</html>

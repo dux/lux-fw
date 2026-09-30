@@ -123,7 +123,7 @@ anywhere, use this DSL.** Don't invent per-controller validators.
 | `authcog`         | Central-auth sign-in: `AuthcogController` + `UserSession`           | [README](./plugins/authcog/README.md) |
 | `web_common`      | Shared web layer: html builders, assets, PG exception logger + `/admin`; list `authcog` next to it | [README](./plugins/web_common/README.md) |
 | `locale`          | Small, namespaced translation lookup + `/<xx>` URL prefixes (`localized`, `lux.lpath`) | [README](./plugins/locale/README.md) |
-| `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks) + `/admin/plugins/lux_jobs` | [README](./plugins/job_runner/README.md) |
+| `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks) + standalone web dashboard | [README](./plugins/job_runner/README.md) |
 | `pdf`             | Paged.js A4 pages under `/pdf/` + headless-Chrome PDF download     | [README](./plugins/pdf/README.md) |
 | `vibe`            | Docker harness: opencode agent + preview page for editing an app   | [README](./plugins/vibe/README.md) |
 

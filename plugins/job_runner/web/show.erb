@@ -1,0 +1,70 @@
+<a class="lj-back" href="/">&larr; Back to Dashboard</a>
+<h1>Job: <%= h(name) %></h1>
+
+<div class="lj-card lj-kv-card">
+  <table class="lj-kv">
+    <tbody>
+      <tr>
+        <th>Schedule</th>
+        <td>
+          <% if info[:every] %>
+            every <%= info[:every].parts.map { |u, v| "#{v} #{u}" }.join(', ') %>
+          <% else %>
+            on demand
+          <% end %>
+        </td>
+      </tr>
+      <tr>
+        <th>Timeout</th>
+        <td><%= info[:timeout] || LuxJob::DEFAULT_TIMEOUT %>s</td>
+      </tr>
+      <% if db %>
+        <tr>
+          <th>Status</th>
+          <td><span class="<%= LuxJob.status_css(db.status) %>"><%= db.status %></span></td>
+        </tr>
+        <tr>
+          <th>Last Run</th>
+          <td><%= db.updated_at ? "#{db.updated_at.strftime('%Y-%m-%d %H:%M:%S')} (#{Time.ago(db.updated_at)})" : '-' %></td>
+        </tr>
+        <tr>
+          <th>Next Run</th>
+          <td><%= db.run_at ? "#{db.run_at.strftime('%Y-%m-%d %H:%M:%S')} (#{Time.ago(db.run_at)})" : '-' %></td>
+        </tr>
+        <tr>
+          <th>Response</th>
+          <td class="lj-kv-code"><%= h(db.response) %></td>
+        </tr>
+        <tr>
+          <th>Retry Count</th>
+          <td><%= db.retry_count %></td>
+        </tr>
+      <% else %>
+        <tr><td class="lj-kv-empty" colspan="2">No database record (job not yet initialized)</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+
+<div class="lj-form">
+  <h3>Add Job to Queue</h3>
+  <textarea id="payload" placeholder='{"key": "value"} or leave empty'></textarea>
+  <button id="trigger-btn" class="lj-btn" data-job="<%= h(name) %>">Add Job</button>
+  <div id="trigger-result" class="lj-result"></div>
+</div>
+
+<h2 class="lj-log-head">
+  Log (last 1000 entries)
+  <a class="lj-raw no-pjax" href="/api/log?name=<%= Rack::Utils.escape(name) %>&format=text" target="_blank">raw</a>
+</h2>
+<input id="log-search" class="lj-search" type="search" placeholder="Filter log lines...">
+<div class="lj-log" id="log-box" data-last-id="<%= h(last_id) %>" data-job="<%= h(name) %>">
+  <% if lines.empty? %>
+    <div class="lj-line">No log entries for this job</div>
+  <% else %>
+    <% lines.each do |line| %>
+      <% parsed = LuxJob.parse_log_line(line) %>
+      <div class="lj-line<%= ' error' if line.include?('ERROR') %>"><span class="lj-time"><%= parsed[:time] ? Time.ago(parsed[:time]) : '' %></span><%= h(parsed[:message]) %></div>
+    <% end %>
+  <% end %>
+</div>

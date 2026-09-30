@@ -11,4 +11,34 @@ namespace :job_runner do
       LuxJob.run
     end
   end
+
+  task :web do
+    desc 'Start the LuxJob web dashboard + worker on $PORT (AuthCog admin allowlist)'
+    example 'PORT=3001 lux job_runner:web'
+    example 'lux job_runner:web -p 3001'
+    opt :port, type: :integer, desc: 'Port (default: $PORT)'
+    needs :app
+
+    proc do |opts|
+      # No port, no web: the dashboard is opt-in, so an unset PORT must not
+      # silently open a listener.
+      port = opts[:port] || ENV['PORT']
+      Lux.shell.die 'PORT not set - refusing to start the web service (pass -p PORT or set PORT)' if port.to_s.empty?
+
+      jobs_file = './lib/jobs.rb'
+      require jobs_file if File.exist?(jobs_file)
+
+      ENV['PORT'] = port.to_s
+      begin
+        require_relative 'lib/lux_job_server'
+      rescue LoadError => e
+        Lux.shell.die [
+          'job_runner:web needs the sinatra and puma gems',
+          'add them to your Gemfile (a group :manual is enough), then: bundle install',
+          e.message
+        ]
+      end
+      LuxJob::Server.start!
+    end
+  end
 end

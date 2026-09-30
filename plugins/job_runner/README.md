@@ -14,11 +14,9 @@ plugins:
   - job_runner      # pulls in db (declared in the plugin's config.yaml)
 ```
 
-The JSON API (`LuxJobsApi`) and the admin dashboard views ship under
-`mount/app/`, which the `Lux::Root` overlay treats as part of the app: the
-API is eager-loaded with `./app` and mounted at `/api/lux_jobs`, the views
-render at `/admin/plugins/lux_jobs`. Both need `web_common` (`ModelApi`,
-the admin layout).
+The queue and runner need nothing else. The dashboard is a standalone web app
+(`LuxJob::Server`, see **Web Dashboard**) that is started on demand and is not
+part of the host app's routes.
 
 ## Usage
 
@@ -67,29 +65,52 @@ Or programmatically:
 LuxJob.run  # blocks; uses LISTEN + advisory lock on one pinned connection
 ```
 
-### Admin Dashboard
+### Web Dashboard
 
-The dashboard lives at:
+`lux job_runner:web` starts one process that serves the dashboard and runs the
+worker loop, bound to `$PORT` (or `-p PORT`). The port is required - without it
+the task refuses to start rather than opening a listener. It is a small Sinatra
+app, loaded only by that task - add `sinatra` and `puma` to the app Gemfile to
+use it.
 
-* `/admin/plugins/lux_jobs` - list of registered jobs and recent log
-* `/admin/plugins/lux_jobs/show?name=<job>` - per-job page with trigger
-  form and log tail
+After boot the server prints `http://jobs.lvh.me:<port>` (`jobs.lvh.me` resolves
+to `127.0.0.1`), so opening it keeps the request on a subdomain of the app's own
+domain and the AuthCog callback is accepted. The server keeps no host
+allow-list, which Sinatra's development default would turn into a `Host not
+permitted` error. Set `LUX_JOB_URL` to override the printed URL, and
+`LUX_JOB_BIND` (default `127.0.0.1`) to change the bind address.
 
-Admin auth is enforced by `LuxJobsApi` via `user.can.admin!`.
+The dashboard is Fez + pjax ready: navigation swaps the `#page` pjax region
+instead of reloading the document. Fez is loaded from the app's own build
+(`node_modules/fez` or `.libs/fez`, served at `/fez.js`) when present, and falls
+back to `https://dux.github.io/fez/dist/fez.min.js`; `LUX_JOB_FEZ` overrides the
+script URL.
 
-### API
+Routes, all gated by AuthCog sign-in:
 
-`LuxJobsApi` is mounted at `/api/lux_jobs`. Actions:
+| Route                       | Purpose                                   |
+|-----------------------------|-------------------------------------------|
+| `/`                         | registered jobs + recent log              |
+| `/jobs/<name>`              | per-job detail, trigger form and log tail |
+| `POST /jobs/<name>/trigger` | enqueue a defined job with JSON opts      |
+| `/api/poll`, `/api/log`     | last log id / log lines for the live tail |
+| `/authcog`, `/logout`       | sign-in handoff and sign-out              |
 
-| Action            | Type       | Purpose                                  |
-|-------------------|------------|------------------------------------------|
-| `trigger`         | collection | Enqueue a defined job by name + opts     |
-| `poll`            | collection | Return last log timestamp for polling    |
-| `log`             | collection | Tail recent log lines (filterable)       |
-| `restart`         | member     | Reset a job row to run now and wake the runner |
+Sign-in goes to authcog.com and the returned email must be in
+`Lux.config.admin_emails`; anything else is refused at the callback with `403`
+and no session. An empty `admin_emails` list fails closed. Required config:
 
-Nothing runs a job in a web process: only the runner holds the advisory lock
-that keeps a job from running twice.
+```yaml
+# config/config.yaml
+secret: <session cookie secret>   # required
+admin_emails:                     # who may open the dashboard
+  - you@example.com
+host: http://lvh.me:3000          # bounds which hosts a callback may use
+# authcog_realm: auth             # optional authcog.com subdomain
+```
+
+The process runs the worker too, so don't run `lux job_runner:start` beside it -
+`LuxJob.run` dies loudly when another runner already holds the advisory lock.
 
 ## Schema
 
@@ -137,10 +158,12 @@ plugins/job_runner/
   load/
     lux_job.rb               # model + runner (LISTEN/NOTIFY)
     lux_job_lock.rb          # pg_try_advisory_lock guard
-    lux_job_exporter.rb
-  mount/app/
-    api/lux_jobs_api.rb      # LuxJobsApi, /api/lux_jobs
-    views/admin/plugins/lux_jobs/   # dashboard
-  Hammerfile                 # `lux job_runner:start`
-  spec/lux_job_spec.rb
+  lib/
+    lux_job_server.rb        # LuxJob::Server, standalone Sinatra dashboard + worker
+  web/                       # ERB views for the dashboard
+  Hammerfile                 # `lux job_runner:start` and `job_runner:web`
+  spec/
+    lux_job_spec.rb
+    lux_job_server_spec.rb
+    support/db.rb            # shared spec DB/plugin bootstrap
 ```

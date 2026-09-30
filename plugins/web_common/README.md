@@ -83,9 +83,7 @@ plugin's `mount/` tree and resolve through the `Lux::Root` overlay. The plugin's
 `AdminController` requires `user.can.admin?`; an app that ships its own
 `AdminController` owns that check.
 
-The jobs dashboard (`/admin/plugins/lux_jobs`) ships with the
-[`job_runner`](../job_runner/README.md) plugin. Server logs are read in dboss,
-not in `/admin`.
+Server logs are read in dboss, not in `/admin`.
 
 ## Browser API response event
 
