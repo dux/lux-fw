@@ -58,7 +58,7 @@ Public pages need no action and no route line: drop `./app/views/promo/NAME.haml
 ## Frontend
 
 `./app/views/layouts/main.haml` loads pinned PostWind and Fez releases from jsDelivr.
-PostWind loads the Tailwind browser runtime and styles HAML and Fez components without a build step.
+PostWind bundles the Tailwind v4 compiler and styles HAML and Fez components without a build step.
 Browser internet access is required for these scripts.
 Edit `./public/components/starter-counter.fez` for the sample reactive component.
 Use `<script fez="/components/name.fez"></script>` to load another component.

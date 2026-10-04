@@ -128,7 +128,7 @@ describe 'Lux::Api::SysApi endpoints' do
     _(html).must_include '<script fez="/api/sys/web/fez/lux-api.fez">'
     _(html).must_include '<script fez="/api/sys/web/fez/lux-api-method.fez">'
     _(html).must_include '<script fez="/api/sys/web/fez/lux-api-runner.fez">'
-    _(html).must_include '/api/sys/web/vendor/postwind.js'
+    _(html).must_include 'https://cdn.jsdelivr.net/npm/postwind@1.5.2/dist/postwind.global.min.js'
     _(html).must_include 'https://dux.github.io/fez/dist/fez.min.js'
     _(html).must_include '<lux-api-header>'       # header component mount
     _(html).must_include 'lux-api-header.fez'     # header component registered
@@ -310,7 +310,7 @@ describe 'Lux::Api rack call' do
     _(status).must_equal 200
     _(headers['Content-Type']).must_match(/\Atext\/html/)
     _(body.first).must_include '<lux-api-apis>'
-    _(body.first).must_include '/api/sys/web/vendor/postwind.js'
+    _(body.first).must_include 'https://cdn.jsdelivr.net/npm/postwind@1.5.2/dist/postwind.global.min.js'
     _(body.first).must_include 'https://dux.github.io/fez/dist/fez.min.js'
   end
 

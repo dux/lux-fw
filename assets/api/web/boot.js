@@ -111,7 +111,7 @@
   // Typography + buttons + labels are defined as plain CSS (in index.html
   // <style> and component <style> blocks). PostWind is here only for the
   // Tailwind atomic utilities used for layout/spacing/colors.
-  PostWind.init({ tailwind: true, body: true });
+  PostWind.init({ body: true });
 
   // --- schema fetch --------------------------------------------------------
 

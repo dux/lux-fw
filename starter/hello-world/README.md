@@ -49,7 +49,7 @@ Locked and deleted users cannot keep an active local session.
 ## Frontend
 
 `./app/views/layouts/main.haml` loads pinned PostWind and Fez releases from
-jsDelivr. PostWind loads the Tailwind browser runtime and styles HAML and Fez
+jsDelivr. PostWind bundles the Tailwind v4 compiler and styles HAML and Fez
 components without a build step. Browser internet access is required for these
 scripts.
 
