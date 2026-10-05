@@ -71,9 +71,13 @@ ExceptionWriter.new(error).write(user: user.ref, ip: '203.0.113.7',
 
 Each line carries `uid` (SHA-256 of `[file, line, class]` from the first
 application backtrace frame), `dump` (`error.full_message(highlight: false)`),
-`message`, optional `user`, `ip`, `tags`, `description` (absent by default;
-`ip` falls back to the current request address) and `ts` (UTC RFC3339). Appends
-are flocked, so concurrent processes never interleave records.
+`message`, optional `user`, `ip`, `tags`, `description`, `method`, `url`,
+`headers` and `ts` (UTC RFC3339). `user` falls back to the signed-in user's
+email (`Lux.current.user.email`); `ip`, `method`, `url` and `headers` come from
+the current request, and `headers` keeps only `ExceptionWriter::HEADERS`
+(User-Agent, Referer, Accept-Language, ...), never Cookie or Authorization.
+`tags` and `description` are absent unless passed. Appends are flocked, so
+concurrent processes never interleave records.
 
 The legacy PG models (`LuxException` / `LuxExceptionLog`), their `/admin` pages
 and the `/api/lux_exceptions/toggle` API stay in the plugin but are no longer

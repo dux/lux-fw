@@ -11,16 +11,20 @@ require 'fileutils'
 class ExceptionWriter
   LOG_NAME ||= 'log/app.exceptions.log'
 
+  # Browser headers worth keeping; Cookie and Authorization are never sent.
+  HEADERS ||= %w[User-Agent Referer Accept-Language Accept Content-Type X-Requested-With CF-IPCountry]
+
   def initialize error
     @error = error
   end
 
-  # user: caller-supplied identity, no fallback. ip: falls back to the current
-  # request when omitted. tags/description: caller-supplied, absent by default.
+  # user: falls back to the signed-in user's email. ip, method, url and
+  # headers: taken from the current request. tags/description: caller-supplied,
+  # absent by default.
   def write user: nil, tags: nil, description: nil, ip: nil
     path = File.join(Lux.root.to_s, LOG_NAME)
     FileUtils.mkdir_p File.dirname(path)
-    File.append path, JSON.generate(record(user, tags, description, ip || request_ip))
+    File.append path, JSON.generate(record(user || current_email, tags, description, ip || request_ip))
   end
 
   private
@@ -34,6 +38,12 @@ class ExceptionWriter
     data['ip']          = ip if ip.present?
     data['tags']        = tags if tags.present?
     data['description'] = description if description.present?
+    if request
+      data['method']  = request.request_method
+      data['url']     = request.url
+      headers         = request_headers
+      data['headers'] = headers if headers.present?
+    end
     data['ts']          = Time.now.utc.iso8601(3)
     data
   end
@@ -83,10 +93,33 @@ class ExceptionWriter
     match ? [match[1], match[2].to_i] : [nil, nil]
   end
 
+  def request
+    return @request if defined?(@request)
+
+    @request = Thread.current[:lux] ? Lux.current.request : nil
+  rescue StandardError
+    @request = nil
+  end
+
   def request_ip
+    request&.ip
+  rescue StandardError
+    nil
+  end
+
+  def request_headers
+    HEADERS.each_with_object({}) do |name, out|
+      key   = name == 'Content-Type' ? 'CONTENT_TYPE' : "HTTP_#{name.upcase.tr('-', '_')}"
+      value = request.env[key]
+      out[name] = value.to_s if value.present?
+    end
+  end
+
+  def current_email
     return nil unless Thread.current[:lux]
 
-    Lux.current.request.ip
+    user = Lux.current.user
+    user.email.presence if user.respond_to?(:email)
   rescue StandardError
     nil
   end

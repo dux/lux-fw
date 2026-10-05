@@ -109,6 +109,27 @@ describe ExceptionWriter do
     _(lines.first['ip']).must_equal '198.51.100.9'
   end
 
+  it 'records the request method, url and allowlisted headers' do
+    Lux::Current.new(Rack::MockRequest.env_for('http://test-writer/sites/1?tab=seo', method: 'POST',
+      'HTTP_USER_AGENT' => 'Mozilla/5.0', 'HTTP_REFERER' => 'http://test-writer/sites',
+      'HTTP_COOKIE' => 'sid=secret', 'HTTP_AUTHORIZATION' => 'Bearer secret'))
+
+    ExceptionWriter.new(error).write
+    row = lines.first
+    _(row['method']).must_equal 'POST'
+    _(row['url']).must_equal 'http://test-writer/sites/1?tab=seo'
+    _(row['headers']).must_equal('User-Agent' => 'Mozilla/5.0', 'Referer' => 'http://test-writer/sites')
+  end
+
+  it 'falls back to the signed-in user email, caller user wins' do
+    Lux::Current.new('http://test-writer')
+    Lux.current.define_singleton_method(:user) { Struct.new(:email).new('ana@example.com') }
+
+    ExceptionWriter.new(error).write
+    ExceptionWriter.new(error).write(user: 'u_42')
+    _(lines.map { |l| l['user'] }).must_equal ['ana@example.com', 'u_42']
+  end
+
   it 'keeps concurrent writers from interleaving records' do
     error('one')
     pids = 8.times.map do
