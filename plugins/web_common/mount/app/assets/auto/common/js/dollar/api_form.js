@@ -13,6 +13,13 @@ const OPTIONAL_EVENTS = new Set(['progress', 'phase'])
 class ApiForm {
   static bind(form, opts) { return new ApiForm($(form).closest('form')[0], opts) }
   static on(name, func) { onHandler[name] = func }
+
+  // red bubble under a field - shared by server errors and native validation
+  static showError(field, text) {
+    if (field.nextElementSibling?.classList.contains('error-message')) field.nextElementSibling.remove()
+    field.closest('.form-row')?.classList.add('error')
+    field.insertAdjacentHTML('afterend', `<div class="error-message" onclick="this.remove()">${text}</div>`)
+  }
   static submit(el, opts) {
     const form = el.closest('form')
     form.setAttribute('onsubmit', 'return false')
@@ -263,8 +270,7 @@ ApiForm.on('error', function (response) {
         if (!field[0]) field = this.form.find(`*[name='${k}']`)
 
         if (field[0]) {
-          field.parents('.form-row').addClass('error')
-          field.after(`<div class='error-message' onclick='$(this).remove()'>${v}</div>`)
+          ApiForm.showError(field[0], v)
         } else {
           Toast.error(v)
         }
@@ -369,3 +375,23 @@ document.addEventListener('submit', e => {
   e.preventDefault()
   new ApiForm(form)
 })
+
+// required / type=email / pattern keep the browser's rules and message, but show
+// it as the same bubble instead of the native tooltip
+document.addEventListener('invalid', e => {
+  const field = e.target
+  const form  = field.closest?.('.lux-form')
+  if (!form) return
+  e.preventDefault()
+  ApiForm.showError(field, field.validationMessage)
+  // with the default prevented the browser focuses nothing - focus the first one
+  if (form.querySelector(':invalid') === field) field.focus()
+}, true)
+
+// typing into a field clears its bubble
+document.addEventListener('input', e => {
+  const next = e.target.nextElementSibling
+  if (!next?.classList.contains('error-message')) return
+  next.remove()
+  e.target.closest('.form-row')?.classList.remove('error')
+}, true)
