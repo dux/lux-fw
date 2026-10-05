@@ -2263,6 +2263,78 @@ describe 'plugins/db/create_limit.rb' do
       _(out).must_match(/Cannot auto-convert/)
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # AutoMigrate – db :add_index options
+  # ---------------------------------------------------------------------------
+
+  describe 'AutoMigrate indexes' do
+    def table_name
+      :am_index_test
+    end
+
+    before do
+      unless defined?(AutoMigrate)
+        load File.expand_path('../../plugins/db/migrate/auto_migrate.rb', __dir__)
+      end
+      AutoMigrate.auto_confirm = true
+      DB.drop_table?(table_name)
+      DB.create_table(table_name) do
+        String :ref, primary_key: true
+        String :code
+        String :org_ref
+        String :user_ref
+      end
+    end
+
+    after do
+      DB.drop_table?(table_name)
+      AutoMigrate.auto_confirm = false
+    end
+
+    def index_def name
+      DB.fetch('SELECT indexdef FROM pg_indexes WHERE indexname = ?', "#{table_name}_#{name}_index").get(:indexdef)
+    end
+
+    def run_migrate *rules
+      capture_stdout do
+        AutoMigrate.new(DB).table(table_name) do |f|
+          f.string :code
+          f.string :org_ref
+          f.string :user_ref
+          rules.each { f.db_rule(*_1) }
+        end
+      end
+    end
+
+    it 'adds a plain index' do
+      run_migrate [:add_index, :code]
+      assert_match(/^CREATE INDEX/, index_def(:code))
+    end
+
+    it 'adds a unique index' do
+      run_migrate [:add_index, :code, { unique: true }]
+      assert_match(/^CREATE UNIQUE INDEX/, index_def(:code))
+    end
+
+    it 'adds a unique index over several columns' do
+      run_migrate [:add_index, [:org_ref, :user_ref], { unique: true }]
+      assert_match(/^CREATE UNIQUE INDEX .*\(org_ref, user_ref\)/, index_def(:org_ref_user_ref))
+    end
+
+    it 'turns an existing plain index unique' do
+      DB.add_index table_name, :code
+      out = run_migrate [:add_index, :code, { unique: true }]
+      assert_match(/^CREATE UNIQUE INDEX/, index_def(:code))
+      assert_match(/dropped index on code/, out)
+    end
+
+    it 'leaves a matching index alone' do
+      DB.add_index table_name, :code, unique: true
+      out = run_migrate [:add_index, :code, { unique: true }]
+      assert_equal false, out.include?('index on code')
+    end
+  end
 end
 
 # =========================================================================

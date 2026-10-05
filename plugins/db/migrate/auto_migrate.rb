@@ -115,7 +115,7 @@ class AutoMigrate
       yield self
       normalize_fields
       sync_schema
-      @deferred_indexes.uniq.each { |field| add_index_for field }
+      @deferred_indexes.uniq.each { |field, opts| add_index_for field, opts }
     end
   end
 
@@ -140,7 +140,7 @@ class AutoMigrate
     when :add_index
       # columns are created in sync_schema, after the schema block runs -
       # index the field once they exist (fixes no-op indexes on fresh tables)
-      (@deferred_indexes ||= []) << name
+      (@deferred_indexes ||= []) << [name, opts]
     when :foreign_key
       add_foreign_key name
     else
@@ -234,12 +234,12 @@ class AutoMigrate
   def load_current_state
     @current_schema = db.schema(@table_name).to_h
 
+    # index name without the table prefix and _index suffix => its CREATE statement
     @db_indexes = db
-      .fetch("SELECT indexname FROM pg_indexes WHERE tablename = '#{@table_name}';")
+      .fetch("SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '#{@table_name}';")
       .to_a
-      .map { _1[:indexname] }
-      .reject { _1.end_with?('_pkey') }
-      .map { _1.sub(/_index$/, '').sub("#{@table_name}_", '') }
+      .reject { _1[:indexname].end_with?('_pkey') }
+      .to_h { [_1[:indexname].sub(/_index$/, '').sub("#{@table_name}_", ''), _1[:indexdef]] }
   end
 
   # --- field normalization ---
@@ -522,17 +522,35 @@ class AutoMigrate
     end
   end
 
-  def add_index_for field
-    col_type = db.schema(@table_name).to_h[field.to_sym][:db_type] rescue nil
-    return unless col_type && !@db_indexes.include?(field.to_s)
+  # db :add_index, :code
+  # db :add_index, :code, unique: true
+  # db :add_index, [:org_ref, :user_ref], unique: true
+  def add_index_for field, opts = {}
+    columns = Array(field).map(&:to_sym)
+    key     = columns.join('_')
+    unique  = !!opts&.dig(:unique)
+    schema  = db.schema(@table_name).to_h
+    return unless columns.all? { schema[_1] }
 
-    if col_type.include?('[]')
-      db.run %[CREATE INDEX if not exists #{@table_name}_#{field}_gin_index on "#{@table_name}" USING GIN ("#{field}");]
-      puts " * added array GIN index on #{field}".colorize(:green)
-    else
-      db.add_index @table_name, field.to_sym, if_not_exists: true
-      puts " * added index on #{field}".colorize(:green)
+    if columns.size == 1 && schema[columns.first][:db_type].include?('[]')
+      return if @db_indexes.key?("#{key}_gin")
+
+      db.run %[CREATE INDEX if not exists #{@table_name}_#{key}_gin_index on "#{@table_name}" USING GIN ("#{key}");]
+      puts " * added array GIN index on #{key}".colorize(:green)
+      return
     end
+
+    current = @db_indexes[key]
+    return if current && current.start_with?('CREATE UNIQUE') == unique
+
+    # same name, other uniqueness - Postgres can not alter that in place
+    if current
+      db.drop_index @table_name, columns
+      puts " * dropped index on #{key}".colorize(:yellow)
+    end
+
+    db.add_index @table_name, columns, unique: unique
+    puts " * added #{'unique ' if unique}index on #{key}".colorize(:green)
   end
 
   def add_foreign_key name
