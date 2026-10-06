@@ -20,19 +20,17 @@
 # parser is identical to Lux.schema. Allowed keys per action is the union
 # of class-level and method-level rules; method wins on collision.
 #
-# Verb contract: actions are GET (+ implicit HEAD/OPTIONS) by default. An `allow`
-# line REPLACES the default set with the declared verbs - `allow :post`
-# means POST only (no GET). For both, declare both: `allow :get, :post`.
-# HEAD and OPTIONS are implicit only when GET is in the set. `allow :any`
-# (alias `:all`) opts out of the check entirely. A verb not in the set raises 405.
+# Verb contract (Lux::Utils::HttpVerbs, shared with Lux::Api): actions are
+# GET (+ implicit HEAD/OPTIONS) by default. An `allow` line REPLACES the
+# default set with the declared verbs - `allow :post` means POST only (no GET).
+# For both, declare both: `allow :get, :post`. `allow :any` (alias `:all`)
+# opts out of the check entirely. A verb not in the set raises 405.
 
 require 'set'
 
 module Lux
   class Controller
     module ParamsDsl
-      ALLOWED_HTTP_VERBS ||= %i(get head options post put patch delete trace).freeze
-
       def self.included base
         base.extend ClassMethods
       end
@@ -70,20 +68,8 @@ module Lux
         #
         # Args are flattened, so an accidental array splat still works.
         def allow *verbs
-          verbs = verbs.flatten.map { |v| v.to_s.to_sym }
-          @_pending_allows ||= []
-
-          if verbs.include?(:any) || verbs.include?(:all)
-            @_pending_allows = [:any]
-            return
-          end
-
-          verbs.each do |v|
-            unless ALLOWED_HTTP_VERBS.include?(v)
-              raise ArgumentError, '"%s" is not a recognised HTTP verb (got: %s)' % [v, ALLOWED_HTTP_VERBS.join(', ')]
-            end
-            @_pending_allows << v
-          end
+          verbs = Lux::Utils::HttpVerbs.parse(*verbs)
+          @_pending_allows = verbs == :any ? :any : [*@_pending_allows, *verbs].uniq
         end
 
         # method_added snapshots pending opts + verb-allows onto the action so
@@ -95,7 +81,7 @@ module Lux
             @_action_opts[name] = @_pending_opts
             @_pending_opts = nil
           end
-          if @_pending_allows && @_pending_allows.any?
+          if @_pending_allows && @_pending_allows != []
             @_action_allows ||= {}
             @_action_allows[name] = @_pending_allows
             @_pending_allows = nil
@@ -119,14 +105,10 @@ module Lux
             next unless store
 
             declared = store[action_name]
-            next unless declared
-
-            return :any if declared == [:any]
-            set = expand_allowed_verbs(declared)
-            return set
+            return Lux::Utils::HttpVerbs.expand(declared) if declared
           end
 
-          expand_allowed_verbs([:get])
+          Lux::Utils::HttpVerbs.expand([:get])
         end
 
         # Compose class-level + method-level into one Lux::Schema, with
@@ -164,20 +146,6 @@ module Lux
           end
 
           Lux::Schema.new(nil, define: Lux::Schema::Define.new(combined_rules))
-        end
-
-        private
-
-        def expand_allowed_verbs verbs
-          Set.new.tap do |set|
-            verbs.each do |verb|
-              set << verb
-              if verb == :get
-                set << :head
-                set << :options
-              end
-            end
-          end
         end
       end
 

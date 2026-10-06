@@ -5,8 +5,10 @@
 # explicit entry point. core_ext (blank?/present?) is dropped because
 # lux-fw's overload/blank.rb already provides it.
 
+require_relative '../utils/http_verbs'
 require_relative './base_instance'
 require_relative './base_class'
+require_relative './rack'
 require_relative './response'
 require_relative './render_proxy'
 require_relative './introspect'

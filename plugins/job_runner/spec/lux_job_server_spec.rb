@@ -2,7 +2,7 @@
 # admin-email allowlist and the dashboard. Needs sinatra; skipped when it is
 # not installed.
 #
-#   cd ~/dev/gems/lux-fw && bundle exec ruby -Ilib -Ispec plugins/job_runner/spec/lux_job_server_spec.rb
+#   cd ~/dev/libs/lux-fw && bundle exec ruby -Ilib -Ispec plugins/job_runner/spec/lux_job_server_spec.rb
 
 require 'test_helper'
 require_relative 'support/db'

@@ -50,7 +50,7 @@ The raw schema returns roughly:
       "collection": {
         "<action>": {
           "path":   "<%= mount_on %>/<api_name>/<action>",
-          "http":   ["POST", "GET"],
+          "http":   ["POST"],
           "unsafe": false,
           "desc":   "...",
           "params": {
@@ -164,8 +164,9 @@ Envelope fields:
 
 ### HTTP verbs
 
-Every endpoint accepts `POST`. Actions declared with `allow :get` (or other
-verbs) accept those too. When in doubt, POST works.
+Each action lists the verbs it accepts in `http`. That is `["POST"]` unless the
+action declares others (`allow :get` -> `["GET"]`, `allow :get, :post` -> both),
+and a verb outside the list answers 405. Send GET params as a query string.
 
 ## Collection vs member actions (`ref` blocks)
 

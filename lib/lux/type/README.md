@@ -41,11 +41,11 @@ Located in [`lib/lux/type/types/`](./types).
 
 | Symbol | Coerces to | Notes |
 |--------|------------|-------|
-| `:string`    | String  | default when no type given |
-| `:text`      | String  | unlimited length, multi-line |
+| `:string`    | String  | default when no type given; `<` stored as `&LT;`, `html: true` opts out |
+| `:text`      | String  | unlimited length, multi-line; `<` stored as `&LT;`, `html: true` opts out |
 | `:integer`   | Integer | `min:`, `max:` |
 | `:float`     | Float   | `min:`, `max:` |
-| `:boolean`   | true/false | `"on"`, `"1"`, `"true"` → true |
+| `:boolean`   | true/false | `Lux::Utils::Boolean.parse`: `true yes on t y 1` / `false no off f n 0` |
 | `:date`      | Date    | ISO parse |
 | `:datetime`  | DateTime | ISO parse |
 | `:time`      | Time    | |
@@ -63,9 +63,17 @@ Located in [`lib/lux/type/types/`](./types).
 | `:label`     | String  | enum-friendly |
 | `:point` / `:simple_point` | Array(Float, Float) | lat/lon |
 | `:hash`      | Hash    | passes through |
-| `:translated` | Hash(locale => text) | jsonb; bare string → current locale; prunes stale locales when a single one changes |
+| `:translated` | Hash(locale => text) | jsonb; bare string → current locale; prunes stale locales when a single one changes; `<` stored as `&LT;` unless `html: true` |
 | `:image`     | upload  | works with `plugins/web_common` html form |
 | `:model`     | nested schema | set automatically by `name do ... end` |
+
+User text is escaped on input, never on output: `:string`, `:text` and
+`:translated` store `<` as `&LT;` (browsers render it as `<`), so a stored
+value is safe to print raw. Apply `.html_unsafe` where real markup is wanted,
+declare `html: true` on a field that stores HTML. Lux::Api params get the same
+escape. Values a model sets in its own before-save hooks run after this step;
+escape those with `String#html_escape`. HTML responses turn the attribute-escaped `&amp;LT;` (and the legacy
+`#LT;` marker) into `&lt;`. JSON and plain-text output carry `&LT;` as is.
 
 ## Defining a custom type
 

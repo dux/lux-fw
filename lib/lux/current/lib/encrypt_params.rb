@@ -5,13 +5,15 @@ module Lux
     module EncryptParams
       extend self
 
+      Field ||= Struct.new(:name, :value)
+
       # encrypt_param('dux', 'foo')
-      # <OpenStruct name="_data_1", value="eyJ0eXAiOiJKV1QiLCJhbGciOi..."
+      # #<struct name="_data_1", value="eyJ0eXAiOiJKV1QiLCJhbGciOi...">
       def encrypt name, value
         base = name.include?('[') ? name.split(/[\[\]]/).first(2).join('::') : name
         base += '#%s' % value
 
-        OpenStruct.new(name: "_data_#{Lux.current.uid}", value: Lux::Utils::Crypt.encrypt(base))
+        Field.new("_data_#{Lux.current.uid}", Lux::Utils::Crypt.encrypt(base))
       end
 
       def hidden_input name, value

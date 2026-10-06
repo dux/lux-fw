@@ -83,6 +83,28 @@ Field-name suffix `?` marks optional. Type vocabulary is any built-in
 `:url`, `:uuid`, `:slug`, `:locale`, `:translated`, ...). **When generating params code
 anywhere, use this DSL.** Don't invent per-controller validators.
 
+## One way to do it
+
+Generate these forms; the alternatives the code still accepts exist for
+internal use and old apps.
+
+| Task | Canonical form | Read |
+|------|----------------|------|
+| Route a path | `map 'users', 'users#index'` (match, then target) / `map 'admin' do ... end` / `root 'main'` / `call 'ctrl#action'` (no match) inside `Lux.app { routes do ... end }` (app/routes.rb); other shapes raise | [application](./lib/lux/application/README.md) |
+| Mount an API | `map 'api', ApplicationApi` | [api](./lib/lux/api/README.md) |
+| Validate params | `opt :name, String, max: 30` above `def`, or `params do ... end` | [controller](./lib/lux/controller/README.md) |
+| JSON endpoint | `define :name do proc { ... } end` in a `Lux::Api` class | [api](./lib/lux/api/README.md) |
+| Fail a request | `raise Lux.error.not_found 'no such user'` (`forbidden`, `bad_request`, ...) | [error](./lib/lux/error/README.md) |
+| Access check | `@model.can.read?` (policy class `ModelPolicy`) | [policy](./lib/lux/policy/README.md) |
+| Render | implicit `app/views/<controller>/<action>.haml`, or `render text:` / `render json:` | [controller](./lib/lux/controller/README.md) |
+| Redirect + flash | `response.flash.info 'Saved'` then `response.redirect_to '/path'` | [response](./lib/lux/response/README.md) |
+| Request context | `lux` (in request code), `Lux.current` outside of it | [current](./lib/lux/current/README.md) |
+| Cache | `Lux.cache.fetch(key, ttl: 60) { ... }` | [cache](./lib/lux/cache/README.md) |
+| Background job | `LuxJob.add :name, opts` (job_runner plugin), `Lux.defer { }` for fire-and-forget | [job_runner](./plugins/job_runner/README.md) |
+| Mail | `class Mailer < Lux::Mail::Sender`, `Mailer.deliver(:welcome, user)` | [mail](./lib/lux/mail/README.md) |
+| Model fields | `schema do ... end` in the model, migrated by `lux db:am` | [db](./plugins/db/README.md) |
+| User text / HTML | stored with `<` as `&LT;` by the type layer, printed raw; `html: true` on a field that stores markup, `.html_unsafe` to render markup | [type](./lib/lux/type/README.md) |
+
 ## Core modules - `lib/lux/<name>/`
 
 | Module | What it is | Read |
@@ -157,7 +179,8 @@ Two-phase. `require 'lux-fw'` runs framework load (gems, overloads,
 `Lux::*` subsystems, Sequel + Haml) - no side effects on the host: no
 DB connect, no `.env`, no plugin loaders. `Lux.boot!` then runs app
 boot: `init_env`, `dotenv`, `bundler_require!`, `config`,
-`Config.set_defaults`, then plugin loaders. Idempotent.
+`Config.set_defaults`, app autoloads (`Lux::Root.autoload!`), then plugin
+loaders. Idempotent. There is no `const_missing` hook.
 
 Canonical host `config/env.rb`:
 

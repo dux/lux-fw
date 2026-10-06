@@ -25,8 +25,9 @@ class BoardsController < ApplicationController
   before_render { ... }                        # right before template render
   after         { ... }                        # after action
 
-  # rescue_from is sugar that defines :error action
-  rescue_from do |err|
+  # rescue_from (Lux::RescueFrom, same macro as Lux.app and Lux::Api) - the
+  # default :error action runs the handler matching the error class
+  rescue_from Sequel::NoMatchingRow do |err|
     render json: { error: err.message, status: @status }
   end
 
@@ -161,9 +162,9 @@ def webhook; end
 HEAD and OPTIONS piggyback on GET only when GET is in the declared set.
 The `:error` action is implicitly `:any` so error rendering never 405s.
 
-The same `allow` word exists in `Lux::Api`, with the inverse default: API
-endpoints default to `POST`, and `allow :get` adds GET on top. Same word,
-same shape, the framework-appropriate default per system.
+`Lux::Api` uses the same contract (`Lux::Utils::HttpVerbs`): the declared
+verbs replace the default, which is `POST` for an API action. `allow :get`
+there means GET only. Declare `allow :get, :post` to keep both.
 
 ## Routing primer
 
@@ -186,7 +187,7 @@ both the collection and the member URL - read `nav.ref` to tell them apart. To
 give a member action its own URL, route it explicitly:
 
 ```ruby
-map '/users/:ref/dashboard' => 'users#dashboard'
+map '/users/:ref/dashboard', 'users#dashboard'
 ```
 
 ## Instance helpers

@@ -3,7 +3,7 @@
 
 module Sequel::Plugins::LuxSchema
   # audit columns are populated by the before_save filters
-  # (plugins/db/plugins/before_save_filters.rb), never by the client, so
+  # (plugins/db/lib/sequel/before_save_filters.rb), never by the client, so
   # api_schema drops them. This is the single home for the list.
   AUDIT_COLUMNS = %i[created_at updated_at creator_ref updater_ref].freeze
 

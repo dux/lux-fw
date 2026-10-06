@@ -1,8 +1,8 @@
 module Lux
   class Application
     module Routes
-      # Cached controller class lookups: 'main/users' => Main::UsersController
-      # Cleared by Lux::Reloader so a reloaded controller class is picked up.
+      # Cached controller class lookups: 'main/users' => Main::UsersController.
+      # The reloader re-`load`s files in place, so cached classes stay valid.
       CONTROLLER_CLASS_CACHE ||= {}
 
       # Cached plugin routes.rb sources: '/abs/path/routes.rb' => source string.
@@ -10,9 +10,10 @@ module Lux
       # every time is pure overhead outside reload mode.
       PLUGIN_ROUTE_SOURCE ||= {}
 
-      # generate get, get?, post, post? ...
-      # get {}
-      # get foo: 'main/bar', only: [:show], except: [:index]
+      # verb predicates: get?, post?, ...
+      # post? { map 'api', 'api#call' }   # block runs on POST only
+      # post? 'api', 'api#call'           # same as map, POST only
+      # post?                             # bare predicate
       %w{get head post delete put patch}.each do |m|
         define_method('%s?' % m) do |*args, &block|
           cm = lux.request.request_method
@@ -26,7 +27,6 @@ module Lux
             # would re-register routes instead of running them.
             instance_exec(&block)
           elsif args.first
-            # post api: 'api#call'
             map *args
           else
             true
@@ -50,21 +50,6 @@ module Lux
         lux.route.match? name
       end
 
-      # Absolute-path match. Captures `:var` placeholders into params.
-      # ```
-      # match '/:city/people', Main::PeopleController
-      # ```
-      # Advances the route cursor by the number of segments consumed, so
-      # lux.route.consumed reflects the matched prefix (needed for sub-mounts
-      # like Lux::Api to derive their own mount_on).
-      def match base, target
-        captures = lux.route.capture(base) or return
-
-        captures.each { |name, value| lux.params[name] = value }
-
-        lux.route.with_scope(lux.route.capture_length(base)) { call target }
-      end
-
       # Matches given subdomain name. instance_exec for the same reason as
       # `get?` - the block is captured at class-eval time.
       def subdomain name, &block
@@ -73,33 +58,18 @@ module Lux
         raise Lux.error.not_found Lux.debug?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
       end
 
-      # Main routing DSL. All forms match against the current route cursor first,
-      # then dispatch resourcefully unless an explicit action is given via `#`.
+      # Main routing DSL - one shape: what to match, then what to dispatch.
       #
-      # Match forms (left side):
-      # * String/Symbol      - matches a path segment
-      # * Array of those     - matches any
-      # * String '/abs/:x'   - absolute path match (delegates to `match`)
-      #
-      # Dispatch forms (right side):
-      # * String 'foo'       - FooController, resourceful action
-      # * String 'foo#bar'   - FooController#bar (explicit)
-      # * Class              - that controller, resourceful action
-      # * Class with action  - [Class, :action]
-      #
-      # A single 'controller#action' string with no left side has nothing to
-      # match against, so it dispatches unconditionally - identical to `call`:
       # ```
-      # map 'foo#bar'   == call 'foo#bar'   # always runs FooController#bar
-      # map 'foo', 'foo#bar'                # runs only when cursor root is 'foo'
+      # map 'users', 'users'            # /users...  -> UsersController, resourceful action
+      # map 'users', 'users#index'      # explicit action
+      # map 'api', ApplicationApi       # a controller, Lux::Api or Rack class
+      # map '/skills/:skill', 'skills#show'   # absolute path, :skill lands in params
+      # map %w[help faq], 'pages'       # any of these segments
+      # map 'admin' do ... end          # scope: nested routes see the rest of the path
       # ```
       #
-      # Equivalent forms:
-      # ```
-      # map 'adm' do; map 'admin'; end
-      # map 'adm', 'admin'
-      # map adm: :admin
-      # ```
+      # Unconditional dispatch (no match) is `call`, never `map`.
       #
       # Halting: a dispatch that writes the response body throws `:done`, which
       # is caught once, in Application#resolve_routes. Every route statement
@@ -123,66 +93,28 @@ module Lux
       # /admin/users/123/edit        -> :edit
       # /admin/users/foo/bar         -> :foo    (trailing segments past action ignored)
       # ```
-      def map route_object = nil, target = nil, opts = nil, &block
+      def map path = nil, target = nil, opts = nil, &block
         return if lux.response.body?
 
-        # Block form: map 'admin' do ... end
-        if block_given?
-          if route_match?(route_object)
-            lux.route.with_scope(1) { instance_exec(lux.route.root, &block) }
-          end
+        unless path.is_a?(String) || path.is_a?(Array)
+          raise ArgumentError, "map takes a path segment, '/abs/:path' or a list of segments first, got #{path.inspect}. Write map 'users', 'users#index'"
+        end
+
+        if block
+          lux.route.with_scope(1) { instance_exec(lux.route.root, &block) } if route_match?(path)
           return
         end
 
-        # Single explicit 'controller#action' string has no left side to match,
-        # so it is a pure dispatch - identical to `call`. The match forms
-        # (`map 'foo', 'foo#bar'`, `map foo: 'foo#bar'`) still gate on the route
-        # cursor below. Also covers the `map 'promo#app_error'` rescue_from shorthand.
-        if target.nil? && route_object.is_a?(String) && route_object.include?('#') && !route_object.end_with?('#')
-          return call(route_object, nil, opts)
+        unless target
+          raise ArgumentError, "map #{path.inspect} needs a target: map 'users', 'users#index'. Use call 'ctrl#action' to dispatch without matching"
         end
 
-        # Normalize into [match_value, target_value]
-        match_value, target_value =
-          if target
-            [route_object, target]
-          else
-            # NOTE: inside module Lux, bare `Hash` resolves to Lux::Hash, so
-            # plain Ruby hashes never match `when Hash`. Use `is_hash?`.
-            if route_object.is_hash?
-              [route_object.keys.first, route_object.values.first]
-            else
-              case route_object
-              when String
-                # 'X' or 'X#Y' - the part before # is both match and controller
-                [route_object.split('#').first, route_object]
-              when Symbol
-                [route_object, route_object.to_s]
-              when Array
-                # legacy [match, target] tuple
-                [route_object[0], route_object[1]]
-              else
-                raise Lux.error 'Unsupported route type "%s"' % route_object.class
-              end
-            end
+        if path.is_a?(String) && path.start_with?('/')
+          match_path path, target
+        else
+          Array(path).each do |segment|
+            lux.route.with_scope(1) { call target, nil, opts } if route_match?(segment)
           end
-
-        # Absolute path match: '/skils/:skill' => 'main/skills#show'
-        if match_value.is_a?(String) && match_value.start_with?('/')
-          return match(match_value, target_value)
-        end
-
-        # Array of route names: [:foo, :bar] => 'root'
-        if match_value.is_a?(Array)
-          match_value.each do |m|
-            lux.route.with_scope(1) { call target_value, nil, opts } if route_match?(m)
-          end
-          return
-        end
-
-        # Standard match
-        if route_match?(match_value)
-          lux.route.with_scope(1) { call target_value, nil, opts }
         end
       end
 
@@ -193,15 +125,11 @@ module Lux
       # decided what to run.
       #
       # ```
-      # call :api_router
-      # call { 'string' }
-      # call proc { [400, {}, 'error: ...'] }
-      # call [200, {}, ['ok']]
-      # call Main::UsersController
-      # call Main::UsersController, :index
-      # call [Main::UsersController, :index]
-      # call 'main/orgs'      -> resourceful (index/show/edit/...)
-      # call 'main/orgs#show' -> explicit :show
+      # call 'main/orgs'       # resourceful (index/show/edit/...)
+      # call 'main/orgs#show'  # explicit :show
+      # call Main::UsersController       # a controller, Lux::Api or Rack class
+      # call { 'text' }                  # block result is the body;
+      # call { [400, {}, ['error']] }    # a [status, headers, body] triple sets status
       # ```
       def call object=nil, action=nil, opts=nil, &block
         # log original app caller (skipped in production - caller() is expensive)
@@ -216,15 +144,7 @@ module Lux
         action    = action.to_sym if action.is_a?(String)
         object  ||= block if block_given?
 
-        # NOTE: bare `Hash` inside module Lux is Lux::Hash, so handle plain
-        # Ruby hashes via is_hash? before the case statement.
-        if object.is_hash?
-          object = [object.keys.first, object.values.first]
-        end
-
         case object
-        when Symbol
-          return send(object)
         when String
           if object.include?('#') && !object.end_with?('#')
             # explicit 'controller#action'
@@ -234,18 +154,6 @@ module Lux
             # resourceful: 'controller' or 'controller#'
             object = object.chomp('#')
           end
-        when Array
-          if object[0].class == Integer && object[1].is_hash?
-            # [200, {}, 'ok']
-            for key, value in object[1]
-              lux.response.header key, value
-            end
-
-            lux.response.status object[0]
-            lux.response.body object[2].is_a?(Array) ? object[2].first : object[2]
-          else
-            object, action = object
-          end
         when Proc
           case data = object.call
           when Array
@@ -254,6 +162,9 @@ module Lux
           else
             lux.response.body data
           end
+        when Module
+        else
+          raise ArgumentError, "call takes 'ctrl#action', a controller/Rack class or a block, got #{object.inspect}"
         end
 
         if object.is_a?(String)
@@ -359,6 +270,18 @@ module Lux
       end
 
       private
+
+      # Absolute-path match for `map '/:city/people', 'people'`. Captures `:var`
+      # placeholders into params and advances the route cursor by the segments
+      # consumed, so lux.route.consumed reflects the matched prefix (needed for
+      # sub-mounts like Lux::Api to derive their own mount_on).
+      def match_path base, target
+        captures = lux.route.capture(base) or return
+
+        captures.each { |name, value| lux.params[name] = value }
+
+        lux.route.with_scope(lux.route.capture_length(base)) { call target }
+      end
 
       # Read + instance_eval a plugin routes.rb. The source is memoized unless
       # we are in reload mode, where the file is expected to change under us.

@@ -267,6 +267,12 @@ ${JSON.stringify(body, null, 2)}`
       return this.state.entry.kind === 'member'
     }
 
+    // POST unless the action declares verbs without it (allow :get)
+    verb() {
+      const http = this.state.entry.http || ['POST']
+      return http.includes('POST') ? 'POST' : http[0]
+    },
+
     resolvedPath() {
       let p = this.state.entry.path
       if (this.isMember()) p = p.replace(':ref', this.state.ref || ':ref')
@@ -361,17 +367,23 @@ ${JSON.stringify(body, null, 2)}`
       btn.classList.add('sending')
       btn.disabled = true
 
-      const path = this.resolvedPath()
+      const verb = this.verb()
+      let path = this.resolvedPath()
       const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' }
       if (this.state.bearer) headers['Authorization'] = 'Bearer ' + this.state.bearer
 
       const t0 = performance.now()
       let resp
       try {
+        const values = this.state.values || {}
+        if (verb === 'GET') {
+          const qs = new URLSearchParams(Object.entries(values).filter(([, v]) => v !== undefined && v !== '')).toString()
+          if (qs) path += '?' + qs
+        }
         const res = await fetch(path, {
-          method:  'POST',
+          method:  verb,
           headers,
-          body:    JSON.stringify(this.state.values || {})
+          body:    verb === 'GET' ? undefined : JSON.stringify(values)
         })
         const text = await res.text()
         let body = text
@@ -683,7 +695,7 @@ ${JSON.stringify(body, null, 2)}`
                   <span class="spinner"></span>
                   <span>Send →</span>
                 </button>
-                <code class="send-path">POST {fez.resolvedPath()}</code>
+                <code class="send-path">{fez.verb()} {fez.resolvedPath()}</code>
                 <div class="spacer"></div>
                 {#if state.bearer}
                   <span class="runner-meta ok">with bearer</span>

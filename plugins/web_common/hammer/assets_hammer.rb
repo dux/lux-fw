@@ -1,4 +1,4 @@
-# Core asset pipeline (was plugins/web_common/Hammerfile).
+# web_common asset pipeline. Loaded only for apps that list the plugin.
 #
 #   lux assets:auto    - run *.ext.rb generators, build auto-*.tmp.{js,scss}
 #   lux assets:build   - bun run rollup -c

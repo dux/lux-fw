@@ -64,7 +64,6 @@ class UsersController < ApplicationController
     current.host             # scheme://host:port
     current.uid              # unique id per call (each call returns a new id)
     current.bearer_token     # Authorization: Bearer <token>
-    current.secure_token     # sha1(IP); secure_token(t) → t == secure_token
     current.robot?
     current.mobile?
     current.no_cache?        # HTTP_CACHE_CONTROL=no-cache + can_clear_cache
@@ -98,7 +97,6 @@ end
 | `host`            | string | scheme://host:port |
 | `uid`             | string | unique id per call |
 | `bearer_token`    | string | `Authorization: Bearer <token>` |
-| `secure_token`    | string | sha1(IP) helper |
 | `robot?` / `mobile?` | bool | UA-based |
 | `no_cache?`       | bool | `HTTP_CACHE_CONTROL=no-cache` + `can_clear_cache` |
 | `can_clear_cache` | bool | opt-in for admin clears |
@@ -119,7 +117,7 @@ end
 ## Nav
 
 `current.nav` is the canonical request path - routing inspects it but
-does not mutate. See [`./lib/nav.rb`](./lib/nav.rb) for full DSL.
+does not mutate. See [`../application/lib/nav.rb`](../application/lib/nav.rb) for full DSL.
 
 ```ruby
 nav.path                          # working path array - rewritten in place

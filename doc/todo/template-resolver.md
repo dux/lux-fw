@@ -10,7 +10,7 @@ value-returning, ordered, first-hit-wins chain - not a fire-and-forget event.
 Mirrors two existing patterns:
 * locale plugin's `registered handler -> external store -> flat-file` chain
   (`./plugins/locale/load/locale.rb:238`)
-* `Ref`'s `REGISTRY ||= {}` + `register` (`./plugins/db/ext/nav_models.rb`)
+* `Ref`'s `REGISTRY ||= {}` + `register` (`./plugins/db/lib/ext/nav_models.rb`)
 
 ## Design decisions
 
@@ -164,7 +164,7 @@ Resolved templates are cached like files (compiled once in production).
 
 ## Validation
 
-* `bin/rspec spec/lux_tests/template_render_spec.rb` (or project runner)
+* `bundle exec ruby -Ilib -Ispec spec/lux_tests/template_render_spec.rb`
 * `ruby -c lib/lux/template/template.rb`
 
 ## Notes

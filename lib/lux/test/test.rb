@@ -1,6 +1,6 @@
 # Lux::Test - test scaffolding for the lux suite (and lux apps).
 #
-# Loaded only from spec/spec_helper.rb, never from lux boot. Pulls in
+# Loaded only from spec/test_helper.rb, never from lux boot. Pulls in
 # Minitest::Spec, the vendored Factory (was clean-mock), and the helper modules
 # (Request, Capture, DB, TimeHelpers, Assertions). The single base class
 # Lux::Test::Case wires them all together; specs inherit from it.

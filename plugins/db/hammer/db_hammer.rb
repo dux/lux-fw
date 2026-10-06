@@ -65,6 +65,50 @@ module LuxDb
     Lux.shell 'psql', url, '-v', 'ON_ERROR_STOP=1', '-f', '-', stdin_data: sql
   end
 
+  # Stored `<` markers (see String#html_escape): report, per text/json column,
+  # rows with the legacy #LT; marker and rows with a raw `<`. With apply,
+  # rewrite #LT; to &LT; everywhere, and escape raw `<` in the `escape`
+  # columns ('table.column') - plain-text columns only, never stored markup.
+  def lt_markers db, apply: false, escape: []
+    cols = db[<<~SQL].all
+      SELECT table_name, column_name, data_type, character_maximum_length AS max FROM information_schema.columns
+      WHERE table_schema = 'public' AND data_type IN ('text', 'character varying', 'json', 'jsonb')
+      ORDER BY table_name, column_name
+    SQL
+
+    cols.each do |row|
+      key  = '%s.%s' % [row[:table_name], row[:column_name]]
+      col  = Sequel.identifier(row[:column_name])
+      text = Sequel.cast(col, String)
+      ds   = db[Sequel.identifier(row[:table_name])]
+      old  = ds.where(Sequel.like(text, '%#LT;%')).count
+      raw  = ds.where(Sequel.like(text, '%<%')).count
+      next if old.zero? && raw.zero?
+
+      fix_raw = escape.delete(key)
+      puts ('  %-45s #LT;=%-6d raw<=%-6d%s' % [key, old, raw, fix_raw ? ' escape' : '']).rstrip
+      next unless apply
+
+      value = Sequel.function(:replace, text, '#LT;', '&LT;')
+      value = Sequel.function(:replace, value, '<', '&LT;') if fix_raw
+      value = Sequel.cast(value, row[:data_type].to_sym) if row[:data_type].start_with?('json')
+      scope = Sequel.like(text, '%#LT;%')
+      scope = scope | Sequel.like(text, '%<%') if fix_raw
+      todo  = ds.where(scope)
+
+      # the escaped value is longer; leave rows that would overflow a varchar
+      if row[:max]
+        too_long = todo.where { char_length(value) > row[:max] }.count
+        puts "    skipped #{too_long} row(s) longer than #{row[:max]} once escaped".colorize(:yellow) if too_long > 0
+        todo = todo.where { char_length(value) <= row[:max] }
+      end
+
+      todo.update(row[:column_name].to_sym => value)
+    end
+
+    escape.each { puts "  unknown or clean column: #{_1}".colorize(:yellow) }
+  end
+
   # Force-rebuild every <db>_test from the model schema: drop, create, then run
   # db:am against the _test sibling (DB_<NAME> override points it there). Schema
   # comes from the lux_schema model definitions, so test DBs always match the
@@ -142,6 +186,21 @@ namespace :db do
 
       LuxDb.each_configured_db do |_name, url, _db_name|
         LuxDb.exec_sql(url, sql)
+      end
+    end
+  end
+
+  task :lt do
+    desc 'Stored `<` markers: report, --apply rewrites #LT; to &LT;, --escape also escapes raw < per column'
+    needs :env
+    opt :apply,  type: :boolean, desc: 'Write the changes (default: report only)'
+    opt :escape, type: :array,   desc: 'table.column list whose raw < becomes &LT; (plain text only)'
+    proc do |opts|
+      escape = Array(opts[:escape]).flat_map { _1.to_s.split(',') }.map(&:strip).reject(&:empty?)
+
+      Lux::Db.configured_names.each do |name|
+        puts ':%s %s' % [name, opts[:apply] ? '(apply)' : '(report)']
+        Lux.silent { LuxDb.lt_markers Lux.db(name), apply: opts[:apply], escape: escape }
       end
     end
   end
@@ -309,9 +368,9 @@ namespace :db do
     opt :ask, type: :boolean, desc: 'Prompt before dropping columns (default: drop without asking)'
     proc do |opts|
       ENV['DB_MIGRATE'] = 'true' unless ENV['DB_MIGRATE'] == 'true'
-      require File.expand_path('../migrate/auto_create_tables', __dir__)
+      require File.expand_path('../lib/migrate/auto_create_tables', __dir__)
 
-      # AutoMigrate is auto-loaded by `Lux.plugin :db` (see plugins/db/migrate/auto_migrate.rb).
+      # AutoMigrate is auto-loaded by `Lux.plugin :db` (see plugins/db/lib/migrate/auto_migrate.rb).
       # Column drops apply automatically; --ask restores the interactive y/N confirmation.
       AutoMigrate.auto_confirm = !opts[:ask]
 

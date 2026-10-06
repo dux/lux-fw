@@ -1,7 +1,7 @@
 require 'test_helper'
 
 # load_models is the db plugin's Nav <-> model integration (a Nav reopening).
-require File.expand_path('../../plugins/db/ext/nav_models.rb', __dir__)
+require File.expand_path('../../plugins/db/lib/ext/nav_models.rb', __dir__)
 
 # Model stand-in carrying a 3-letter abbr.
 RefProject ||= Struct.new(:ref) do

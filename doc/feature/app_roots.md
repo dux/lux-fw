@@ -1,7 +1,7 @@
 > STATUS: IMPLEMENTED. `lux mount` symlinks are replaced by `Lux::Root`, an
 > ordered overlay of app roots that the framework resolves against directly.
-> `Object.const_missing` is kept as a thin roots-aware safety net rather than
-> removed (plugins reference app base classes during boot).
+> `Object.const_missing` is gone: boot registers native Ruby autoloads for
+> every `app/**/*.rb` across roots (see "App autoload" below).
 
 ## app_roots
 
@@ -97,7 +97,7 @@ Failure names every location that was tried:
 Lux::Root::NotFound: Lux.root.path("app/views/main/root.haml") not found.
 Looked in:
   /Users/dux/dev/rudex/vibe/app/views/main/root.haml
-  /Users/dux/dev/gems/lux-fw/plugins/web_common/mount/app/views/main/root.haml
+  /Users/dux/dev/libs/lux-fw/plugins/web_common/mount/app/views/main/root.haml
 ```
 
 Writes and unresolved paths still resolve to the real app path, so generated
@@ -115,10 +115,10 @@ it.
 gitignored `Lux.root/rollup.config.js`.
 `NODE_PRESERVE_SYMLINKS` stays for the `node_modules/fez` symlink.
 
-### Object.const_missing
+### App autoload
 
-The `Object.const_missing` autoloader is reduced to a thin safety net instead
-of a bespoke loader.
+Boot registers a native `Object.autoload` for every `app/**/*.rb` across all
+roots, named by basename (`Lux::Root.autoload!`), before any plugin loads.
 It matters because plugins reference app base classes at load time:
 `web_common` defines `class LuxException < ApplicationModel`, and that runs
 before `config/app.rb` eager-loads `./app`.
@@ -133,12 +133,13 @@ The old loader was a mess:
 * cwd-relative `require` that breaks with absolute gem paths.
 * pollutes `Object` with three constants.
 
-The replacement is one method that delegates to
-`Lux.root.autoload_const(name)`: it matches the underscored basename across
-every app root and requires the file, or falls through to the native
-`NameError`.
-Eager loading still happens in `config/app.rb` via `Lux.root.require_all 'app'`;
-the autoloader only covers the boot window before that runs.
+Native autoload fixes most of that without hooking `const_missing`: it is
+thread-safe, covers every root, and lookups inside modules resolve too.
+Constants a plugin defines itself in `loader.rb` / `load/`
+(`Lux::Plugin.defined_constants`, e.g. `ApplicationApi`, `HtmlForm`) get no app
+autoload, so the plugin defines them first and the app's same-named file
+reopens them later, in the original order.
+Eager loading still happens in `config/app.rb` via `Lux.root.require_all 'app'`.
 
 ## Changes
 
@@ -150,7 +151,7 @@ the autoloader only covers the boot window before that runs.
 
 ### Require and autoload
 
-* reduce `Object.const_missing` to delegate to `Lux.root.autoload_const`.
+* replace `Object.const_missing` with `Lux::Root.autoload!` (native `Object.autoload`).
 * `lib/overload/dir.rb` - roots-aware `Dir.require_all` or `Lux::Root#require_all`.
 * `config/app.rb` and both starters - `Lux.root.require_all('app')`.
 * `lib/lux/application/lib/routes.rb` - debug caller match across roots.

@@ -41,8 +41,8 @@ module Lux
         "#{request.scheme}://#{request.host_with_port}"
       end
 
-      # header: requires, BASE/STATE consts, top-level desc, shared api_post.
-      # api_post lives in a `helpers do` block (per lux-hammer AGENTS.md) so
+      # header: requires, BASE/STATE consts, top-level desc, shared api_call.
+      # api_call lives in a `helpers do` block (per lux-hammer AGENTS.md) so
       # task procs can call it as a bare name and reach Shell#error.
       def preamble doc
         <<~RUBY
@@ -58,13 +58,19 @@ module Lux
           desc 'CLI client for the #{request.host} API'
 
           helpers do
-            # POST a JSON body to <path>, unwrap the { data: } envelope, raise
-            # on an { error: } body. Bearer token attached unless no_auth.
-            def api_post(path, params = {}, no_auth: false)
+            # call <path> with the action's verb (JSON body, query string for
+            # GET), unwrap the { data: } envelope, raise on an { error: } body.
+            # Bearer token attached unless no_auth.
+            def api_call(verb, path, params = {}, no_auth: false)
               uri = URI("\#{BASE}\#{path}")
-              req = Net::HTTP::Post.new(uri, 'Content-Type' => 'application/json')
+              if verb == 'GET'
+                uri.query = URI.encode_www_form(params.compact) unless params.compact.empty?
+                req = Net::HTTP::Get.new(uri)
+              else
+                req = Net::HTTP.const_get(verb.capitalize).new(uri, 'Content-Type' => 'application/json')
+                req.body = params.to_json
+              end
               req['Authorization'] = "Bearer \#{File.read(STATE).strip}" if !no_auth && File.exist?(STATE)
-              req.body = params.to_json
               res  = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') { |h| h.request(req) }
               body = JSON.parse(res.body) rescue res.body
               error "API error: \#{body['error']}" if body.is_a?(Hash) && body['error']
@@ -89,7 +95,7 @@ module Lux
         lines  = ['task :login do', "  desc 'log in and cache the bearer token'"]
         params.each { |n, spec| lines << "  #{opt_line(n, spec)}" }
         lines << '  proc do |o|'
-        lines << "    File.write(STATE, api_post('#{entry[:path]}', #{params_hash(params)}, no_auth: true).to_s)"
+        lines << "    File.write(STATE, api_call('#{verb(entry)}', '#{entry[:path]}', #{params_hash(params)}, no_auth: true).to_s)"
         lines << "    say.green 'token cached to ' + STATE"
         lines << '  end'
         lines << "end\n"
@@ -119,9 +125,9 @@ module Lux
         if member
           path = entry[:path].sub('/:ref', '/#{ref}')   # interpolated in generated source
           lines << "    ref = o[:args].first or error 'ref required'"
-          lines << "    say api_post(\"#{path}\", #{params_hash(params)}).inspect"
+          lines << "    say api_call('#{verb(entry)}', \"#{path}\", #{params_hash(params)}).inspect"
         else
-          lines << "    say api_post('#{entry[:path]}', #{params_hash(params)}).inspect"
+          lines << "    say api_call('#{verb(entry)}', '#{entry[:path]}', #{params_hash(params)}).inspect"
         end
         lines << '  end'
         lines << 'end'
@@ -138,6 +144,12 @@ module Lux
           out += ", desc: #{d.inspect}"
         end
         out
+      end
+
+      # POST unless the action declares verbs without it (allow :get)
+      def verb entry
+        http = Array(entry[:http])
+        http.empty? || http.include?('POST') ? 'POST' : http.first
       end
 
       def params_hash params

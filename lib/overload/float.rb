@@ -1,5 +1,4 @@
 class Float
-
   # Convert float to currenct
   # `@sum.as_currency(pretty: false, strip: true, symbol: '$')`
   def as_currency opts={}
@@ -28,14 +27,6 @@ class Float
     end
 
     out
-  end
-
-  def format_with_underscores
-    if self > 0
-      sprintf('%.2f', self).to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1_').reverse.sub('.00', '')
-    else
-      nil
-    end
   end
 
   def dotted round_to=2

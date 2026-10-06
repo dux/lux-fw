@@ -40,11 +40,6 @@ module CdnAsset
     url name, opts.merge(as: :css)
   end
 
-  # = CdnAsset.postwind
-  def postwind
-    js 'https://dux.github.io/postwind/src/postwind.js'
-  end
-
   # = CdnAsset.auto :shared, :fez, :app
   def auto *list
     key = 'page-assets-%s-%s' % [Lux::DEPLOY_ID, list.sort.join('-')]

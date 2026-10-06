@@ -20,7 +20,7 @@ module Lux
         health:  'Liveness probe'
       }.freeze
 
-      allow :get
+      allow :get, :post
       desc 'Plain-text index of the system endpoints (served at /<mount>/sys/).'
       define :index do
         proc do
@@ -28,7 +28,7 @@ module Lux
         end
       end
 
-      allow :get
+      allow :get, :post
       desc 'Raw markdown of the human API guide (always text/markdown).'
       define :md do
         proc do
@@ -38,7 +38,7 @@ module Lux
         end
       end
 
-      allow :get
+      allow :get, :post
       desc 'Human-readable API guide generated from introspection. Rendered to HTML for browsers, raw markdown otherwise (or with ?format=md).'
       define :guide do
         proc do
@@ -55,7 +55,7 @@ module Lux
         end
       end
 
-      allow :get
+      allow :get, :post
       desc 'Raw introspection schema (single source of truth for all generators).'
       define :schema do
         proc do
@@ -65,7 +65,7 @@ module Lux
         end
       end
 
-      allow :get
+      allow :get, :post
       desc 'Postman collection v2.1, built from the introspection schema.'
       define :postman do
         proc do
@@ -75,7 +75,7 @@ module Lux
         end
       end
 
-      allow :get
+      allow :get, :post
       desc 'OpenAPI 3 specification, built from the introspection schema.'
       define :openapi do
         proc do
@@ -85,7 +85,7 @@ module Lux
         end
       end
 
-      allow :get
+      allow :get, :post
       desc 'lux-hammer CLI client (Ruby), generated from the introspection schema. Pipe to a Hammerfile: curl .../sys/hammer > Hammerfile.'
       define :hammer do
         proc do
@@ -95,7 +95,7 @@ module Lux
         end
       end
 
-      allow :get
+      allow :get, :post
       desc 'Interactive API explorer. Default response is index.html; pass ?file=lux-api-nav.fez (or any whitelisted file under lib/lux/api/web/) to fetch a specific asset. Content-Type is inferred from the extension.'
       define :web do
         proc do
@@ -108,7 +108,7 @@ module Lux
         end
       end
 
-      allow :get
+      allow :get, :post
       desc 'AGENTS.md for LLMs/AIs - how to call this API and build tools against it. Generated from introspection.'
       define :agents do
         proc do
@@ -118,7 +118,7 @@ module Lux
         end
       end
 
-      allow :get
+      allow :get, :post
       desc 'Health probe.'
       define :health do
         proc do

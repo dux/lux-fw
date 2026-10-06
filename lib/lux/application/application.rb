@@ -1,6 +1,7 @@
 # Main application router
 
 require_relative '../current/lifecycle'
+require_relative '../error/rescue_from'
 require_relative './lib/routes'
 require_relative './lib/routes_dumper'
 
@@ -30,7 +31,7 @@ module Lux
     # order. We bypass the public `routes` method because class-callbacks keys
     # by `caller[0]`, which would collapse to the same key for every call from
     # inside our wrapper.
-    ROUTING_DSL ||= %i[map root match subdomain plugin_route plugin_routes favicon localized
+    ROUTING_DSL ||= %i[map call root subdomain plugin_route plugin_routes favicon localized
                        get? head? post? delete? put? patch?]
 
     ROUTING_DSL.each do |name|
@@ -122,17 +123,15 @@ module Lux
       render_error err
     end
 
-    # Router-level catch-all error block, defined inside Lux.app do ... end.
+    # Router-level error handler (Lux::RescueFrom), defined inside Lux.app do ... end.
     # The block is instance_exec'd on the Application instance, so it has access
     # to the routing DSL (`map`, `call`, etc.) - typically used to forward to a
     # controller that renders the error page:
     #   rescue_from do |err|
     #     LuxException.add err
-    #     map 'promo#app_error'   # router map; ivars (incl. @error) auto-pass
+    #     call 'promo#app_error'   # ivars (incl. @error) auto-pass
     #   end
-    def self.rescue_from &block
-      define_method(:app_rescue_from) { |error| instance_exec(error, &block) }
-    end
+    extend Lux::RescueFrom
 
     # full page render - returns response hash
     # Lux.app.new('/').render_page.body
@@ -153,15 +152,9 @@ module Lux
 
     private
 
-    # Default fallback when no controller-level :error and no Lux.app rescue_from
-    # are defined. Renders the Lux-branded error page.
-    def rescue_from err
-      Lux::Error.render err
-    end
-
     # Error sink. Resolution order:
-    #   1. Lux.app rescue_from is registered → run it (always wins when present;
-    #      typically dispatches to a controller via `map 'foo#error'`)
+    #   1. A Lux.app rescue_from handler matches the error → run it (typically
+    #      dispatches to a controller via `call 'foo#error'`)
     #   2. Active controller defines :error → use it directly
     #   3. Framework default → Lux::Error.render (server-dump style)
     # If anything in 1 or 2 raises, Lux.call's outer rescue returns a low-level Rack tuple.
@@ -175,14 +168,15 @@ module Lux
 
       @error  = err
       @status = status
+      lux.var[:error_page] = true
 
       klass = lux.var[:active_controller]
 
       # catch :done so the rescue/render path can use any router primitive
       # (`call`, `map`) without the throw escaping back up to Lux.call's outer rescue.
       catch :done do
-        if respond_to?(:app_rescue_from)
-          app_rescue_from err
+        if handler = self.class.rescue_handler_for(err)
+          instance_exec err, &handler
         elsif klass && klass.method_defined?(:error)
           # Dispatch :error in the same scope the failed action ran in. @error/
           # @status are set above and the router exported @realm/@object/... onto
@@ -190,7 +184,7 @@ module Lux
           # mirrors the normal `call` dispatch and the rescue_from -> map branch.
           klass.action :error, ivars: instance_variables_hash
         else
-          rescue_from err
+          Lux::Error.render err
         end
       end
 

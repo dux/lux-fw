@@ -31,7 +31,9 @@ end
 
 # DB-backed store. Apps that don't have a DB (or just want the file backend)
 # simply don't define ApplicationModel; the file backend stays active.
-if defined?(ApplicationModel)
+# Only an already loaded ApplicationModel counts - one merely registered for
+# autoload (app/models/application_model.rb) would load here, mid plugin boot.
+if Object.const_defined?(:ApplicationModel) && !Object.autoload?(:ApplicationModel)
   require_relative 'lib/lux_translation'
   Lux::Locale.store = LuxTranslation
 end

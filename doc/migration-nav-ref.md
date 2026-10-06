@@ -241,7 +241,7 @@ call changed name, but if you required either file directly, update the path:
 |-----|-----|
 | `Lux::Utils::Ref.generate` / `.is?` | [`lib/lux/utils/ref.rb`](../lib/lux/utils/ref.rb) (core) |
 | `Lux::Type::RefType` | [`lib/lux/type/types/ref_type.rb`](../lib/lux/type/types/ref_type.rb) (core) |
-| `Nav#load_models`, `Ref.register` / `.klass` / `.load` / `.models` / `.public_link` | `plugins/db/ext/nav_models.rb` (still the plugin - needs Sequel) |
+| `Nav#load_models`, `Ref.register` / `.klass` / `.load` / `.models` / `.public_link` | `plugins/db/lib/ext/nav_models.rb` (still the plugin - needs Sequel) |
 
 The format now has one definition, so the router, the `:ref` column type and
 model primary keys cannot drift apart. `RefType` previously accepted `/^\w+$/`,

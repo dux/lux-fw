@@ -10,7 +10,7 @@ under
 ./lib/lux/application/lib/nav/string.rb -> ref implentation we have in plugin now
 
 * we will move full public interface to ref wors on nav.ref -> it will be method that
-nav.ref.filter -> should be in /Users/dux/dev/gems/lux-fw/lib/lux/application/lib/nav/base.rb
+nav.ref.filter -> should be in /Users/dux/dev/libs/lux-fw/lib/lux/application/lib/nav/base.rb
 nav.ref.filter(:string, { upcase: true }) -> maps path to ref objects -> this is only line I want to have in routes
 nav.ref.filter(:string, { upcase: true }) do |current_path_list, matched_el|
   # if block given, and I return false, use original value. for rare cases we want

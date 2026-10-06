@@ -139,7 +139,7 @@ module Lux
 
           out[action] = {
             path:       path_parts.join('/'),
-            http:       (['POST'] | Array(cleaned[:allow])),
+            http:       http_verbs(cleaned[:allow]),
             desc:       cleaned[:desc],
             detail:     cleaned[:detail],
             params:     serialize_params(cleaned[:params]),
@@ -150,13 +150,22 @@ module Lux
         out.empty? ? nil : out
       end
 
+      # verbs an action answers, upper-cased; POST when nothing is declared
+      def http_verbs allow
+        return %w[POST] unless allow
+        return %w[GET POST PUT PATCH DELETE] if allow == :any
+
+        allow.map { _1.to_s.upcase }
+      end
+
       def errors
         out = {}
 
-        RESCUE_FROM.each do |key, desc|
-          next if key == :all
-          next unless key.is_a?(Symbol) && desc.is_a?(String)
-          out[key] = desc
+        ObjectSpace.each_object(Class).select { _1 <= Lux::Api }.each do |klass|
+          klass.rescue_handlers.each do |key, desc|
+            next unless key.is_a?(Symbol) && key != :all && desc.is_a?(String)
+            out[key] = desc
+          end
         end
 
         out

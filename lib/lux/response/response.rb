@@ -309,6 +309,7 @@ module Lux
         app.run_callback :after
       end
 
+      restore_lt_markers
       write_response_header
 
       @status ||= 200
@@ -339,7 +340,8 @@ module Lux
       end
       data = klass.call env
       @headers.merge data[1]
-      body data[2].first, status: data[0]
+      # 204/304 carry an empty body array; '' still marks the request handled
+      body data[2].first.to_s, status: data[0]
     end
 
     private
@@ -372,6 +374,15 @@ module Lux
       elsif current.session[:lux_flash]
         current.session.delete(:lux_flash)
       end
+    end
+
+    # User text is stored with `<` as &LT; (String#html_escape), which renders as
+    # `<` in text. Inside an attribute Haml escapes it to &amp;LT;, and rows saved
+    # before &LT; carry the old #LT; marker - both become &lt; here.
+    def restore_lt_markers
+      return unless @body.is_a?(String) && @body.include?('LT;') && @content_type.to_s.include?('html')
+
+      @body = @body.gsub('&amp;LT;', '&lt;').gsub('#LT;', '&lt;')
     end
 
     def write_response_body

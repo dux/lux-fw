@@ -62,47 +62,19 @@ module Lux
         record verb: 'GET', path: build_path, target: stringify(target)
       end
 
-      def match base, target
-        record verb: '*', path: base, target: stringify(target)
-      end
-
-      def map route_object = nil, target = nil, opts = nil, &block
+      def map path = nil, target = nil, opts = nil, &block
         if block_given?
-          push_segment(route_object)
+          push_segment(path)
           # the router passes the segment AFTER the one it just consumed
           # (lux.route.root inside the new scope); there is no such segment
           # while dumping, so pass nil rather than the matched one.
           instance_exec(nil, &block)
           @path.pop
+        elsif path.is_a?(::String) && path.start_with?('/')
+          record verb: '*', path: path, target: stringify(target)
         else
-          # only an explicit 'controller#action' string dispatches
-          # unconditionally - mirror `map`, which gates everything else on the
-          # route cursor. A bare `map 'boards'` matches /boards.
-          if target.nil? && route_object.is_a?(::String) &&
-             route_object.include?('#') && !route_object.end_with?('#')
-            return call(route_object)
-          end
-
-          # NOTE: inside module Lux, bare `Hash` resolves to Lux::Hash, so we
-          # use the obj.is_hash? predicate from lib/overload/object.rb.
-          full_target =
-            if target then target
-            elsif route_object.is_hash? then route_object.values.first
-            else route_object
-            end
-
-          # absolute-path map - either positional string or hash with string key
-          abs =
-            if route_object.is_a?(::String) && route_object.start_with?('/')
-              route_object
-            elsif route_object.is_hash?
-              k = route_object.keys.first
-              k.is_a?(::String) && k.start_with?('/') ? k : nil
-            end
-          return match(abs, full_target) if abs
-
-          push_segment(route_object)
-          record verb: @verb, path: build_path, target: stringify(full_target)
+          push_segment(path)
+          record verb: @verb, path: build_path, target: stringify(target)
           @path.pop
         end
       end
@@ -110,9 +82,8 @@ module Lux
       def call object = nil, action = nil, *_
         target =
           case object
-          when Symbol then '[dynamic] %s' % object
           when Class, String then action ? '%s#%s' % [object, action] : stringify(object)
-          when Proc, Array then '[inline]'
+          when Proc then '[inline]'
           else stringify(object)
           end
         record verb: @verb, path: build_path, target: target

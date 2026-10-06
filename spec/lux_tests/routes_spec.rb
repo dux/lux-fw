@@ -47,7 +47,6 @@ class RoutesTestController < Lux::Controller
     render text: 'root'
   end
 
-  # used by /~ regex map => RoutesTestController (resourceful, empty -> :root)
   # but the legacy test expected "tilda" from index; keep a dedicated route
   def tilda
     render text: 'tilda'
@@ -83,6 +82,13 @@ class MountedRackApp
   def self.call(env)
     body = 'mounted:%s:%s' % [env['SCRIPT_NAME'], env['PATH_INFO']]
     [200, { 'content-type' => 'text/plain' }, [body]]
+  end
+end
+
+# Rack app answering 204 with an empty body array - must still end routing
+module NoContentRackApp
+  def self.call env
+    [204, {}, []]
   end
 end
 
@@ -139,53 +145,54 @@ Lux.app do
 
   root 'routes_test#root'
 
-  map 'boards'
-  map 'profile'
-  map 'admin_test'
+  map 'boards', 'boards'
+  map 'profile', 'profile'
+  map 'admin_test', 'admin_test'
 
-  map :plain => proc { lux.response.body 'plain' }
-  map %r{^@} => [RoutesTestController, :user]
-  map %r{^~} => RoutesTestController
+  map 'plain' do
+    call { 'plain' }
+  end
 
   map 'city' do
     root 'routes_test#city'
-    map user: 'routes_test#user'
+    map 'user', 'routes_test#user'
   end
 
   # verb-scope and subdomain blocks are written at the top level of Lux.app,
   # so their `self` is the class until the router rebinds it
-  post? { map post_scope: 'routes_test#posted' }
+  post? { map 'post_scope', 'routes_test#posted' }
 
   subdomain 'sub' do
     map 'page', 'routes_test#user'
   end
 
-  map [:array1, :array2] => 'routes_test#root'
+  map %w[array1 array2], 'routes_test#root'
 
-  map '/test1/test2/:foo' => 'routes_test#foo'
+  map '/test1/test2/:foo', 'routes_test#foo'
 
-  map 'zagreb' => 'routes_test#city'
+  map 'zagreb', 'routes_test#city'
 
   map 'routes_test' do
-    map 'foo-nested' => 'routes_test#nested'
+    map 'foo-nested', 'routes_test#nested'
   end
 
-  map 'exploding' => 'exploding#boom'
-  map 'exploding-via-call' => 'exploding#boom_via_call'
-  map 'after-mutate' => 'after_mutate#show'
-  map 'head-length'  => 'head_length#show'
+  map 'exploding', 'exploding#boom'
+  map 'exploding-via-call', 'exploding#boom_via_call'
+  map 'after-mutate', 'after_mutate#show'
+  map 'head-length', 'head_length#show'
 
   # Rack-app dispatch: any class responding to .call(env) is routed via
   # `map`/`call` exactly like a controller.
-  map '/r1'           => MountedRackApp     # absolute path
-  map '/foo/bar/baz'  => MountedRackApp     # deep absolute path
-  map r3:                MountedRackApp     # symbol shortcut (single segment)
+  map '/r1',          MountedRackApp     # absolute path
+  map '/foo/bar/baz', MountedRackApp     # deep absolute path
+  map 'r3',           MountedRackApp     # single segment
+  map '/r204',        NoContentRackApp
 
   # Lux::Api dispatch: a Lux::Api subclass is mounted as a rack app with
   # mount_at derived from the consumed route prefix so the API auto_mount
   # splits the URL at the right place.
-  map '/admin/api' => MountedTestApi        # absolute deep path
-  map api1:           MountedTestApi        # single-segment symbol shortcut
+  map '/admin/api', MountedTestApi         # absolute deep path
+  map 'api1',       MountedTestApi         # single segment
 
   # Fallback 404 - this used to be a bare line inside `routes do` and ran on
   # every unmatched request. Wrap in a routes callback so it still fires last.
@@ -198,11 +205,14 @@ describe 'Lux::Application' do
   it 'should get right routes' do
     _(Lux.render.get('/').body).must_equal 'root'
     _(Lux.render.get('/plain').body).must_equal 'plain'
-    _(Lux.render.get('/@dux').body).must_equal 'user'
-    # The legacy /~ regex map dispatched to RoutesTestController's :index when
-    # there was no further segment. With the new :root default, that's `def root`
-    # which already returns 'root'. So /~dux now hits :root.
-    _(Lux.render.get('/~dux').body).must_equal 'root'
+  end
+
+  it 'rejects removed route shapes with the canonical form in the message' do
+    app = Lux::Application.new('/')
+    error = assert_raises(ArgumentError) { app.map(user: 'routes_test#user') }
+    assert_includes error.message, "map 'users', 'users#index'"
+    error = assert_raises(ArgumentError) { app.map('routes_test#user') }
+    assert_includes error.message, 'call'
   end
 
   it 'should get nested routes' do
@@ -248,6 +258,12 @@ describe 'Lux::Application' do
 
     it 'leaves unmatched requests alone' do
       _(Lux.render.get('/totally-different').status).must_equal 404
+    end
+  end
+
+  describe 'rack app with empty body' do
+    it 'ends routing on 204 instead of falling through to 404' do
+      _(Lux.render.get('/r204').status).must_equal 204
     end
   end
 

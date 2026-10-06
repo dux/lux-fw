@@ -7,7 +7,6 @@ module Lux
     end
 
     ANNOTATIONS   ||= {}
-    RESCUE_FROM   ||= {}
     OPTS          ||= { api: {} }
     PLUGINS       ||= {}
     MODELS        ||= {}
@@ -59,10 +58,9 @@ module Lux
     end
 
     def execute_call
-      allow_types  = Array(@api.method_opts[:allow] || 'POST')
-      request_type = @api.request&.request_method || 'POST'
-      effective_allow_types = allow_types.include?('GET') ? [*allow_types, 'OPTIONS'] : allow_types
-      is_allowed   = @api.development || ['POST', *effective_allow_types].include?(request_type)
+      # an in-process render (no request) is not an HTTP call, skip the verb check
+      request_type = @api.request&.request_method
+      is_allowed   = request_type.nil? || Lux::Utils::HttpVerbs.allowed?(@api.method_opts[:allow] || [:post], request_type)
 
       if is_allowed
         begin
@@ -81,10 +79,12 @@ module Lux
           # faults are logged, expected client/validation faults are not.
           Lux.error.log error unless Lux::Api::Response.client_error?(error)
 
-          block = RESCUE_FROM[error.class] || RESCUE_FROM[:all]
+          handler = self.class.rescue_handler_for(error)
 
-          if block
-            instance_exec error, &block
+          if handler.is_a?(Proc)
+            instance_exec error, &handler
+          elsif handler
+            response.error handler, status: 500
           else
             response[:error_class] = error.class.name
             response.error error.message, status: 500
@@ -255,7 +255,7 @@ module Lux
         puts 'Lux::Api Error: %s (%s)' % [text, caller[0]]
       end
 
-      if err = RESCUE_FROM[text]
+      if err = self.class.rescue_handler_for(text)
         if err.is_a?(Proc)
           err.call
           return

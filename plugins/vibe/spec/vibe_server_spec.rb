@@ -2,7 +2,7 @@
 # repo, origin protection, and the /oc proxy against a stub upstream (plain
 # TCPServer, no extra gems). Needs sinatra; skipped when it is not installed.
 #
-#   cd ~/dev/gems/lux-fw && bundle exec ruby -Ilib -Ispec plugins/vibe/spec/vibe_server_spec.rb
+#   cd ~/dev/libs/lux-fw && bundle exec ruby -Ilib -Ispec plugins/vibe/spec/vibe_server_spec.rb
 
 require 'test_helper'
 require 'tmpdir'

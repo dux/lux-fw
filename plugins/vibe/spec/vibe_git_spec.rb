@@ -1,7 +1,7 @@
 # Vibe::Git against throwaway repos: a bare "origin" with a main branch and a
 # clone the harness works in. No Lux boot, no network.
 #
-#   cd ~/dev/gems/lux-fw && bundle exec ruby -Ilib -Ispec plugins/vibe/spec/vibe_git_spec.rb
+#   cd ~/dev/libs/lux-fw && bundle exec ruby -Ilib -Ispec plugins/vibe/spec/vibe_git_spec.rb
 
 require 'test_helper'
 require 'tmpdir'

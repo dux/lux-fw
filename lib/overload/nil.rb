@@ -4,4 +4,8 @@ class NilClass
   def is? klass
     false
   end
+
+  def try *args
+    nil
+  end
 end

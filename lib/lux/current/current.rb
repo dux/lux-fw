@@ -156,12 +156,6 @@ module Lux
       num_only ? num : "uid_#{num}_#{(Time.now.to_f*1000).to_i}"
     end
 
-    # Get or check current session secure token
-    def secure_token token = nil
-      generated = Lux::Utils::Crypt.sha1(self.ip)
-      token ? (generated == token) : generated
-    end
-
     def robot?
       ua = request.env['HTTP_USER_AGENT'].to_s.downcase
       ua.include?('wget/') || ua.include?('curl/')

@@ -2,8 +2,6 @@ class AdminController < MainController
   views :admin
 
   before do
-    next if @error
-
     raise Lux.error.forbidden('Admin access required') unless user.can.admin?
   end
 

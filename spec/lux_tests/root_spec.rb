@@ -68,10 +68,18 @@ describe 'Lux::Root' do
     assert_equal 1, ROOT_SPEC_TOOL
   end
 
-  it 'autoloads a top-level constant by underscored basename' do
-    refute Object.const_defined?(:RootSpecThing, false)
-    assert Lux.root.autoload_const(:RootSpecThing)
-    assert Object.const_defined?(:RootSpecThing, false)
+  it 'registers a Ruby autoload for app files when a root is added' do
+    assert_equal File.join(@mount, 'app/models/root_spec_thing.rb'), Object.autoload?(:RootSpecThing)
+    assert_kind_of Class, RootSpecThing
+  end
+
+  it 'keeps the first registered file on a basename clash' do
+    other = File.join(@base, 'plugin_c')
+    FileUtils.mkdir_p File.join(other, 'app/models')
+    File.write File.join(other, 'app/models/root_spec_thing.rb'), 'raise "loaded the shadowed file"'
+    Lux::Root.add other
+
+    assert_kind_of Class, RootSpecThing
   end
 
   it 'mirrors a plugin path under the writable app root' do

@@ -47,7 +47,7 @@ describe 'KitchenSinkApi - DSL feature coverage' do
 
     it 'def stash with params + allow :put' do
       opts = KitchenSinkApi.opts[:collection][:stash]
-      _(opts[:allow]).must_equal ['PUT']
+      _(opts[:allow]).must_equal [:put]
       _(opts[:desc]).must_equal 'Stash item via PUT'
       _(opts[:params][:name][:required]).must_equal true
 
@@ -70,12 +70,12 @@ describe 'KitchenSinkApi - DSL feature coverage' do
 
     it 'RESTful define get: :rest_get stores allow GET' do
       opts = KitchenSinkApi.opts[:collection][:rest_get]
-      _(opts[:allow]).must_equal ['GET']
+      _(opts[:allow]).must_equal [:get]
     end
 
     it 'RESTful define [:get, :put] => :rest_multi stores both' do
       opts = KitchenSinkApi.opts[:collection][:rest_multi]
-      _(opts[:allow]).must_equal ['GET', 'PUT']
+      _(opts[:allow]).must_equal [:get, :put]
     end
 
     it 'unsafe sets opts[:unsafe]' do
@@ -160,6 +160,13 @@ describe 'KitchenSinkApi - DSL feature coverage' do
       _(response[:success]).must_equal false
       _(response[:error][:messages]).must_include 'bad-arg'
     end
+
+    it 'does not leak handlers into unrelated API classes' do
+      response = RescueIsolationApi.render :boom
+      _(response[:success]).must_equal false
+      _(response[:error][:messages]).must_include 'raw'
+      refute_includes response[:error][:messages], 'bad-arg'
+    end
   end
 
   describe 'instance var exposure' do
@@ -168,6 +175,12 @@ describe 'KitchenSinkApi - DSL feature coverage' do
       _(response[:data][0]).must_be_nil  # collection - no @ref
       _(response[:data][1]).must_equal 'tok-1'
     end
+  end
+end
+
+class RescueIsolationApi < Lux::Api
+  define :boom do
+    proc { raise ArgumentError, 'raw' }
   end
 end
 

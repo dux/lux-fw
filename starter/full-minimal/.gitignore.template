@@ -2,9 +2,5 @@
 /.libs/
 /config/config.yaml
 /log/
-/node_modules/
-/public/assets/
 /tmp/
-/rollup.config.js
-*.tmp.*
 .DS_Store

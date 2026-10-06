@@ -1,30 +1,16 @@
 class Object
-  # Boot safety net. Plugins reference app base classes (ApplicationModel and
-  # friends) while loading, before config/app.rb eager-loads ./app. Resolve the
-  # constant across every app root; fall through to the native NameError when
-  # nothing matches, so the standard message and backtrace are kept.
-  def self.const_missing name
-    return super unless defined?(Lux) && Lux.respond_to?(:root)
-    return Object.const_get(name) if Lux.root.autoload_const(name)
-
-    super
-  end
-
-  ###
-
   # @foo.or(2)
   def or _or = nil, &block
     self.blank? || self == 0 ? (block ? block.call : _or) : self
   end
 
+  # ActiveSupport semantics: public_send when the receiver responds to the
+  # method, nil otherwise; a bare block is yielded self. NilClass#try is nil.
   def try *args, &block
-    if self.class == NilClass
-      nil
-    elsif block_given?
-      data = args.first.nil? ? self : self.send(*args)
-      yield data
-    else
-      self.send(*args)
+    if args.empty? && block
+      block.arity.zero? ? instance_eval(&block) : yield(self)
+    elsif respond_to?(args.first)
+      public_send(*args, &block)
     end
   end
 
@@ -49,51 +35,12 @@ class Object
     self.class.to_s.index('Array') ? true : false
   end
 
-  def is_string?
-    self.class.to_s == 'String' ? true : false
-  end
-
-  def is_false?
-    !is_true?
-  end
-
   def is_true?
-    ['true', 'on', '1'].include?(to_s)
+    Lux::Utils::Boolean.parse(self) == true
   end
 
   def is_numeric?
     Float(self) != nil rescue false
-  end
-
-  def is_symbol?
-    self.class.to_s == 'Symbol' ? true : false
-  end
-
-  def is_boolean?
-    self.class == TrueClass || self.class == FalseClass
-  end
-
-  def is_a! klass, error = nil
-    ancestors.each { |kind| return true if kind == klass }
-
-    if error
-      message = error.class == String ? error : %[Expected "#{self}" to be of "#{klass}"]
-      raise ArgumentError.new(message)
-    else
-      false
-    end
-  end
-
-  def andand func=nil
-    if present?
-      if block_given?
-        yield(self)
-      else
-        func ? send(func) : self
-      end
-    else
-      block_given? || func ? nil : {}.to_lux_hash
-    end
   end
 
   def instance_variables_hash

@@ -63,7 +63,7 @@ lux.browser.bundle(:sse)                                # core + sse bundle
 # also call window_script yourself - one emitter, one #lux-state tag):
 #
 #   = lux.browser.header.render do |el|
-#     = el.postwind
+#     = el.auto :common       # el is web_common's CdnAsset
 #
 # the window part renders as:
 #   <script id="lux-state">

@@ -119,7 +119,7 @@ plugins/vibe/
   lib/vibe/server.rb         Sinatra: page, /api/*, /oc/* proxy (SSE-safe)
   app/                       index.html.erb, style.css, vendor/{vibe.js,marked.min.js}, fez/vibe-*.fez
   templates/                 files `lux docker:vibe:init` renders into the app
-  spec/                      rspec: git (tmp repos), server (Rack::MockRequest)
+  spec/                      minitest: git (tmp repos), server (Rack::MockRequest)
 ```
 
 The page is built with fez components compiled in the browser (`<script fez=...>`), no

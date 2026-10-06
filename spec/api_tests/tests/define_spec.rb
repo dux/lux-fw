@@ -104,12 +104,12 @@ describe 'define block syntax' do
 
   it 'stores allow from define block' do
     opts = DefineTestApi.opts
-    _(opts[:member][:with_allow][:allow]).must_equal ['GET']
+    _(opts[:member][:with_allow][:allow]).must_equal [:get]
   end
 
   it 'stores multiple allows from allow :get, :put' do
     opts = DefineTestApi.opts
-    _(opts[:member][:with_multi_allow][:allow]).must_equal ['GET', 'PUT']
+    _(opts[:member][:with_multi_allow][:allow]).must_equal [:get, :put]
   end
 
   it 'existing define in CompanyApi works' do
@@ -183,7 +183,7 @@ describe 'RESTful define syntax' do
 
     it 'stores GET method for get: :action' do
       opts = RestfulDefineApi.opts
-      _(opts[:collection][:rest_get][:allow]).must_equal ['GET']
+      _(opts[:collection][:rest_get][:allow]).must_equal [:get]
     end
 
     it 'works with post: :action' do
@@ -194,7 +194,7 @@ describe 'RESTful define syntax' do
 
     it 'stores POST method for post: :action' do
       opts = RestfulDefineApi.opts
-      _(opts[:collection][:rest_post][:allow]).must_equal ['POST']
+      _(opts[:collection][:rest_post][:allow]).must_equal [:post]
     end
 
     it 'works with put: :action' do
@@ -204,7 +204,7 @@ describe 'RESTful define syntax' do
 
     it 'stores PUT method for put: :action' do
       opts = RestfulDefineApi.opts
-      _(opts[:collection][:rest_put][:allow]).must_equal ['PUT']
+      _(opts[:collection][:rest_put][:allow]).must_equal [:put]
     end
 
     it 'works with delete: :action' do
@@ -214,7 +214,7 @@ describe 'RESTful define syntax' do
 
     it 'stores DELETE method for delete: :action' do
       opts = RestfulDefineApi.opts
-      _(opts[:collection][:rest_delete][:allow]).must_equal ['DELETE']
+      _(opts[:collection][:rest_delete][:allow]).must_equal [:delete]
     end
   end
 
@@ -227,7 +227,7 @@ describe 'RESTful define syntax' do
 
     it 'stores GET method for allow: :get' do
       opts = RestfulDefineApi.opts
-      _(opts[:collection][:allow_get][:allow]).must_equal ['GET']
+      _(opts[:collection][:allow_get][:allow]).must_equal [:get]
     end
 
     it 'works with allow: :put' do
@@ -237,7 +237,7 @@ describe 'RESTful define syntax' do
 
     it 'stores PUT method for allow: :put' do
       opts = RestfulDefineApi.opts
-      _(opts[:collection][:allow_put][:allow]).must_equal ['PUT']
+      _(opts[:collection][:allow_put][:allow]).must_equal [:put]
     end
   end
 
@@ -250,7 +250,7 @@ describe 'RESTful define syntax' do
 
     it 'stores multiple methods for [:get, :put] => :action' do
       opts = RestfulDefineApi.opts
-      _(opts[:collection][:multi_method][:allow]).must_equal ['GET', 'PUT']
+      _(opts[:collection][:multi_method][:allow]).must_equal [:get, :put]
     end
 
     it 'works with allow: [:get, :delete]' do
@@ -261,7 +261,7 @@ describe 'RESTful define syntax' do
 
     it 'stores multiple methods for allow: [:get, :delete]' do
       opts = RestfulDefineApi.opts
-      _(opts[:collection][:multi_allow][:allow]).must_equal ['GET', 'DELETE']
+      _(opts[:collection][:multi_allow][:allow]).must_equal [:get, :delete]
     end
   end
 
@@ -274,7 +274,7 @@ describe 'RESTful define syntax' do
 
     it 'stores GET for member get: :action' do
       opts = RestfulDefineApi.opts
-      _(opts[:member][:member_rest_get][:allow]).must_equal ['GET']
+      _(opts[:member][:member_rest_get][:allow]).must_equal [:get]
     end
 
     it 'works with member allow: :get' do
@@ -285,7 +285,7 @@ describe 'RESTful define syntax' do
 
     it 'stores GET for member allow: :get' do
       opts = RestfulDefineApi.opts
-      _(opts[:member][:member_allow_get][:allow]).must_equal ['GET']
+      _(opts[:member][:member_allow_get][:allow]).must_equal [:get]
     end
 
     it 'works with member [:get, :put, :delete] => :action' do
@@ -296,7 +296,7 @@ describe 'RESTful define syntax' do
 
     it 'stores multiple methods for member' do
       opts = RestfulDefineApi.opts
-      _(opts[:member][:member_multi][:allow]).must_equal ['GET', 'PUT', 'DELETE']
+      _(opts[:member][:member_multi][:allow]).must_equal [:get, :put, :delete]
     end
   end
 end

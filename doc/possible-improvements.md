@@ -34,7 +34,7 @@ Differentiators. The places lux is ahead of Sinatra/Roda/Hanami, not just at par
   Sidekiq tax (`plugins/job_runner/lib/lux_job.rb`). Admin dashboard views ship in the job_runner plugin mount.
 * **`rescue_from` at app and controller level** (`Lux::Application.rescue_from`, `Lux::Controller.rescue_from`) with a
   documented resolution order (app > controller :error > framework default).
-* **Pagination** end-to-end: `Lux::Utils::PaginatedArray`, Sequel `paginate` ext (`plugins/db/ext/paginate.rb`), and
+* **Pagination** end-to-end: `Lux::Utils::PaginatedArray`, Sequel `paginate` ext (`plugins/db/lib/ext/paginate.rb`), and
   `HtmlHelper.paginate` view helper (`plugins/web_common/load/html/html_paginate.rb`).
 * **Enum DSL** in schema blocks (`enum :status do |f| ... end`) - emits Sequel column + helpers + validation +
   `for_select`; backed by the db plugin (`plugins/db/lib/schema_define.rb`).
@@ -66,7 +66,7 @@ Present and working, but shallow compared to what the equivalent ecosystem ships
 * **Multi-DB ergonomics** via `Lux.db(:name)`. Arguably better than Rails; light on docs.
 * **Admin UI.** `plugins/web_common` exists and renders CRUD over Sequel models; no `lux generate admin_resource User`
   that emits a tailored page.
-* **Mailer** (`lib/lux/mailer`) - templates + delivery. No preview route, no `deliver_later` wiring to `LuxJob` (every
+* **Mailer** (`lib/lux/mail`) - templates + delivery. No preview route, no `deliver_later` wiring to `LuxJob` (every
   host app rolls its own).
 
 ## Critical - missing or thin
@@ -79,7 +79,7 @@ Things every framework gets burned on. lux still missing or skin-deep.
 * **Request ID / correlation ID.** No `X-Request-Id` propagation, no `Lux.current.request_id` field (the existing
   `lux.uid` is a per-call counter, not a request-scoped trace id). Without it, structured logs across web + jobs +
   outbound HTTP can't be correlated. One-liner middleware, but has to exist before observability is useful.
-* **`Mailer.deliver_later`.** `plugins/job_runner` and `lib/lux/mailer` exist independently. Wire them so
+* **`Mailer.deliver_later`.** `plugins/job_runner` and `lib/lux/mail` exist independently. Wire them so
   `UserMailer.welcome(u).deliver_later` enqueues via `LuxJob`. Today every app rolls its own and gets retries wrong.
 * **Hot-reload edge cases.** The Rails complaint #1 is reloader breakage with custom containers / subclasses. AGENTS
   guide documents `load`-based reopen + "methods removed from source linger" - verify with a spec that `Lux::*`
@@ -136,7 +136,7 @@ they don't get re-pitched.
   complexity than payoff.
 * **Zeitwerk-style lazy autoloader.** Considered as a replacement for the boot-time `Dir.require_all` sweep over
   `lib/lux/`. Doable in ~2-3 days but doesn't earn its keep: cold-boot is already fast, the framework has a custom
-  reloader plus a `const_missing` autoloader for `./app/**`, and `lux_adapter.rb` files (which reopen the `Lux` module
+  reloader plus native `Object.autoload` registration for `./app/**`, and `lux_adapter.rb` files (which reopen the `Lux` module
   to add `Lux.shell`/`Lux.cache`/...) define no new constants and can't be lazy-loaded anyway. The savings would be
   marginal and the risk to the reloader interaction is real.
 * **Time / clock injection (`Lux.now` / `Lux.clock`).** Saving one Timecop dep isn't worth another framework
@@ -151,5 +151,5 @@ they don't get re-pitched.
 2. **Request ID propagation** - foundation for structured logging and any future observability story; ~20 LOC of
    middleware + a `Lux.current.request_id` accessor unlocks the JSON logger, the HTTP client wrapper, and the job
    runner correlation in one move.
-3. **`Mailer.deliver_later` wiring** - the two halves are shipped (`LuxJob`, `Lux::Mailer`); gluing them removes the
+3. **`Mailer.deliver_later` wiring** - the two halves are shipped (`LuxJob`, `Lux::Mail::Sender`); gluing them removes the
    single most-reinvented snippet in every host app.

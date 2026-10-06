@@ -28,7 +28,7 @@ Sequel. One more constant lives there outright:
 
 | Constant | File |
 |----------|------|
-| `Lux::Utils::PaginatedArray` | `plugins/db/ext/paginate.rb` |
+| `Lux::Utils::PaginatedArray` | `plugins/db/lib/ext/paginate.rb` |
 
 ## Full example
 
@@ -256,5 +256,5 @@ Time.now.short(true) # force default format, ignore config
 * [`../current/README.md`](../current/README.md) - `Lux.current.encrypt/decrypt` (per-request variants)
 * [`url.rb`](./url.rb) - `Lux::Utils::Url` (server); browser twin [`dollar_url.js`](../../../plugins/web_common/mount/app/assets/auto/common/js/dollar/dollar_url.js) (`$.url`)
 * [`../application/lib/nav/ref_string.rb`](../application/lib/nav/ref_string.rb) - the format behind `Lux::Utils::Ref`
-* [`../../../plugins/db/ext/nav_models.rb`](../../../plugins/db/ext/nav_models.rb) - `Lux::Utils::Ref` model registry + `Nav#load_models` (db plugin)
-* [`../../../plugins/db/ext/paginate.rb`](../../../plugins/db/ext/paginate.rb) - `Lux::Utils::PaginatedArray`
+* [`../../../plugins/db/lib/ext/nav_models.rb`](../../../plugins/db/lib/ext/nav_models.rb) - `Lux::Utils::Ref` model registry + `Nav#load_models` (db plugin)
+* [`../../../plugins/db/lib/ext/paginate.rb`](../../../plugins/db/lib/ext/paginate.rb) - `Lux::Utils::PaginatedArray`

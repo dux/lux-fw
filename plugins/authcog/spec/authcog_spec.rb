@@ -1,6 +1,6 @@
 require 'test_helper'
-require_relative '../../plugins/authcog/load/authcog_controller'
-require_relative '../../plugins/authcog/load/user_session'
+require_relative '../load/authcog_controller'
+require_relative '../load/user_session'
 
 describe AuthcogController do
   def with_host host

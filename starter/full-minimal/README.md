@@ -14,8 +14,8 @@ bundle exec lux s
 ```
 
 Open http://lvh.me:3000.
-`lux s` compiles the auto assets and then runs `./Procfile`, which starts the rollup watcher and the server.
-Use `lux s -p 3001` or `PORT=3001 lux s` to serve on another port; LiveReload follows it.
+`lux s` runs `./Procfile`, which starts the server.
+Use `lux s -p 3001` or `PORT=3001 lux s` to serve on another port.
 The database name comes from the application name.
 `lux db:am` loads the model schemas through `./db/auto_migrate.rb`.
 All `lux` commands use Hammer; run `lux --help` to see the available tasks.
@@ -25,18 +25,9 @@ All `lux` commands use Hammer; run `lux --help` to see the available tasks.
 The Gemfile resolves each `lgem` from `./.libs/<name>` when that directory
 exists, and from `github dux/<name>` when it does not, so a fresh clone with no
 `.libs` still installs.
-`package.json` pulls Fez and PostWind from `./.libs` the same way.
 Generating from a local Lux checkout links every one of them that is present
 next to it.
 The `.libs` directory is ignored by Git.
-
-## JavaScript
-
-`bun` is required. `lux new` runs `bun install` for you.
-`./Procfile` runs `bun x rollup -cw`, which bundles `./app/assets/auto-*.tmp.js`
-into `./public/assets/`, compiles the SCSS, and serves LiveReload.
-`web_common` supplies `rollup.config.js`, which `lux assets:auto` (run by
-`lux s`) copies into the app root, so there is no build config to maintain here.
 
 ## Routes and authentication
 

@@ -61,6 +61,13 @@ registered and does nothing else on `Lux.plugin :x`.
 4. `load/**/*.rb` via `Dir.require_all` - depth-first, alphabetical; files
    matching `*_spec.rb` and anything under `/app/views/` are skipped
 
+Before any plugin loads, boot registers native Ruby autoloads for the app's
+`app/**/*.rb` (by basename: `app/models/user.rb` -> `User`), so `loader.rb` and
+`load/` can reference app classes such as `ApplicationModel`. Names a plugin
+defines itself at column 0 in `loader.rb` / `load/` (`class ApplicationApi`)
+are left out: the plugin defines them first and the app's same-named file
+reopens them afterwards.
+
 `Hammerfile` and `hammer/` are NOT loaded at runtime - the `lux` CLI
 discovers them at startup so commands are visible without loading the
 plugin.
@@ -92,8 +99,7 @@ class Foo
 end
 
 # plugins/foo/routes.rb -- evaluated when host app calls plugin_route :foo
-map 'foo' => 'foo#root'
-map 'foo/widgets'
+map 'foo', 'foo#root'
 
 # plugins/foo/Hammerfile -- CLI tasks
 task :foo do
@@ -145,6 +151,8 @@ Files are used in place - nothing is copied or symlinked into the host app.
   `Lux::Root::NotFound` naming each location tried.
 * The same roots feed eager loading (`Lux.root.require_all 'app'`), template
   lookup and the asset pipeline.
+* `mount/app/**/*.rb` files are registered for autoload when the mount is
+  added, so a plugin controller loads on first reference.
 * Node build files (`rollup.config.js`) cannot read `Lux::Root`, so
   `lux assets:auto` materializes the first one found into the app root.
 

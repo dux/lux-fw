@@ -7,7 +7,10 @@
 #     hammer/       # OPTIONAL. *_hammer.rb CLI tasks.
 #     mount/        # OPTIONAL. Mirrors app root. Registered as a Lux::Root
 #                   # overlay so its files resolve in place.
+#     lib/          # OPTIONAL. Ruby required by hand (loader.rb, CLI tasks).
+#     spec/         # OPTIONAL. Minitest specs, run by `hammer test`.
 #
+# Any other folder is plugin-private data (templates, web views, assets).
 # Any combination is valid; a plugin with only mount/ (or only CLI tasks) is
 # registered and does nothing else on Lux.plugin :name.
 
@@ -93,6 +96,19 @@ module Lux
       end
 
       result
+    end
+
+    # Top-level constants the plugins (and their dependencies) define while
+    # loading: `class Foo` / `module Foo` at column 0 in loader.rb and load/.
+    # Boot keeps app autoloads off these names, so the plugin defines them
+    # first and the app's same-named file reopens them afterwards.
+    def defined_constants names
+      dependency_names(names).flat_map do |name|
+        root = find(name)
+        [root.join('loader.rb'), *root.glob('load/**/*.rb')].select(&:file?).flat_map do |file|
+          file.read.scan(/^(?:class|module)\s+([A-Z]\w*)(?=[\s<;]|\z)/).flatten
+        end
+      end.uniq
     end
 
     def normalize_names *values

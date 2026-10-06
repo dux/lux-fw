@@ -4,16 +4,10 @@ class Lux::Type::BooleanType < Lux::Type
   def coerce
     value do |_|
       bool = _.to_s
+      next false if bool == ''
 
-      if value == ''
-        false
-      elsif %w(true 1 on).include?(bool)
-        true
-      elsif %w(false 0 off).include?(bool)
-        false
-      else
-        error_for :unsupported_boolean, bool
-      end
+      parsed = Lux::Utils::Boolean.parse(bool)
+      parsed.nil? ? error_for(:unsupported_boolean, bool) : parsed
     end
   end
 

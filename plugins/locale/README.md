@@ -180,7 +180,7 @@ Lux.app do
 
   localized force: true do       # / and /users -> /<current>, /<current>/...
     root 'main'
-    map 'users'
+    map 'users', 'users'
   end
 end
 ```

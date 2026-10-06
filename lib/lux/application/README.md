@@ -46,17 +46,16 @@ Lux.app do
   # --- routes (top level; an optional `routes do ... end` wrapper also
   #     works and interleaves with these by source order) -----------------
   root 'main'                                    # /          -> MainController#root
-  map 'users'                                    # resourceful UsersController
+  map 'users', 'users'                           # resourceful UsersController
 
-  post? { map api: :api_router }                 # POST scope block
+  post? { map 'api', 'api#call' }                # POST scope block
 
-  map '/foo/:bar/baz' => 'main#foo'              # absolute path with capture
-  map [:array1, :array2] => 'root'               # multi-key map
-  map %r{^@} => [UsersController, :show]         # regex match
+  map '/foo/:bar/baz', 'main#foo'                # absolute path with capture
+  map %w[help faq], 'pages'                      # any of these segments
 
   map 'boards' do
     root 'boards/index'                          # /boards
-    map favorites: 'boards#favorites'            # /boards/favorites
+    map 'favorites', 'boards#favorites'          # /boards/favorites
   end
 
   subdomain 'admin' do
@@ -65,13 +64,13 @@ Lux.app do
 
   map 'admin' do                                 # nested scope
     root 'admin/dashboard'                       # /admin
-    map users: 'admin/users'                     # /admin/users
+    map 'users', 'admin/users'                   # /admin/users
     map 'reports', 'admin/reports#monthly'       # /admin/reports -> #monthly
   end
 
-  map '/api'           => ApiApp                 # any Rack-callable class
-  map '/admin/sys/jobs' => LuxJobWeb             # deep absolute path
-  call '/api'          => ApiApp                 # unconditional (for rescue_from etc.)
+  map 'api', ApiApp                              # any Rack-callable class
+  map '/admin/sys/jobs', LuxJobWeb               # deep absolute path
+  call 'promo#maintenance' if maintenance?       # unconditional dispatch
 
   favicon '/favicon.svg'                         # serve at /favicon.ico + inject <head> links (web_common)
   plugin_route :web_common                       # explicit single plugin
@@ -81,7 +80,7 @@ Lux.app do
   #
   #   routes do
   #     root 'main'
-  #     map 'users'
+  #     map 'users', 'users'
   #   end
 end
 ```
@@ -99,30 +98,27 @@ Coming from Rails:
 
 | Rails                                  | Lux                                |
 |----------------------------------------|------------------------------------|
-| `mount Foo, at: '/x'`                  | `map '/x' => Foo`                  |
-| `mount Sidekiq::Web => '/admin/jobs'`  | `map '/admin/jobs' => Sidekiq::Web`|
-| `mount Foo => '/x'` (Rails 7+)         | `map '/x' => Foo`                  |
+| `mount Foo, at: '/x'`                  | `map '/x', Foo`                    |
+| `mount Sidekiq::Web => '/admin/jobs'`  | `map '/admin/jobs', Sidekiq::Web`  |
 
 ## `map` vs `call`
 
+`map` always takes what to match, then what to dispatch. `call` dispatches
+without matching. These are the only shapes; anything else raises with the
+canonical form in the message.
+
 | Form | Match check | Dispatch |
 |------|-------------|----------|
-| `map 'foo'`             | match `/foo` | `FooController`, resourceful |
-| `map 'foo#bar'`         | **none (unconditional)** | `FooController#bar` explicit |
 | `map 'a', 'foo'`        | match `/a`   | `FooController`, resourceful |
 | `map 'a', 'foo#bar'`    | match `/a`   | `FooController#bar` explicit |
-| `map a: 'foo'`          | match `/a`   | `FooController`, resourceful |
-| `map 'foo' do ... end`  | match `/foo` | enter scope, block at request time |
-| `map '/abs/:var' => 'foo#bar'` | absolute path with capture | explicit |
-| `map [:foo, :bar] => 'root'` | match either | `RootController` |
+| `map 'a', FooApi`       | match `/a`   | controller, `Lux::Api` or Rack class |
+| `map '/abs/:var', 'foo#bar'` | absolute path, `:var` into params | explicit |
+| `map %w[a b], 'foo'`    | match either | `FooController` |
 | `map 'a', 'foo', x: 1`  | match `/a`   | `FooController`, sets `@x = 1` |
+| `map 'foo' do ... end`  | match `/foo` | enter scope, block at request time |
 | `call 'foo#bar'`        | none (unconditional) | explicit |
-| `call -> { [200, {}, ['OK']] }` | none | return Rack tuple |
-
-A lone `'controller#action'` string has no left-hand side to match against, so
-`map 'foo#bar'` is exactly `call 'foo#bar'` - it runs on **every** request that
-reaches it, including inside a `map 'admin' do` scope. To gate it on a segment,
-give it one: `map 'foo', 'foo#bar'`.
+| `call FooApi`           | none | controller, `Lux::Api` or Rack class |
+| `call { [200, {}, ['OK']] }` | none | block result: body, or a Rack triple |
 
 ## Halting
 
@@ -145,11 +141,11 @@ evaluated at class-eval time, when `Lux.current` is a `/mock` request:
 
 ```ruby
 Lux.app do
-  map about: 'static#about' if get?     # WRONG - `get?` runs once, at boot
+  map 'about', 'static#about' if get?     # WRONG - `get?` runs once, at boot
   routes do
-    map about: 'static#about' if get?   # right - evaluated per request
+    map 'about', 'static#about' if get?   # right - evaluated per request
   end
-  post? { map api: :api_router }        # right - the block runs per request
+  post? { map 'api', 'api#call' }         # right - the block runs per request
 end
 ```
 
@@ -228,8 +224,7 @@ sides, and the comparison is the only place it happens - `nav.path` keeps the
 URL's original spelling, so slug lookups still see `my-post-title`.
 
 ```ruby
-map 'cash-book'    # matches /cash-book and /cash_book
-map :cash_book     # same
+map 'cash-book', 'cash_book'    # matches /cash-book and /cash_book
 ```
 
 ## Error handling
@@ -237,9 +232,17 @@ map :cash_book     # same
 Errors anywhere in the routing/action pipeline are caught by
 `render_error`. Resolution order:
 
-1. `rescue_from { |err| ... }` if defined on the app (always wins)
+1. An app `rescue_from` handler matching the error (`rescue_from { |err| }` matches all)
 2. Active controller's `:error` action (every controller inherits a default)
 3. `Lux::Error.render` (last-resort framework page)
+
+`rescue_from` is one macro (`Lux::RescueFrom`) on the app, controllers and
+APIs: `rescue_from { }` for any error, `rescue_from SomeError do ... end` for a
+class and its subclasses, handlers inherited by subclasses.
+
+Error pages render without the request pipeline: `before`, `before_action`,
+param validation and `filter` are skipped for the dispatched error action
+(`before_render` and `after` still run).
 
 The `:error` action receives `@error` (exception) and `@status` (resolved
 HTTP code) as ivars; the HTTP status also lives on `lux.response` (always an

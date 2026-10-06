@@ -1,17 +1,4 @@
 class Array
-  # Aonvert list of lists to CSV
-  def to_csv
-    ret = []
-    for row in self
-    	add = []
-    	for el in row
-    		add << '"'+el.to_s.gsub(/\s+/,' ').gsub(/"/,"''")+'"'
-	    end
-	    ret.push(add.join(';'))
-    end
-    ret.join("\n")
-  end
-
   # Wrap all list elements with a tag
   def wrap name, opts={}
     map{ |el| el.tag(name, **opts) }
@@ -60,13 +47,6 @@ class Array
     self
   end
 
-  # Will return fixed element for any random string
-  # `@list.random_by_string('foo')`
-  def random_by_string string
-    i = string.split('').map{ |_| _.ord }.sum
-    self[i % length]
-  end
-
   def xuniq
     uniq.select { |it| it.present? }
   end
@@ -76,31 +56,4 @@ class Array
   def to_ul klass=nil
     %[<ul class="#{klass}">#{map{|el| "<li>#{el}</li>" }.join('')}</ul>]
   end
-  
-  def shift_push
-    next_item = shift
-    push next_item
-    next_item
-  end
-
-  def xmap
-    count = 0
-    map do |el|
-      count += 1
-      yield el, count
-      el
-    end
-  end
-
-  def in_groups_of num, fill = nil
-    each_slice(num).map do |group|
-      group << fill while group.length < num if fill != false
-      group
-    end.to_a
-  end
-
-  def excluding *elements
-    self - elements.flatten
-  end
-  alias :without :excluding
 end

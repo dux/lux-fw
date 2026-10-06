@@ -73,7 +73,7 @@ end
 
 ## Resolution order on raise
 
-1. `Lux.app rescue_from { |err| ... }` if defined (router-level)
+1. A `Lux.app` `rescue_from` handler matching the error (router-level, `Lux::RescueFrom`)
 2. The active controller's `:error` action
 3. `Lux::Error.render` (framework default)
 
@@ -83,4 +83,4 @@ and `@status` (resolved HTTP code) as instance variables.
 ## See also
 
 * [`../application/README.md`](../application/README.md) - `rescue_from`
-* [`../controller/README.md`](../controller/README.md) - default `:error` action + `rescue_from` macro
+* [`../controller/README.md`](../controller/README.md) - default `:error` action + `rescue_from` handlers

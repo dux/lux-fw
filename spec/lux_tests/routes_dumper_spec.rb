@@ -5,17 +5,17 @@ class DumpApp < Lux::Application
   before { 1 }   # should not appear in the dump
 
   root 'main'
-  map about: 'static#about'
-  map 'boards'                     # bare resourceful map - matches /boards
-  map 'reports#monthly'            # explicit c#a - unconditional dispatch
+  map 'about', 'static#about'
+  map 'boards', 'boards'           # resourceful - matches /boards
+  call 'reports#monthly'           # unconditional dispatch
   map 'admin' do
     root 'admin/dashboard'
-    map users: 'admin/users'
+    map 'users', 'admin/users'
   end
-  map '/abs/:id' => 'main#show'
+  map '/abs/:id', 'main#show'
 
   # conditional via http-method predicate: should still be visible in dump
-  get? { map 'preview' => 'main#preview' }
+  get? { map 'preview', 'main#preview' }
 end
 
 describe Lux::Application::RoutesDumper do
@@ -35,13 +35,13 @@ describe Lux::Application::RoutesDumper do
     _(e.target).must_equal 'static#about'
   end
 
-  it 'records a bare resourceful map at its own segment, not at /' do
+  it 'records a resourceful map at its own segment, not at /' do
     e = entries.find { |x| x.path == '/boards' }
     _(e).wont_be_nil
     _(e.target).must_equal 'boards'
   end
 
-  it "records a bare 'controller#action' map at / (it dispatches unconditionally)" do
+  it "records an unconditional call at /" do
     e = entries.find { |x| x.target == 'reports#monthly' }
     _(e).wont_be_nil
     _(e.path).must_equal '/'

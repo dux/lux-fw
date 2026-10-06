@@ -21,7 +21,7 @@ route '/u/:slug'
 def by_slug; end
 
 # after - in app/routes.rb
-map '/u/:slug' => 'users#by_slug'
+map '/u/:slug', 'users#by_slug'
 ```
 
 Captures land in `lux.params` (they always did - the old doc claiming

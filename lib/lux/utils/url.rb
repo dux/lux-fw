@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Vendored from the `lux-url` gem (~/dev/dux/gems/lux-url). Wrapped under
+# Vendored from the `lux-url` gem (~/dev/libs/lux-url). Wrapped under
 # Lux::Utils::Url; top-level `Url` constant preserved as an alias so
 # existing call sites keep working.
 #

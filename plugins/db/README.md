@@ -27,6 +27,8 @@ lux db:restore              # restore from backup
 lux db:check                # print configured database info
 lux db:exec --sql SQL       # execute SQL against configured databases
 lux db:psql                 # open local psql console
+lux db:lt                   # report stored `<` markers; --apply rewrites legacy #LT; to &LT;,
+                            # --escape t.col,... also escapes raw < in plain-text columns
 lux db:seed                 # reset and load seeds
 ```
 
@@ -141,28 +143,30 @@ keys, mixed key types, duplicate column) raise via `Lux.shell.die`.
 
 ```
 plugins/db/
-  loader.rb                  # explicit require list (no Dir sweep)
-  lib/                       # pure-Ruby utilities (no Sequel)
-    schema_define.rb         # Lux::Schema::Define DSL helpers: #timestamps, #enum
-  ext/                       # Sequel-aware extensions
-    core.rb
-    nav_models.rb            # Nav#load_models + the ref->model registry
-    dataset_methods.rb       # x* query-builder primitives
-    dataset_scopes.rb        # convenience scopes layered on dataset_methods
-    find_precache.rb
-    paginate.rb
-    logger.rb
-    model_tree.rb
-    enums_plugin.rb
-  plugins/                   # Sequel plugins (registered via `plugin :name`)
-    _ref_linker.rb           # Sequel::Plugins::RefLinker
-    hooks.rb
-    before_save_filters.rb
-    create_limit.rb
-    composite_primary_keys.rb
-  migrate/                   # schema migration runtime (used by `lux db:am`)
-    auto_create_tables.rb
-    auto_migrate.rb
+  loader.rb                    # explicit require list (no Dir sweep)
+  lib/
+    schema_define.rb           # Lux::Schema::Define DSL helpers: #timestamps, #enum
+    ext/                       # Sequel-aware extensions
+      core.rb
+      nav_models.rb            # Nav#load_models + the ref->model registry
+      dataset_methods.rb       # x* query-builder primitives
+      dataset_scopes.rb        # convenience scopes layered on dataset_methods
+      find_precache.rb
+      paginate.rb
+      logger.rb
+      model_tree.rb
+      enums_plugin.rb
+    sequel/                    # Sequel plugins (registered via `plugin :name`)
+      _ref_linker.rb           # Sequel::Plugins::RefLinker
+      hooks.rb
+      before_save_filters.rb
+      create_limit.rb
+      composite_primary_keys.rb
+    migrate/                   # schema migration runtime (used by `lux db:am`)
+      auto_create_tables.rb
+      auto_migrate.rb
   hammer/
-    db_hammer.rb             # `lux db:*` CLI tasks
+    db_hammer.rb               # `lux db:*` CLI tasks
+  spec/
+    db_plugin_spec.rb
 ```

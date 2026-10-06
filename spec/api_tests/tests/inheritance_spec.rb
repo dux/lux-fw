@@ -55,7 +55,7 @@ describe 'inheritance and super!' do
       parent_opts = ModelApi.opts
 
       # Both should have call_me_in_child but with different allow values
-      _(child_opts[:collection][:call_me_in_child][:allow]).must_equal ['DELETE']
+      _(child_opts[:collection][:call_me_in_child][:allow]).must_equal [:delete]
     end
   end
 

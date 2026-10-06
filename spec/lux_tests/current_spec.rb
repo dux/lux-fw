@@ -119,23 +119,6 @@ describe Lux::Current do
     end
   end
 
-  describe '#secure_token' do
-    it 'generates a token based on IP' do
-      token = Lux.current.secure_token
-      _(token).must_be_kind_of String
-      _(token).must_match(/\A[0-9a-f]{40}\z/)
-    end
-
-    it 'validates a correct token' do
-      token = Lux.current.secure_token
-      _(Lux.current.secure_token(token)).must_equal true
-    end
-
-    it 'rejects an incorrect token' do
-      _(Lux.current.secure_token('invalid')).must_equal false
-    end
-  end
-
   describe '#ip' do
     it 'returns an IP address' do
       _(Lux.current.ip).must_be_kind_of String

@@ -24,8 +24,38 @@ module Lux
 
       def add path
         path = Pathname.new(path).cleanpath
-        overlays << path unless overlays.include?(path)
+        unless overlays.include?(path)
+          overlays << path
+          autoload! path
+        end
         path
+      end
+
+      # Constants that plugins define themselves while loading. An app file of
+      # the same name reopens the plugin class, so it must not autoload ahead
+      # of it. Set by boot from Lux::Plugin.defined_constants.
+      attr_writer :autoload_skip
+
+      def autoload_skip
+        @autoload_skip ||= []
+      end
+
+      # Register a Ruby autoload for every file under `<root>/app`, named by
+      # basename: app/models/user.rb -> User. Plugins can then reference app
+      # classes while loading, before config/app.rb eager-loads ./app. Boot
+      # registers the app root before any plugin mount, so the first root wins
+      # a basename clash and constants that already exist are left alone.
+      def autoload! root
+        Pathname.new(root).glob('app/**/*.rb').sort_by { |f| [f.to_s.count('/'), f.to_s] }.each do |file|
+          next if %w[/app/views/ /app/assets/].any? { file.to_s.include?(_1) } || file.to_s.end_with?('_spec.rb')
+
+          name = file.basename('.rb').to_s.camelize
+          next unless name.match?(/\A[A-Z]\w*\z/)
+          next if autoload_skip.include?(name)
+          next if Object.autoload?(name) || Object.const_defined?(name, false)
+
+          Object.autoload name.to_sym, file.to_s
+        end
       end
 
       def roots
@@ -142,19 +172,6 @@ module Lux
         return join(path.relative_path_from(base))
       end
       path
-    end
-
-    # Resolve a top-level app constant on demand: `ApplicationModel` ->
-    # app/**/application_model.rb across every root. Used by Object.const_missing
-    # so plugins can reference app base classes during boot, before config/app.rb
-    # eager-loads ./app. Returns true once the file is required.
-    def autoload_const(name)
-      target = name.to_s.underscore
-      file = self.class.files('app/**/*.rb').find { |f| File.basename(f.to_s, '.rb') == target }
-      return false unless file
-
-      require file.to_s
-      true
     end
 
     # Require every *.rb under `rel` across all roots, deduped by relative path.

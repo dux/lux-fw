@@ -1,5 +1,4 @@
-# docker helpers stay plugin-local; assets:* moved to lux-fw core
-# (bin/cli/assets_hammer.rb).
+# docker helpers; the asset pipeline lives next door in assets_hammer.rb.
 
 namespace :docker do
   task :build do

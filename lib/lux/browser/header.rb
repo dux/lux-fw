@@ -9,8 +9,8 @@ module Lux
     #   lux.browser.header.title       'My page'
     #   lux.browser.header.description 'short summary'
     #   lux.browser.header.canonical   'https://example.com/page'
-    #   = lux.browser.header.render do |page|
-    #     = asset 'main.css'
+    #   = lux.browser.header.render do |el|
+    #     = el.url 'main.css'
     #
     # Setter/getter conflation: most attribute methods double as readers
     # when called without an argument (`header.title 'foo'` sets;
@@ -145,12 +145,13 @@ module Lux
       # if called twice (same value), but designed to be called exactly
       # once per request from the layout's <head> block.
       #
-      # The optional block is yielded `CdnAsset` (so layouts can call
-      # `el.postwind`, `el.url '...'` etc.) and `self` as a second arg;
+      # The optional block is yielded web_common's `CdnAsset` when that plugin
+      # is loaded (so layouts can call `el.auto`, `el.url '...'` etc.) and
+      # `self` as a second arg;
       # its return value is appended after the framework's meta/link tags -
       # used in Haml layouts to inject asset and font tags.
       def render
-        extra = yield(CdnAsset, self) if block_given?
+        extra = yield((CdnAsset if defined?(CdnAsset)), self) if block_given?
 
         apply_robots_header
 

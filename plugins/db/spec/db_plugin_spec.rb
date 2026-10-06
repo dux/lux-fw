@@ -21,7 +21,7 @@ Sequel::Model.plugin :dirty
 # ---------------------------------------------------------------------------
 
 # The plugin owns its own load order via loader.rb; just require it.
-require File.expand_path('../../plugins/db/loader.rb', __dir__)
+require File.expand_path('../loader.rb', __dir__)
 
 # Register Sequel plugins so models can use `plugin :name`.
 Sequel::Model.plugin :ref_linker
@@ -2025,7 +2025,7 @@ describe 'plugins/db/create_limit.rb' do
     before do
       # Original before(:all): load auto_migrate once via constant guard.
       unless defined?(AutoMigrate)
-        load File.expand_path('../../plugins/db/migrate/auto_migrate.rb', __dir__)
+        load File.expand_path('../lib/migrate/auto_migrate.rb', __dir__)
       end
       AutoMigrate.auto_confirm = true
       DB.drop_table?(table_name)
@@ -2275,7 +2275,7 @@ describe 'plugins/db/create_limit.rb' do
 
     before do
       unless defined?(AutoMigrate)
-        load File.expand_path('../../plugins/db/migrate/auto_migrate.rb', __dir__)
+        load File.expand_path('../lib/migrate/auto_migrate.rb', __dir__)
       end
       AutoMigrate.auto_confirm = true
       DB.drop_table?(table_name)

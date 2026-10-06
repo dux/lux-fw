@@ -9,38 +9,26 @@ class String
     Object.const_defined?('::' + self) ? constantize : nil
   end
 
-  # prepare data for storage write, to make it safe to dump on screen without unescape
+  # Storage form for user text: `<` (and the legacy #LT; marker) becomes &LT;,
+  # which browsers render as `<`, so stored text is safe to print raw.
+  # html_unsafe turns it back into real markup. Idempotent.
+  # display: true is a full entity escape for showing raw text (error pages).
   def html_escape display = false
-    # .gsub('<', '&lt;').gsub('>', '&gt;')
-    # .gsub("'", '&#39').gsub('"', '&#34')
+    return gsub('#LT;', '&LT;').gsub('<', '&LT;') unless display
 
-    out =
-    if display
-      self
-        .gsub('<', '&lt;')
-        .gsub('>', '&gt;')
-        .gsub("'", '&apos;')
-        .gsub('"', '&quot;')
-    else
-      self.gsub('<', display ? '&lt;' : '#LT;')
-    end
-
-    out.gsub(/\A^\s+|\s+\z/,'')
+    gsub('<', '&lt;').gsub('>', '&gt;').gsub("'", '&apos;').gsub('"', '&quot;').strip
   end
 
-  # restore original before storage read
+  # restore real markup from the storage form (&LT; and the legacy #LT;)
   def html_unsafe full = false
-    if full
-      self
-        .gsub('#LT;', '<')
-        .gsub('$LT;', '<')
-        .gsub('&lt;', '<')
-        .gsub('&gt;', '>')
-        .gsub('&#39', "'")
-        .gsub('&#34', '"')
-    else
-      self.gsub('#LT;', '<')
-    end
+    out = gsub('&LT;', '<').gsub('#LT;', '<')
+    return out unless full
+
+    out
+      .gsub('&lt;', '<')
+      .gsub('&gt;', '>')
+      .gsub('&#39', "'")
+      .gsub('&#34', '"')
   end
 
   # export html without scripts and styles
@@ -48,26 +36,6 @@ class String
     html_unsafe(full)
       .gsub(/<(\/?script)/i,'&lt;\1')
       .gsub(/<(\/?style)/i,'&lt;\1')
-  end
-
-  # Mark a string for raw (unescaped) HTML output. Inverse of the default
-  # escape-on-output: `= value` escapes `<`, `= value.unsafe` renders raw.
-  # <script>/<style> stay neutralized unless explicitly allowed, so opting a
-  # value out of escaping never silently re-enables those two.
-  #   str.unsafe               # raw, <script>/<style> still escaped
-  #   str.unsafe(script: true) # also allow <script>
-  #   str.unsafe(style: true)  # also allow <style>
-  #   str.unsafe(true)         # allow both
-  # Returns a Lux::Utils::SafeString (answers html_safe?) - see haml_escape.rb.
-  def unsafe allow_all = false, script: false, style: false
-    script ||= allow_all
-    style  ||= allow_all
-
-    out = self
-    out = out.gsub(/<(\/?script)/i, '&lt;\1') unless script
-    out = out.gsub(/<(\/?style)/i,  '&lt;\1') unless style
-
-    Lux::Utils::SafeString.new(out)
   end
 
   # simple markdown
@@ -79,31 +47,18 @@ class String
 
   def trim len
     return self if self.length<len
-    data = self.dup[0,len]+'&hellip;'
+    data = self.dup[0,len]+'...'
     data
   end
   alias :truncate :trim
 
-  def first
-    self[0,1]
+  def first limit = 1
+    self[0, limit]
   end
 
   def last num = 1
     len = self.length
     self[len-num, len]
-  end
-
-  # https://github.com/rgrove/sanitize
-  def sanitize
-    Sanitize.clean(self, :elements=>%w[span ul ol li b bold i italic u underline hr br p], :attributes=>{'span'=>['style']} )
-  end
-
-  def quick_sanitize
-    out = self.gsub('<!--{tag}-->', '')
-    out = out.gsub(/\sstyle="([^"]+)"/) do
-      $1.start_with?('text-align:') ? $1 : ''
-    end
-    out
   end
 
   def wrap node_name, opts={}

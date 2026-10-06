@@ -114,8 +114,8 @@ describe 'lux new' do
     assert_includes File.read(File.join(path, 'config/puma.rb')), 'lux_boot'
     # hello-world is the zero-build starter: no JS toolchain
     refute File.exist?(File.join(path, 'package.json'))
-    # The old Object.const_missing autoloader never fired for a lookup inside a
-    # module, so config/app.rb loads every app root up front instead.
+    # config/app.rb eager-loads every app root; autoload only covers lookups
+    # that happen before it runs.
     assert_includes File.read(File.join(path, 'config/app.rb')), "Lux.root.require_all 'app'"
     assert_includes File.read(File.join(path, 'config/config.yaml')), '- authcog'
     refute_includes File.read(File.join(path, 'config/config.yaml')), 'web_common'
@@ -167,30 +167,23 @@ describe 'lux new' do
     end
   end
 
-  it 'links declared local checkouts and installs JS deps for the full starter' do
+  it 'links declared local checkouts for the full starter without a JS build' do
     output, errors, status = scaffold choice: "2\n"
     assert status.success?, output + errors
     path = File.join(@workspace, 'my-app')
 
     steps = output.lines.filter_map { |line| JSON.parse(line.delete_prefix('SETUP ')) if line.start_with?('SETUP ') }
-    assert_equal ['bundle install', 'bun install', CREATE_DB, 'bundle exec lux db:am'], steps.map { |step| step[1] }
+    assert_equal ['bundle install', CREATE_DB, 'bundle exec lux db:am'], steps.map { |step| step[1] }
 
     gemfile = File.read(File.join(path, 'Gemfile'))
     assert_includes gemfile, "lgem 'lux-fw'"
     assert_includes gemfile, "lgem 'lux-hammer'"
-    # every lgem and every "file:.libs/x" dep gets a link when the checkout exists
+    # every lgem gets a link when the checkout exists
     %w[lux-fw lux-hammer].each do |name|
       assert File.symlink?(File.join(path, ".libs/#{name}")), "missing .libs/#{name}"
     end
-    package = File.read(File.join(path, 'package.json'))
-    assert_includes package, '"fez": "file:.libs/fez"'
-    assert_includes package, '"postwind": "file:.libs/postwind"'
-    assert_equal 'my_app', JSON.parse(package)['name']
-
-    procfile = File.read(File.join(path, 'Procfile'))
-    assert_includes procfile, 'bun x rollup -cw'
-    assert_includes procfile, 'web: bundle exec lux server'
-    assert_includes File.read(File.join(path, '.gitignore')), '/node_modules/'
+    refute File.exist?(File.join(path, 'package.json'))
+    assert_equal 'web: bundle exec lux server', File.read(File.join(path, 'Procfile')).strip
     assert_includes File.read(File.join(path, 'config/config.yaml')), '- web_common'
     # web_common no longer pulls authcog in; the starter lists it itself
     assert_includes File.read(File.join(path, 'config/config.yaml')), '- authcog'
@@ -231,7 +224,7 @@ describe 'lux new' do
       assert_includes spec.files, "starter/#{name}/config/puma.rb"
     end
     assert_includes spec.files, 'starter/hello-world/public/components/app-nav.fez'
-    assert_includes spec.files, 'starter/full-minimal/package.json'
+    assert_includes spec.files, 'starter/full-minimal/public/components/starter-counter.fez'
     # the extracted plugin has to ship too, or authcog apps break on install
     assert_includes spec.files, 'plugins/authcog/load/authcog_controller.rb'
     assert_includes spec.files, 'plugins/authcog/load/user_session.rb'

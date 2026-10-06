@@ -16,7 +16,7 @@ gem install lux-fw
 lux new my-app
 ```
 
-`lux new` opens Hammer's starter picker: `hello-world` for a single page with sign-in and no build step, or `full-minimal` for a promo site, workspace and admin area with the full asset pipeline.
+`lux new` opens Hammer's starter picker: `hello-world` for a single page with sign-in and no build step, or `full-minimal` for a promo site, workspace and admin area.
 The command installs dependencies, creates and migrates the database, and starts the server.
 Both include PostgreSQL, AuthCog, Tailwind and Fez; see the [CLI guide](./bin/README.md#new-applications).
 
@@ -28,7 +28,7 @@ require 'lux-fw'
 
 Lux do
   routes do
-    map foo: 'foo#call'           # /foo -> FooController#call
+    map 'foo', 'foo#call'         # /foo -> FooController#call
     body 'Hello world, this is 404'
   end
 end
@@ -181,7 +181,7 @@ guidance is consolidated in the top-level [`AGENTS.md`](./AGENTS.md).
 | [`Lux::Hash`](./lib/lux/hash/README.md)                 | `{}.to_lux_hash` / `Lux::Hash.new`         |
 | [`Lux::JsonExporter`](./lib/lux/json_exporter/README.md)| `class X < Lux::JsonExporter`              |
 | [`Lux::Logger`](./lib/lux/logger/README.md)             | `Lux.log` / `Lux.logger` / `Lux.logger(:n)`|
-| [`Lux::Mailer`](./lib/lux/mailer/README.md)             | `class Mailer < Lux::Mailer`               |
+| [`Lux::Mail`](./lib/lux/mail/README.md)                 | `class Mailer < Lux::Mail::Sender`         |
 | [`Lux::Plugin`](./lib/lux/plugin/README.md)             | `Lux.plugin :name`                         |
 | [`Lux::Policy`](./lib/lux/policy/README.md)             | `class XPolicy < Lux::Policy`              |
 | [`Lux::Reloader`](./lib/lux/reloader/README.md)         | `Lux::Reloader.run` / `reload!`            |
@@ -235,12 +235,12 @@ Lux do
 
   routes do
     root 'main'
-    map about: 'static#about' if get?
+    map 'about', 'static#about' if get?
     map 'admin' do
       raise Lux.error.not_found unless user&.can&.admin?   # path-scoped guard
-      map users: 'admin/users'
+      map 'users', 'admin/users'
     end
-    map '/api' => ApiApp
+    map 'api', ApiApp
   end
 end
 ```
@@ -433,12 +433,12 @@ Lux.logger.error 'boom'
 Lux.logger(:audit).info 'user logged in'   # -> ./log/audit.log
 ```
 
-### Lux::Mailer
+### Lux::Mail
 
 Mail composition + template rendering, wrapper over the `mail` gem.
 
 ```ruby
-class Mailer < Lux::Mailer
+class Mailer < Lux::Mail::Sender
   def welcome user
     mail.subject = 'Welcome'
     mail.to      = user.email

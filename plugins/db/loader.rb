@@ -3,11 +3,11 @@
 # The framework's Lux::Plugin loader requires this single file; no
 # Dir.require_all sweep on the plugin tree. Add new files here.
 #
-# Layout
-#   lib/      - pure Ruby utilities (no Sequel)
-#   ext/      - direct Sequel::Model class/instance/dataset extensions
-#   plugins/  - Sequel plugins (loaded for later `plugin :name` registration)
-#   migrate/  - schema migration runtime (used by `lux db:am`)
+# Layout (all under lib/, required here in order)
+#   lib/schema_define.rb - pure Ruby schema DSL additions (no Sequel)
+#   lib/ext/      - direct Sequel::Model class/instance/dataset extensions
+#   lib/sequel/   - Sequel plugins (loaded for later `plugin :name` registration)
+#   lib/migrate/  - schema migration runtime (used by `lux db:am`)
 
 Sequel::Model.require_valid_table = false if Lux.runtime.task_runner?
 
@@ -16,28 +16,28 @@ root = File.expand_path(__dir__)
 # --- lib/ : pure-Ruby utilities ----------------------------------------
 require_relative 'lib/schema_define'
 
-# --- ext/ : Sequel-aware extensions ------------------------------------
+# --- lib/ext/ : Sequel-aware extensions ------------------------------------
 # core defines class+instance helpers; dataset_methods provides the x*
 # query primitives used by dataset_scopes, so order matters within ext/.
 # nav_models is the Nav <-> model integration, not a Sequel::Model extension.
-require_relative 'ext/core'
-require_relative 'ext/nav_models'
-require_relative 'ext/cache'
-require_relative 'ext/dataset_methods'
-require_relative 'ext/dataset_scopes'
-require_relative 'ext/find_precache'
-require_relative 'ext/paginate'
-require_relative 'ext/logger'
-require_relative 'ext/model_tree'
-require_relative 'ext/enums_plugin'
+require_relative 'lib/ext/core'
+require_relative 'lib/ext/nav_models'
+require_relative 'lib/ext/cache'
+require_relative 'lib/ext/dataset_methods'
+require_relative 'lib/ext/dataset_scopes'
+require_relative 'lib/ext/find_precache'
+require_relative 'lib/ext/paginate'
+require_relative 'lib/ext/logger'
+require_relative 'lib/ext/model_tree'
+require_relative 'lib/ext/enums_plugin'
 
-# --- plugins/ : Sequel plugins (defined here, registered in app code) --
-require_relative 'plugins/_ref_linker'
-require_relative 'plugins/hooks'
-require_relative 'plugins/before_save_filters'
-require_relative 'plugins/create_limit'
-require_relative 'plugins/composite_primary_keys'
+# --- lib/sequel/ : Sequel plugins (defined here, registered in app code)
+require_relative 'lib/sequel/_ref_linker'
+require_relative 'lib/sequel/hooks'
+require_relative 'lib/sequel/before_save_filters'
+require_relative 'lib/sequel/create_limit'
+require_relative 'lib/sequel/composite_primary_keys'
 
-# --- migrate/ : schema migration runtime -------------------------------
-require_relative 'migrate/auto_create_tables' if ENV['DB_MIGRATE'] == 'true'
-require_relative 'migrate/auto_migrate'
+# --- lib/migrate/ : schema migration runtime ---------------------------
+require_relative 'lib/migrate/auto_create_tables' if ENV['DB_MIGRATE'] == 'true'
+require_relative 'lib/migrate/auto_migrate'

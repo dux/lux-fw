@@ -55,6 +55,31 @@ describe Lux::Schema do
     errors = schema.validate data
     _(data).must_equal(foo: false, bar: true, baz: false)
     _(errors.keys.length).must_equal 0
+
+    # same vocabulary as Lux::Utils::Boolean.parse
+    data = { foo: 'yes', bar: 'N', baz: 'maybe' }
+    errors = schema.validate data
+    _(data[:foo]).must_equal true
+    _(data[:bar]).must_equal false
+    _(errors[:baz]).must_include 'Unsupported boolean'
+  end
+
+  it 'escapes < in user text unless the field stores html' do
+    schema = Lux.schema do
+      title  String
+      body   :text
+      markup :text, html: true
+    end
+
+    data = { title: '<b>x</b>', body: 'a < b', markup: '<p>hi</p>' }
+    schema.validate data
+    _(data[:title]).must_equal '&LT;b>x&LT;/b>'
+    _(data[:body]).must_equal 'a &LT; b'
+    _(data[:markup]).must_equal '<p>hi</p>'
+
+    # max counts the stored (escaped) length: '&LT;b>' is 6 chars
+    errors = Lux.schema { title String, max: 5 }.validate title: '<b>'
+    _(errors[:title]).wont_be_nil
   end
 
   it 'url shuld fail then pass' do

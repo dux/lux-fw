@@ -52,6 +52,6 @@ factory.attributes_for(:user)           # filtered .attributes hash
 
 ## Updating upstream clean-mock
 
-If you fix a bug here, port it back to `~/dev/dux/gems/clean-mock` and bump
+If you fix a bug here, port it back to `~/dev/libs/clean-mock` and bump
 that gem. The lux copy is authoritative for lux's own specs; the gem
 remains usable by other projects.

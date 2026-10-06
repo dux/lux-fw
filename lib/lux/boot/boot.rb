@@ -53,6 +53,10 @@ module Lux
         yield if block_given?
 
         plugins = Lux::Plugin.normalize_names(Lux.config[:plugins])
+
+        # app constants first, so they win over same-named plugin mount files
+        Lux::Root.autoload_skip = Lux::Plugin.defined_constants(plugins)
+        Lux::Root.autoload! Lux.root
         Lux.plugin(*plugins) if plugins.any?
 
         # Only a process that holds browser connections needs to receive;

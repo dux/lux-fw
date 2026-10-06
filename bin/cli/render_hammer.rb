@@ -43,6 +43,7 @@ task :render do
 
     if opts[:info]
       data[:body] = 'BODY length: %s kB' % (data[:body].to_s.length.to_f / 1024).round(1)
+      data[:dispatch] = Lux.current.var[:dispatch]
       puts data.to_h.to_jsonp
     else
       body = data[:body]

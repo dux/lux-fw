@@ -56,10 +56,11 @@ describe Lux::Api::Introspect do
     _(show[:path]).must_equal '/api/company/:ref/show'
   end
 
-  it 'preserves http methods and adds POST as default' do
+  it 'lists declared http methods, POST only when none are declared' do
     index = doc.dig(:apis, 'company', :collection, :index)
-    _(index[:http]).must_include 'POST'
-    _(index[:http]).must_include 'PUT'
+    _(index[:http]).must_equal ['PUT']
+    show = doc.dig(:apis, 'company', :member, :show)
+    _(show[:http]).must_equal ['POST']
   end
 
   it 'strips private (_*) opts like :_typero' do
@@ -113,7 +114,7 @@ describe 'Lux::Api::SysApi endpoints' do
 
     _(src).must_be_kind_of String
     _(src).must_include "BASE  ||= 'http://example.com'"   # base url from request
-    _(src).must_include 'def api_post'                     # shared helper present
+    _(src).must_include 'def api_call'                     # shared helper present
     _(src).must_include 'namespace :company do'            # one namespace per api
     _(src).must_include 'task :show do'                    # member action -> task
     _(src).must_include '/api/company/#{ref}/show'         # :ref interpolated

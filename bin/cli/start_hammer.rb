@@ -1,5 +1,5 @@
 task :start do
-  desc 'Prepare env and autorun app (assets:auto, then Procfile)'
+  desc 'Prepare env and autorun app (assets:auto for web_common JS builds, then Procfile)'
   alt :s
   needs :app
   opt :port, alias: :p, desc: 'Port number (default: $PORT or 3000)'
@@ -13,7 +13,9 @@ task :start do
     ENV['PORT']            = port.to_s
     ENV['LIVERELOAD_PORT'] = (35729 + port - 3000).to_s
 
-    hammer 'assets:auto'
+    # assets:* ships with the web_common plugin, and only an app with a JS
+    # build (package.json) consumes the generated bundles
+    hammer 'assets:auto' if defined?(LuxAssets) && File.exist?('package.json')
 
     file = opts[:file] || (opts[:prod] ? './Procfile.prod' : './Procfile')
     # replace this booted process with the lean Procfile runner

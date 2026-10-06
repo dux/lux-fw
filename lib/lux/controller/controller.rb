@@ -3,6 +3,7 @@
 
 require 'erb'
 require_relative '../current/lifecycle'
+require_relative '../error/rescue_from'
 require_relative './params_dsl'
 require_relative './auto_controller'
 
@@ -11,6 +12,7 @@ module Lux
     include ClassCallbacks
     include Lifecycle
     include ParamsDsl
+    extend Lux::RescueFrom
 
     # Convention routing ships on every controller: `filter` (entry hook +
     # nav.path matcher) and `auto` (filter then auto_render). Mount it with
@@ -64,16 +66,6 @@ module Lux
         end
       end
 
-      # Sugar for defining the :error action via a block.
-      # The block receives the exception as an argument; @error and @status
-      # are already set as ivars by Application#render_error before it runs.
-      #   rescue_from do |err|
-      #     render :error
-      #   end
-      def rescue_from &block
-        define_method(:error) { instance_exec(@error, &block) }
-      end
-
       # Self-contained HTML error page (no template lookup). Fallback used by the
       # default Lux::Controller#error action when the app has no error template;
       # can be called directly from a custom :error to wrap the framework chrome
@@ -92,13 +84,12 @@ module Lux
 
     ### INSTANCE METHODS
 
-    IVARS ||= Struct.new 'LuxControllerIvars', :template_suffix, :action, :layout, :render_cache
+    IVARS ||= Struct.new 'LuxControllerIvars', :action, :layout, :render_cache
     RENDER_OPTS ||= Struct.new 'LuxControllerRenderOpts', :inline, :text, :plain, :html, :json, :javascript, :xml, :cache, :template, :layout, :render_to_string, :status, :ttl, :content_type
 
     def initialize
       # before and after should be exected only once
       @lux = IVARS.new
-      @lux.template_suffix = self.class.to_s.sub(/Controller$/,'').underscore.downcase.split('/').first
     end
 
     # action(:show)
@@ -124,26 +115,35 @@ module Lux
       # Lux.log { ' %s' % self.class.source_location }
 
       @lux.action = method_name
+      # what actually served the request; `lux render -i` prints it
+      Lux.current.var[:dispatch] = { controller: self.class.name, action: method_name }
 
       # fail-fast verb check before any callbacks run. Default is GET + HEAD
       # + OPTIONS; add other verbs per-action via `allow :post, :patch`.
       enforce_allowed_verbs!
 
-      run_callback :before, @lux.action
+      # An error page (dispatched by Application#render_error) renders without
+      # the request pipeline: before filters, param validation and filter
+      # already ran, or are what failed, for the original action.
+      error_page = lux.var[:error_page]
+
+      run_callback :before, @lux.action unless error_page
 
       catch :done do
         unless lux.response.body?
-          run_callback :before_action, @lux.action
+          unless error_page
+            run_callback :before_action, @lux.action
 
-          # opt / params validation runs between before_action and the action
-          # method, so before filters see raw params and the action sees the
-          # filtered/coerced set. No-op when no opts are declared.
-          validate_action_params!
+            # opt / params validation runs between before_action and the action
+            # method, so before filters see raw params and the action sees the
+            # filtered/coerced set. No-op when no opts are declared.
+            validate_action_params!
 
-          # Convention nav.path filters run automatically for every action - the
-          # class-level `filter do ... end` block, a no-op unless declared. A
-          # filter that renders or redirects sets the body, skipping the action.
-          filter
+            # Convention nav.path filters run automatically for every action - the
+            # class-level `filter do ... end` block, a no-op unless declared. A
+            # filter that renders or redirects sets the body, skipping the action.
+            filter
+          end
 
           unless lux.response.body?
             # if action not found
@@ -169,14 +169,19 @@ module Lux
       lux.response.flash
     end
 
-    # Default :error action - renders the app error template at the layout root
-    # (e.g. app/views/main/error.haml) when present, else a self-contained HTML page.
-    # Override on any controller (def error) or via the rescue_from class macro.
+    # Default :error action - runs a matching `rescue_from` handler (Lux::RescueFrom),
+    # else renders the app error template at the layout root (e.g.
+    # app/views/main/error.haml) when present, else a self-contained HTML page.
+    # Override on any controller with `def error`.
     # Reads @error and @status set by Application#render_error before dispatch; the
     # HTTP status lives on lux.response (always an integer, 200 unless set otherwise).
     def error
       @status ||= (lux.response.status.to_i >= 400 ? lux.response.status : 500)
       lux.response.status @status
+
+      if handler = self.class.rescue_handler_for(@error)
+        return instance_exec(@error, &handler)
+      end
 
       if lux.nav.format.to_s == 'json' || request.content_type.to_s.include?('json')
         render json: { status: @status, error: @error.message }
@@ -308,6 +313,8 @@ module Lux
         data = Lux::Template.render(local_helper, path) { data }
       end
 
+      Lux.current.var[:dispatch]&.merge!(template: page_template, layout: path)
+
       data
     end
 
@@ -367,8 +374,7 @@ module Lux
     end
 
     # True if any Tilt-recognised extension exists at the given (extension-less)
-    # path. Used by render_template to decide whether to fall back from
-    # `<action>_ref` to `<action>`. Memoized in Lux.var (prod, process-wide) or
+    # path. Memoized in Lux.var (prod, process-wide) or
     # Lux.current.var (dev/test, per-request) so we don't stat the disk on every
     # render.
     def template_file_exists? path

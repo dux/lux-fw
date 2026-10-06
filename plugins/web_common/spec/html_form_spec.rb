@@ -1,40 +1,38 @@
-require 'spec_helper'
+require 'test_helper'
 
-require_relative '../../input/html_input'
-require_relative '../../input/html_input_custom'
-require_relative '../html_form'
-require_relative '../html_form_custom'
+require_relative '../load/html/input/html_input'
+require_relative '../load/html/input/html_input_custom'
+require_relative '../load/html/form/html_form'
+require_relative '../load/html/form/html_form_custom'
 
 describe HtmlForm do
-  let(:mock_params) { {} }
-  let(:mock_request) { double('request', params: mock_params) }
-  let(:mock_current) { double('current', uid: 'test123', request: mock_request, locale: 'en', csrf: 'test-csrf-token') }
-
+  # Lux::Test::Case clears Thread.current[:lux] after every test, so the stub cannot leak.
   before do
-    allow(Lux).to receive(:current).and_return(mock_current)
+    request = Struct.new(:params).new({})
+    Thread.current[:lux] = Struct.new(:uid, :request, :locale, :csrf).new('test123', request, 'en', 'test-csrf-token')
   end
 
   describe '#initialize' do
     it 'accepts string as action' do
       form = HtmlForm.new('/submit')
-      expect(form.opts[:action]).to eq('/submit')
-      expect(form.object).to be_nil
+      _(form.opts[:action]).must_equal '/submit'
+      _(form.object).must_be_nil
     end
 
     it 'defaults method to post' do
       form = HtmlForm.new
-      expect(form.opts[:method]).to eq('post')
+      _(form.opts[:method]).must_equal 'post'
     end
 
     it 'generates unique id' do
       form = HtmlForm.new
-      expect(form.opts[:id]).to eq('form-test123')
+      _(form.opts[:id]).must_equal 'form-test123'
     end
 
     it 'accepts custom opts' do
       form = HtmlForm.new(action: '/foo', method: 'get')
-      expect(form.opts[:method]).to eq('get')
-      expect(form.opts[:action]).to eq('/foo')
+      _(form.opts[:method]).must_equal 'get'
+      _(form.opts[:action]).must_equal '/foo'
     end
   end
 
@@ -43,10 +41,10 @@ describe HtmlForm do
       form = HtmlForm.new('/submit')
       html = form.render { |f| 'content' }
 
-      expect(html).to include('<form')
-      expect(html).to include('</form>')
-      expect(html).to include('content')
-      expect(html).to include('method="post"')
+      assert_includes html, '<form'
+      assert_includes html, '</form>'
+      assert_includes html, 'content'
+      assert_includes html, 'method="post"'
     end
 
     it 'renders with pushed data' do
@@ -55,30 +53,30 @@ describe HtmlForm do
       form.push '<input name="b">'
       html = form.render
 
-      expect(html).to include('<input name="a">')
-      expect(html).to include('<input name="b">')
+      assert_includes html, '<input name="a">'
+      assert_includes html, '<input name="b">'
     end
 
     it 'wraps in disabled fieldset when disabled' do
       form = HtmlForm.new('/submit', disabled: true)
       html = form.render { 'content' }
 
-      expect(html).to include('<fieldset')
-      expect(html).to include('disabled')
+      assert_includes html, '<fieldset'
+      assert_includes html, 'disabled'
     end
 
     it 'adds enctype for file inputs' do
       form = HtmlForm.new('/upload')
       html = form.render { '<input type="file">' }
 
-      expect(html).to include('enctype="multipart/form-data"')
+      assert_includes html, 'enctype="multipart/form-data"'
     end
 
     it 'skips enctype for get method' do
       form = HtmlForm.new('/search', method: 'get')
       html = form.render { '<input type="file">' }
 
-      expect(html).not_to include('enctype')
+      refute_includes html, 'enctype'
     end
   end
 
@@ -87,7 +85,7 @@ describe HtmlForm do
       form = HtmlForm.new
       html = form.input :email, as: :email
 
-      expect(html).to include('type="email"')
+      assert_includes html, 'type="email"'
     end
   end
 
@@ -96,40 +94,40 @@ describe HtmlForm do
       form = HtmlForm.new
       html = form.row('Name') { '<input>' }
 
-      expect(html).to include('form-row')
-      expect(html).to include('Name')
-      expect(html).to include('<input>')
+      assert_includes html, 'form-row'
+      assert_includes html, 'Name'
+      assert_includes html, '<input>'
     end
 
     it 'renders row with input' do
       form = HtmlForm.new
       html = form.row :name, as: :string, value: 'test'
 
-      expect(html).to include('form-row')
-      expect(html).to include('Name')
+      assert_includes html, 'form-row'
+      assert_includes html, 'Name'
     end
 
     it 'renders hidden row directly' do
       form = HtmlForm.new
       html = form.row :token, as: :hidden, value: 'abc'
 
-      expect(html).to include('type="hidden"')
-      expect(html).not_to include('form-row')
+      assert_includes html, 'type="hidden"'
+      refute_includes html, 'form-row'
     end
 
     it 'renders hint' do
       form = HtmlForm.new
       html = form.row :name, as: :string, hint: 'Enter your name'
 
-      expect(html).to include('Enter your name')
-      expect(html).to include('<small')
+      assert_includes html, 'Enter your name'
+      assert_includes html, '<small'
     end
 
     it 'renders info' do
       form = HtmlForm.new
       html = form.row :name, as: :string, info: 'Required field'
 
-      expect(html).to include('Required field')
+      assert_includes html, 'Required field'
     end
   end
 
@@ -138,40 +136,40 @@ describe HtmlForm do
       form = HtmlForm.new
       html = form.submit 'Save'
 
-      expect(html).to include('type="submit"')
-      expect(html).to include('Save')
-      expect(html).to include('form-submit')
+      assert_includes html, 'type="submit"'
+      assert_includes html, 'Save'
+      assert_includes html, 'form-submit'
     end
 
     it 'defaults to create when no object' do
       form = HtmlForm.new
       html = form.submit
 
-      expect(html).to include('create')
-      expect(html).to include('ui-icon')
+      assert_includes html, 'create'
+      assert_includes html, 'ui-icon'
     end
 
     it 'renders cancel link' do
       form = HtmlForm.new
       html = form.submit 'Save', cancel: '/back'
 
-      expect(html).to include('href="/back"')
-      expect(html).to include('cancel')
+      assert_includes html, 'href="/back"'
+      assert_includes html, 'cancel'
     end
 
     it 'renders back link' do
       form = HtmlForm.new
       html = form.submit 'Save', back: '/list'
 
-      expect(html).to include('href="/list"')
-      expect(html).to include('go back')
+      assert_includes html, 'href="/list"'
+      assert_includes html, 'go back'
     end
 
     it 'accepts hash as first argument' do
       form = HtmlForm.new
       html = form.submit class: 'btn-lg'
 
-      expect(html).to include('class="btn-lg"')
+      assert_includes html, 'class="btn-lg"'
     end
   end
 
@@ -180,23 +178,23 @@ describe HtmlForm do
       form = HtmlForm.new
       html = form.fieldset('Details') { 'content' }
 
-      expect(html).to include('<fieldset>')
-      expect(html).to include('<legend>Details</legend>')
-      expect(html).to include('content')
+      assert_includes html, '<fieldset>'
+      assert_includes html, '<legend>Details</legend>'
+      assert_includes html, 'content'
     end
 
     it 'renders fieldset with description' do
       form = HtmlForm.new
       html = form.fieldset('Details', 'Extra info') { 'content' }
 
-      expect(html).to include('Extra info')
+      assert_includes html, 'Extra info'
     end
 
     it 'hides border when no title' do
       form = HtmlForm.new
       html = form.fieldset { 'content' }
 
-      expect(html).to include('border-top: none')
+      assert_includes html, 'border-top: none'
     end
   end
 end

@@ -31,6 +31,11 @@ describe 'dev' do
     _(response).must_equal({success: true, message: 'all ok', meta: { ip: '1.2.3.4' }, data: 'ACME corp', status: 200 })
   end
 
+  it 'stores < from params as &LT;' do
+    api = CompanyApi.new(:index, params: { name: '<b>' })
+    _(api.api.params[:name]).must_equal '&LT;b>'
+  end
+
   it 'expects clasic module to be incuded' do
     response = GenericApi.render :module_clasic
     _(response).must_equal({ data: 'is_module', meta: { ip: '1.2.3.4' }, success: true, status: 200})
@@ -52,7 +57,7 @@ describe 'dev' do
   end
 
   it 'defines allowed method' do
-    _(UserApi.opts.dig(:collection, :call_me_in_child, :allow)).must_equal ['DELETE']
+    _(UserApi.opts.dig(:collection, :call_me_in_child, :allow)).must_equal [:delete]
   end
 
   it 'extracts bearer token from Authorization header' do

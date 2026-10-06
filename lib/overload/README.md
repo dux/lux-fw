@@ -12,21 +12,18 @@ methods are redefined here.
 
 These shadow methods that already exist in Ruby. Highest surprise potential.
 
-* `String#first` - no-arg, returns the first char (`self[0,1]`), not Ruby 3.4's `first(n)`.
 * `String#last(num = 1)` - returns last `num` chars (slices `self[len-num, len]`).
-* `String#truncate` - alias of `#trim`; cuts to `len` chars and appends `&hellip;`.
+* `String#truncate` - alias of `#trim`; cuts to `len` chars and appends `...`.
 * `String#html_safe(full = false)` - strips `<script>`/`<style>` tags; NOT Rails' "mark as safe".
 * `Array#last=` - assigns the last element (`self[length-1] = what`).
 * `Array#all` - returns `self` (a no-op for easier Sequel query chaining).
 * `Array#wrap(name, opts={})` - maps each element through `el.tag(name, opts)` (HTML), not `Array.wrap`.
-* `Array#without(*elements)` - alias of `#excluding`; `self - elements.flatten`.
 * `Integer#pluralize(desc)` - returns a phrase like `"no users"` / `"1 user"` / `"5 users"` (relies on `String#pluralize` from an inflector loaded elsewhere).
 * `Date#to_i` - `Time.parse(to_s).to_i` (epoch seconds), instead of Ruby's Julian day number.
 * `TrueClass#to_i` -> `1`, `FalseClass#to_i` -> `0`.
 * `NilClass#empty?` -> `true`, `NilClass#present?` -> `false`, `NilClass#blank?` -> `true`.
 * `NilClass#is?(klass)` -> `false` (always).
 * `Object#blank?` / `Object#present?` - global predicates added to every object (see below); core classes get tuned versions (`String#blank?` treats whitespace-only as blank, `Array#blank?`/`Hash#blank?` check length, `Numeric#blank?`/`Time#blank?` -> `false`, `FalseClass#blank?` -> `true`, `TrueClass#blank?` -> `false`).
-* `Object.const_missing` - redefined for autoload: lazily scans `./app/**/*.rb`, maps file basename to CamelCase, and requires on first reference (thread-safe via a Monitor).
 
 ## Added methods, by class
 
@@ -35,11 +32,10 @@ See "Global helpers on Object" below - all of `Object`'s additions are callable 
 
 ### String (`string.rb`)
 * `constantize` / `constantize?` - `'User'.constantize`; `?` variant returns nil if undefined.
-* `html_escape(display = false)` / `html_unsafe(full = false)` - storage-safe escaping (`#LT;` sentinel) and its inverse.
+* `html_escape(display = false)` / `html_unsafe(full = false)` - storage form (`<` and legacy `#LT;` -> `&LT;`, idempotent; `display: true` is a full entity escape) and its inverse (`&LT;` / `#LT;` -> `<`).
 * `as_html` - tiny markdown: newlines -> `<br />`, bare URLs -> links.
-* `trim(len)` (alias `truncate`) - cut to `len` and append `&hellip;`.
-* `first` / `last(num = 1)` - char slicing (see overrides).
-* `sanitize` / `quick_sanitize` - Sanitize.clean allowlist; quick variant strips inline styles except `text-align`.
+* `trim(len)` (alias `truncate`) - cut to `len` and append `...`.
+* `first(limit = 1)` / `last(num = 1)` - char slicing, ActiveSupport style.
 * `wrap(node_name, opts={})` / `tag(node_name, **attrs, &block)` - wrap string in an HTML tag (via vendored html-tag).
 * `fix_ut8` - re-encode to UTF-8 replacing invalid bytes.
 * `parse_erb(scope = nil)` - render the string as ERB.
@@ -57,43 +53,29 @@ See "Global helpers on Object" below - all of `Object`'s additions are callable 
 * `indent(amount = 2, char = ' ')` - prefix every line.
 
 ### Array (`array.rb`)
-* `to_csv` - list-of-lists -> `;`-joined, quoted CSV.
 * `wrap(name, opts={})` - map each element through `#tag` (HTML).
 * `last=` - set the last element.
 * `to_sentence(opts={})` - Rails-like "a, b, and c".
 * `toggle(element)` - add/remove element, returns true when added.
 * `all` - returns self (Sequel chaining).
-* `random_by_string(string)` - deterministic element pick from a string.
 * `xuniq` - `uniq` then keep only `present?`.
 * `to_ul(klass=nil)` - render as `<ul><li>...`.
-* `shift_push` - rotate first element to the back, return it.
-* `xmap` - like `map` but yields `(el, index)` and returns the original elements.
-* `in_groups_of(num, fill = nil)` - slice into fixed-size groups (pad with `fill` unless `false`).
-* `excluding(*elements)` (alias `without`) - set difference, flattened.
 
 ### Hash (`hash.rb`)
 * `to_query(namespace=nil)` - build a sorted `?k=v&...` query string.
-* `to_attributes` / `to_css` - sorted `k="v"` attribute string / `k: v;` CSS string.
-* `deep_sort` - recursively sort by key.
-* `deep_stringify_keys` / `deep_stringify_keys!` - recursively convert keys to strings (nested Hash + Array of Hash).
-* `deep_symbolize_keys` / `deep_symbolize_keys!` - recursively convert keys to symbols (nested Hash + Array of Hash).
-* `pluck(*args)` - select only the named keys (string-compared).
+* `to_css` - sorted `k: v;` CSS string.
+* `deep_stringify_keys` - recursively convert keys to strings (nested Hash + Array of Hash).
 * `remove_empty(covert_to_s = false)` - drop keys/values that are blank.
-* `to_js(opts = {})` - JSON with unquoted keys for embedding in JS.
-* `deep_compact` (instance + `Hash.deep_compact(value)` class method) - recursively drop blank/`'0'` values.
-* `reverse_merge` / `reverse_merge!` (aliases `with_defaults` / `with_defaults!`) - merge where self wins.
 * `html_safe(key)` - run the value at `key` through `String#html_safe` in place.
 * `tag(node_name, inner = nil, &block)` - render an HTML tag using self as attributes (via vendored html-tag).
 
 ### Integer (`integer.rb`)
 * `pluralize(desc)` - "no users" / "1 user" / "5 users" (see overrides).
 * `dotted` - thousands grouping with `.` (e.g. `1234567` -> `1.234.567`).
-* `ordinalize` (alias `to_ordinal`) - `1` -> `1st`, `22` -> `22nd`.
 * `to_filesize` - human file size (`B`/`KB`/`MB`/...).
 
 ### Float (`float.rb`)
 * `as_currency(opts={})` - format as currency; opts `pretty`, `strip`, `symbol`.
-* `format_with_underscores` - `_`-grouped 2-decimal string (nil if `<= 0`).
 * `dotted(round_to=2)` - integer part dotted, comma + decimals.
 
 ### Numeric (`boolean.rb`, `blank.rb`)
@@ -105,7 +87,7 @@ See "Global helpers on Object" below - all of `Object`'s additions are callable 
 * `is?(klass)` -> `false`.
 
 ### Symbol
-No file in this directory patches Symbol directly. (`Object#is_symbol?` reports symbol-ness.)
+No file in this directory patches Symbol directly.
 
 ### Struct (`struct.rb`)
 * `to_hash` - members zipped with values into a Hash.
@@ -115,7 +97,6 @@ No file in this directory patches Symbol directly. (`Object#is_symbol?` reports 
 * `Time.agop(secs, desc = nil)` - precise "18min 31sec" style duration.
 * `Time.ago(start_time, end_time = nil)` - humanized relative time (via `Lux::Utils::TimeDifference`).
 * `Time.monotonic` - `CLOCK_MONOTONIC` seconds.
-* `Time.for(value)` - coerce Numeric/String/responder into a Time (from Sinatra).
 * `Date#to_i` - epoch seconds (see overrides).
 * `Time` / `Date` / `DateTime` include `Lux::Utils::TimeOptions` -> `short` / `long` / `current` formatters.
 
@@ -124,7 +105,6 @@ Both include `Lux::Utils::Json` -> `to_jsons` (pretty in dev), `to_jsonp` (prett
 
 ### Enumerable (`enumerable.rb`)
 * `index_by` - `{ key_from_block => element }`.
-* `index_with` - `{ element => value_from_block }`.
 * `many?` - `count > 1`.
 
 ### Class (`class.rb`)
@@ -147,7 +127,6 @@ Both include `Lux::Utils::Json` -> `to_jsons` (pretty in dev), `to_jsonp` (prett
 * `File.append(path, content)` - locked append.
 * `File.ext(name)` - 3- or 4-char extension, else nil.
 * `File.delete?(path)` - delete if present, returns boolean.
-* `File.is_locked?(lock_file)` - flock probe with 0.1s timeout.
 
 ### Thread::Simple (`thread_simple.rb`)
 A small fixed-size worker-pool. `Thread::Simple.run { |t| t.add { ... } }`,
@@ -161,11 +140,10 @@ Added to `Object`, so callable on any value (`object.rb`, plus predicates in `bl
 * `blank?` / `present?` - emptiness predicates (tuned per core class, see overrides).
 * `presence` - returns self if `present?`, else nil.
 * `or(_or = nil, &block)` - returns `_or` (or block result) when self is blank or `0`.
-* `try(*args, &block)` - nil-safe send; with a block, yields the (optionally sent) value.
-* `andand(func=nil, &block)` - chain only if `present?`, else nil / empty hash.
+* `try(method, *args)` - ActiveSupport semantics: nil when the receiver is nil or does not respond; a bare block yields self.
 * `in?(collection)` (alias `inside?`) - `collection.include?(self)`.
-* `is_hash?` / `is_array?` / `is_string?` / `is_symbol?` / `is_numeric?` / `is_boolean?` - type predicates (`is_hash?`/`is_array?` match by class-name substring so they also catch indifferent-access variants).
-* `is_true?` - true if `to_s` is `'true'`/`'on'`/`'1'`; `is_false?` is its negation.
+* `is_hash?` / `is_array?` / `is_numeric?` - type predicates (`is_hash?`/`is_array?` match by class-name substring so they also catch indifferent-access variants).
+* `is_true?` - true when `Lux::Utils::Boolean.parse` reads it as true (`true yes on t y 1`).
 * `is!(value = :_nil)` - assert presence (no arg) or type/ancestor membership, returning self or raising `ArgumentError`.
 * `is?(value = nil)` - boolean form of `is!` (rescues the raise).
 * `is_a!(klass, error = nil)` - true if `klass` is an ancestor; raises (or returns false) otherwise.

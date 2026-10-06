@@ -80,7 +80,7 @@ if Lux.root != Lux.fw_root
 end
 
 # load all lux libs (lib/lux/test/ stays out — test scaffolding is opt-in
-# via spec_helper so production apps don't pull in minitest)
+# via spec/test_helper.rb so production apps don't pull in minitest)
 [:overload, :lux].each do |f|
   opts = f == :lux ? { skip: '/lux/test/' } : {}
   Dir.require_all Lux.fw_root.join('./lib/%s' % f), opts

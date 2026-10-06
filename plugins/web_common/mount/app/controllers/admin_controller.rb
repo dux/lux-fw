@@ -4,8 +4,6 @@ class AdminController < FrontendController
   # Plugin pages (/admin/plugins/*) load no models, so the per-model check in
   # #call alone would let anyone in.
   before do
-    next if @error
-
     raise Lux.error.forbidden('Admin access required') unless user&.can&.admin?
   end
 

@@ -131,7 +131,7 @@ $.rawTag = (name, opts) => {
   return `<${upName} ${attrs}></${upName}>`
 }
 
-$.htmlSafe = text => String(text).replaceAll('#LT;', '<').replaceAll('<script', '&lt;script')
+$.htmlSafe = text => String(text).replaceAll('&LT;', '<').replaceAll('#LT;', '<').replaceAll('<script', '&lt;script')
 
 $.imageSize = (url, callback) => {
   const img = new Image()

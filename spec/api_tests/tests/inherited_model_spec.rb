@@ -2,7 +2,7 @@ require 'test_helper'
 require_relative '../loader'
 
 # Mirrors the real-world ModelApi + generate pattern used in lux apps
-# (e.g. ~/dev/dux/accounting/app/api/model_api.rb). Verifies that:
+# (e.g. ~/dev/web/izlazni.com/app/api/model_api.rb). Verifies that:
 #   * a self.generate macro can dynamically define collection (for :create)
 #     and ref-scoped (for :show / :update / :destroy) actions
 #   * root before/after callbacks load @object for both collection and ref

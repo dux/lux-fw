@@ -44,21 +44,6 @@ class Time
     def monotonic
       Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
-
-    # Generates a Time object from the given value.
-    # Used by #expires and #last_modified.
-    # extracted from Sinatra
-    def for value
-      if value.is_a? Numeric
-        Time.at value
-      elsif value.respond_to? :to_s
-        Time.parse value.to_s
-      else
-        value.to_time
-      end
-    rescue Exception
-      raise ArgumentError, "unable to convert #{value.inspect} to a Time object"
-    end
   end
 end
 

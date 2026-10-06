@@ -37,12 +37,12 @@ describe 'HTTP method restrictions' do
   describe 'allow directive storage' do
     it 'stores allow DELETE on method' do
       opts = UserApi.opts
-      _(opts[:collection][:call_me_in_child][:allow]).must_equal ['DELETE']
+      _(opts[:collection][:call_me_in_child][:allow]).must_equal [:delete]
     end
 
     it 'stores allow PUT on CompanyApi collection index' do
       opts = CompanyApi.opts
-      _(opts[:collection][:index][:allow]).must_equal ['PUT']
+      _(opts[:collection][:index][:allow]).must_equal [:put]
     end
 
     it 'defaults to nil (POST) when no allow specified' do
@@ -52,17 +52,17 @@ describe 'HTTP method restrictions' do
 
     it 'stores single method as array' do
       opts = HttpTestApi.opts
-      _(opts[:collection][:get_allowed][:allow]).must_equal ['GET']
+      _(opts[:collection][:get_allowed][:allow]).must_equal [:get]
     end
 
     it 'stores multiple methods as array' do
       opts = HttpTestApi.opts
-      _(opts[:collection][:multi_allowed][:allow]).must_equal ['GET', 'PUT']
+      _(opts[:collection][:multi_allowed][:allow]).must_equal [:get, :put]
     end
 
     it 'stores explicit allow :get, :delete as array' do
       opts = HttpTestApi.opts
-      _(opts[:collection][:explicit_allow][:allow]).must_equal ['GET', 'DELETE']
+      _(opts[:collection][:explicit_allow][:allow]).must_equal [:get, :delete]
     end
   end
 
@@ -95,9 +95,10 @@ describe 'HTTP method restrictions' do
       _(response[:success]).must_equal true
     end
 
-    it 'allows POST when get: specified (POST always allowed)' do
+    it 'rejects POST when get: specified (allow replaces the POST default)' do
       response = HttpTestApi.render :get_allowed, api_host: MockApiHost.new('POST')
-      _(response[:success]).must_equal true
+      _(response[:success]).must_equal false
+      _(response[:error][:messages].first).must_include 'POST request is not allowed'
     end
 
     it 'rejects DELETE when only GET allowed' do
@@ -121,9 +122,9 @@ describe 'HTTP method restrictions' do
       _(response[:success]).must_equal true
     end
 
-    it 'allows POST when [:get, :put] specified (POST always allowed)' do
+    it 'rejects POST when [:get, :put] specified (allow replaces the POST default)' do
       response = HttpTestApi.render :multi_allowed, api_host: MockApiHost.new('POST')
-      _(response[:success]).must_equal true
+      _(response[:success]).must_equal false
     end
 
     it 'rejects DELETE when [:get, :put] specified' do
@@ -149,10 +150,16 @@ describe 'HTTP method restrictions' do
     end
   end
 
-  describe 'development mode bypasses restrictions' do
-    it 'allows any method in development mode' do
+  describe 'development mode' do
+    it 'enforces the same verbs as production' do
       response = HttpTestApi.render :post_only, api_host: MockApiHost.new('DELETE'), development: true
-      _(response[:success]).must_equal true
+      _(response[:success]).must_equal false
+    end
+  end
+
+  describe 'in-process render' do
+    it 'skips the verb check when there is no request' do
+      _(HttpTestApi.render(:get_allowed)[:success]).must_equal true
     end
   end
 end
