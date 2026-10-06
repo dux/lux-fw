@@ -692,7 +692,7 @@ Specs live under `spec/<area>_tests/` and are Minitest::Spec - named
 
 ## Status
 
-* Version: `Lux::Version.string`, from [`.version`](./.version) (a `v<commit count>` stamp written by the tracked `.githooks/pre-commit` hook; run `hammer hooks` once)
+* Version: `Lux::Version.string`, from [`.version`](./.version) (the commit count stamped dotted, `v371` -> `v3.7.1`, written by the tracked `.githooks/pre-commit` hook; run `hammer hooks` once)
 * License: MIT, (c) 2017 Dino Reic
 * GitHub: <https://github.com/dux/lux-fw>
 * Author: Dino Reic ([@dux](https://github.com/dux))
