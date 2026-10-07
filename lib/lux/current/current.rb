@@ -37,7 +37,7 @@ module Lux
         raw = if @opt.post
           @opt.post
         elsif json_request?
-          body = @request.body.tap(&:rewind).read
+          body = raw_body
           JSON.parse(body, symbolize_names: true) if body.present?
         else
           @request.POST.dup
@@ -46,11 +46,27 @@ module Lux
       end
     end
 
+    # Request body, read from rack.input once - params, post and Lux::Api all
+    # use this copy. Rewound after the read so a Rack app mounted with `map`
+    # can still read the stream itself.
+    def raw_body
+      @raw_body ||= begin
+        body = @request.body
+        body&.read.to_s.tap { body.rewind if body.respond_to?(:rewind) }
+      end
+    end
+
+    def json_request?
+      @request.media_type == 'application/json'
+    end
+
     def initialize env = nil, opts = {}
       @env     = env || '/mock'
       # body: raw request body for a mock (e.g. a JSON string with a content-type header)
       @env     = ::Rack::MockRequest.env_for(env, input: opts[:body]) if @env.is_a?(String)
       @request = ::Rack::Request.new @env
+      # lets a mounted Lux::Api find the Current that already parsed this request
+      @request.env['lux.current'] = self
 
       @opt = OPTS.new
       if opts.keys.length > 0
@@ -304,7 +320,7 @@ module Lux
     # form body, so `opt` validation sees JSON POSTs too.
     def request_params
       params = @request.params
-      body   = json_request? ? @request.body&.tap(&:rewind)&.read : nil
+      body   = json_request? ? raw_body : nil
       body   = JSON.parse(body) if body.present?
       body.is_a?(::Hash) ? params.merge(body) : params
     rescue EOFError
@@ -312,10 +328,6 @@ module Lux
     rescue Rack::BadRequest, JSON::ParserError => e
       @malformed_request = e
       {}
-    end
-
-    def json_request?
-      @request.media_type == 'application/json'
     end
   end
 end

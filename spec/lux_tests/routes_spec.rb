@@ -19,6 +19,10 @@ class ExplodingController < Lux::Controller
   def boom_via_call
     raise 'BOOM2'
   end
+
+  def denied
+    raise Lux::Policy::Error, 'DENIED'
+  end
 end
 
 class AfterMutateController < Lux::Controller
@@ -103,6 +107,14 @@ class MountedTestApi < Lux::Api
   end
 end
 
+# echoes its params; default verb is POST
+class MountedEchoApi < Lux::Api
+  unsafe
+  define :echo do
+    proc { params.to_h }
+  end
+end
+
 class BoardsController < Lux::Controller
   def root;    render text: 'boards:root';    end
   def new;     render text: 'boards:new';     end
@@ -178,6 +190,7 @@ Lux.app do
 
   map 'exploding', 'exploding#boom'
   map 'exploding-via-call', 'exploding#boom_via_call'
+  map 'exploding-denied', 'exploding#denied'
   map 'after-mutate', 'after_mutate#show'
   map 'head-length', 'head_length#show'
 
@@ -193,6 +206,7 @@ Lux.app do
   # splits the URL at the right place.
   map '/admin/api', MountedTestApi         # absolute deep path
   map 'api1',       MountedTestApi         # single segment
+  map 'echo-api',   MountedEchoApi
 
   # Fallback 404 - this used to be a bare line inside `routes do` and ran on
   # every unmatched request. Wrap in a routes callback so it still fires last.
@@ -279,6 +293,17 @@ describe 'Lux::Application' do
       _(res.status).must_equal 200
       _(res.json[:data]).must_equal 'pong'
     end
+
+    # Lux::Current reads the JSON body before the API runs; the API must take
+    # its params from there and must not escape Lux.current.params in place
+    it 'passes JSON body and query params to the API' do
+      res = Lux.render.post('/echo-api/mounted_echo/echo?q=1', body: '{"space_ref":"abc","name":"<b>"}', headers: { 'Content-Type' => 'application/json' })
+      _(res.status).must_equal 200
+      _(res.json[:data][:space_ref]).must_equal 'abc'
+      _(res.json[:data][:q]).must_equal '1'
+      _(res.json[:data][:name]).must_equal '<b>'.html_escape
+      _(Lux.current.params[:name]).must_equal '<b>'
+    end
   end
 
   describe 'verb-scope and subdomain blocks' do
@@ -313,6 +338,12 @@ describe 'Lux::Application' do
     res = Lux.render.get('/exploding-via-call')
     _(res.status).must_equal 500
     _(res.body).must_equal 'APP-CATCH(500): BOOM2'
+  end
+
+  it 'answers a policy denial with 403, not 500' do
+    res = Lux.render.get('/exploding-denied')
+    _(res.status).must_equal 403
+    _(res.body).must_equal 'APP-CATCH(403): DENIED'
   end
 
   it 'fires Application :after BEFORE headers, so content-length matches the mutated body' do

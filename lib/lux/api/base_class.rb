@@ -445,12 +445,15 @@ module Lux
         @@opts = {}
       end
 
+      # escaped copy - the source may be Lux.current.params, which must stay raw
       def make_hash_html_safe hash
-        (hash || {}).each do |k, v|
+        (hash || {}).to_h.transform_values do |v|
           if v.is_hash?
             make_hash_html_safe v
           elsif v.class == String
-            hash[k] = v.html_escape
+            v.html_escape
+          else
+            v
           end
         end
       end

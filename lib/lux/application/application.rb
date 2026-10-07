@@ -178,7 +178,14 @@ module Lux
     #   3. Framework default → Lux::Error.render (server-dump style)
     # If anything in 1 or 2 raises, Lux.call's outer rescue returns a low-level Rack tuple.
     def render_error err
-      Lux.error.log err
+      # a policy denial (`can.read!`) is an expected 403, not a server error -
+      # same as Lux::Api::Response.client_error?
+      if defined?(Lux::Policy::Error) && err.is_a?(Lux::Policy::Error)
+        lux.response.status 403 unless lux.response.status.to_i >= 400
+      else
+        Lux.error.log err
+      end
+
       # Lux.error helpers set lux.response.status before raising; honour that.
       # Anything else (raw StandardError) defaults to 500.
       status = lux.response.status.to_i

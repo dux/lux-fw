@@ -91,9 +91,11 @@ module Lux
         else
           response.header['Content-Type'] = 'application/json' if response
 
-          body     = request.body ? request.body.read.to_s : ''
-          request.body.rewind if request.body.respond_to?(:rewind)
-          body     = body[0] == '{' ? JSON.parse(body) : nil
+          # Lux::Current already parsed the query string and the form or JSON
+          # body; a standalone mount (no Lux app around it) builds its own
+          current = request.env['lux.current'] || Lux::Current.new(request.env)
+          raise current.malformed_request if current.malformed_request
+          params  = current.params
 
           # class: klass, params: params, bearer: bearer, request: request, response: response, development: development
           opts = {}
@@ -109,25 +111,23 @@ module Lux
           # (b) a plain params object - use URL path for class+action, body for
           #     params. This matches what fetch(path, { body: JSON.stringify(...) })
           #     looks like in the wild.
-          is_rpc_envelope = body && (body['class'] || body['action'])
+          is_rpc_envelope = current.json_request? && (params['class'] || params['action'])
 
           action =
           if is_rpc_envelope
-            opts[:params] = body['params'] || {}
-            opts[:bearer] ||= body['token'] if body['token']
-            opts[:class]  = body['class']
+            opts[:params] = params['params'] || {}
+            opts[:bearer] ||= params['token'] if params['token']
+            opts[:class]  = params['class']
 
             # resource ref (member actions); 'ref' is canonical, 'id' is alias
-            ref = body['ref']
-            ref = body['id'] if ref.nil?
+            ref = params['ref']
+            ref = params['id'] if ref.nil?
             opts[:id] = ref unless ref.nil?
 
-            body['action']
+            params['action']
           else
-            opts[:params] = body || request.params || {}
-            if opts[:params].is_hash?
-              opts[:bearer] ||= opts[:params]['api_token'] || opts[:params][:api_token]
-            end
+            opts[:params] = params
+            opts[:bearer] ||= params['api_token']
 
             mount_on = mount_on+'/' unless mount_on.end_with?('/')
             path     = request.url.split(mount_on, 2).last.split('?').first.to_s
