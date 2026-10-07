@@ -31,7 +31,7 @@ describe 'web_common exception hook' do
     err = RuntimeError.new('hooked')
     err.set_backtrace([@root.join('app/foo.rb:7:in `bar\'').to_s])
 
-    Lux::ErrorProxy.log_custom(err)
+    Lux.error.log(err)
 
     _(rows.length).must_equal 1
     _(rows.first['message']).must_equal 'hooked'

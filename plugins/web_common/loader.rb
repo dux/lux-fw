@@ -13,8 +13,4 @@
 
 # Persist framework-internal `Lux.error.log` calls as JSON lines in
 # log/app.exceptions.log (read by dboss).
-module Lux::ErrorProxy
-  def self.log_custom(err)
-    ExceptionWriter.new(err).write
-  end
-end
+Lux.error.on_log { |err| ExceptionWriter.new(err).write }

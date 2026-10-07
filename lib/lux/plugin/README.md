@@ -89,10 +89,6 @@ plugins:
 # plugins/foo/loader.rb -- explicit entry, runs before load/
 require_relative 'lib/some_low_level_thing'
 
-Lux.config.on_reload_code do
-  # ...
-end
-
 # plugins/foo/load/foo.rb -- auto-required
 class Foo
   def self.do_it; ...; end

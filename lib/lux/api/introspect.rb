@@ -52,7 +52,8 @@ module Lux
           %i(collection member).each do |type|
             (klass.opts[type] || {}).each_value do |mopts|
               (mopts[:params] || {}).each_value do |o|
-                yield o[:model] if o[:type].to_s == 'model' && o[:model].is_a?(Lux::Schema)
+                schema = model_schema(o)
+                yield schema if schema
               end
             end
           end
@@ -65,11 +66,17 @@ module Lux
       def serialize_params params
         return nil unless params
         params.transform_values do |o|
-          next o unless o[:type].to_s == 'model' && o[:model].is_a?(Lux::Schema)
-          base = o.reject { |k, _| k == :model }
-          o[:model].klass ? base.merge(schema: o[:model].klass.to_s.underscore)
-                          : base.merge(fields: strip_pk(o[:model].rules))
+          schema = model_schema(o) or next o
+          base   = o.reject { |k, _| k == :model }
+          schema.klass ? base.merge(schema: schema.klass.to_s.underscore)
+                       : base.merge(fields: strip_pk(schema.rules))
         end
+      end
+
+      # a model param names its schema inline (Lux::Schema) or by name (model: :company)
+      def model_schema o
+        return unless o[:type].to_s == 'model'
+        o[:model].is_a?(Lux::Schema) ? o[:model] : Lux.schema?(o[:model])
       end
 
       def apis mount_on
@@ -87,6 +94,7 @@ module Lux
             desc:       class_opts[:desc],
             detail:     class_opts[:detail],
             icon:       class_opts[:icon],
+            auth:       (true if class_opts[:auth]),
             schema_ref: class_schema_ref(klass, schemas_map),
             collection: methods_for(klass, :collection, mount_on, api_name),
             member:     methods_for(klass, :member,     mount_on, api_name)
@@ -143,7 +151,8 @@ module Lux
             desc:       cleaned[:desc],
             detail:     cleaned[:detail],
             params:     serialize_params(cleaned[:params]),
-            schema_ref: schema_ref
+            schema_ref: schema_ref,
+            unsafe:     (true if cleaned[:unsafe])
           }.compact
         end
 

@@ -28,8 +28,16 @@ class FilesController < ApplicationController
     response.cache.stale_while_revalidate = 1.hour
     response.no_store                             # disables cache + Set-Cookie
 
-    # --- etag (returns 304 + halts on If-None-Match match) ------------
-    response.etag :report, Report.max(:updated_at)
+    # --- conditional GET (true + 304 when the client copy is fresh) ----
+    # If-None-Match is compared weakly over its list (and `*`); without it,
+    # If-Modified-Since is checked against last_modified. 2xx GET/HEAD
+    # responses get an automatic body etag.
+    return if response.etag :report, Report.max(:updated_at)
+    return if response.etag @post, last_modified: @post.updated_at
+
+    # --- cookies (sent beside the session cookie, same cache rules) ---
+    response.cookie 'theme', 'dark', max_age: 1.year   # Path=/, HttpOnly, SameSite=Lax, Secure on https
+    response.cookie 'theme', nil                       # delete
 
     # --- file download / inline ---------------------------------------
     response.send_file './tmp/report.pdf'                   # download
@@ -71,6 +79,10 @@ class FilesController < ApplicationController
     response.stream(MyIterableBody.new)           # body responds to .each(yields strings)
     response.streaming?                           # true after .sse / .stream
 
+    # hand-rolled event stream, e.g. LLM tokens without channels
+    response.headers['content-type'] = 'text/event-stream'
+    response.stream(Enumerator.new { |y| llm.each_token { y << Lux::Response::Sse.frame({ t: _1 }, event: :token) } })
+
     # --- dispatch to a mounted Rack app -------------------------------
     response.rack RackApp, mount_at: '/api'
   end
@@ -80,7 +92,7 @@ end
 ## Cache rules
 
 * Default: **private, must-revalidate, max-age=0**.
-* Public cache never emits `Set-Cookie`.
+* Public cache never emits `Set-Cookie` (session or `response.cookie`).
 * Any flash forces private.
 * `no_store` suppresses cache + session cookie (use for sensitive responses).
 

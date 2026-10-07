@@ -185,7 +185,12 @@ member endpoints.
 * `/<mount_on>/sys/guide`      - the same guide as a sys action
 * `/<mount_on>/sys/md`         - raw markdown of the guide, always `text/markdown`
 * `/<mount_on>/sys/web`        - interactive HTML explorer (Lux::Api::Web)
-* `/<mount_on>/sys/openapi.json` - OpenAPI 3 schema
+* `/<mount_on>/sys/openapi.json` - OpenAPI 3 schema. Field shapes come from
+  `Lux::Type#json_schema` (`:email` -> `format: email`, `max:` -> `maxLength`),
+  arrays and named models (`components/schemas` + `$ref`), `{ref}` path params,
+  GET params in the query, the 200/400 envelope with every `error.code`, and
+  bearer auth on non-`unsafe` endpoints of a class with an `auth` hook. Cached
+  per mount unless `Lux.reload?`
 * `/<mount_on>/sys/postman.json` - Postman collection
 * `/<mount_on>/sys/AGENTS.md`   - LLM-readable surface of every endpoint
 

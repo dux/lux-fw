@@ -15,6 +15,8 @@ module LuxAssets
   module_function
 
   def auto_assets
+    return unless own_pipeline?
+
     # Materialise a host rollup.config.js supplied by a plugin mount before the
     # Procfile's rollup watcher starts (module resolution needs a real file in
     # the app root, not a gem path).
@@ -171,6 +173,8 @@ module LuxAssets
   # overlay - resolving through Lux.root would return the app copy itself and
   # freeze the app on the first version it ever materialized.
   def sync_rollup_config
+    return unless own_pipeline?
+
     src = Lux::Root.overlays.map { _1.join('rollup.config.js') }.find(&:file?)
     return unless src
 
@@ -180,6 +184,13 @@ module LuxAssets
 
     dst.write(content)
     Lux.shell.info "  rollup.config.js ← #{src}"
+  end
+
+  # Only an app with its own app/assets/auto tree runs the generated pipeline.
+  # Without one the app writes its own entry files and rollup.config.js, and the
+  # plugin mount must not regenerate auto-*.tmp.* or overwrite that config.
+  def own_pipeline?
+    Lux.root.join('app/assets/auto').directory?
   end
 
   def get_files(folder, ext)

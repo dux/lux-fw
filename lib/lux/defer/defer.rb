@@ -21,11 +21,12 @@ module Lux
       def submit context: nil, timeout: nil, &block
         raise ArgumentError, 'Block not given' unless block
 
-        context   = Lux.current.dup if context.nil?
+        snapshot  = Lux.current.snapshot
+        context   = snapshot if context.nil?
         timeout ||= Lux.config.delay_timeout
         raise 'Timeout is not numeric (seconds)' unless timeout.is_a?(Numeric)
 
-        job = build_job(block, context, timeout)
+        job = build_job(block, context, snapshot, timeout)
 
         ensure_worker
 
@@ -57,14 +58,16 @@ module Lux
       # StandardError and can be silently rescued by inner `rescue => e`
       # blocks - we only know for sure a timeout fired by measuring elapsed
       # time, not by the exception class that bubbles out.
-      def build_job block, context, timeout
+      def build_job block, context, snapshot, timeout
         -> do
           started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           begin
+            seed_current snapshot
             ::Timeout::timeout(timeout) do
               block.arity == 0 ? block.call : block.call(context)
             end
           rescue => e
+            Lux.error.log e
             elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
             if elapsed >= timeout
               log.error 'Lux.defer timeout after %.2fs / %ss limit (rescued %s: %s)' % [
@@ -77,6 +80,16 @@ module Lux
             Thread.current[:lux] = nil
           end
         end
+      end
+
+      # Fresh Lux.current that keeps the submitting request's id, method and
+      # URL (logs and exception records point back at it) and its user, via
+      # the app's User.current= when it has one. Session, params and response
+      # are not carried over.
+      def seed_current snapshot
+        current = Lux::Current.new snapshot.url, method: snapshot.request_method, headers: { 'X-Request-Id' => snapshot.request_id }
+        ::User.current = snapshot.user if snapshot.user && ::User.respond_to?(:current=)
+        current
       end
 
       def ensure_worker

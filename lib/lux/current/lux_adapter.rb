@@ -10,19 +10,17 @@ module Lux
   # idle. If the queue is saturated the job runs inline in the caller
   # (caller-runs overflow) - work is never dropped.
   #
-  # The parent request context is NOT silently installed inside the worker;
-  # it is passed as an explicit argument (a shallow dup of Lux.current) so
-  # the caller decides what to read from it. Zero-arity blocks stay
-  # compatible.
+  # The live request is never shared with the worker. Lux.current inside is
+  # rebuilt from Lux.current.snapshot (request id, method, url, user), and the
+  # block gets that frozen snapshot unless an explicit context is passed.
   #
   #   Lux.defer do |ctx|
-  #     # ctx is Lux.current.dup from the parent thread
-  #     # Lux.current inside this thread is a fresh instance
+  #     # ctx.request_id / ctx.request_method / ctx.url / ctx.ip / ctx.user
   #   end
   #
   #   Lux.defer(context: user) { |u| Mailer.welcome(u).deliver }
   #
-  # Errors and timeouts are logged to Lux.logger(:defer_worker).
+  # Errors and timeouts go to Lux.logger(:defer_worker) and Lux.error.log.
   def defer context: nil, timeout: nil, &block
     Lux::Defer.submit(context: context, timeout: timeout, &block)
   end

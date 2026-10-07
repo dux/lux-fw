@@ -120,6 +120,12 @@ describe 'Lux::Controller allow / HTTP verb enforcement' do
       _(Lux.current.response.status).must_equal 405
     end
 
+    it 'names the accepted verbs in the Allow header on 405' do
+      Lux::Current.new('http://test/show', method: 'POST')
+      _{ GetDefaultController.action(:show) }.must_raise Lux::Error
+      _(Lux.current.response.headers['allow'].split(', ').sort).must_equal %w[GET HEAD OPTIONS]
+    end
+
     it 'rejects PUT, PATCH, DELETE with 405' do
       %w(PUT PATCH DELETE).each do |verb|
         Lux::Current.new('http://test/show', method: verb)

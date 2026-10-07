@@ -62,13 +62,11 @@ module Lux
         end
 
         if @opt.content
-          etag Lux::Utils::Crypt.sha1 @opt.content
+          response.etag Lux::Utils::Crypt.sha1(@opt.content)
         else
           raise Lux.error 404, Lux.debug?('404 Not Found') { 'File not found: %s' % @opt.file } unless @opt.file.exist?
-          file_mtime = @opt.file.mtime.utc.to_s
           @opt.content = @opt.file.read
-          response.headers['last-modified'] = file_mtime
-          etag Lux::Utils::Crypt.sha1(@opt.path + (@opt.content || file_mtime.to_s))
+          response.etag Lux::Utils::Crypt.sha1(@opt.path + @opt.content), last_modified: @opt.file.mtime
         end
 
         response.headers['access-control-allow-origin'] ||= '*'
@@ -77,17 +75,6 @@ module Lux
           ::Rack::Mime.mime_type(".#{@opt.ext}", 'application/octet-stream')
         )
         response.body @opt.content
-      end
-
-      private
-
-      def etag key
-        quoted = '"%s"' % key
-        response.headers['etag'] = quoted
-        if request.env['HTTP_IF_NONE_MATCH'] == quoted
-          response.status = 304
-          response.body   = ''
-        end
       end
     end
   end

@@ -20,6 +20,8 @@ class BoardsController < ApplicationController
   helper :boards                               # helper module, else falls back to layout
   template_root './apps/admin/views'           # override default ./app/views
 
+  # a before / before_action filter that renders or redirects ends its chain
+  # (later filters and the action are skipped); `after` still runs
   before { @user = User.current or Lux.error.unauthorized }
   before_action { |name| Lux.log "running #{name}" }
   before_render { ... }                        # right before template render
@@ -142,7 +144,8 @@ render html: '...', cache: 'key/v1'
 
 Every action accepts `GET`, `HEAD`, and `OPTIONS` by default. An `allow` line REPLACES
 that default with the verbs it lists - it is not additive. Anything not in
-the set returns `405 Method Not Allowed` (with a developer hint in dev mode).
+the set returns `405 Method Not Allowed` with an `Allow` header naming the
+accepted verbs (and a developer hint in dev mode).
 
 ```ruby
 allow :post              # POST only (no GET)

@@ -101,6 +101,20 @@ end
 opt :age, type: :positive_integer, allow_zero: true
 ```
 
+`json_schema` describes the wire value for generated docs (OpenAPI). It is
+derived from `db_schema`: the column kind picks the JSON type, a string limit
+becomes `maxLength`, `min`/`max` become lengths or bounds. A type with a
+standard string format only names it:
+
+```ruby
+def json_format
+  'email'          # EmailType; UrlType says 'uri', UuidType 'uuid'
+end
+
+Lux::Type.load(:email).new(nil).json_schema
+# => { 'type' => 'string', 'format' => 'email', 'maxLength' => 120 }
+```
+
 Inside `coerce`, a type also sees `stored_value` - the value currently persisted for
 that field (from the Sequel `:dirty` baseline). It is `nil` for new rows, param-hash
 validation and nested schemas. Types that need to merge or prune against prior state

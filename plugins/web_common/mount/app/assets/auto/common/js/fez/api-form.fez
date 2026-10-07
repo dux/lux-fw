@@ -81,12 +81,14 @@
       // the terminal one included. We cannot tell a finished run from a running one,
       // so report the gap and stop watching rather than hang. onConnectionChange fires
       // at once with 'closed' until the socket opens - only a close after open is a drop.
+      // 'resync' is the server losing frames while the socket stayed open.
       let wasOpen = false
       let dropped = false
 
       const onState = state => {
-        if (state != 'open') return (dropped = wasOpen)
-        if (!dropped) return (wasOpen = true)
+        if (state == 'closed') return (dropped = wasOpen)
+        if (state == 'open' && !dropped) return (wasOpen = true)
+        if (!wasOpen) return
         stop()
         Toast.warning('Connection dropped - the result may be incomplete. Refresh to check.')
       }

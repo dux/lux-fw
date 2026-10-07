@@ -53,12 +53,13 @@ describe 'Lux.error' do
     Lux.instance_variable_set(:@default_logger, prev)
   end
 
-  def with_log_custom(custom)
-    prev = Lux::ErrorProxy.method(:log_custom)
-    Lux::ErrorProxy.define_singleton_method(:log_custom, &custom)
+  def with_reporter(reporter)
+    prev = Lux::ErrorProxy::REPORTERS.dup
+    Lux::ErrorProxy::REPORTERS.clear
+    Lux.error.on_log(&reporter)
     yield
   ensure
-    Lux::ErrorProxy.define_singleton_method(:log_custom) { |error| prev.call(error) }
+    Lux::ErrorProxy::REPORTERS.replace(prev)
   end
 
   def with_debug_mode(value)
@@ -184,10 +185,10 @@ describe 'Lux.error' do
       end
     end
 
-    it 'runs the custom logger hook with the error' do
+    it 'runs the on_log reporter with the error' do
       seen = []
 
-      with_log_custom(proc { |error| seen << error }) do
+      with_reporter(proc { |error| seen << error }) do
         with_error_log_buffer do
           error = StandardError.new('boom')
           Lux.error.log(error)
@@ -201,7 +202,7 @@ describe 'Lux.error' do
       seen = []
 
       with_debug_mode(true) do
-        with_log_custom(proc { |error| seen << error }) do
+        with_reporter(proc { |error| seen << error }) do
           with_error_log_buffer do |buf|
             error = StandardError.new('boom')
             error.set_backtrace(["#{Lux.root}/app/models/thing.rb:10:in `run'"])
@@ -226,13 +227,30 @@ describe 'Lux.error' do
       end
     end
 
-    it 'does not let custom logger failures escape' do
-      with_log_custom(proc { |_error| raise 'custom failed' }) do
-        with_error_log_buffer do |buf|
-          Lux.error.log(StandardError.new('boom'))
+    it 'does not let reporter failures escape or stop other reporters' do
+      seen = []
 
-          _(buf.string).must_include 'Lux.error.log_custom failed: RuntimeError: custom failed'
+      with_reporter(proc { |_error| raise 'custom failed' }) do
+        Lux.error.on_log { |error| seen << error }
+
+        with_error_log_buffer do |buf|
+          error = StandardError.new('boom')
+          Lux.error.log(error)
+
+          _(buf.string).must_include 'Lux.error reporter failed: RuntimeError: custom failed'
+          _(seen).must_equal [error]
         end
+      end
+    end
+
+    it 'replaces a reporter registered again from the same place' do
+      seen = []
+
+      with_reporter(proc {}) do
+        2.times { Lux.error.on_log { |error| seen << error } }
+        Lux.error.log(StandardError.new('once'))
+
+        _(seen.length).must_equal 1
       end
     end
   end

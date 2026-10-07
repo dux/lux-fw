@@ -40,6 +40,11 @@ LuxJob.class_eval do
   define :long_report, every: 1.day, timeout: 300 do
     Report.generate_all
   end
+
+  # Give up after 3 failed attempts instead of MAX_RETRIES
+  define :webhook, retries: 3 do |opts|
+    Webhook.deliver opts[:url]
+  end
 end
 
 # Initialize recurring jobs (creates DB records)
@@ -62,8 +67,14 @@ lux job_runner:start
 Or programmatically:
 
 ```ruby
-LuxJob.run  # blocks; uses LISTEN + advisory lock on one pinned connection
+LuxJob.run   # blocks; uses LISTEN + advisory lock on one pinned connection
+LuxJob.stop  # from another thread or a trap: finish the job in flight, then exit
 ```
+
+`lux job_runner:start` traps `TERM`/`INT` and calls `LuxJob.stop`, so a deploy
+lets the running job finish instead of killing it. A job still marked running
+when the runner takes the lock was cut off by a hard kill; the runner re-queues
+it on startup, so delivery is at-least-once - keep jobs idempotent.
 
 ### Web Dashboard
 
@@ -140,6 +151,7 @@ Failed jobs are automatically rescheduled with 60% exponential backoff:
 - 2nd retry: 96s
 - 3rd retry: ~154s
 - ...up to 7 retries (~43 min total), then marked as permanently failed.
+  `define :name, retries: N` sets a different limit for one job.
 
 Jobs that exceed their timeout are treated as failures and follow the same retry logic.
 

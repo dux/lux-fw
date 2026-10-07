@@ -20,13 +20,6 @@ Lux.reloader.run              # reload anything modified since last check
 
 reload!                       # equivalent inside the console session
 
-# --- post-reload hook --------------------------------------------------
-
-# In a plugin loader or config/initializers/lux.rb
-Lux.config.on_reload_code do
-  Lux.cache.delete('some/cache/key')   # invalidate things, reset connections
-end
-
 # --- environment toggles -----------------------------------------------
 
 Lux.reload?              # true in dev (default), false in prod / test
@@ -35,11 +28,14 @@ Lux.reload = false       # turn off at runtime
 
 ## Scope
 
+* Runs before the app `before` callbacks, so filters see the saved code.
+* One reload at a time (mutex) - concurrent puma threads wait.
+* Registers autoloads for files added under `app/` since boot
+  (`Lux::Root.autoload!`), so a new model works without a restart.
 * Watches `$LOADED_FEATURES`.
 * Skips files under any `Gem.path` entry (installed gems).
 * Skips hidden files (paths containing `/.`).
 * Triggers `load` on each modified file (`require` would no-op).
-* Runs `Lux.config.on_reload_code` block if defined.
 
 Methods removed from source linger until full restart (because `load`
 reopens; it doesn't undefine). Live with it; it's the price of keeping
@@ -61,4 +57,3 @@ existing references valid.
 ## See also
 
 * [`../environment/README.md`](../environment/README.md) - `Lux.reload?`
-* [`../boot/config/README.md`](../boot/config/README.md) - `on_reload_code` hook

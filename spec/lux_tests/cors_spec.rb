@@ -49,6 +49,16 @@ describe Lux::Response::Cors do
       _(r.headers['vary']).must_include 'Origin'
     end
 
+    it 'echoes an Origin matched by a Regexp in the list' do
+      r = build_response(origin: 'https://tenant-1.example.com')
+      Lux::Response::Cors.apply r, origins: [%r{\Ahttps://[\w-]+\.example\.com\z}]
+      _(r.headers['access-control-allow-origin']).must_equal 'https://tenant-1.example.com'
+
+      r = build_response(origin: 'https://example.com.evil.net')
+      Lux::Response::Cors.apply r, origins: [%r{\Ahttps://[\w-]+\.example\.com\z}]
+      _(r.headers['access-control-allow-origin']).must_be_nil
+    end
+
     it 'omits the header when Origin is not on the list' do
       r = build_response(origin: 'https://evil.example')
       Lux::Response::Cors.apply r, origins: %w[https://app.example.com]

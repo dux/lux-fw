@@ -1,6 +1,7 @@
 require 'fileutils'
 require 'securerandom'
 require 'bundler'
+require_relative 'lib/agents_md'
 
 task :new do
   desc 'Create, set up and start a new Lux application'
@@ -67,6 +68,9 @@ task :new do
         say.green '  link    %s/.libs/%s -> %s' % [name, gem_name, source]
       end
     end
+
+    LuxAgentsMd.write target, framework
+    say.green '  create  %s/AGENTS.md' % name
 
     puts
     say.yellow 'Setting up %s...' % name

@@ -10,4 +10,8 @@ class Lux::Type::UuidType < Lux::Type
   def db_schema
     [:string, { limit: 36 }]
   end
+
+  def json_format
+    'uuid'
+  end
 end

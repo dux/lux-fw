@@ -13,12 +13,23 @@ HTTP-shaped renders (`get`/`post`/...) and lower-level renders
 ```ruby
 # --- full-page render (drives Lux.app like a real HTTP request) --------
 
-page = Lux.render.get('/about')
-page.body                          # body string
-page.status                        # HTTP code
+page = Lux.render.get('/about')     # Lux::Application::Page
+page.body                          # body string, always raw
+page.json                          # parsed body (Lux::Hash for an object)
+page.status                        # HTTP code (Integer)
+page.ok?                           # 2xx
+page.redirect_to                   # Location header, or nil
 page.headers                       # response headers
 page.session                       # post-request session
 page.time                          # '5ms'
+
+# carry the session from call to call, like a browser tab
+client = Lux.render.client
+client.post '/login', params: { email: 'a@b.c' }
+client.get('/dashboard').status
+
+# raw JSON body (merged into lux.params like a form body)
+Lux.render.post('/items', body: '{"name":"x"}', headers: { 'Content-Type' => 'application/json' })
 
 page = Lux.render.get('/search',
   query_string: { q: 'london' },
@@ -69,7 +80,7 @@ helper.link_to 'Home', '/'
 lux render /about                            # render and print body
 lux render /search -p q=london               # with params
 lux render /api/users/show -m post -t TOKEN  # POST with bearer
-lux render /admin -s user_id=1 -i            # session + full info hash
+lux render /admin -s user_id=1 -i            # status, headers, session, time, dispatch
 ```
 
 ## Page `<head>` builder

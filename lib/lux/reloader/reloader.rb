@@ -11,8 +11,24 @@ module Lux
 
     @last_check ||= Time.now
     @gem_paths  ||= Gem.path.map { |p| File.expand_path(p) + '/' }
+    @mutex      ||= Mutex.new
 
+    # One reload at a time: puma threads would otherwise `load` the same file
+    # concurrently and see half-defined classes.
     def run source = nil
+      @mutex.synchronize { reload source }
+    end
+
+    private
+
+    def reload source
+      # Stamp before scanning, so a save landing mid-reload is seen next time.
+      started = Time.now
+
+      # Files added since boot are not in $LOADED_FEATURES yet; register
+      # autoloads for them (existing constants are skipped).
+      Lux::Root.roots.each { Lux::Root.autoload! _1 }
+
       watched_files = $LOADED_FEATURES
         .reject { |f| f.include?('/.') }
         .reject { |f| @gem_paths.any? { |g| f.start_with?(g) } }
@@ -35,7 +51,7 @@ module Lux
         end
       end
 
-      @last_check = Time.now
+      @last_check = started
     end
   end
 end

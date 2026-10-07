@@ -39,15 +39,14 @@ task :render do
       cookies:  parse_pairs.(opts[:cookie])
     }
 
-    data = Lux.app.new(env, render_opts).render_page
+    page = Lux.app.new(env, render_opts).render_page
 
     if opts[:info]
-      data[:body] = 'BODY length: %s kB' % (data[:body].to_s.length.to_f / 1024).round(1)
-      data[:dispatch] = Lux.current.var[:dispatch]
-      puts data.to_h.to_jsonp
+      data = page.to_h.merge(time: page.time, dispatch: Lux.current.var[:dispatch])
+      data[:body] = 'BODY length: %s kB' % (page.body.length.to_f / 1024).round(1)
+      puts data.to_jsonp
     else
-      body = data[:body]
-      puts body.is_a?(String) ? body : JSON.pretty_generate(body)
+      puts page.headers['content-type'].to_s.include?('/json') ? JSON.pretty_generate(page.json) : page.body
     end
   end
 end

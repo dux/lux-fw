@@ -19,4 +19,8 @@ class Lux::Type::EmailType < Lux::Type
       limit: opts[:max] || 120
     }]
   end
+
+  def json_format
+    'email'
+  end
 end

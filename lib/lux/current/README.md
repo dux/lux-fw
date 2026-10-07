@@ -55,12 +55,14 @@ class UsersController < ApplicationController
     token = current.encrypt(@user.id)
     current.decrypt(token)
 
-    # --- background thread (clean Lux.current inside) -------------------
+    # --- background thread (Lux.current rebuilt from a snapshot) --------
     Lux.defer(context: @user) { |u| Mailer.deliver(:welcome, u.email) }
-    Lux.defer { |ctx| Audit.track(ctx.user) }                  # ctx = Lux.current.dup
+    Lux.defer { |ctx| Audit.track(ctx.user, ctx.url) }         # ctx = Lux.current.snapshot
 
     # --- request meta ----------------------------------------------------
-    current.ip               # client IP (CF / X-Forwarded-For / REMOTE_ADDR)
+    current.ip               # client IP (CF-Connecting-IP, else Rack#ip: XFF behind trusted proxies only)
+    current.request_id       # X-Request-Id if sane, else random; echoed as x-request-id
+    current.snapshot         # frozen { request_id, request_method, url, ip, user }
     current.host             # scheme://host:port
     current.uid              # unique id per call (each call returns a new id)
     current.bearer_token     # Authorization: Bearer <token>
@@ -94,6 +96,7 @@ end
 | `locale`          | symbol/string | i18n hook |
 | `env`             | hash | Rack env |
 | `ip`              | string | client IP |
+| `request_id`      | string | upstream `X-Request-Id` or a random id; echoed in the response, exception records and `Lux.defer` |
 | `host`            | string | scheme://host:port |
 | `uid`             | string | unique id per call |
 | `bearer_token`    | string | `Authorization: Bearer <token>` |
@@ -110,7 +113,7 @@ end
 | `current.once(key) { ... }`     | runs once per request; subsequent calls return false |
 | `current.encrypt(data, ttl:)`   | JWT-encrypt, IP-bound by default |
 | `current.decrypt(token)`        | |
-| `Lux.defer { \|ctx\| ... }`     | bg thread; `ctx` = `Lux.current.dup`, fresh `Lux.current` inside |
+| `Lux.defer { \|ctx\| ... }`     | bg thread; `ctx` = `Lux.current.snapshot`; `Lux.current` inside is rebuilt from it (request id, method, url, `User.current=`); errors go to `Lux.error.log` |
 | `Lux.defer(context: x) { \|x\| ... }` | bg thread with an explicit context value |
 | `current.files_in_use`          | Set of files touched this request |
 

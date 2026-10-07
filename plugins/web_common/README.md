@@ -55,7 +55,7 @@ Everything is wired explicitly by the app, as above.
 
 ### Exception writer
 
-Loading the plugin defines `Lux::ErrorProxy.log_custom` so framework errors
+Loading the plugin registers a `Lux.error.on_log` reporter so framework errors
 flowing through `Lux.error.log` are written as compact JSON lines to
 `<Lux.root>/log/app.exceptions.log` after the framework has handled duplicate
 suppression, screen logging and error-file logging. dboss tails that file into
@@ -105,7 +105,7 @@ document.addEventListener('api:response', ({ detail }) => {
 
 ```
 plugins/web_common/
-  loader.rb            # ErrorProxy.log_custom hook -> ExceptionWriter
+  loader.rb            # Lux.error.on_log reporter -> ExceptionWriter
   hammer/              # docker:* tasks, `lux generate` (assets:* lives in lux-fw core)
   load/
     favicon.rb           # `favicon` routing DSL

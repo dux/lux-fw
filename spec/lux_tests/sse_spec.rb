@@ -7,8 +7,10 @@ describe Lux::Response::Sse do
   after  { Lux::Browser::Channel.reset! }
 
   def format channel, data
-    Body.new([]).send(:format_event, channel, data)
+    Lux::Response::Sse.frame({ channel: channel, data: data })
   end
+
+  HANDSHAKE ||= /\Aretry: \d{4}\n: connected\n\n\z/
 
   # #each never returns on its own - it blocks on the queue until the client
   # goes away. Run it on a thread, wait for the frames we expect, then kill it.
@@ -62,7 +64,8 @@ describe Lux::Response::Sse do
       Lux::Browser::Channel['test:foo'].push('a')
 
       frames = frames_for Body.new(['test:foo'])
-      _(frames).must_equal [": connected\n\n"]
+      _(frames.length).must_equal 1
+      _(frames.first).must_match HANDSHAKE
     end
 
     it 'streams messages published while it is open' do
@@ -72,6 +75,46 @@ describe Lux::Response::Sse do
       end
 
       _(frames[1]).must_equal %(data: {"channel":"test:foo","data":"m1"}\n\n)
+    end
+  end
+
+  describe 'frame' do
+    it 'names an event and splits a string into data lines' do
+      _(Lux::Response::Sse.frame("a\nb", event: :token)).must_equal "event: token\ndata: a\ndata: b\n\n"
+    end
+  end
+
+  describe 'control messages' do
+    it 'ends the stream when the channel is closed' do
+      done   = Queue.new
+      thread = Thread.new { Body.new(['user:1']).each { }; done << :ended }
+
+      sleep 0.05 until Lux::Browser::Channel.subscriber_count('user:1') == 1
+      Lux::Browser::Channel['user:1'].close
+
+      _(done.pop(timeout: 2)).must_equal :ended
+      _(Lux::Browser::Channel.subscriber_count('user:1')).must_equal 0
+    ensure
+      thread&.kill
+    end
+
+    it 'tells open streams to resync' do
+      frames = frames_for Body.new(['user:1']) do |out|
+        Lux::Browser::Channel.resync!
+        wait_for out, 2
+      end
+
+      _(frames[1]).must_equal %(data: {"resync":true}\n\n)
+    end
+
+    it 'drops a client that stopped reading instead of growing its queue' do
+      queue = Queue.new
+      Lux::Browser::Channel.subscribe('user:1', queue)
+
+      (Lux::Browser::Channel::MAX_QUEUE + 1).times { Lux::Browser::Channel['user:1'].push('x') }
+
+      _(queue.size).must_equal 1
+      _(queue.pop).must_equal Lux::Browser::Channel::CLOSE_MESSAGE
     end
   end
 

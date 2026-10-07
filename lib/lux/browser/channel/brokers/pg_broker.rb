@@ -137,13 +137,18 @@ module Lux
         private
 
         def run_loop
-          backoff = BACKOFF_MIN
+          backoff   = BACKOFF_MIN
+          connected = false
 
           until @stop
             begin
               @conn = open_conn
               @conn.async_exec('LISTEN %s' % PG_CHANNEL)
               backoff = BACKOFF_MIN
+
+              # NOTIFYs sent while we were down are gone; let open streams know
+              Lux::Browser::Channel.resync! if connected
+              connected = true
 
               until @stop
                 @conn.wait_for_notify(5) do |_chan, _pid, payload|

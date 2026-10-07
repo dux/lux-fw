@@ -62,13 +62,12 @@ Lux::Error.format(exception, html: true, gems: false, message: true)
 
 # --- logging -------------------------------------------------------------
 
-Lux.error.log(exception)             # screen + error log + custom hook
+Lux.error.log(exception)             # screen + error log + every on_log reporter
 
-module Lux::ErrorProxy
-  def self.log_custom(error)          # optional app/plugin persistence hook
-    MyExceptionStore.add error
-  end
-end
+# register any number of reporters (web_common adds the exceptions log);
+# each runs in its own rescue, re-registering from the same line replaces it
+Lux.error.on_log { |error| MyExceptionStore.add error }
+Lux.error.on_log { |error| Sentry.capture_exception error }
 ```
 
 ## Resolution order on raise

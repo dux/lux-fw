@@ -6,7 +6,7 @@ gem_files = %w[bin lib plugins assets starter].flat_map do |dir|
   Dir.glob("#{dir}/**/*", File::FNM_DOTMATCH).select do |file|
     File.file?(file) && !File.basename(file).include?('.tmp.')
   end
-end.push('.version')
+end.push('.version', 'AGENTS.md')
 
 Gem::Specification.new 'lux-fw' do |gem|
   gem.version     = Lux::Version.gem

@@ -8,7 +8,12 @@ namespace :job_runner do
       require jobs_file if File.exist?(jobs_file)
 
       LuxJob.init!
-      LuxJob.run
+
+      # Runner on its own thread so TERM/INT can let the job in flight finish
+      # (Thread#raise honours handle_interrupt; a trap on the main thread does not).
+      runner = Thread.new { LuxJob.run }
+      %w[TERM INT].each { |sig| trap(sig) { LuxJob.stop } }
+      runner.join
     end
   end
 

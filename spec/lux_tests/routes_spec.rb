@@ -271,13 +271,13 @@ describe 'Lux::Application' do
     it 'mounts a Lux::Api subclass at a deep absolute path' do
       res = Lux.render.get('/admin/api/mounted_test/ping')
       _(res.status).must_equal 200
-      _(res.body[:data]).must_equal 'pong'
+      _(res.json[:data]).must_equal 'pong'
     end
 
     it 'mounts a Lux::Api subclass at a single-segment symbol path' do
       res = Lux.render.get('/api1/mounted_test/ping')
       _(res.status).must_equal 200
-      _(res.body[:data]).must_equal 'pong'
+      _(res.json[:data]).must_equal 'pong'
     end
   end
 
@@ -300,7 +300,7 @@ describe 'Lux::Application' do
   end
 
   it 'should render js route' do
-    _(Lux.render.get('/routes_test/foo-nested.js').body[:a]).must_equal 1
+    _(Lux.render.get('/routes_test/foo-nested.js').json[:a]).must_equal 1
   end
 
   it 'dispatches errors through Application rescue_from when defined (always wins)' do

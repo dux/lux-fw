@@ -73,8 +73,8 @@ module Lux
       end
 
       # delegate to response so etag stays the canonical implementation
-      def etag *args
-        @response.etag(*args)
+      def etag *args, **kw
+        @response.etag(*args, **kw)
       end
     end
   end

@@ -10,6 +10,7 @@ You can run command `lux` in your app home folder.
 
 ```bash
 $ lux
+  lux agents      # Write or refresh the lux-fw docs pointer in ./AGENTS.md
   lux console     # Start console                                       (alias: c)
   lux evaluate    # Eval ruby string in context of Lux::Application     (alias: e, eval)
   lux generate    # Generate models, cells, ...
@@ -81,6 +82,8 @@ Setup uses the generated app's bundle and development database.
 The database step connects before it creates, so setup can be re-run over a database that already exists.
 When invoked from a local Lux checkout, the generator links every checkout the starter declares into `./.libs`: each `lgem 'name'` in the Gemfile and each `"file:.libs/name"` in `package.json`, whichever exist next to the Lux checkout.
 An installed Lux gem links nothing; `lgem` then falls back to `github dux/<name>`.
+It also writes the app's `AGENTS.md` with a marked block that points coding agents at the framework docs: `.libs/lux-fw/AGENTS.md` for a linked checkout, the installed gem's absolute path otherwise.
+`lux agents` rewrites only that block, so run it after upgrading lux-fw; the rest of the file is the app's own.
 A failed step stops setup and leaves the generated files in place.
 The server runs in the foreground at http://lvh.me:3000; press Ctrl-C to stop it.
 To restart, enter the app directory and run `bundle exec lux s`.

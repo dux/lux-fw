@@ -38,16 +38,12 @@ Lux.logger(:slow).warn  '120ms'         # any name works; created on first use
 Lux.config.logger_path_mask     = './log/%s.log'      # path pattern for named loggers
 Lux.config.logger_files_to_keep = 3                    # rotation count
 Lux.config.logger_file_max_size = 10_240_000           # 10 MB per file
+Lux.config.log_requests         = true                 # one JSON line per request -> ./log/request.log
 
 # Custom formatter for named loggers:
 Lux.config.logger_formatter do |severity, datetime, progname, msg|
   msg = "#{severity}: #{msg}" if severity != 'INFO'
   "[#{datetime.utc}] #{msg}\n"
-end
-
-# Custom output destination per logger:
-Lux.config.logger_output_location do |name|
-  Lux.env.prod? ? "./log/#{name}.log" : STDOUT
 end
 ```
 

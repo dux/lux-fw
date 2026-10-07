@@ -39,6 +39,7 @@ class ExceptionWriter
     data['tags']        = tags if tags.present?
     data['description'] = description if description.present?
     if request
+      data['request_id'] = Lux.current.request_id
       data['method']  = request.request_method
       data['url']     = request.url
       headers         = request_headers

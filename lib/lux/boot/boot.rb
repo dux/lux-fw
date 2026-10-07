@@ -48,7 +48,9 @@ module Lux
         Lux.flags.reload_env!
         bundler_require!
         Lux.config
+        declared = Lux.config.keys.map(&:to_s)
         set_defaults
+        warn_config_typos declared
 
         yield if block_given?
 
@@ -141,9 +143,22 @@ module Lux
     end
 
     def set_default key, value = nil
+      (@default_keys ||= []).push key.to_s
       return if Lux.config.key?(key)
 
       Lux.config[key] = block_given? ? yield : value
+    end
+
+    # A misspelled framework key in config.yaml is otherwise silently ignored
+    # while set_defaults fills in the real one. Unknown keys stay allowed -
+    # Lux.config doubles as Lux.secrets.
+    def warn_config_typos declared
+      checker = DidYouMean::SpellChecker.new(dictionary: @default_keys.uniq)
+
+      (declared - @default_keys).each do |key|
+        hint = checker.correct(key).first or next
+        Lux.shell.info 'Lux config: unknown key "%s", did you mean "%s"?' % [key, hint]
+      end
     end
 
     def start_info

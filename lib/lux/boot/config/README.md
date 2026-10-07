@@ -52,11 +52,9 @@ Lux.config.ref_format          = :string   # or :uuid7 - see Nav::Base.register
 Lux.config.logger_path_mask     = './log/%s.log'
 Lux.config.logger_files_to_keep = 3
 Lux.config.logger_file_max_size = 10_240_000
+Lux.config.log_requests         = true   # JSON access log in ./log/request.log (id, method, path, status, ms, ip, user)
 Lux.config.logger_formatter do |severity, datetime, _progname, msg|
   "[#{datetime.utc}] #{severity}: #{msg}\n"
-end
-Lux.config.logger_output_location do |name|
-  Lux.env.prod? ? "./log/#{name}.log" : STDOUT
 end
 
 # session
@@ -71,13 +69,6 @@ Lux.config.csrf                = false
 Lux.config.browser_namespace   = 'app'
 
 # --- hooks -------------------------------------------------------------
-
-Lux.config.on_reload_code do
-  $live_require_check ||= Time.now
-  watched = $LOADED_FEATURES.select { |f| File.exist?(f) && File.mtime(f) > $live_require_check }
-  watched.each { |f| load f }
-  $live_require_check = Time.now
-end
 
 Lux.config.on_mail_send do |mail|
   Lux.logger(:email).info "[#{self.class}.#{@_template}] #{mail.subject}"

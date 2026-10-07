@@ -19,4 +19,8 @@ class Lux::Type::UrlType < Lux::Type
   def db_schema
     [:string, {}]
   end
+
+  def json_format
+    'uri'
+  end
 end

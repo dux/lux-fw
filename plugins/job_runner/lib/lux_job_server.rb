@@ -262,7 +262,7 @@ class LuxJob
       end
 
       LuxJob.init!
-      Thread.new { LuxJob.run }.tap { |t| t.name = 'lux_job_runner' }
+      runner = Thread.new { LuxJob.run }.tap { |t| t.name = 'lux_job_runner' }
 
       # Puma prints its own banner during run!; on_booted is the first point
       # after it (and the only one where the server is actually up), so the
@@ -278,6 +278,12 @@ class LuxJob
       set :server_settings, server_settings.merge(events: events)
 
       run!
+    ensure
+      # Puma owns TERM/INT; once it has drained, let the job in flight finish.
+      if runner
+        LuxJob.stop
+        runner.join
+      end
     end
   end
 end

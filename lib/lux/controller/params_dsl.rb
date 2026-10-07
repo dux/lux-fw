@@ -162,6 +162,9 @@ module Lux
         allowed = self.class.allowed_verbs_for(@lux.action)
         return if allowed == :any || allowed.include?(verb)
 
+        # RFC 9110 15.5.6: a 405 names what the resource does accept
+        lux.response.header 'allow', allowed.to_a.map { |v| v.to_s.upcase }.join(', ')
+
         raise Lux.error.method_not_allowed Lux.debug?('405 Method Not Allowed') {
           allowed_label = allowed.to_a.map { |v| v.to_s.upcase }.join(', ')
           'Action %s#%s does not allow %s. Allowed: %s. Add `allow :%s` above the def to enable it.' %

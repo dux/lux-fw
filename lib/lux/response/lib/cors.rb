@@ -5,15 +5,16 @@ module Lux
     # Usage from inside a controller action or `before` callback:
     #
     #   response.cors :all
-    #   response.cors origins: %w[https://app.example.com],
+    #   response.cors origins: ['https://app.example.com', /\Ahttps:\/\/[\w-]+\.example\.com\z/],
     #                 methods: %i[get post],
     #                 headers: %w[Authorization Content-Type],
     #                 credentials: true,
     #                 max_age: 600
     #
-    # `:all` is shorthand for "permissive": echoes Origin (or "*" when there
-    # is none), allows the common verbs and headers, max-age 600. Cannot be
-    # combined with `credentials: true` - the spec forbids "*" + credentials.
+    # `:all` is shorthand for "permissive": sends "*", allows the common verbs
+    # and headers, max-age 600. Cannot be combined with `credentials: true` -
+    # the spec forbids "*" + credentials. A listed origin is a String compared
+    # exactly or a Regexp (anchor it); the matching Origin is echoed back.
     #
     # When the request is a CORS preflight (OPTIONS + Access-Control-Request-Method),
     # this method also sets status 204 + empty body so the response is complete
@@ -65,15 +66,16 @@ module Lux
 
       # "*"        -> "*"
       # nil        -> nil (no header)
-      # list / str -> echo Origin if it matches, else nil
+      # list / str -> echo Origin if a String equals it or a Regexp matches it, else nil
       def self.resolve_origin request, origins
         return nil if origins.nil?
         return '*' if origins == '*'
 
-        list = Array(origins).map(&:to_s)
-        req  = request.env['HTTP_ORIGIN'].to_s
+        req = request.env['HTTP_ORIGIN'].to_s
         return nil if req.empty?
-        list.include?(req) ? req : nil
+
+        allowed = Array(origins).any? { _1.is_a?(Regexp) ? _1.match?(req) : _1.to_s == req }
+        allowed ? req : nil
       end
 
       def self.format_list value

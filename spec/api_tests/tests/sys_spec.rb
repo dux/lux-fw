@@ -108,6 +108,51 @@ describe 'Lux::Api::SysApi endpoints' do
     _(op.keys).must_include :post
   end
 
+  describe 'openapi validity' do
+    def spec
+      @spec ||= JSON.parse(Lux::Api::SysApi.render(:openapi, api_host: SysMockApiHost.new(path: '/api/sys/openapi')))
+    end
+
+    def operations
+      spec['paths'].flat_map { |path, ops| ops.map { |verb, op| [path, verb, op] } }
+    end
+
+    it 'declares every path template variable as a path parameter' do
+      operations.each do |path, verb, op|
+        declared = (op['parameters'] || []).select { _1['in'] == 'path' }.map { _1['name'] }
+        _(declared.sort).must_equal path.scan(/\{(\w+)\}/).flatten.sort, "#{verb} #{path}"
+      end
+    end
+
+    it 'keeps operationIds unique' do
+      ids = operations.map { _1[2]['operationId'] }
+      _(ids.uniq.length).must_equal ids.length
+    end
+
+    it 'resolves every $ref' do
+      refs = JSON.generate(spec).scan(%r{"#/components/schemas/([^"]+)"}).flatten.uniq
+      _(refs - spec['components']['schemas'].keys).must_be_empty
+    end
+
+    it 'sends GET params in the query, never a body' do
+      operations.select { _1[1] == 'get' }.each do |_, _, op|
+        assert_nil op['requestBody']
+      end
+    end
+
+    it 'documents named types, arrays and model refs' do
+      user = spec.dig('components', 'schemas', 'user', 'properties')
+      _(user['email']).must_equal({ 'type' => 'string', 'format' => 'email', 'maxLength' => 120 })
+
+      labels = spec.dig('paths', '/api/generic/list_labels', 'post', 'requestBody', 'content', 'application/json', 'schema', 'properties', 'labels_dup')
+      _(labels['type']).must_equal 'array'
+      _(labels.dig('items', 'maxLength')).must_equal 30
+
+      company = spec.dig('paths', '/api/company/{ref}/update', 'post', 'requestBody', 'content', 'application/json', 'schema', 'properties', 'company')
+      _(company).must_equal({ '$ref' => '#/components/schemas/company' })
+    end
+  end
+
   it 'hammer returns a runnable lux-hammer client' do
     host = SysMockApiHost.new(path: '/api/sys/hammer', method: 'GET')
     src  = Lux::Api::SysApi.render(:hammer, api_host: host)

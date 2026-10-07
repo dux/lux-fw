@@ -5,6 +5,8 @@ require 'timeout'
 
 class LuxJobError < StandardError; end
 class LuxJobLockLost < StandardError; end
+# Not a StandardError, so a job's own `rescue => e` cannot swallow it.
+class LuxJobStop < Exception; end
 
 class LuxJob < ApplicationModel
   schema do
@@ -46,11 +48,12 @@ class LuxJob < ApplicationModel
   INITIAL_LOCK_WAIT_SECS ||= 120
 
   class << self
-    def define name, every: nil, timeout: nil, &block
+    def define name, every: nil, timeout: nil, retries: nil, &block
       JOBS[name] = { proc: block }
       JOBS[name][:name] = name.to_s
       JOBS[name][:every] = every if every
       JOBS[name][:timeout] = timeout || DEFAULT_TIMEOUT
+      JOBS[name][:retries] = retries || MAX_RETRIES
     end
 
     def init
@@ -85,7 +88,7 @@ class LuxJob < ApplicationModel
       end
       puts
 
-      main_thread = Thread.current
+      main_thread = @runner = Thread.current
       first_run = true
 
       # Outer loop survives lock loss (connection blip, PG restart, brief
@@ -127,6 +130,10 @@ class LuxJob < ApplicationModel
             begin
               conn.exec("LISTEN #{NOTIFY_CHANNEL}")
 
+              # The lock means no other runner exists, so a job still marked
+              # running was cut off by a kill or deploy - queue it again.
+              recover_interrupted
+
               # Initial sweep covers anything due at startup before we wait.
               process_jobs verbose: verbose
 
@@ -147,6 +154,21 @@ class LuxJob < ApplicationModel
           # loop around and try again
         end
       end
+    rescue LuxJobStop
+      Lux.shell.info 'LuxJob: stopped'
+    ensure
+      @runner = nil
+    end
+
+    # Ask the running loop to exit. A job in flight finishes first (see
+    # process_jobs); an idle runner exits at once. Safe to call from a trap.
+    def stop
+      @runner&.raise LuxJobStop
+    end
+
+    def recover_interrupted
+      count = LuxJob.where(status_sid: 'r').update(status_sid: 's', run_at: Time.now)
+      Lux.shell.info "LuxJob: re-queued #{count} interrupted job(s)" if count > 0
     end
 
     # Periodically verifies that our pinned connection still holds the
@@ -260,9 +282,9 @@ class LuxJob < ApplicationModel
         job.response = msg
         job.retry_count += 1
 
-        if job.retry_count >= MAX_RETRIES
+        if job.retry_count >= opts[:retries]
           job.status_sid = 'x'
-          job.log "PERMANENTLY FAILED after #{MAX_RETRIES} retries: #{msg}", verbose: verbose
+          job.log "PERMANENTLY FAILED after #{opts[:retries]} retries: #{msg}", verbose: verbose
         else
           delay = RETRY_BASE_WAIT * (1.6 ** (job.retry_count - 1))
           job.run_at = Time.now + delay
@@ -274,13 +296,19 @@ class LuxJob < ApplicationModel
       end
     end
 
+    # A stop request is held back until the job in flight is done, then ends
+    # the sweep before the next one starts.
     def process_jobs verbose: false
       jobs = LuxJob
         .where { run_at < Time.now }
         .exclude(status_sid: ['r', 'x'])
         .all
-      jobs.each do |job|
-        run_job job, verbose: verbose
+
+      Thread.handle_interrupt(LuxJobStop => :never) do
+        jobs.each do |job|
+          break if Thread.pending_interrupt?(LuxJobStop)
+          run_job job, verbose: verbose
+        end
       end
     end
 

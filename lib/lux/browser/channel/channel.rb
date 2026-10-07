@@ -21,9 +21,29 @@ module Lux
       @lock ||= Mutex.new
       @subs ||= {}   # channel_name (String) -> [Queue, ...]
 
+      # Published as the data, it ends every stream on the channel instead of
+      # being delivered. A String so it crosses any broker unchanged.
+      CLOSE ||= '__lux:close'
+
+      # Queue entries the SSE writer acts on instead of sending as a message.
+      CLOSE_MESSAGE  ||= { close: true }.freeze
+      RESYNC_MESSAGE ||= { resync: true }.freeze
+
+      # A client that stops reading parks its server thread in write while its
+      # queue keeps growing. Past this it is dropped instead: the stream closes,
+      # and EventSource reconnects and refetches.
+      MAX_QUEUE ||= 1000
+
       Publisher    ||= Struct.new(:name) do
         def push data
           Lux::Browser::Channel.publish(name, data)
+        end
+
+        # Ends every open stream on this channel, in every process. EventSource
+        # reconnects and session_channels runs again, so after a logout or a
+        # revoked role the browser gets only what it may still see (or a 403).
+        def close
+          Lux::Browser::Channel.publish(name, CLOSE)
         end
       end
 
@@ -68,10 +88,26 @@ module Lux
       # deliver an inbound message without bouncing it back out again.
       def local_publish name, data
         name    = name.to_s
-        message = { channel: name, data: data }
+        message = data == CLOSE ? CLOSE_MESSAGE : { channel: name, data: data }
 
         queues = @lock.synchronize { (@subs[name] || []).dup }
-        queues.each { |q| q.push(message) }
+        queues.each { |q| deliver q, message }
+      end
+
+      # Tell every local stream that messages may have been lost (a broker
+      # reconnect); the client surfaces it as onConnectionChange('resync').
+      def resync!
+        queues = @lock.synchronize { @subs.values.flatten.uniq }
+        queues.each { |q| deliver q, RESYNC_MESSAGE }
+      end
+
+      def deliver queue, message
+        if queue.size >= MAX_QUEUE
+          queue.clear
+          queue.push CLOSE_MESSAGE
+        else
+          queue.push message
+        end
       end
 
       # Attach `queue` (typically a Queue) to a channel. Returns a Subscription

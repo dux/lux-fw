@@ -21,9 +21,10 @@ describe 'lux new' do
     if installed
       gem_home = File.join(@workspace, 'gem-home')
       framework = File.join(gem_home, 'gems/lux-fw')
-      FileUtils.mkdir_p File.join(framework, 'bin/cli')
-      FileUtils.cp Lux.fw_root.join('bin/lux'), File.join(framework, 'bin/lux')
-      FileUtils.cp Lux.fw_root.join('bin/cli/new_hammer.rb'), File.join(framework, 'bin/cli/new_hammer.rb')
+      FileUtils.mkdir_p File.join(framework, 'bin/cli/lib')
+      %w[bin/lux bin/cli/new_hammer.rb bin/cli/lib/agents_md.rb AGENTS.md].each do |file|
+        FileUtils.cp Lux.fw_root.join(file), File.join(framework, file)
+      end
       File.symlink Lux.fw_root.join('starter'), File.join(framework, 'starter')
     end
     runner = <<~'CODE'
@@ -126,6 +127,8 @@ describe 'lux new' do
     assert File.symlink?(File.join(path, '.libs/lux-fw'))
     assert_equal Lux.fw_root.realpath.to_s, File.realpath(File.join(path, '.libs/lux-fw'))
     assert_includes File.read(File.join(path, 'Gemfile')), "gem 'lux-fw', path: '.libs/lux-fw'"
+    # agents get pointed at the framework docs through the linked checkout
+    assert_includes File.read(File.join(path, 'AGENTS.md')), '`.libs/lux-fw/AGENTS.md`'
 
     _, _, status = scaffold 'another-app'
     assert status.success?
@@ -138,6 +141,7 @@ describe 'lux new' do
     assert status.success?, output + errors
     path = File.join(@workspace, 'my-app')
     refute File.exist?(File.join(path, '.libs'))
+    assert_includes File.read(File.join(path, 'AGENTS.md')), File.join(@workspace, 'gem-home/gems/lux-fw/AGENTS.md')
     gemfile = File.read(File.join(path, 'Gemfile'))
     assert_includes gemfile, "gem 'lux-fw'\n"
     refute_includes gemfile, 'path:'

@@ -43,6 +43,17 @@ module Lux
 
     LOAD_CACHE ||= {}
 
+    # db_schema column kind -> JSON Schema shape of the wire value
+    JSON_KINDS ||= {
+      integer:   { 'type' => 'integer' },
+      float:     { 'type' => 'number' },
+      decimal:   { 'type' => 'number' },
+      boolean:   { 'type' => 'boolean' },
+      jsonb:     { 'type' => 'object' },
+      date:      { 'type' => 'string', 'format' => 'date' },
+      timestamp: { 'type' => 'string', 'format' => 'date-time' }
+    }
+
     class << self
       def load name
         LOAD_CACHE[name] ||= begin
@@ -159,6 +170,33 @@ module Lux
 
     def input_value
       value
+    end
+
+    # JSON Schema of the wire value (OpenAPI, clients). Derived from db_schema,
+    # so the storage width doubles as maxLength; a type with a standard string
+    # format names it in json_format.
+    def json_schema
+      kind, db = respond_to?(:db_schema) ? db_schema : [:string]
+      db ||= {}
+      out = (JSON_KINDS[kind] || { 'type' => 'string' }).dup
+      out['format'] ||= json_format if json_format
+
+      case out['type']
+      when 'string'
+        unless out['format'].to_s.start_with?('date')
+          out['minLength'] = opts[:min]
+          out['maxLength'] = opts[:max] || db[:limit]
+        end
+      when 'integer', 'number'
+        out['minimum'] = opts[:min]
+        out['maximum'] = opts[:max]
+      end
+
+      out.compact!
+      db[:array] ? { 'type' => 'array', 'items' => out } : out
+    end
+
+    def json_format
     end
 
     def to_s

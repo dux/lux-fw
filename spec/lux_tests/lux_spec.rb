@@ -71,16 +71,41 @@ describe Lux do
       _(err.message).must_match(/Block not given/)
     end
 
-    it 'defaults context to Lux.current.dup' do
-      parent = Lux::Current.new('http://test')
-      parent[:marker] = 'from-parent'
+    it 'defaults context to a frozen snapshot of the request' do
+      parent = Lux::Current.new('http://test/orders?x=1', headers: { 'X-Request-Id' => 'req-123' })
 
       received = nil
       wait_defer { |ctx| received = ctx }
 
-      _(received).must_be_kind_of Lux::Current
-      _(received.equal?(parent)).must_equal false
-      _(received[:marker]).must_equal 'from-parent'
+      _(received.frozen?).must_equal true
+      _(received.request_id).must_equal 'req-123'
+      _(received.url).must_equal 'http://test/orders?x=1'
+      _(received.request_method).must_equal 'GET'
+    end
+
+    it 'rebuilds Lux.current in the worker from the snapshot' do
+      Lux::Current.new('http://test/orders', method: :post, headers: { 'X-Request-Id' => 'req-456' })
+
+      inside = nil
+      wait_defer { inside = [Lux.current.request_id, Lux.current.request.url, Lux.current.request.request_method] }
+
+      _(inside).must_equal ['req-456', 'http://test/orders', 'POST']
+    end
+
+    it 'reports block errors through Lux.error.log' do
+      seen = Queue.new
+      prev = Lux::ErrorProxy.method(:log)
+      Lux::ErrorProxy.define_singleton_method(:log) { |err| seen << err }
+      prev_logger = Lux::LOGGER_CACHE[:defer_worker]
+      Lux::LOGGER_CACHE[:defer_worker] = Logger.new(IO::NULL)
+
+      begin
+        Lux.defer { raise 'deferred boom' }
+        _(seen.pop(timeout: 2)&.message).must_equal 'deferred boom'
+      ensure
+        Lux::ErrorProxy.define_singleton_method(:log) { |err| prev.call(err) }
+        prev_logger ? Lux::LOGGER_CACHE[:defer_worker] = prev_logger : Lux::LOGGER_CACHE.delete(:defer_worker)
+      end
     end
 
     it 'passes a custom context through untouched' do

@@ -16,6 +16,22 @@ module Lux
     module Sse
       HEARTBEAT_INTERVAL ||= 30   # seconds; sent as `: ping\n\n` to keep proxies alive
 
+      # EventSource reconnect delay, randomised per connection so a deploy does
+      # not bring every tab back in the same instant.
+      RETRY_MS ||= 1000..5000
+
+      # One SSE frame - for a hand-rolled `response.stream` body, e.g. streamed
+      # LLM tokens. A Hash/Array goes out as JSON (never breaks framing); a
+      # String is split into one `data:` line per line.
+      #
+      #   Lux::Response::Sse.frame({ token: 'Hi' }, event: :token)
+      def self.frame data, event: nil
+        lines = data.is_a?(String) ? data.split("\n", -1) : [JSON.generate(data)]
+        out   = event ? "event: #{event}\n" : +''
+        lines.each { out << "data: #{_1}\n" }
+        out << "\n"
+      end
+
       def self.apply response, *channels
         raise ArgumentError, 'sse needs at least one channel' if channels.empty?
 
@@ -39,19 +55,28 @@ module Lux
         # is open, and that is all. A tab that reconnects mid-run has missed
         # whatever went out in the gap, so send state a client can re-fetch
         # rather than deltas it must have seen.
+        #
+        # Every message frame is {channel, data} as JSON on the default message
+        # event; the client routes on the channel field, so a connection needs
+        # no per-channel listeners and never reopens. {resync: true} says
+        # messages may have been lost.
         def each
           queue = Queue.new
           subs  = @channels.map { |c| Lux::Browser::Channel.subscribe(c, queue) }
 
-          yield ": connected\n\n"
+          yield "retry: #{rand(RETRY_MS)}\n: connected\n\n"
 
           loop do
             msg = pop_with_timeout(queue, HEARTBEAT_INTERVAL)
 
-            if msg
-              yield format_event(msg[:channel], msg[:data])
-            else
+            if msg.nil?
               yield ": ping\n\n"
+            elsif msg[:close]
+              break
+            elsif msg[:resync]
+              yield Sse.frame({ resync: true })
+            else
+              yield Sse.frame({ channel: msg[:channel], data: msg[:data] })
             end
           end
         rescue IOError, Errno::EPIPE, Errno::ECONNRESET
@@ -78,16 +103,6 @@ module Lux
             end
             nil
           end
-        end
-
-        # Every frame is the same shape: {channel, data} as JSON on the default
-        # message event. The client routes on the channel field, so a connection
-        # needs no per-channel event listeners and never reopens.
-        #
-        # JSON.generate escapes newlines, so the payload cannot break framing -
-        # which a raw String payload could, since SSE needs `data: ` per line.
-        def format_event channel, data
-          "data: #{JSON.generate(channel: channel, data: data)}\n\n"
         end
       end
     end

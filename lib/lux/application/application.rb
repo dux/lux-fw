@@ -63,14 +63,19 @@ module Lux
 
     # main render called by Lux.call
     def render_base
+      if err = lux.malformed_request
+        raise Lux.error.bad_request Lux.debug?('400 Bad Request') { 'Malformed request: %s' % err.message }
+      end
+
+      # reload first, so before-filters run on the code just saved
+      if Lux.reload? && Lux.runtime.web?
+        Lux::Reloader.run
+      end
+
       # catch :done so an app-level before-filter can redirect/halt via
       # redirect_to (which throws :done); without it the throw escapes to the
       # rescue below and render_error downgrades the 302 to 500.
       catch(:done) { run_callback :before, lux.nav.path }
-
-      if Lux.reload? && Lux.runtime.web?
-        Lux::Reloader.run
-      end
 
       request_method = lux.request.request_method
 
@@ -78,7 +83,7 @@ module Lux
       Lux.log { [request_method.colorize(:white), lux.request.url].join(' ') }
 
       if lux.request.post?
-        Lux.log { lux.request.params.to_h.to_jsonp }
+        Lux.log { filter_params(lux.request.params.to_h).to_jsonp }
       end
 
       # Vanilla OPTIONS (no preflight) gets the canned allow+cache reply.
@@ -133,24 +138,38 @@ module Lux
     #   end
     extend Lux::RescueFrom
 
-    # full page render - returns response hash
+    # Finished response of a server-side render (Lux.render.get/post/...).
+    Page ||= Struct.new(:status, :headers, :body, :session) do
+      def json
+        @json ||= JSON.parse(body).then { _1.is_a?(::Hash) ? _1.to_lux_hash : _1 }
+      end
+
+      def redirect_to = headers['location']
+      def ok?         = status.between?(200, 299)
+      def time        = headers['x-lux-speed']
+    end
+
+    # full page render
     # Lux.app.new('/').render_page.body
     def render_page
       out  = @response_render ||= render_base
-      body = out[2].join('')
-      # 204/304/HEAD responses carry no content-type
-      body = JSON.parse body if out[1]['content-type'].to_s.include?('/json')
+      body = out[2].respond_to?(:join) ? out[2].join : out[2].to_a.join
 
-      {
-        body:    body,
-        time:    out[1]['x-lux-speed'],
-        status:  out[0],
-        session: lux.session.hash,
-        headers: out[1]
-      }.to_lux_hash
+      Page.new(out[0].to_i, out[1], body, lux.session.hash.to_lux_hash)
     end
 
     private
+
+    FILTERED_PARAMS ||= /pass|token|secret|card|cvv|otp|auth/i
+
+    # Request params with credential-looking keys masked, for logging only.
+    def filter_params value
+      case value
+      when ::Hash  then value.to_h { |k, v| [k, k.to_s.match?(FILTERED_PARAMS) ? '[FILTERED]' : filter_params(v)] }
+      when ::Array then value.map { filter_params _1 }
+      else value
+      end
+    end
 
     # Error sink. Resolution order:
     #   1. A Lux.app rescue_from handler matches the error → run it (typically

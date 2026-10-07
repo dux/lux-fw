@@ -17,10 +17,14 @@ module Lux
   #   raise Lux.error.not_found('user missing')
   #
   # Also exposes `log(exception)` - the canonical hook for capturing
-  # exceptions. Override `log_custom(exception)` to persist errors elsewhere.
+  # exceptions - and `on_log { |err| }` to send them elsewhere.
   module ErrorProxy
     extend self
     LOGGED_FLAG ||= :@_lux_error_logged
+
+    # keyed by the block's source location, so a re-run registration
+    # replaces itself instead of reporting twice
+    REPORTERS ||= {}
 
     HTTP_ERROR_SHORTCUTS.each do |name, code|
       define_method(name) { |msg = nil| Lux.error code, msg }
@@ -52,18 +56,22 @@ module Lux
         end
       end
 
-      begin
-        log_custom(exception)
-      rescue StandardError => custom_error
+      REPORTERS.each_value do |reporter|
+        reporter.call(exception)
+      rescue StandardError => reporter_error
         begin
-          Lux.logger.error "Lux.error.log_custom failed: #{custom_error.class}: #{custom_error.message}"
+          Lux.logger.error "Lux.error reporter failed: #{reporter_error.class}: #{reporter_error.message}"
         rescue StandardError
           nil
         end
       end
     end
 
-    def log_custom(exception)
+    # Lux.error.on_log { |err| Sentry.capture_exception err }
+    # Every reporter sees every logged error; one failing never stops the rest.
+    def on_log &block
+      raise ArgumentError, 'on_log requires a block' unless block
+      REPORTERS[block.source_location] = block
     end
 
     private

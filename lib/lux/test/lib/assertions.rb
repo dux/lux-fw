@@ -2,7 +2,7 @@ module Lux
   module Test
     # Custom assertions mixed into Minitest::Spec. Kept to a small,
     # documented set so AI-written tests can't reach for invented matchers.
-    # All take a Lux::Response (or anything that responds to the same names).
+    # All take a Lux::Application::Page (or anything that responds to the same names).
     module Assertions
       # assert_status 200, response
       def assert_status code, resp

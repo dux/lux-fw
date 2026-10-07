@@ -161,3 +161,22 @@ describe Lux::Boot::Config do
     ENV['RACK_ENV'] = old_rack_env
   end
 end
+
+describe 'config typos' do
+  it 'suggests the framework key a misspelled config.yaml key meant' do
+    prev = Lux::Boot.instance_variable_get(:@default_keys)
+    Lux::Boot.instance_variable_set(:@default_keys, %w[serve_static_files plugins])
+
+    err = capture_stderr { Lux.silent(false) { Lux::Boot.send(:warn_config_typos, %w[serve_static_file my_api_key]) } }
+
+    _(err).must_include 'unknown key "serve_static_file", did you mean "serve_static_files"?'
+    refute_includes err, 'my_api_key'
+  ensure
+    Lux::Boot.instance_variable_set(:@default_keys, prev)
+  end
+
+  it 'suggests a close key when a read misses' do
+    err = _{ { serve_static_files: true }.to_lux_hash.serve_static_file }.must_raise NoMethodError
+    _(err.message).must_include 'did you mean serve_static_files?'
+  end
+end

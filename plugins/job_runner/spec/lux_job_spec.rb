@@ -35,6 +35,12 @@ describe LuxJob do
 
       _(LuxJob::JOBS[:custom_timeout][:timeout]).must_equal 300
     end
+
+    it 'accepts a per-job retry limit' do
+      LuxJob.define(:flaky, retries: 2) { 'done' }
+
+      _(LuxJob::JOBS[:flaky][:retries]).must_equal 2
+    end
   end
 
   describe '.add' do
@@ -116,6 +122,17 @@ describe LuxJob do
       _(job.retry_count).must_equal LuxJob::MAX_RETRIES
     end
 
+    it 'permanently fails after the per-job retry limit' do
+      LuxJob.define(:short_fuse, retries: 2) { raise 'fails' }
+      job = LuxJob.create(name: 'short_fuse', run_at: Time.now - 1.minute, retry_count: 1)
+
+      LuxJob.run_job(job)
+      job.reload
+
+      _(job.status_sid).must_equal 'x'
+      _(job.retry_count).must_equal 2
+    end
+
     it 'times out jobs that exceed their timeout' do
       LuxJob.define(:slow_job, timeout: 1) { sleep 5 }
       job = LuxJob.create(name: 'slow_job', run_at: Time.now - 1.minute)
@@ -161,6 +178,23 @@ describe LuxJob do
       _(LuxJob.first.status_sid).must_equal 'r'
     end
 
+    it 'finishes the job in flight on stop and skips the rest' do
+      ran = []
+      LuxJob.define(:first)  { sleep 0.3; ran << :first; 'done' }
+      LuxJob.define(:second) { ran << :second; 'done' }
+      LuxJob.create(name: 'first',  run_at: Time.now - 2.minutes)
+      LuxJob.create(name: 'second', run_at: Time.now - 1.minute)
+
+      runner = Thread.new { LuxJob.process_jobs }
+      runner.report_on_exception = false
+      sleep 0.1
+      runner.raise LuxJobStop
+
+      assert_raises(LuxJobStop) { runner.join }
+      _(ran).must_equal [:first]
+      _(LuxJob.first.name).must_equal 'second'
+    end
+
     it 'skips permanently failed jobs' do
       LuxJob.define(:dead_job) { 'done' }
       LuxJob.create(name: 'dead_job', run_at: Time.now - 1.minute, status_sid: 'x')
@@ -168,6 +202,19 @@ describe LuxJob do
       LuxJob.process_jobs
 
       _(LuxJob.first.status_sid).must_equal 'x'
+    end
+  end
+
+  describe '.recover_interrupted' do
+    it 're-queues jobs left running by a killed runner' do
+      LuxJob.define(:cut_off) { 'done' }
+      LuxJob.create(name: 'cut_off', run_at: Time.now + 1.hour, status_sid: 'r')
+
+      capture_stdout { capture_stderr { LuxJob.recover_interrupted } }
+
+      job = LuxJob.first
+      _(job.status_sid).must_equal 's'
+      assert job.run_at <= Time.now
     end
   end
 

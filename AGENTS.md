@@ -170,7 +170,7 @@ bin/cli/<name>_hammer.rb  # CLI subcommands
 * Base class: `Lux::Test::Case` (transparently mixed into every `describe` block).
 * Factories: vendored clean-mock at `lib/lux/test/factory/`, exposed as `factory` in every spec.
 * Helpers available everywhere: `factory`, `capture_log`/`capture_stdout`/`capture_stderr`, `with_transaction`, plus `assert_status` / `assert_redirect` / `assert_body_includes` / `assert_json_includes`.
-* HTTP requests: use `Lux.render.get/post/...` - returns a `Lux::Response` with `.status`, `.body`, `.json`, `.headers`, `.redirect_to`, `.ok?`.
+* HTTP requests: use `Lux.render.get/post/...` - returns a `Lux::Application::Page` with `.status`, `.body`, `.json`, `.headers`, `.redirect_to`, `.ok?`, `.session`. `Lux.render.client` carries the session between calls.
 * Rulebook for writing tests: **[`lib/lux/test/AGENTS.md`](./lib/lux/test/AGENTS.md)**. AI agents converting or writing specs must read it first - it lists the only allowed assertions and the banned RSpec syntax.
 * Run: `bundle exec hammer test` (folder-isolated). Single folder: `hammer test --folder lux_tests`. Per-spec processes: `hammer test --isolated`. Tasks are defined in `./Hammerfile` (powered by the `lux-hammer` gem - replaces Rake).
 

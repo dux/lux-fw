@@ -102,22 +102,30 @@ base class, so sequences and fetch cache start clean per test.
 
 ## HTTP requests
 
-Use `Lux.render.<verb>` directly. It returns a `Lux::Response`.
+Use `Lux.render.<verb>` directly. It returns a `Lux::Application::Page`.
 
 ```ruby
 resp = Lux.render.get('/users', params: { q: 'x' }, session: { user_id: 1 })
 resp = Lux.render.post('/users', params: { name: 'Dux' })
+resp = Lux.render.post('/users', body: '{"name":"Dux"}', headers: { 'Content-Type' => 'application/json' })
 
 resp.status        # Integer
 resp.body          # String
-resp.json          # parsed JSON, symbol keys
+resp.json          # parsed JSON (Lux::Hash - symbol or string keys)
 resp.headers       # Hash
 resp.redirect_to   # Location header value, or nil
 resp.ok?           # true if 2xx
+resp.session       # session after the request
+
+# several requests as one visitor: the session carries over
+client = Lux.render.client
+client.post '/login', params: { email: 'a@b.c' }
+assert_status 200, client.get('/dashboard')
 ```
 
 Verbs: `get`, `post`, `put`, `patch`, `delete`, `head`. Options: `params`, `session`,
-`cookies`, `query_string`. Pass body data via `params:` for POST.
+`cookies`, `query_string`, `headers`, `bearer`, `body` (raw). Pass form data via
+`params:` for POST.
 
 ## Capture
 

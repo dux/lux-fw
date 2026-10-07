@@ -15,11 +15,18 @@ module Lux
   class Current
     OPTS ||= Struct.new 'LuxCurrentOpts', :params, :post, :http_method, :session, :cookies, :query_string, :headers, :bearer
 
+    # Same charset Rage and most proxies accept for X-Request-Id.
+    REQUEST_ID_RE ||= /\A[\w\-@.]{1,128}\z/
+
     # set to true if user is admin and you want him to be able to clear caches in production
     attr_accessor :can_clear_cache
 
     attr_accessor :session, :locale, :error
     attr_reader   :request, :response, :nav, :route, :var, :env, :params
+
+    # Query string or body that could not be parsed (Rack::BadRequest,
+    # JSON::ParserError). Application#render_base answers it with a 400.
+    attr_reader   :malformed_request
 
     # Body-only params: parsed POST/PUT/PATCH body, no GET/route merge,
     # no EncryptParams processing. Lazy; falls back to request.POST for form-encoded
@@ -29,9 +36,9 @@ module Lux
       @post ||= begin
         raw = if @opt.post
           @opt.post
-        elsif @request.media_type == 'application/json'
+        elsif json_request?
           body = @request.body.tap(&:rewind).read
-          JSON.parse(body, symbolize_names: true) rescue {}
+          JSON.parse(body, symbolize_names: true) if body.present?
         else
           @request.POST.dup
         end
@@ -41,7 +48,8 @@ module Lux
 
     def initialize env = nil, opts = {}
       @env     = env || '/mock'
-      @env     = ::Rack::MockRequest.env_for(env) if env.is_a?(String)
+      # body: raw request body for a mock (e.g. a JSON string with a content-type header)
+      @env     = ::Rack::MockRequest.env_for(env, input: opts[:body]) if @env.is_a?(String)
       @request = ::Rack::Request.new @env
 
       @opt = OPTS.new
@@ -199,11 +207,34 @@ module Lux
       Lux.defer(context: context, &block)
     end
 
+    # Rack#ip reads X-Forwarded-For only behind a trusted (private) proxy and
+    # takes the last untrusted hop, so a client cannot spoof it.
     def ip
       request.env['HTTP_CF_CONNECTING_IP'] || # will not work with cloudflare if removed
-      request.env['HTTP_X_FORWARDED_FOR'] ||
-      request.env['REMOTE_ADDR'] ||
+      request.ip ||
       '127.0.0.1'
+    end
+
+    # Upstream X-Request-Id when it is sane, else a fresh one. Echoed in the
+    # response header and carried into Lux.defer and exception records.
+    def request_id
+      @request_id ||= begin
+        id = @request.env['HTTP_X_REQUEST_ID'].to_s
+        id.match?(REQUEST_ID_RE) ? id : SecureRandom.hex(10)
+      end
+    end
+
+    # Frozen copy of what background work may need from this request. Safe to
+    # hand to another thread, unlike the live Current. Lux.defer passes it to
+    # the block and rebuilds the worker's Lux.current from it.
+    def snapshot
+      {
+        request_id:     request_id,
+        request_method: request.request_method,
+        url:            request.url,
+        ip:             ip,
+        user:           (user if defined?(::User))
+      }.to_lux_hash.freeze
     end
 
     # Master per-request browser object: header / window / export / channel.
@@ -268,10 +299,23 @@ module Lux
     # forward_auth) that copies the Content-Type header without forwarding the
     # body. An empty urlencoded body already degrades to {}, so mirror that for
     # multipart instead of letting it surface as a 500.
+    #
+    # A JSON object body merges over the query string, the way Rack merges a
+    # form body, so `opt` validation sees JSON POSTs too.
     def request_params
-      @request.params
+      params = @request.params
+      body   = json_request? ? @request.body&.tap(&:rewind)&.read : nil
+      body   = JSON.parse(body) if body.present?
+      body.is_a?(::Hash) ? params.merge(body) : params
     rescue EOFError
       {}
+    rescue Rack::BadRequest, JSON::ParserError => e
+      @malformed_request = e
+      {}
+    end
+
+    def json_request?
+      @request.media_type == 'application/json'
     end
   end
 end

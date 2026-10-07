@@ -118,18 +118,19 @@ module Lux
       # what actually served the request; `lux render -i` prints it
       Lux.current.var[:dispatch] = { controller: self.class.name, action: method_name }
 
-      # fail-fast verb check before any callbacks run. Default is GET + HEAD
-      # + OPTIONS; add other verbs per-action via `allow :post, :patch`.
-      enforce_allowed_verbs!
-
       # An error page (dispatched by Application#render_error) renders without
-      # the request pipeline: before filters, param validation and filter
-      # already ran, or are what failed, for the original action.
+      # the request pipeline: verb check, before filters, param validation and
+      # filter already ran, or are what failed, for the original action.
       error_page = lux.var[:error_page]
 
-      run_callback :before, @lux.action unless error_page
+      # fail-fast verb check before any callbacks run. Default is GET + HEAD
+      # + OPTIONS; add other verbs per-action via `allow :post, :patch`.
+      enforce_allowed_verbs! unless error_page
 
+      # a redirect_to in any filter lands here, so :after still runs
       catch :done do
+        run_callback :before, @lux.action unless error_page
+
         unless lux.response.body?
           unless error_page
             run_callback :before_action, @lux.action
@@ -159,6 +160,28 @@ module Lux
       end
 
       run_callback :after, @lux.action
+    end
+
+    # ClassCallbacks#run_callback, except that a before / before_action filter
+    # that wrote the response ends its chain, so a later filter cannot
+    # overwrite a 403 with its own redirect.
+    HALTING_CALLBACKS ||= %i[before before_action]
+
+    def run_callback name, *args
+      return super unless HALTING_CALLBACKS.include?(name)
+
+      ivar = "@class_callbacks_#{name}"
+      list = self.class.ancestors
+      list = list.slice 0, list.index(Object) if list.index(Object)
+
+      list.reverse.each do |klass|
+        next unless klass.instance_variable_defined?(ivar)
+
+        klass.instance_variable_get(ivar).each_value do |m|
+          m.is_a?(Array) ? m.each { send _1, *args } : instance_exec(*args, &m)
+          return if lux.response.body?
+        end
+      end
     end
 
     def timeout seconds
@@ -199,7 +222,7 @@ module Lux
     end
 
     # delegated to current - use lux.request.get?, lux.request.post?, etc. for HTTP method checks
-    define_method(:etag)          { |*args| lux.response.etag *args }
+    define_method(:etag)          { |*args, **kw| lux.response.etag(*args, **kw) }
     define_method(:layout)        { |arg = :_nil| arg == :_nil ? @lux.layout : (@lux.layout = arg) }
     define_method(:cache_control) { |arg| lux.response.headers['cache-control'] = arg }
 

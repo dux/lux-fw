@@ -57,10 +57,12 @@ module Lux
   rescue => err
     Lux.error.log err
 
+    # Last-resort tuple: the app's own error handling already failed, so never
+    # echo the message (it can carry SQL, paths or secrets) outside debug.
     if Lux.debug?
       raise
     else
-      [500, {}, ['Server error: %s' % err.message]]
+      [500, { 'content-type' => 'text/plain; charset=utf-8' }, ['Server error']]
     end
   end
 end

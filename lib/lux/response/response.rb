@@ -9,7 +9,7 @@
 module Lux
   class Response
     attr_reader   :render_start
-    attr_accessor :headers, :cookies
+    attr_accessor :headers
 
     def initialize
       @render_start = Time.monotonic
@@ -78,6 +78,14 @@ module Lux
       @cache.no_store = true
     end
 
+    # response.cookie 'theme', 'dark', max_age: 1.year
+    # response.cookie 'theme', nil                       # delete
+    # Path=/, HttpOnly, SameSite=Lax and Secure (on https) unless overridden.
+    # Sent next to the session cookie, under the same cache policy.
+    def cookie name, value, **opts
+      (@cookies ||= {})[name.to_s] = [value, opts]
+    end
+
     # http 103
     def early_hints link = nil, type = nil
       @early_hints ||= []
@@ -86,14 +94,18 @@ module Lux
       @early_hints
     end
 
-    def etag *args
+    # etag @post                                  # 304 when If-None-Match matches
+    # etag @post, last_modified: @post.updated_at  # also answers If-Modified-Since
+    def etag *args, last_modified: nil
       unless @headers['etag']
         key = '"%s"' % Lux.cache.generate_key([current.request.url, args])
         key = 'W/%s' % key unless @cache.public?
         @headers['etag'] = key
       end
 
-      if !@status && !current.no_cache? && current.request.env['HTTP_IF_NONE_MATCH'] == @headers['etag']
+      @headers['last-modified'] ||= last_modified.httpdate if last_modified
+
+      if !@status && !current.no_cache? && fresh?(last_modified)
         if Lux.reload?
           Lux.log { " * etag match at #{Lux.app_caller || ':lux'} (skipping for Lux.reload?)" } unless current.nav.format
         else
@@ -314,6 +326,8 @@ module Lux
 
       @status ||= 200
 
+      log_request if Lux.config[:log_requests]
+
       Lux.log do
         log_data  = " #{@status}, #{@data.to_s.length}, #{(@body.bytesize.to_f/1024).round(1)}kb, #{@headers['x-lux-speed']}"
         log_data += " (#{current.request.url})" if current.nav.format
@@ -346,6 +360,40 @@ module Lux
 
     private
 
+    # One JSON line per request in ./log/request.log - the production access
+    # log, since log_level :error drops the dev request lines. Path only: a
+    # query string can carry tokens.
+    def log_request
+      req  = current.request
+      user = current.user if defined?(::User)
+      data = {
+        ts:       Time.now.utc.iso8601(3),
+        id:       current.request_id,
+        method:   req.request_method,
+        path:     req.path,
+        status:   @status,
+        ms:       ((Time.monotonic - @render_start) * 1000).round(1),
+        ip:       current.ip,
+        user:     (user.ref if user.respond_to?(:ref)),
+        dispatch: current.var[:dispatch]&.values_at(:controller, :action)&.join('#')
+      }
+
+      logger = Lux.logger(:request)
+      logger.formatter = REQUEST_LOG_FORMAT
+      logger.info JSON.generate(data.compact)
+    end
+
+    REQUEST_LOG_FORMAT ||= proc { |_, _, _, msg| "#{msg}\n" }
+
+    def app_cookies
+      (@cookies || {}).map do |name, (value, opts)|
+        opts = { path: '/', httponly: true, same_site: :lax, secure: current.request.ssl? }.merge(opts)
+        opts[:max_age] = opts[:max_age].to_i if opts[:max_age]
+
+        value.nil? ? ::Rack::Utils.delete_set_cookie_header(name, opts) : ::Rack::Utils.set_cookie_header(name, opts.merge(value: value.to_s))
+      end
+    end
+
     def is_bot?
       current.request.user_agent.to_s.include?('Googlebot')
     end
@@ -362,6 +410,24 @@ module Lux
 
       [uri.scheme, uri.host, uri.port] != [current.request.scheme, current.request.host, current.request.port]
     rescue URI::InvalidURIError
+      false
+    end
+
+    # RFC 9110 13.1: If-None-Match wins when sent, compared weakly over its
+    # list (proxies such as nginx gzip turn strong tags weak); If-Modified-Since
+    # applies only without it.
+    def fresh? last_modified
+      env = current.request.env
+
+      if (match = env['HTTP_IF_NONE_MATCH'].to_s.strip).present?
+        tag = @headers['etag'].delete_prefix('W/')
+        match == '*' || match.split(',').any? { _1.strip.delete_prefix('W/') == tag }
+      elsif last_modified && (since = env['HTTP_IF_MODIFIED_SINCE'])
+        last_modified.to_i <= Time.httpdate(since).to_i
+      else
+        false
+      end
+    rescue ArgumentError
       false
     end
 
@@ -428,20 +494,23 @@ module Lux
       # cache-control: use cache policy unless caller set explicit header
       @headers['cache-control'] ||= @cache.header_value
 
-      # only emit Set-Cookie when cache policy allows it
+      # only emit Set-Cookie when cache policy allows it; one header line per
+      # cookie (Rack 3 array), keeping any the app set on the header itself
       if @cache.allow_cookies? && !is_bot?
-        cookie = current.session.generate_cookie
-        @headers['set-cookie'] = cookie if cookie
+        cookies = [*@headers['set-cookie'], current.session.generate_cookie, *app_cookies].compact
+        @headers['set-cookie'] = cookies.length > 1 ? cookies : cookies.first if cookies.any?
       end
 
-      # Auto-etag only for cacheable 2xx GETs. Redirects (3xx), errors (4xx/5xx),
+      # Auto-etag only for cacheable 2xx GET/HEAD. Redirects (3xx), errors (4xx/5xx),
       # no-store and streaming responses don't benefit from a conditional-GET
-      # round-trip, so skipping saves a full-body SHA1 on the response path.
-      if current.request.request_method == 'GET' && !@cache.no_store? && @status.to_i < 300 && !streaming?
+      # round-trip, so skipping saves a full-body SHA1 on the response path. A
+      # HEAD that skipped building its body has nothing to hash.
+      if %w[GET HEAD].include?(current.request.request_method) && !@cache.no_store? && @status.to_i < 300 && !streaming? && !@body.empty?
         etag(@body)
       end
 
       @headers['x-lux-speed']     = "#{((Time.monotonic - @render_start)*1000).round(1)}ms"
+      @headers['x-request-id']  ||= current.request_id
 
       # 304 must not carry content-type / content-length per RFC 7232.
       # Streaming bodies set their own content-type and never carry a length.

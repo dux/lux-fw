@@ -116,7 +116,10 @@ module Lux
             elsif key?(strname)
               nil
             else
-              raise NoMethodError.new('%s not defined in Lux::Hash' % strname)
+              msg  = '%s not defined in Lux::Hash' % strname
+              hint = DidYouMean::SpellChecker.new(dictionary: keys.map(&:to_s)).correct(strname).first
+              msg += ' (did you mean %s?)' % hint if hint
+              raise NoMethodError.new(msg)
             end
           else
             if value.class == Array
@@ -135,7 +138,7 @@ module Lux
     # Builds an enum-shaped hash with two access paths off the SAME value:
     #   * native key  : h[code] -> value         (plain code -> value storage)
     #   * named call  : h.NAME  -> value         (singleton method on the hash)
-    # The constant NAME never appears as a hash key — to_h stays clean.
+    # The constant NAME never appears as a hash key - to_h stays clean.
     class NamedOptions
       UPCASE_NAME ||= /\A[A-Z][A-Z0-9_]*\z/
 
@@ -159,7 +162,7 @@ module Lux
     end
   end
 
-  # Build an enum hash. Always call with parens — `Lux::Hash` alone is a
+  # Build an enum hash. Always call with parens - `Lux::Hash` alone is a
   # constant lookup and Ruby won't attach the block to it. The returned
   # hash is always frozen.
   #

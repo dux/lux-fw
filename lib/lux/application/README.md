@@ -240,9 +240,14 @@ Errors anywhere in the routing/action pipeline are caught by
 APIs: `rescue_from { }` for any error, `rescue_from SomeError do ... end` for a
 class and its subclasses, handlers inherited by subclasses.
 
-Error pages render without the request pipeline: `before`, `before_action`,
-param validation and `filter` are skipped for the dispatched error action
-(`before_render` and `after` still run).
+Error pages render without the request pipeline: the verb check, `before`,
+`before_action`, param validation and `filter` are skipped for the dispatched
+error action (`before_render` and `after` still run), so a POST that fails can
+render through any action a `rescue_from` calls.
+
+A query string or JSON body that cannot be parsed never reaches routing: it is
+answered with `400 Bad Request` (`lux.malformed_request` holds the parse error).
+A JSON object body is merged into `lux.params` like a form body.
 
 The `:error` action receives `@error` (exception) and `@status` (resolved
 HTTP code) as ivars; the HTTP status also lives on `lux.response` (always an

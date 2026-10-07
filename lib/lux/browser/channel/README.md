@@ -31,6 +31,8 @@ end
 
 Lux.channel(user).push(type: :inbox, count: 3)               # one person
 Lux.channel("org:#{org.ref}").push(message: 'Deploy done')   # everyone in the org
+Lux.channel(user).close    # end the user's open streams (logout, role change);
+                           # EventSource reconnects and session_channels decides again
 
 # Strings, hashes, arrays, numbers - anything JSON-serialisable.
 ```
@@ -63,7 +65,7 @@ Lux.channel('abc')         # ArgumentError - a bare ref is nobody's channel
   Lux.unsubscribe('user:42', fn)   // drop one handler
   Lux.unsubscribe('user:42')       // drop the name entirely
   Lux.disconnect()                 // close the stream
-  Lux.onConnectionChange(state => ...)   // 'open' | 'closed'
+  Lux.onConnectionChange(state => ...)   // 'open' | 'closed' | 'resync'
 </script>
 ```
 
@@ -180,6 +182,17 @@ the SSE writer to attach and detach a queue per client.
 The server emits `: ping\n\n` every 30 seconds so proxies don't reap idle
 connections. Client disconnects raise `IOError` / `EPIPE` / `ECONNRESET`
 inside the SSE writer; the subscription is closed in an `ensure` block.
+
+* **Reconnect jitter.** The handshake sets `retry:` to a random 1-5s, so tabs
+  do not all reconnect in the same instant after a deploy.
+* **Server close.** `Lux.channel(x).close` publishes a sentinel through the
+  broker; every stream on that channel ends, in every process.
+* **Slow readers.** A connection whose queue reaches `Channel::MAX_QUEUE`
+  (1000) messages is closed instead of buffering without bound.
+* **Resync.** When the PG listener reconnects, NOTIFYs sent while it was down
+  are lost. Every open stream then gets `{resync: true}`, which the client
+  reports as `onConnectionChange('resync')` - refetch state there, and on
+  `'open'` after `'closed'`.
 
 ## Limitations
 

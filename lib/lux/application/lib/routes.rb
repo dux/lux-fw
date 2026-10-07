@@ -110,7 +110,7 @@ module Lux
         end
 
         if path.is_a?(String) && path.start_with?('/')
-          match_path path, target
+          match_path path, target, opts
         else
           Array(path).each do |segment|
             lux.route.with_scope(1) { call target, nil, opts } if route_match?(segment)
@@ -275,12 +275,12 @@ module Lux
       # placeholders into params and advances the route cursor by the segments
       # consumed, so lux.route.consumed reflects the matched prefix (needed for
       # sub-mounts like Lux::Api to derive their own mount_on).
-      def match_path base, target
+      def match_path base, target, opts = nil
         captures = lux.route.capture(base) or return
 
         captures.each { |name, value| lux.params[name] = value }
 
-        lux.route.with_scope(lux.route.capture_length(base)) { call target }
+        lux.route.with_scope(lux.route.capture_length(base)) { call target, nil, opts }
       end
 
       # Read + instance_eval a plugin routes.rb. The source is memoized unless

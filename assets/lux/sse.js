@@ -17,10 +17,11 @@
 //   Lux.unsubscribe('user:42')       // drop all handlers for that channel
 //   Lux.disconnect()                 // close the stream entirely
 //
-// EventSource reconnects on its own, and the server replays what was missed
-// via Last-Event-ID. To surface the gap to the UI:
+// EventSource reconnects on its own. Nothing is replayed, so refetch state when
+// the stream comes back ('open' after 'closed') or the server reports it may
+// have dropped messages ('resync', state stays open):
 //
-//   Lux.onConnectionChange(function (state) { ... })   // 'open' | 'closed'
+//   Lux.onConnectionChange(function (state) { ... })   // 'open' | 'closed' | 'resync'
 ;(function (global) {
   var Lux = global.Lux = global.Lux || {};
 
@@ -35,10 +36,7 @@
   function _setState(state) {
     if (_state === state) return;
     _state = state;
-    for (var i = 0; i < _stateHandlers.length; i++) {
-      try { _stateHandlers[i](state); }
-      catch (err) { console.error('Lux.onConnectionChange handler error', err); }
-    }
+    _notify(state);
   }
 
   function _hasHandlers() {
@@ -55,10 +53,18 @@
     }
   }
 
+  function _notify(state) {
+    for (var i = 0; i < _stateHandlers.length; i++) {
+      try { _stateHandlers[i](state); }
+      catch (err) { console.error('Lux.onConnectionChange handler error', err); }
+    }
+  }
+
   function _onMessage(e) {
     var frame;
     try { frame = JSON.parse(e.data); }
     catch (_) { return console.error('Lux.subscribe: unparsable frame', e.data); }
+    if (frame && frame.resync === true) return _notify('resync');
     if (!frame || typeof frame.channel !== 'string') return;
 
     var data = frame.data;
@@ -122,7 +128,7 @@
     return Lux;
   };
 
-  // fn('open' | 'closed'); called immediately with the current state.
+  // fn('open' | 'closed' | 'resync'); called immediately with the current state.
   Lux.onConnectionChange = function (fn) {
     if (typeof fn !== 'function') throw new Error('Lux.onConnectionChange: fn must be a function');
     if (_stateHandlers.indexOf(fn) === -1) _stateHandlers.push(fn);
