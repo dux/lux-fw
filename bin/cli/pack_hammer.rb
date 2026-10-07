@@ -15,7 +15,7 @@ module LuxPack
 
   DEFAULT_DEST  ||= './tmp/lux-app-cache'
   GEMS_DIR      ||= '.libs'                          # local gem checkouts, symlinked
-  AUTO_INCLUDES ||= [GEMS_DIR, 'public/assets']      # gitignored, but needed on prod
+  AUTO_INCLUDES ||= [GEMS_DIR, 'public/assets', 'public/manifest.json'] # gitignored, but needed on prod
 
   # Includes are copied wholesale (no per-dir git filter), so strip VCS/build
   # junk that local gem checkouts under ./.libs drag along.
@@ -49,7 +49,7 @@ module LuxPack
       # abort the whole deploy.
       missing, files = files.partition { |f| !File.exist?(f) }
 
-      AUTO_INCLUDES.each { |p| includes |= [p] if Dir.exist?(p) }
+      AUTO_INCLUDES.each { |p| includes |= [p] if File.exist?(p) }
     end
     includes.select! { |p| File.exist?(p) }
 

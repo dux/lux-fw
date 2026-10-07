@@ -1,9 +1,12 @@
 # web_common asset pipeline. Loaded only for apps that list the plugin.
 #
 #   lux assets:auto    - run *.ext.rb generators, build auto-*.tmp.{js,scss}
-#   lux assets:build   - bun run rollup -c
-#   lux assets:upload  - fingerprint + CDN
-#   lux assets:deploy  - auto -> build -> upload
+#   lux assets:build   - bun run rollup -c, then write public/manifest.json
+#   lux assets:deploy  - auto -> build -> assets:upload per manifest entry
+#
+# assets:upload is the app's CDN contract (bin/cli/assets_hammer.rb); deploy
+# only calls it when production sets cdn_root, otherwise `lux pack` ships
+# public/assets and they are served from /assets.
 #
 # Generators: `name.ext.rb` under app/assets/auto/<folder>/{js,css}/ is
 # evaluated; last returned string is written to `name.tmp.ext` with an
@@ -122,47 +125,24 @@ module LuxAssets
     end
   end
 
-  # Fingerprint public/assets, push each file to the CDN (host app's Cdn
-  # class), then write public/manifest.json mapping source name to its
-  # fingerprinted filename. Filenames come from CdnAsset.hashed_name so the
-  # manifest and runtime CdnAsset.url stay in sync.
-  def upload
-    cdn_url  = Lux.config.production.cdn_root
-    manifest = {}
-    failed   = []
-
-    Thread::Simple.each(Dir.files('./public/assets')) do |file|
-      target         = CdnAsset.hashed_name(file)
-      manifest[file] = target
-      local_path     = "./public/assets/#{file}"
-      remote_key     = "assets/#{target}"
-
-      ok = Cdn.upload(local_path, target, path: 'assets', dev: false)
-      unless ok
-        sleep 1 # retry once
-        ok = Cdn.upload(local_path, target, path: 'assets', dev: false)
-      end
-
-      if ok
-        puts "* #{file} -> #{cdn_url}/#{remote_key}"
-      else
-        failed.push file
-        puts "* FAIL #{file} -> #{cdn_url}/#{remote_key}"
-      end
-    end
-
-    abort "CDN upload failed for: #{failed.join(', ')}" if failed.any?
-
-    File.write('./public/manifest.json', manifest.to_jsonp)
-  end
-
   # Compile production JS/CSS bundles. rollup.config.js cleans public/assets
   # and emits the compiled bundles via the app's bun/rollup toolchain.
   # NODE_PRESERVE_SYMLINKS keeps node_modules/fez (a symlink to .libs/fez)
   # resolving through the app's node_modules.
   def build
-    sync_rollup_config
-    system({ 'NODE_PRESERVE_SYMLINKS' => '1' }, 'bun run rollup -c') || abort('asset build failed: bun run rollup -c')
+    # same gate as `lux start`: an app with no package.json has no JS build
+    if File.exist?('package.json')
+      sync_rollup_config
+      system({ 'NODE_PRESERVE_SYMLINKS' => '1' }, 'bun run rollup -c') || abort('asset build failed: bun run rollup -c')
+    end
+
+    # rollup empties public/assets, so the touch icon goes in after it and
+    # before the manifest fingerprints it
+    Favicon.build! if defined?(Favicon) && File.exist?(Favicon::SOURCE)
+
+    return Lux.shell.info('assets:build - nothing to build') unless Dir.exist?('./public/assets')
+
+    CdnAsset.write_manifest
   end
 
   # Copy the plugin's rollup.config.js into the app root as a real file. Node
@@ -223,7 +203,7 @@ namespace :assets do
   end
 
   task :build do
-    desc 'Compile production JS/CSS bundles (bun run rollup -c)'
+    desc 'Compile production JS/CSS bundles (bun run rollup -c) and write public/manifest.json'
     # :app so sync_rollup_config can resolve the plugin mount overlay
     needs :app
     proc do |_opts|
@@ -240,23 +220,19 @@ namespace :assets do
     end
   end
 
-  task :upload do
-    desc 'Fingerprint public/assets, upload to the CDN, regenerate manifest.json'
-    # :app (not :env) so the host app's Cdn class is autoloaded for the upload.
-    needs :app
-    proc do |_opts|
-      LuxAssets.upload
-    end
-  end
-
   task :deploy do
-    desc 'Full asset pipeline: auto -> build -> upload'
-    # :app so the upload step can reach the host app's Cdn class.
+    desc 'Full asset pipeline: auto -> build -> assets:upload per file when cdn_root is set'
     needs :app
     proc do |_opts|
       hammer 'assets:auto'
       hammer 'assets:build'
-      hammer 'assets:upload'
+
+      if (root = Lux.config.dig('production', 'cdn_root')).present?
+        CdnAsset.uploads.each do |local, remote|
+          hammer 'assets:upload', local, remote
+          puts "* #{local} -> #{root}/#{remote}"
+        end
+      end
     end
   end
 end
