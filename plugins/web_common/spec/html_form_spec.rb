@@ -47,6 +47,20 @@ describe HtmlForm do
       assert_includes html, 'method="post"'
     end
 
+    it 'renders an /api/ action as api-form with a default done' do
+      html = HtmlForm.new('/api/foo/bar').render { |f| 'content' }
+
+      assert_includes html, '<api-form'
+      assert_includes html, '</api-form>'
+      assert_includes html, 'done="refresh"'
+      refute_includes html, 'lux-form'
+    end
+
+    it 'renders plain only when set' do
+      refute_includes HtmlForm.new('/api/foo', plain: false).render { '' }, 'plain'
+      assert_includes HtmlForm.new('/api/foo', plain: true).render { '' }, 'plain="true"'
+    end
+
     it 'renders with pushed data' do
       form = HtmlForm.new('/submit')
       form.push '<input name="a">'

@@ -14,7 +14,7 @@ into three buckets - do not park request data on ad-hoc `window.*` globals or
 inside library namespaces.
 
 `window.app` is also the home for custom function globals, under
-`window.app.fn` (`app.fn.Api`, `app.fn.Toast`, `app.fn.ApiForm`, ...). So the
+`window.app.fn` (`app.fn.Api`, `app.fn.Toast`, ...). So the
 single `app` root carries both *data* (cfg/current/page) and *code* (fn).
 The core selector `$` / `Z` stays a top-level global; moved helpers keep their
 old `window.X` names as back-compat aliases.

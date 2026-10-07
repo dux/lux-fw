@@ -26,6 +26,17 @@ form.render do |f|
 end
 ```
 
+#### API forms
+
+A form whose action starts with `/api/` (every model form) renders as `<api-form>`
+(`mount/app/assets/auto/common/js/fez/api-form.fez`), which posts over XHR and runs `done:`.
+
+| Option    | Description                                                        |
+|-----------|--------------------------------------------------------------------|
+| `:done`   | `:refresh` (default), `:follow`, `:stream`, `'#id'`, `'/path/REF'` or `'r => ...'` |
+| `:silent` | No toast on success                                                |
+| `:plain`  | No `form` box class                                                |
+
 #### Methods
 
 | Method     | Description                                    |
@@ -37,7 +48,7 @@ end
 | `button`   | Custom button tied to a field value            |
 | `fieldset` | Groups rows with optional title and description|
 | `push`     | Push raw HTML into the form                    |
-| `done`     | Set data-done callback                         |
+| `done`     | Set the api-form done handler                  |
 
 #### Row options
 

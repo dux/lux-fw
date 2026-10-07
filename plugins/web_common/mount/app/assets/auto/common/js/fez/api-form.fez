@@ -1,0 +1,282 @@
+<info>
+  <p>Form that posts to an <code>/api/</code> endpoint over XHR (multipart, csrf + timezone headers), then runs its <code>done</code> handler. <code>= form @model</code> and <code>= form '/api/...'</code> render it.</p>
+  <ul>
+    <li><code>action</code> - API path, must contain <code>/api/</code></li>
+    <li><code>done</code> - on success: <code>refresh</code> (default), <code>follow</code>, <code>stream</code>, <code>#id</code> (refresh that node), <code>/path/REF</code> (load, REF is the saved ref) or an arrow <code>(response, data, form) =&gt; ...</code>, <code>data</code> being the posted fields</li>
+    <li><code>model</code> - field prefix, maps error details to <code>model[field]</code> inputs</li>
+    <li><code>silent</code> - no toast on success (errors always toast)</li>
+    <li><code>plain</code> - skip the <code>form</code> box class</li>
+    <li><code>upload_url</code> / <code>upload_field</code> - presign endpoint: the file goes straight to storage, the form posts its key (field <code>key</code> by default)</li>
+    <li>Upload progress fills a <code>[data-progress]</code> bar, or counts on the submit button</li>
+    <li>The clicked submit button's <code>name=value</code> is sent, so one form can have several actions</li>
+  </ul>
+</info>
+
+<script>
+  // red bubble under a field - shared by server errors and native validation
+  function showError(field, text) {
+    if (field.nextElementSibling?.classList.contains('error-message')) field.nextElementSibling.remove()
+    field.closest('.form-row')?.classList.add('error')
+
+    const bubble = document.createElement('div')
+    bubble.className = 'error-message'
+    bubble.textContent = text
+    bubble.onclick = () => bubble.remove()
+    field.after(bubble)
+  }
+
+  function clearError(field) {
+    const next = field.nextElementSibling
+    if (!next?.classList.contains('error-message')) return
+    next.remove()
+    field.closest('.form-row')?.classList.remove('error')
+  }
+
+  // built-in done handlers, by name; anything else in done is a path, #id or arrow
+  const DONE = {
+    // close the topmost dialog first, so a form opened in a modal dismisses itself
+    refresh(fez, response, target) {
+      if (window.Dialog?.isOpen()) Dialog.close()
+      Fez.refresh(target)
+    },
+
+    follow(fez, response) {
+      const path = response.path || response.meta?.path
+      path ? Fez.load(path) : Toast.error('No path in API response')
+    },
+
+    // the request only queued the work, so keep the dialog open and show the
+    // [data-stream-log] panel; the response names the channel to watch
+    stream(fez, response) {
+      fez.root.style.display = 'none'
+
+      // the panel is a sibling of the form, not a child - walk up to the nearest
+      // ancestor that contains one, so the markup can nest it however it likes
+      let panel = null
+      for (let node = fez.root; node && !panel; node = node.parentElement) {
+        panel = node.querySelector('[data-stream-log]')
+      }
+      if (panel) panel.style.display = ''
+
+      const channel = response.data?.channel
+      if (!channel) return Toast.error('No stream channel in API response')
+      if (!window.Lux?.subscribe) return Toast.error('Lux.subscribe missing - is shared/lux_core.js loaded?')
+
+      // A terminal frame carrying ok: false means the run failed: leave the dialog
+      // and its log on screen, closing them would take the only report with them.
+      const stop = () => {
+        Lux.unsubscribe(channel, onDone)
+        Lux.offConnectionChange(onState)
+      }
+
+      const onDone = msg => {
+        if (msg.type != 'done') return
+        stop()
+        if (msg.ok === false) return
+        if (window.Dialog?.isOpen()) Dialog.close()
+        Fez.refresh()
+      }
+
+      // Nothing is replayed, so a frame sent while the connection was down is gone,
+      // the terminal one included. We cannot tell a finished run from a running one,
+      // so report the gap and stop watching rather than hang. onConnectionChange fires
+      // at once with 'closed' until the socket opens - only a close after open is a drop.
+      let wasOpen = false
+      let dropped = false
+
+      const onState = state => {
+        if (state != 'open') return (dropped = wasOpen)
+        if (!dropped) return (wasOpen = true)
+        stop()
+        Toast.warning('Connection dropped - the result may be incomplete. Refresh to check.')
+      }
+
+      Lux.subscribe(channel, onDone)
+      Lux.onConnectionChange(onState)
+    },
+  }
+
+  class {
+    NAME = 'form'
+
+    PROPS = {
+      silent: Boolean,
+      plain: Boolean,
+    }
+
+    init(props) {
+      if (!props.plain) this.root.classList.add('form')
+      this.copy('class', 'style')
+    }
+
+    onMount() {
+      this.on(this.root, 'submit', this.send)
+      // invalid does not bubble, catch it on the way down
+      this.on(this.root, 'invalid', this.invalid, { capture: true })
+      this.on(this.root, 'input', e => clearError(e.target))
+    }
+
+    // required / type=email / pattern keep the browser's rules and message,
+    // shown as the same bubble instead of the native tooltip
+    invalid(e) {
+      e.preventDefault()
+      showError(e.target, e.target.validationMessage)
+      // with the default prevented the browser focuses nothing - focus the first one
+      if (this.root.querySelector('input:invalid, select:invalid, textarea:invalid') === e.target) e.target.focus()
+    }
+
+    send(e) {
+      e.preventDefault()
+
+      if (!this.props.action?.includes('/api/')) return Toast.error(`api-form: [${this.props.action}] is not an API path`)
+
+      this.before()
+      const formData = new FormData(this.root, e.submitter)
+      this.props.upload_url ? this.uploadThenPost(formData) : this.post(formData)
+    }
+
+    // disable the submit button while the request runs
+    before() {
+      const button = this.find('button[type=submit]')
+      if (!button) return
+      const html = button.innerHTML
+      button.innerHTML = html + '&hellip;'
+      button.disabled = true
+      this.state.restore = () => { button.disabled = false; button.innerHTML = html }
+    }
+
+    after() {
+      this.state.restore?.()
+      this.state.restore = null
+    }
+
+    failed(text) {
+      this.after()
+      Toast.error(text)
+    }
+
+    // fills a [data-progress] bar if the form has one, otherwise counts on the submit button
+    trackProgress(xhr) {
+      xhr.upload.onprogress = e => {
+        if (!e.lengthComputable) return
+        const percent = Math.round(e.loaded / e.total * 100)
+        const bar = this.find('[data-progress]')
+
+        if (bar) {
+          bar.style.width = `${percent}%`
+          bar.setAttribute('aria-valuenow', percent)
+          return
+        }
+
+        const button = this.find('button[type=submit]')
+        if (button && percent < 100) button.innerHTML = `${percent}%&hellip;`
+      }
+    }
+
+    // presign -> PUT the file to the returned URL -> post the key instead of the
+    // file. The storage host is not our origin, so it needs a CORS rule for PUT.
+    uploadThenPost(formData) {
+      const input = this.find('input[type=file]')
+      const file = input?.files[0]
+      if (!file) return this.post(formData)
+
+      const presign = new FormData()
+      for (const [k, v] of formData.entries()) if (!(v instanceof Blob)) presign.append(k, v)
+      presign.append('filename', file.name)
+
+      const ask = new XMLHttpRequest()
+      ask.open('POST', this.props.upload_url, true)
+      if (window.Lux?.csrf) ask.setRequestHeader('x-csrf-token', Lux.csrf)
+
+      ask.onload = () => {
+        let response
+        try { response = JSON.parse(ask.responseText) }
+        catch (_) { return this.failed('Upload could not be prepared') }
+
+        // surface the server's own message - it knows why it said no
+        if (ask.status != 200 || response.error) {
+          this.after()
+          return this.showErrors(response)
+        }
+
+        const put = new XMLHttpRequest()
+        put.open('PUT', response.data.put_url, true)
+        this.trackProgress(put)
+
+        put.onload = () => {
+          if (put.status < 200 || put.status > 299) return this.failed(`Upload failed (${put.status})`)
+          formData.delete(input.name)
+          formData.append(this.props.upload_field || 'key', response.data.key)
+          this.post(formData)
+        }
+
+        put.onerror = () => this.failed('Upload blocked - check storage CORS')
+        put.send(file)
+      }
+
+      ask.onerror = () => this.failed('Upload could not be prepared')
+      ask.send(presign)
+    }
+
+    post(formData) {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', this.props.action, true)
+      if (window.Intl) xhr.setRequestHeader('x-tz-name', Intl.DateTimeFormat().resolvedOptions().timeZone)
+      // the helper injects a _csrf field, a hand-written form may not - send the header too
+      if (window.Lux?.csrf) xhr.setRequestHeader('x-csrf-token', Lux.csrf)
+
+      this.trackProgress(xhr)
+      xhr.onload = () => this.receive(xhr, formData)
+      xhr.onerror = () => this.failed('Network error - form not sent')
+      xhr.send(formData)
+    }
+
+    receive(xhr, formData) {
+      let response
+      try { response = JSON.parse(xhr.responseText) }
+      catch (_) { return this.failed(xhr.responseText ? `Bad response from server (${xhr.status})` : 'Empty response from server - network error?') }
+
+      const ok = xhr.status == 200 && !response.error
+
+      // client caches update before anything re-renders or navigates
+      if (ok) document.dispatchEvent(new CustomEvent('api:response', { detail: { path: this.props.action, response } }))
+
+      this.after()
+
+      if (!ok) return this.showErrors(response)
+
+      if (!this.props.silent) Toast.api(response)
+      this.runDone(response, formData)
+    }
+
+    runDone(response, formData) {
+      const done = this.props.done || 'refresh'
+
+      if (done[0] == '/') {
+        const ref = response.meta?.ref || response.data?.ref
+        return Fez.load(done.replaceAll('REF', ref))
+      }
+
+      // arrow done gets the posted fields, incl. the clicked button's name=value
+      if (done.includes('=>')) return new Function(`return ${done}`)()(response, Object.fromEntries(formData), this)
+
+      const [name, target] = done[0] == '#' ? ['refresh', done] : [done]
+      const handler = DONE[name]
+      handler ? handler(this, response, target) : Toast.error(`api-form: unknown done handler [${done}]`)
+    }
+
+    // errors always toast; details also land as bubbles on the matching fields
+    showErrors(response) {
+      this.root.querySelectorAll('.error-message').forEach(el => el.remove())
+      Toast.error((response.error?.messages || ['Server error']).join(', '))
+
+      const details = response.error?.details || {}
+      const model = this.props.model
+
+      for (const name in details) {
+        const field = (model && this.find(`[name='${model}[${name}]']`)) || this.find(`[name='${name}']`)
+        if (field) showError(field, details[name])
+      }
+    }
+  }
+</script>

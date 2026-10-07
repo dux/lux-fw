@@ -15,14 +15,13 @@ class HtmlForm
 
     @opts[:method] ||= 'post'
     @opts[:id]     ||= 'form-%s' % Lux.current.uid
-    @opts[:class]    = [@opts[:class], 'lux-form'].compact.join(' ')
 
     setup_object if @object
 
-    # map done: to data-done for any /api/ form (object-bound or action-string)
-    if @opts[:action].to_s.start_with?('/api/')
-      @opts['data-done'] = @opts.delete(:done) || :refresh
-    end
+    # /api/ forms render as <api-form>, which posts over XHR and runs done:
+    @api = @opts[:action].to_s.start_with?('/api/')
+    @opts[:done] ||= :refresh if @api
+    @opts.delete(:plain) unless @opts[:plain]
   end
 
   def push data
@@ -94,13 +93,13 @@ class HtmlForm
       data = data.tag(:fieldset, disabled: true, style: 'margin:0; padding: 0;')
     end
 
-    @opts.tag(:form, data)
+    @opts.tag(@api ? :'api-form' : :form, data)
   end
 
   private
 
   def setup_object
-    @opts['data-model'] = @object.class.to_s.underscore.singularize
+    @opts[:model] = @object.class.to_s.underscore.singularize
 
     if @object.ref
       @opts[:action] = @object.api_path(:update)

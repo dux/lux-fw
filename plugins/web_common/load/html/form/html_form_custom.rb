@@ -118,7 +118,7 @@ class HtmlForm
   end
 
   def done
-    @opts['data-done'] = yield.gsub($/, '; ').gsub(/\s+/, ' ')
+    @opts[:done] = yield.gsub($/, '; ').gsub(/\s+/, ' ')
   end
 end
 
