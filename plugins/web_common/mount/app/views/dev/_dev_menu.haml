@@ -15,6 +15,11 @@
           }
 
           onMount() {
+            // pjax only swaps the <pjax> container, so layout debug boxes would
+            // survive a link click - force full page loads while render debug is on
+            const renderDebug = location.search.includes('debug=render')
+            if (renderDebug) document.documentElement.classList.add('no-pjax')
+
             // cmd/ctrl + right click - a plain right click keeps the native menu.
             // on macOS ctrl + left click fires contextmenu too, so that opens it as well
             this.on(document, 'contextmenu', (e) => {
@@ -24,7 +29,17 @@
             })
 
             this.on(document, 'keydown', (e) => { if (e.key == 'Escape') this.close() })
-            this.on(document, 'click', (e) => { if (!e.target.closest('.dev-menu')) this.close() })
+            this.on(document, 'click', (e) => {
+              if (!e.target.closest('.dev-menu')) this.close()
+
+              // a debug box file label opens the editor, then reload with render debug off;
+              // the delay lets the browser hand vscode:// off before navigating away
+              if (renderDebug && e.target.closest('a[href^="vscode://"]')) {
+                const url = new URL(location.href)
+                url.searchParams.delete('debug')
+                this.setTimeout(() => location.href = url, 300)
+              }
+            })
             this.on('scroll', () => this.close())
           }
 
@@ -193,5 +208,5 @@
     %a{ href: '/admin' } Admin
     %a{ href: '/dev/login_as' } Login as
     %a{ href: '/dev/schema' } DB schema
-    %a{ href: params[:debug] ? request.path : '?debug=render', 'data-key': 'F2' }
+    %a.no-pjax{ href: params[:debug] ? request.path : '?debug=render', 'data-key': 'F2' }
       = params[:debug] ? 'Render debug off' : 'Render debug on'
