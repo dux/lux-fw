@@ -4,7 +4,7 @@
 #   load/favicon  - `favicon` routing DSL (serve /favicon.ico + <head> links)
 #   load/html     - form / input / table / menu / paginate / filter builders
 #   load/lib      - ApplicationApi, ModelApi, exception writer, legacy exception logger
-#   mount/        - /admin + /dev controllers and views
+#   mount/        - /dev controller and views
 #
 # Sign-in is the authcog plugin; apps list it next to this one.
 #
