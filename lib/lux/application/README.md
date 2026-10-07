@@ -72,7 +72,6 @@ Lux.app do
   map '/admin/sys/jobs', LuxJobWeb               # deep absolute path
   call 'promo#maintenance' if maintenance?       # unconditional dispatch
 
-  favicon '/favicon.svg'                         # serve at /favicon.ico + inject <head> links (web_common)
   plugin_route :web_common                       # explicit single plugin
   plugin_routes                                  # auto-mount every plugin with routes.rb
 

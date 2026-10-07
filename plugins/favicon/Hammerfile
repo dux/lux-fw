@@ -1,0 +1,9 @@
+task :favicon do
+  desc 'Build public/favicon.ico and public/assets/apple-touch-icon.png from public/favicon.svg'
+  needs :app
+
+  proc do |_opts|
+    Favicon.build!
+    Lux.shell.info "favicon: built #{Favicon::ICO} and public/assets/#{Favicon::TOUCH}"
+  end
+end

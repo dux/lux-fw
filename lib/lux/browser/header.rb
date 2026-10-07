@@ -107,6 +107,12 @@ module Lux
 
       # -- <link> entries ------------------------------------------------
 
+      # Icon links come from the favicon plugin when it is loaded; `icon false`
+      # leaves them out.
+      def icon value
+        @icon = value
+      end
+
       def link rel, href
         @links.push '<link rel="%s" href="%s" />' % [rel, href]
       end
@@ -190,7 +196,7 @@ module Lux
           meta_tags.push %[<meta #{attr_name}="#{key}" content="#{::Rack::Utils.escape_html value.to_s}" />]
         end
 
-        meta_tags.sort + @links
+        meta_tags.sort + @links + icon_tags
       end
 
       # "Page | Site" (or just the site name), HTML escaped for <title>.
@@ -204,6 +210,13 @@ module Lux
 
       def site_name_text
         @site_name ||= Lux.config.app.name
+      end
+
+      def icon_tags
+        return [] if @icon == false || !defined?(::Favicon)
+
+        ::Favicon.refresh! if Lux.env.dev?
+        ::Favicon.tags
       end
 
       def apply_robots_header

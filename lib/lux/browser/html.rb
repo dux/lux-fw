@@ -63,6 +63,12 @@ module Lux
         nil
       end
 
+      # el.icon false leaves out the favicon plugin's icon links
+      def icon value
+        header.icon value
+        nil
+      end
+
       # page title, same as lux.header.title; overrides one set by the page template
       def title text
         header.title text

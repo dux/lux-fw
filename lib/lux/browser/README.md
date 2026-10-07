@@ -88,6 +88,7 @@ answered with the region alone.
   = el.google_fonts_preconnect            # or el.preconnect 'https://x.com', crossorigin: ''
   = el.assets :app, :admin                # app.css, admin.css, app.js, admin.js; block output goes into <head>
   = el.asset 'planner.css'                # single file or remote url
+  = el.icon false                         # drop the favicon plugin's icon links
   = el.body class: 'bg-white' do          # attrs on <body>; region is .pjax#main
     = yield
   = el.footer class: 'small' do           # optional, attrs on <footer>
@@ -95,7 +96,8 @@ answered with the region alone.
 ```
 
 * Slots use `=` (Haml captures the block only then); no `!!!` / `%html` in the layout.
-* `<head>`: meta/links, `<meta name="pjax-layout">`, `boot_script` (Lux cfg,
+* `<head>`: meta/links, icon links when the [`favicon`](../../../plugins/favicon/README.md)
+  plugin is loaded, `<meta name="pjax-layout">`, `boot_script` (Lux cfg,
   `window.app` guard, `DEV`), the block output, `<title>`.
 * Region: `<div class="pjax" id="main">` with `state_script` (`#lux-state`:
   Lux cfg again, page reset, app/window assigns, `noCache`) as first child, so

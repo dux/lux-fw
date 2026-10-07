@@ -1,7 +1,6 @@
 # web_common - the shared web layer, bundled as a single plugin.
 #
 #   load/assets   - CdnAsset + ApplicationHelper template helpers
-#   load/favicon  - `favicon` routing DSL (serve /favicon.ico + <head> links)
 #   load/html     - form / input / table / menu / paginate / filter builders
 #   load/lib      - ApplicationApi, ModelApi, exception writer, legacy exception logger
 #   mount/        - /dev controller and views

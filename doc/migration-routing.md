@@ -74,8 +74,8 @@ Lux.app do
 end
 ```
 
-The `map` / `root` / `match` / `subdomain` / `get?` / `plugin_route` /
-`favicon` top-level forms still work.
+The `map` / `root` / `match` / `subdomain` / `get?` / `plugin_route` top-level
+forms still work. `favicon` is gone - list the `favicon` plugin instead.
 
 ### `Lux::Application::Shared`
 
