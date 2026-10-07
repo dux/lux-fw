@@ -165,6 +165,10 @@ Lux.app do
     call { 'plain' }
   end
 
+  map 'binary' do
+    call { response.content_type = :png; "\x89PNG" }
+  end
+
   map 'city' do
     root 'routes_test#city'
     map 'user', 'routes_test#user'
@@ -219,6 +223,11 @@ describe 'Lux::Application' do
   it 'should get right routes' do
     _(Lux.render.get('/').body).must_equal 'root'
     _(Lux.render.get('/plain').body).must_equal 'plain'
+  end
+
+  it 'adds a charset to text content types only' do
+    _(Lux.render.get('/plain').headers['content-type']).must_equal 'text/plain; charset=utf-8'
+    _(Lux.render.get('/binary').headers['content-type']).must_equal 'image/png'
   end
 
   it 'rejects removed route shapes with the canonical form in the message' do

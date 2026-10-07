@@ -8,6 +8,9 @@
 #   response.no_store                        # disable cache + cookies
 module Lux
   class Response
+    # types that get `; charset=utf-8` - never images, fonts or archives
+    TEXT_TYPE ||= %r{\Atext/|json|javascript|xml}
+
     attr_reader   :render_start
     attr_accessor :headers
 
@@ -518,7 +521,7 @@ module Lux
         if streaming?
           # content-type was set by the streaming writer (text/event-stream etc.)
         else
-          @headers['content-type'] ||= "#{@content_type}; charset=utf-8"
+          @headers['content-type'] ||= @content_type.to_s.match?(TEXT_TYPE) ? "#{@content_type}; charset=utf-8" : @content_type.to_s
 
           # A HEAD handler may skip building the body and declare the length its
           # GET would have sent (RFC 9110 9.3.2) - the body is dropped below, so
