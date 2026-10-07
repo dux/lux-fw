@@ -209,6 +209,8 @@ module Lux
         def body?; false; end
         def path; ''; end
         def request_method; '*'; end
+        # Url.current parses request.url, needs a real string
+        def url; 'http://localhost/'; end
       end
     end
   end

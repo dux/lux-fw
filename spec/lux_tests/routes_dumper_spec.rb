@@ -18,6 +18,14 @@ class DumpApp < Lux::Application
   get? { map 'preview', 'main#preview' }
 end
 
+# Routes that read the current URL while the dump replays them.
+class DumpUrlApp < Lux::Application
+  routes do
+    redirect_to Url.subdomain('app') if params[:login]
+    map 'after-url', 'main#after_url'
+  end
+end
+
 describe Lux::Application::RoutesDumper do
   def entries
     @entries ||= DumpApp.dump_routes
@@ -62,6 +70,10 @@ describe Lux::Application::RoutesDumper do
     e = entries.find { |x| x.path == '/preview' }
     _(e).wont_be_nil
     _(e.verb).must_equal 'GET'
+  end
+
+  it 'survives Url helpers inside the routes block' do
+    _(DumpUrlApp.dump_routes.map(&:path)).must_include '/after-url'
   end
 
   it 'records source location on each entry' do
