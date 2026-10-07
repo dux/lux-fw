@@ -20,7 +20,10 @@ end
 require_relative '../lib/overload/thread_simple'
 require_relative '../lib/lux/loader'
 
-LUX_ROOT ||= File.expand_path '../..', __FILE__
+# realpath: apps link lux-fw under ./.libs, and hammer treats task files under
+# the app dir as app-local, flagging an app override of a framework task as
+# `(redefined)`.
+LUX_ROOT ||= File.realpath File.expand_path('../..', __FILE__)
 
 puts 'Lux %s (%s)' % [Lux::Version.string, LUX_ROOT] unless ARGV[0]
 
