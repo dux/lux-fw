@@ -53,11 +53,13 @@ Hammer.run ARGV do
   app_hf = File.join(Dir.pwd, 'Hammerfile')
   load app_hf if File.file?(app_hf) && Dir.pwd != LUX_ROOT
 
+  # Load the app's own config so its Lux.boot! block (pre-plugin config
+  # overrides) runs - a bare Lux.boot! first would make that call a no-op.
   task :env do
-    proc { Lux.boot! }
+    proc { File.exist?('./config/env.rb') ? require('./config/env') : Lux.boot! }
   end
 
   task :app do
-    proc { Lux.boot!; require './config/app' if File.exist?('./config/app.rb') }
+    proc { File.exist?('./config/app.rb') ? require('./config/app') : Lux.boot! }
   end
 end
