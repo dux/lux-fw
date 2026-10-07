@@ -12,6 +12,7 @@ Two roles in one class:
    | call | returns |
    |------|---------|
    | `lux.browser.header` | `Lux::Browser::Header` - the `<head>` builder |
+   | `lux.browser.html` | `Lux::Browser::Html` - whole-document builder behind `lux.render_html` |
    | `lux.browser.window` | a plain `Hash`, exported onto the client `window` |
    | `lux.browser.window_script` | the `<script>` that writes the window hash (emitted by `header.render`) |
    | `lux.browser.bundle(*mods)` | composed client JS bundle |
@@ -75,6 +76,36 @@ lux.browser.bundle(:sse)                                # core + sse bundle
 #     Object.assign(window, {"api":{"url":"/api"}});
 #   </script>
 ```
+
+## Whole document - `lux.render_html`
+
+Alternative to `header.render` that builds the full document, so pjax can be
+answered with the region alone.
+
+```haml
+= lux.render_html do |el|                # lang from Lux.current.locale, or lang: 'hr'
+  - el.title 'Preview'                    # = lux.header.title, overrides the page's
+  = el.google_fonts_preconnect            # or el.preconnect 'https://x.com', crossorigin: ''
+  = el.assets :app, :admin                # app.css, admin.css, app.js, admin.js; block output goes into <head>
+  = el.asset 'planner.css'                # single file or remote url
+  = el.body class: 'bg-white' do          # attrs on <body>; region is .pjax#main
+    = yield
+  = el.footer class: 'small' do           # optional, attrs on <footer>
+    ...
+```
+
+* Slots use `=` (Haml captures the block only then); no `!!!` / `%html` in the layout.
+* `<head>`: meta/links, `<meta name="pjax-layout">`, `boot_script` (Lux cfg,
+  `window.app` guard, `DEV`), the block output, `<title>`.
+* Region: `<div class="pjax" id="main">` with `state_script` (`#lux-state`:
+  Lux cfg again, page reset, app/window assigns, `noCache`) as first child, so
+  every response refreshes it.
+* `layout_id` = layout path + `Lux::DEPLOY_ID`. Fez pjax sends it as
+  `x-pjax-layout`; on a match the response is `<title>` + region only (head and
+  footer are not built, `el.asset` / `el.assets` return `''`). Every render sets
+  `x-pjax-layout` + `vary: x-pjax-layout`; fez reloads the page when the echo is
+  missing or different.
+* Attributes on `<body>` / `<footer>` are not refreshed by pjax.
 
 ## Export rule
 

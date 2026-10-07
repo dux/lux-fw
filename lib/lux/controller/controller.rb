@@ -263,7 +263,9 @@ module Lux
 
       return if render_static(opt)
 
-      data = opt.cache ? render_cached(opt) : render_template(opt)
+      # page cache keeps full documents only; body-only pjax responses render fresh
+      cached = opt.cache && !request.env['HTTP_X_PJAX_LAYOUT']
+      data   = cached ? render_cached(opt) : render_template(opt)
       lux.response.body data
     end
 
@@ -333,6 +335,7 @@ module Lux
 
       if opt.layout
         path = Lux::Template.find_layout cattr.template_root, opt.layout
+        lux.browser.layout = path
         data = Lux::Template.render(local_helper, path) { data }
       end
 

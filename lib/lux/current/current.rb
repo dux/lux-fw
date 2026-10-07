@@ -264,6 +264,11 @@ module Lux
       browser.header
     end
 
+    # Whole HTML document for a layout - see Lux::Browser::Html.
+    def render_html(...)
+      browser.html.render(...)
+    end
+
     def bearer_token
       auth = request.env['HTTP_AUTHORIZATION'].to_s
       auth.start_with?('Bearer ') ? auth[7..].presence : nil

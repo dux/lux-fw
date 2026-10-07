@@ -153,15 +153,35 @@ module Lux
       def render
         extra = yield((CdnAsset if defined?(CdnAsset)), self) if block_given?
 
+        out = tags
+        # Window bootstrap before any bundle loads (so component code can drop
+        # defensive `window.app ||= {}` guards). The per-request window hash is
+        # owned by lux.browser; emit it here via #window_script - the single
+        # emitter, so layouts must not also call it. Fez re-runs <head> inline
+        # scripts on navigation (see Fez.pjax.setPageBody), so this refreshes on
+        # every page change.
+        out.push (browser || Lux.current.browser).window_script
+        out.push extra if extra
+
+        if Lux.current.no_cache?
+          out.push %[<script>window.noCache = true;</script>]
+        end
+
+        out.push %[<title>#{full_title}</title>]
+
+        # Indent everything to fit a Haml `%head` block and collapse
+        # blank lines left by skipped @meta values.
+        ('  ' + out.join("\n")).gsub("\n<", "\n  <").gsub(/\n\s*\n/, "\n")
+      end
+
+      # Meta + link tags as an array (no scripts, no <title>). Also writes the
+      # `x-robots-tag` response header.
+      def tags
         apply_robots_header
 
         @meta['og:type']      = @og_type || DEFAULT_OG_TYPE
         @meta['viewport']     ||= DEFAULT_VIEWPORT
-        @site_name            ||= Lux.config.app.name
-        @meta['og:site_name'] = @site_name
-
-        title_text = @title ? "#{@title} | #{@site_name}" : @site_name
-        title_text = ::Rack::Utils.escape_html title_text.to_s.remove_tags
+        @meta['og:site_name'] = site_name_text
 
         meta_tags = ['<meta charset="UTF-8" />']
         @meta.each do |key, value|
@@ -170,30 +190,21 @@ module Lux
           meta_tags.push %[<meta #{attr_name}="#{key}" content="#{::Rack::Utils.escape_html value.to_s}" />]
         end
 
-        out  = meta_tags.sort
-        out += @links
-        # Window bootstrap before any bundle loads (so component code can drop
-        # defensive `window.app ||= {}` guards). The per-request window hash is
-        # owned by lux.browser; emit it here via #window_script - the single
-        # emitter, so layouts must not also call it. Fez re-runs <head> inline
-        # scripts on navigation (see Fez.pjax.setPageBody), so this refreshes on
-        # every page change.
-        out.push %[<script>window.DEV = true;</script>] if Lux.env.dev?
-        out.push (browser || Lux.current.browser).window_script
-        out.push extra if extra
+        meta_tags.sort + @links
+      end
 
-        if Lux.current.no_cache?
-          out.push %[<script>window.noCache = true;</script>]
-        end
-
-        out.push %[<title>#{title_text}</title>]
-
-        # Indent everything to fit a Haml `%head` block and collapse
-        # blank lines left by skipped @meta values.
-        ('  ' + out.join("\n")).gsub("\n<", "\n  <").gsub(/\n\s*\n/, "\n")
+      # "Page | Site" (or just the site name), HTML escaped for <title>.
+      def full_title
+        site = site_name_text
+        text = @title ? "#{@title} | #{site}" : site
+        ::Rack::Utils.escape_html text.to_s.remove_tags
       end
 
       private
+
+      def site_name_text
+        @site_name ||= Lux.config.app.name
+      end
 
       def apply_robots_header
         robots = []

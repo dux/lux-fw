@@ -13,6 +13,7 @@ module Lux
   #    (instantiated by Lux::Current#browser). It owns the browser-facing pieces:
   #
   #      lux.browser.header           -> Lux::Browser::Header (<head> builder)
+  #      lux.browser.html             -> Lux::Browser::Html (whole document, lux.render_html)
   #      lux.browser.window           -> Hash exported onto the client `window`
   #      lux.browser.window_script    -> <script> that writes the window hash
   #      lux.browser.bundle(:sse)     -> composed client JS bundle
@@ -83,6 +84,26 @@ module Lux
       @header ||= Header.new.tap { |h| h.browser = self }
     end
 
+    # Whole-document builder behind lux.render_html (see Browser::Html).
+    def html
+      @html ||= Html.new.tap { |h| h.browser = self }
+    end
+
+    # Layout file path, set by the controller right before the layout renders.
+    attr_accessor :layout
+
+    # Identifies the layout + deploy the client is running. pjax sends it back
+    # as x-pjax-layout; a match lets render_html answer with the region alone.
+    def layout_id
+      return unless layout
+      @layout_id ||= "#{layout}:#{Lux::DEPLOY_ID}".md5[0, 10]
+    end
+
+    # pjax navigation from a page built with this same layout and deploy.
+    def pjax?
+      !!layout_id && Lux.current.request.env['HTTP_X_PJAX_LAYOUT'] == layout_id
+    end
+
     # Per-request state exported onto the client `window`. A plain Hash with
     # unrestricted access - set whatever you want, then emit via #window_script.
     # The `:app` bucket is pre-seeded (it's the namespace window_script merges
@@ -102,30 +123,24 @@ module Lux
     # window.app (so cfg/current persist and the page reset survives unless app
     # provides its own page); any other top-level keys are assigned onto window.
     # Outside production an extra `app.lux` bucket carries framework debug state.
+    # header.render emits it whole; render_html splits it into boot_script
+    # (<head>) and state_script (pjax region).
     def window_script
-      app  = window[:app] || window['app']
-      rest = window.reject { |k, _| k.to_s == 'app' }
+      %[<script id="lux-state">#{(boot_lines + state_lines).join("\n")}</script>]
+    end
 
-      if (state = dev_state)
-        app = (app || {}).merge(lux: state)
-      end
+    # <head> half of window_script for render_html: Lux client surface + the
+    # window.app guard, before any bundle loads.
+    def boot_script
+      %[<script>#{boot_lines.join("\n")}</script>]
+    end
 
-      # Lux client surface (csrf/host) must land before asset packs that define
-      # Lux.fetch / Lux.subscribe - those packs no longer go through /_lux_/*.js ERB.
-      lux_cfg = {
-        csrf:   Lux.current.csrf,
-        config: { host: Lux.config.host.to_s, locale: Lux.current.locale.to_s },
-      }
-
-      lines = [
-        'window.Lux = window.Lux || {};',
-        "Object.assign(window.Lux, #{js_safe(lux_cfg)});",
-        'window.app = window.app || {};',
-        'window.app.page = {};',
-      ]
-      lines << "Object.assign(window.app, #{js_safe(app)});" if app && !app.empty?
-      lines << "Object.assign(window, #{js_safe(rest)});"    unless rest.empty?
-
+    # Per-request half for render_html, emitted as the first child of the pjax
+    # region so every navigation (full or body-only) refreshes it. Lux cfg is
+    # repeated because csrf rotates with the session (login/logout).
+    def state_script
+      lines = [lux_cfg_line] + state_lines
+      lines << 'window.noCache = true;' if Lux.current.no_cache?
       %[<script id="lux-state">#{lines.join("\n")}</script>]
     end
 
@@ -148,6 +163,36 @@ module Lux
     end
 
     private
+
+    # Lux client surface (csrf/host) must land before asset packs that define
+    # Lux.fetch / Lux.subscribe - those packs no longer go through /_lux_/*.js ERB.
+    def boot_lines
+      lines = ['window.Lux = window.Lux || {};', lux_cfg_line, 'window.app = window.app || {};']
+      lines << 'window.DEV = true;' if Lux.env.dev?
+      lines
+    end
+
+    def lux_cfg_line
+      lux_cfg = {
+        csrf:   Lux.current.csrf,
+        config: { host: Lux.config.host.to_s, locale: Lux.current.locale.to_s },
+      }
+      "Object.assign(window.Lux, #{js_safe(lux_cfg)});"
+    end
+
+    def state_lines
+      app  = window[:app] || window['app']
+      rest = window.reject { |k, _| k.to_s == 'app' }
+
+      if (state = dev_state)
+        app = (app || {}).merge(lux: state)
+      end
+
+      lines = ['window.app.page = {};']
+      lines << "Object.assign(window.app, #{js_safe(app)});" if app && !app.empty?
+      lines << "Object.assign(window, #{js_safe(rest)});"    unless rest.empty?
+      lines
+    end
 
     # Payload emitted as window.app.lux, nil in production (these are server
     # paths). `file_in_use` is the render trail for this request - templates,

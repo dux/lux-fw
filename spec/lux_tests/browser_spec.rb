@@ -196,6 +196,135 @@ describe Lux::Browser do
     end
   end
 
+  describe '#boot_script / #state_script' do
+    before { Lux::Current.new Rack::MockRequest.env_for('/') }
+
+    it 'boot carries the Lux surface and app guard, not page state' do
+      b = Lux.current.browser
+      b.window[:app][:cfg] = { x: 1 }
+      tag = b.boot_script
+      _(tag).must_include 'Object.assign(window.Lux,'
+      _(tag).must_include 'window.app = window.app || {};'
+      refute_includes tag, 'window.app.page'
+      refute_includes tag, 'lux-state'
+    end
+
+    it 'state resets the page, merges app and repeats the Lux cfg' do
+      b = Lux.current.browser
+      b.window[:app][:cfg] = { x: 1 }
+      tag = b.state_script
+      _(tag).must_include '<script id="lux-state">'
+      _(tag).must_include 'Object.assign(window.Lux,'
+      _(tag).must_include 'window.app.page = {};'
+      _(tag.gsub(/\s+/, '')).must_include %[Object.assign(window.app,{"cfg":{"x":1}]
+    end
+  end
+
+  describe '#layout_id / #pjax?' do
+    def browser_for headers = {}
+      Lux::Current.new(Rack::MockRequest.env_for('/', headers)).browser
+    end
+
+    it 'is nil without a layout' do
+      b = browser_for
+      _(b.layout_id).must_be_nil
+      _(b.pjax?).must_equal false
+    end
+
+    it 'is stable per layout and differs between layouts' do
+      a = browser_for.tap { _1.layout = 'app/views/layouts/main.haml' }
+      c = browser_for.tap { _1.layout = 'app/views/layouts/main.haml' }
+      d = browser_for.tap { _1.layout = 'app/views/layouts/admin.haml' }
+      _(a.layout_id).must_equal c.layout_id
+      refute_equal a.layout_id, d.layout_id
+    end
+
+    it 'matches the x-pjax-layout request header' do
+      id = browser_for.tap { _1.layout = 'main' }.layout_id
+      _(browser_for('HTTP_X_PJAX_LAYOUT' => id).tap { _1.layout = 'main' }.pjax?).must_equal true
+      _(browser_for('HTTP_X_PJAX_LAYOUT' => 'nope').tap { _1.layout = 'main' }.pjax?).must_equal false
+    end
+  end
+
+  describe 'render_html' do
+    before do
+      @previous = Lux.config[:app]
+      Lux.config[:app] = { name: 'T' }.to_lux_hash
+    end
+
+    after { Lux.config[:app] = @previous }
+
+    def render headers = {}, lang: nil, footer: true, body: true
+      c = Lux::Current.new Rack::MockRequest.env_for('/', headers)
+      c.browser.layout = 'main'
+      c.header.title = 'Page'
+      html = c.render_html(lang: lang) do |el|
+        el.body(class: 'bg') { '<p>region</p>' } if body
+        el.footer(class: 'small') { 'foot' } if footer
+        '<link rel="x" href="/x" />'
+      end
+      [html, c]
+    end
+
+    def layout_id
+      Lux::Current.new(Rack::MockRequest.env_for('/')).browser.tap { _1.layout = 'main' }.layout_id
+    end
+
+    it 'builds the whole document on a full load' do
+      html, c = render
+      _(html).must_match(/\A<!DOCTYPE html>\n<html lang="en">/)
+      _(html).must_include %[<meta name="pjax-layout" content="#{layout_id}" />]
+      _(html).must_include '<link rel="x" href="/x" />'
+      _(html).must_include '<title>Page | T</title>'
+      _(html).must_include '<body class="bg">'
+      _(html).must_include '<div class="pjax" id="main"><script id="lux-state">'
+      _(html).must_include '<p>region</p></div>'
+      _(html).must_include '<footer class="small">foot</footer>'
+      _(c.response.headers['x-pjax-layout']).must_equal layout_id
+      _(c.response.headers['vary']).must_equal 'x-pjax-layout'
+
+      # boot runs before head extras (bundles), state lives in the region
+      assert html.index('Object.assign(window.Lux') < html.index('<link rel="x"')
+      assert html.index('<link rel="x"') < html.index('lux-state')
+    end
+
+    it 'takes lang from the locale, or an explicit one' do
+      Lux::Current.new Rack::MockRequest.env_for('/')
+      _(render(lang: 'hr_HR').first).must_include '<html lang="hr-HR">'
+    end
+
+    it 'returns only title + region for a pjax request of the same layout' do
+      html, = render({ 'HTTP_X_PJAX_LAYOUT' => layout_id })
+      _(html).must_match(/\A<title>Page \| T<\/title>\n<div class="pjax" id="main"><script id="lux-state">/)
+      refute_includes html, '<head>'
+      refute_includes html, 'footer'
+      refute_includes html, '<link rel="x"'
+    end
+
+    it 'blanks assets on pjax' do
+      c = Lux::Current.new Rack::MockRequest.env_for('/', 'HTTP_X_PJAX_LAYOUT' => layout_id)
+      c.browser.layout = 'main'
+      _(c.browser.html.asset('app.js')).must_equal ''
+      _(c.browser.html.assets(:app)).must_equal ''
+    end
+
+    it 'renders preconnect links' do
+      el = Lux::Current.new(Rack::MockRequest.env_for('/')).browser.html
+      _(el.preconnect('https://x.com')).must_equal '<link rel="preconnect" href="https://x.com" />'
+      _(el.google_fonts_preconnect).must_include '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />'
+    end
+
+    it 'el.title sets the header title' do
+      c = Lux::Current.new Rack::MockRequest.env_for('/')
+      html = c.render_html { |el| el.title 'Preview'; el.body { 'x' }; '' }
+      _(html).must_include '<title>Preview | T</title>'
+    end
+
+    it 'raises without el.body' do
+      _ { render(body: false) }.must_raise ArgumentError
+    end
+  end
+
   describe 'Lux.current#browser' do
     it 'is the master per-request object with header + window' do
       env = Rack::MockRequest.env_for('/')
