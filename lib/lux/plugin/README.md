@@ -149,8 +149,9 @@ Files are used in place - nothing is copied or symlinked into the host app.
   lookup and the asset pipeline.
 * `mount/app/**/*.rb` files are registered for autoload when the mount is
   added, so a plugin controller loads on first reference.
-* Node build files (`rollup.config.js`) cannot read `Lux::Root`, so
-  `lux assets:auto` materializes the first one found into the app root.
+* Node build files (`rollup.config.js`) cannot read `Lux::Root`; each app
+  owns its config. A mount's `app/assets/<name>.<ext>.rb` generator is run by
+  `lux assets:build` into the app's `app/assets/<name>.tmp.<ext>`.
 
 ## See also
 

@@ -30,6 +30,32 @@ class ModelApi < ApplicationApi
     name == :create ? define(name, &body) : define_ref(name, &body)
   end
 
+  # { 'user' => { path: '/api/users', member: [...], collection: [...] } } for
+  # every model API. Generated into app/assets/lux_models.tmp.js, where
+  # dollar_api.js turns it into app.m.user(ref).update(...). Undocumented
+  # actions stay off the client index, as they stay off the API schema.
+  def self.client_index apis = descendants
+    served = {}
+
+    apis.sort_by(&:to_s).each_with_object({}) do |klass, out|
+      model = begin
+        klass.model_class
+      rescue NameError
+        next
+      end
+
+      key = model.to_s.underscore.tr('/', '_')
+      raise ArgumentError, "#{served[key]} and #{klass} both serve #{model}" if served[key]
+      served[key] = klass
+
+      actions = -> type {
+        (klass.opts[type] || {}).reject { |_, o| o&.dig(:annotations)&.key?(:undocumented) }.keys.map(&:to_s).sort
+      }
+
+      out[key] = { path: "#{klass.mount_on}/#{klass.api_path}", member: actions[:member], collection: actions[:collection] }
+    end
+  end
+
   before do
     # load generic object based on class name (or declared model_class)
     base = self.class.model_class

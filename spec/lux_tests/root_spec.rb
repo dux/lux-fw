@@ -82,11 +82,6 @@ describe 'Lux::Root' do
     assert_kind_of Class, RootSpecThing
   end
 
-  it 'mirrors a plugin path under the writable app root' do
-    mirrored = Lux.root.mirror(File.join(@mount, 'app/views/main/root.haml')).to_s
-    assert_equal Lux.root.join('app/views/main/root.haml').to_s, mirrored
-  end
-
   it 'prettifies a path relative to whichever root owns it' do
     assert_equal './app/views/main/root.haml',
                  Lux.root.pretty(File.join(@mount, 'app/views/main/root.haml'))

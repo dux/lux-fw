@@ -80,7 +80,7 @@ class Dir
   def self.require_all folder, opts = {}
     list = Dir.find(folder, ext: :rb)
     list
-      .select{ |o| o.index('.rb') && !o.index('_spec.rb') && !o.index('/app/views/') }
+      .select{ |o| o.index('.rb') && !o.index('_spec.rb') && !o.index('/app/views/') && !o.index('/app/assets/') }
       .select{ |o| opts[:skip] ? !o.include?(opts[:skip]) : true }
       .each do |ruby_file|
         begin

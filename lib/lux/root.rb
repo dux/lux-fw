@@ -161,24 +161,11 @@ module Lux
       str
     end
 
-    # Map a path under any root to the matching path under the writable app
-    # root. Generated output (auto-*.tmp.*) must land in the app tree even when
-    # its source ships in a plugin mount.
-    def mirror(path)
-      path = Pathname.new(path)
-      self.class.roots.each do |root|
-        base = Pathname.new(root)
-        next unless path.to_s == base.to_s || path.to_s.start_with?(base.to_s + '/')
-        return join(path.relative_path_from(base))
-      end
-      path
-    end
-
     # Require every *.rb under `rel` across all roots, deduped by relative path.
-    # Mirrors Dir.require_all: skips specs and view templates.
+    # Mirrors Dir.require_all: skips specs, view templates and asset generators.
     def require_all rel = 'app', opts = {}
       self.class.files('%s/**/*.rb' % rel)
-        .reject { |f| f.to_s.include?('_spec.rb') || f.to_s.include?('/app/views/') }
+        .reject { |f| f.to_s.include?('_spec.rb') || f.to_s.include?('/app/views/') || f.to_s.include?('/app/assets/') }
         .select { |f| opts[:skip] ? !f.to_s.include?(opts[:skip]) : true }
         .each { |f| require f.to_s }
       self

@@ -20,7 +20,7 @@ $ lux
   lux routes      # Print mounted route tree (verb, path, target, source)
   lux secrets     # Edit, show and compile secrets
   lux server      # Start web server (puma only)
-  lux start       # assets:auto (web_common JS builds), then ./Procfile    (alias: s)
+  lux start       # generate app/assets/*.tmp.* (web_common), then ./Procfile (alias: s)
   lux procfile    # Run all Procfile services color-prefixed            (alias: pf)
   lux stats       # Print project stats
   lux test        # Run tests (auto-detects rspec or minitest)          (alias: t)

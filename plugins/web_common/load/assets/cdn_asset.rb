@@ -48,14 +48,6 @@ module CdnAsset
     url name, opts.merge(as: :css)
   end
 
-  # = CdnAsset.auto :shared, :fez, :app
-  def auto *list
-    key = 'page-assets-%s-%s' % [Lux::DEPLOY_ID, list.sort.join('-')]
-    Lux.cache.fetch key, ttl: Lux.reload? ? 0 : 3600 do
-      list.flat_map { |el| [url("auto-#{el}.js"), url("auto-#{el}.css")] }.compact.join("\n")
-    end
-  end
-
   # domain.css -> domain.a1b2c3d4.css, fingerprinted from the file's content.
   # Single source of truth for asset filenames, shared by url (reads it back
   # from the manifest) and write_manifest (bakes it into the manifest).

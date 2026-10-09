@@ -102,7 +102,8 @@ internal use and old apps.
 | Request context | `lux` (in request code), `Lux.current` outside of it | [current](./lib/lux/current/README.md) |
 | Cache | `Lux.cache.fetch(key, ttl: 60) { ... }` | [cache](./lib/lux/cache/README.md) |
 | Background job | `LuxJob.add :name, opts` (job_runner plugin), `Lux.defer { }` for fire-and-forget | [job_runner](./plugins/job_runner/README.md) |
-| Ship assets | `lux assets:deploy` (build -> manifest -> upload); the app defines `lux assets:upload LOCAL_PATH REMOTE_PATH` in `lib/tasks` | [web_common](./plugins/web_common/README.md) |
+| Ship assets | `lux assets:deploy` (generate `app/assets/*.tmp.*` -> compile -> manifest -> upload); the app defines `lux assets:compile` and `lux assets:upload LOCAL_PATH REMOTE_PATH` in `lib/tasks` | [web_common](./plugins/web_common/README.md) |
+| Call a model API from JS | `app.m.user(ref).update({...})` (`app.m.user.create({...})` for collection actions) | [web_common](./plugins/web_common/README.md#model-handles) |
 | Mail | `class Mailer < Lux::Mail::Sender`, `Mailer.deliver(:welcome, user)` | [mail](./lib/lux/mail/README.md) |
 | Model fields | `schema do ... end` in the model, migrated by `lux db:am` | [db](./plugins/db/README.md) |
 | User text / HTML | stored with `<` as `&LT;` by the type layer, printed raw; `html: true` on a field that stores markup, `.html_unsafe` to render markup | [type](./lib/lux/type/README.md) |

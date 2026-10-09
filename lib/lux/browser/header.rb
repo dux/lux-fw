@@ -152,7 +152,7 @@ module Lux
       # once per request from the layout's <head> block.
       #
       # The optional block is yielded web_common's `CdnAsset` when that plugin
-      # is loaded (so layouts can call `el.auto`, `el.url '...'` etc.) and
+      # is loaded (so layouts can call `el.url '...'`, `el.js` etc.) and
       # `self` as a second arg;
       # its return value is appended after the framework's meta/link tags -
       # used in Haml layouts to inject asset and font tags.

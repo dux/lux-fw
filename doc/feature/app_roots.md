@@ -111,8 +111,8 @@ problem.
 
 `rollup.config.js` is consumed by Node, not Ruby, so `Lux::Root` cannot reach
 it.
-`lux assets:auto` resolves the config through `Lux::Root` and writes a real,
-gitignored `Lux.root/rollup.config.js`.
+Each app owns its `rollup.config.js` and aliases plugin sources by path
+(`bundle info --path lux-fw`).
 `NODE_PRESERVE_SYMLINKS` stays for the `node_modules/fez` symlink.
 
 ### App autoload
