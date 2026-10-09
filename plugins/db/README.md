@@ -40,6 +40,20 @@ conversions. These apply automatically by default. Pass `--ask` (`lux db:am
 --ask`) to confirm each destructive change interactively in a dev TTY;
 production, CI, and non-TTY runs always apply unattended regardless.
 
+`db:seed` runs `db:reset` first - it drops and recreates the dev database. As a
+task runner it ignores `LUX_ENV=test` (see below), so it is not a way to try
+seeds against `<db>_test`. Seeds start from empty tables, and `timestamps`
+makes `creator_ref` NOT NULL while the auto-fill needs `User.current`, so the
+first row attributes itself:
+
+```ruby
+ref = Lux::Utils::Ref.generate
+admin = User.new email: ..., is_admin: true
+admin[:ref] = admin[:creator_ref] = admin[:updater_ref] = ref
+admin.save
+User.current = admin
+```
+
 ## Test databases
 
 Each configured database has a `<db>_test` sibling - a mechanical `_test`

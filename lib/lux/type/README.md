@@ -120,6 +120,13 @@ that field (from the Sequel `:dirty` baseline). It is `nil` for new rows, param-
 validation and nested schemas. Types that need to merge or prune against prior state
 (e.g. `:translated`) compare the incoming value to `stored_value`.
 
+## Validating model fields
+
+Validate in a type or in the model's `validate do` block, never in an attribute
+setter: Sequel's `_valid?` clears `errors` before it runs `validate`, so an error
+added at assignment time is dropped. A `TypeError` raised from `coerce` is
+caught by the schema and recorded during validation.
+
 ## Translations
 
 ```ruby

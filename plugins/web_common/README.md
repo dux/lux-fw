@@ -83,6 +83,13 @@ target.
 
 Server logs are read in dboss.
 
+## Api() notifications
+
+`Api()` / `$.api` is silent on success by default, so never write `.silent()`.
+Opt in only for direct user actions (click, submit, drag): `.info()` shows a toast, `.topInfo()` flashes the top progress bar.
+A server error response always shows a red toast, even on a silent call - pass `.error(fn)` only to replace it.
+The full chain list is at the top of `dollar/dollar_api.js`.
+
 ## Browser API response event
 
 `Api(...)` and `<api-form>` dispatch `api:response` on `document` after a successful HTTP response and before their completion callbacks.
