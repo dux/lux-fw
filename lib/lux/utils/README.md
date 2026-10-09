@@ -193,7 +193,7 @@ tag(name, inner = nil, **attrs, &block)
 
 Vendored from the old `lux-url` gem. Source of truth for URL parse/build on
 the server. Same vocabulary as the browser port `$.url`
-([`plugins/web_common/.../dollar/dollar_url.js`](../../../plugins/web_common/mount/app/assets/auto/common/js/dollar/dollar_url.js)):
+([`plugins/web_common/.../dollar/dollar_url.js`](../../../plugins/web_common/assets/js/dollar/dollar_url.js)):
 `qs`, `pqs` / `path_qs`, path prefix `/:a:b`, locale segment, subdomain, fragment.
 
 Entry points: `Lux::Utils::Url` (canonical), top-level `Url` alias, `Lux.url`,
@@ -254,7 +254,7 @@ Time.now.short(true) # force default format, ignore config
 ## See also
 
 * [`../current/README.md`](../current/README.md) - `Lux.current.encrypt/decrypt` (per-request variants)
-* [`url.rb`](./url.rb) - `Lux::Utils::Url` (server); browser twin [`dollar_url.js`](../../../plugins/web_common/mount/app/assets/auto/common/js/dollar/dollar_url.js) (`$.url`)
+* [`url.rb`](./url.rb) - `Lux::Utils::Url` (server); browser twin [`dollar_url.js`](../../../plugins/web_common/assets/js/dollar/dollar_url.js) (`$.url`)
 * [`../application/lib/nav/ref_string.rb`](../application/lib/nav/ref_string.rb) - the format behind `Lux::Utils::Ref`
 * [`../../../plugins/db/lib/ext/nav_models.rb`](../../../plugins/db/lib/ext/nav_models.rb) - `Lux::Utils::Ref` model registry + `Nav#load_models` (db plugin)
 * [`../../../plugins/db/lib/ext/paginate.rb`](../../../plugins/db/lib/ext/paginate.rb) - `Lux::Utils::PaginatedArray`

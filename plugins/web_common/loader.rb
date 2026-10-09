@@ -3,6 +3,7 @@
 #   load/assets   - CdnAsset + ApplicationHelper template helpers
 #   load/html     - form / input / table / menu / paginate / filter builders
 #   load/lib      - ApplicationApi, ModelApi, exception writer, legacy exception logger
+#   assets/js     - browser sources, apps import them as @web-common/js/...
 #   mount/        - /dev controller and views
 #
 # Sign-in is the authcog plugin; apps list it next to this one.

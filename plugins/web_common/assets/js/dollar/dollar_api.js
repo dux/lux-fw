@@ -184,7 +184,7 @@ const apiAction = (path, name) => opts => Api(`${path}/${name}`, opts)
 
 const buildModels = () => {
   const out = {}
-  for (const [key, m] of Object.entries(window.Lux.models || {})) {
+  for (const [key, m] of Object.entries(window.Lux?.models || {})) {
     const factory = ref => {
       ref = ref?.ref ?? ref
       if (!ref) throw new Error(`app.m.${key}(ref): ref is required`)
@@ -200,4 +200,4 @@ const buildModels = () => {
 }
 
 let models
-Object.defineProperty(window.app, 'm', { get: () => models ||= buildModels(), enumerable: true, configurable: true })
+Object.defineProperty(window.app ||= {}, 'm', { get: () => models ||= buildModels(), enumerable: true, configurable: true })

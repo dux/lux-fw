@@ -1,5 +1,5 @@
 // Lux client core. Sets up window.Lux skeleton + fetch helper.
-// Loaded via app asset packs (auto/common); per-request csrf/config are
+// Imported by app bundles (@lux-fw/assets/lux/core.js); per-request csrf/config are
 // assigned by #lux-state (Lux::Browser#window_script) before bundles run.
 // Still available at /_lux_/core.js for direct include if needed.
 ;(function (global) {

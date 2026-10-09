@@ -111,7 +111,8 @@ plugins/web_common/
   load/
     assets/  html/{form,input,table,...}
     lib/                 # ApplicationApi, ModelApi, SchemaMap, ExceptionWriter, legacy LuxException(s)
-  mount/               # /dev controller and views (Lux::Root overlay)
+  assets/js/           # browser sources ($ shim, sys-* fez, lib), imported as @web-common/js/...
+  mount/               # /dev controller and views, lux_models.js.rb generator (Lux::Root overlay)
   spec/                # exception writer/hook specs, HtmlForm/HtmlInput/HtmlTable
 ```
 
