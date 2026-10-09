@@ -1,5 +1,5 @@
 <info>
-  <p>Lightweight hover tooltips driven by a <code>tippy="..."</code> attribute on any element. One shared bubble, no dependencies. Prefers top placement and flips to bottom/left/right when space runs out.</p>
+  <p>Lightweight hover tooltips driven by a <code>tippy="..."</code> attribute on any element. One shared bubble, no dependencies. Prefers top placement and flips to bottom/left/right when space runs out; <code>tt-place="right|left|top|bottom"</code> sets the preferred side.</p>
   <p><code>&lt;button tippy="Save changes"&gt;...&lt;/button&gt;</code></p>
 </info>
 
@@ -7,6 +7,7 @@
   <p>
     <span class="btn" tippy="Tooltip on top by default">tippy attr</span>
     <span class="btn" tt="Short form, same thing">tt attr</span>
+    <span class="btn" tt="Prefers the right side" tt-place="right">tt-place right</span>
     <span class="btn" tippy="Wraps onto multiple lines once it passes the max-width, so longer hints stay readable">long text</span>
   </p>
   <p>
@@ -97,8 +98,12 @@
       const vw = innerWidth, vh = innerHeight
       const fit = { top: r.top, bottom: vh - r.bottom, left: r.left, right: vw - r.right }
 
+      // tt-place="right" picks the preferred side; no room there falls back to the default order
+      const need = { top: bh, bottom: bh, left: bw, right: bw }
+      const want = t.getAttribute('tt-place')
       let p = 'top'
-      if (fit.top < bh + GAP) {
+      if (need[want] && fit[want] >= need[want] + GAP) p = want
+      else if (fit.top < bh + GAP) {
         if (fit.bottom >= bh + GAP) p = 'bottom'
         else if (fit.right >= bw + GAP) p = 'right'
         else if (fit.left >= bw + GAP) p = 'left'

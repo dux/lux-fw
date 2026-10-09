@@ -142,21 +142,25 @@ class HtmlInput
     end
   end
 
+  # array column -> one checkbox per collection item, posted as name[]
   def as_checkboxes
     body = []
     collection = @opts.delete(:collection)
 
     @opts[:type] = :checkbox
+    @opts[:name] = "#{@opts[:name]}[]" unless @opts[:name].to_s.end_with?('[]')
 
-    null  = @opts.delete(:null)
-    value = @opts.delete(:value).to_s
+    null   = @opts.delete(:null)
+    values = Array(@opts.delete(:value)).map(&:to_s)
+    attrs  = @opts.except(:id, :label, :hint, :was)
 
-    body.push %[<label>#{opts.tag(:input)} #{null}</label>] if null
+    # blank keeps the field in the post when every box is unchecked; the schema drops blank elements
+    body.push({ type: :hidden, name: @opts[:name], value: '' }.tag(:input))
+    body.push %[<label>#{attrs.merge(value: '').tag(:input)} #{null}</label>] if null
 
     prepare_collection(collection).each do |el|
-      opts = @opts.dup
-      opts[:value]   = el[0]
-      opts[:checked] = true if value == el[0].to_s
+      opts = attrs.merge(value: el[0])
+      opts[:checked] = true if values.include?(el[0].to_s)
 
       body.push %[<label>#{opts.tag(:input)} #{el[1]}</label>]
     end
