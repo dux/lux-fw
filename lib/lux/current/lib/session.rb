@@ -17,7 +17,7 @@ module Lux
       # one-time handoff to another host, see #transfer_token
       TRANSFER_PARAM   ||= '_lux_st'
       TRANSFER_PURPOSE ||= 'session_transfer'
-      TRANSFER_TTL     ||= 60
+      TRANSFER_TTL     ||= 5.minutes.to_i
       # per-host keys, rebuilt by the receiving host
       TRANSFER_SKIP    ||= ['_c', '_t', Dbsc::KEY, Dbsc::OFFERED]
 

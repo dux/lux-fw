@@ -135,7 +135,7 @@ store. Rules, in [`./lib/session.rb`](./lib/session.rb):
   `__Secure-`.
 * **Moving to a subdomain.** The host-only cookie is not seen by other hosts.
   `nav.subdomain(:app, '/dashboard', session: true)` links there with a
-  one-time `?_lux_st=` token: sealed session data, valid 60 seconds, for that
+  one-time `?_lux_st=` token: sealed session data, valid 5 minutes, for that
   host and this browser only. The receiving host merges it before any
   before-filter and 303-redirects to the same URL without the token.
 * **Device binding (DBSC).** Over https every session is offered
