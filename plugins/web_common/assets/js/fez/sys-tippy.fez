@@ -35,7 +35,7 @@
   // and appends <sys-tippy> before the class lands in Fez.index, crashing on connect.
   function tip() {
     if (TIP) return TIP
-    if (!document.querySelector('sys-tippy, .fez-sys-tippy')) document.body.appendChild(document.createElement('sys-tippy'))
+    if (!document.querySelector('sys-tippy, .sys-tippy-fez')) document.body.appendChild(document.createElement('sys-tippy'))
     return TIP
   }
 
