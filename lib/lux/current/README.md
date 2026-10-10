@@ -25,7 +25,7 @@ class UsersController < ApplicationController
     current.nav.path         # canonical path array
     current.nav.ref          # captured id (see Application docs)
 
-    # --- session (JWT-encrypted) ----------------------------------------
+    # --- session (sealed cookie, see Session below) ---------------------
     current.session[:user_id] = @user.id
     current.session.clear
 
@@ -60,7 +60,7 @@ class UsersController < ApplicationController
     Lux.defer { |ctx| Audit.track(ctx.user, ctx.url) }         # ctx = Lux.current.snapshot
 
     # --- request meta ----------------------------------------------------
-    current.ip               # client IP (CF-Connecting-IP, else Rack#ip: XFF behind trusted proxies only)
+    current.ip               # client IP (CF-Connecting-IP from a CF edge, else Rack#ip: XFF behind trusted proxies only)
     current.request_id       # X-Request-Id if sane, else random; echoed as x-request-id
     current.snapshot         # frozen { request_id, request_method, url, ip, user }
     current.host             # scheme://host:port
@@ -88,7 +88,7 @@ end
 | `response`        | `Lux::Response` | response builder |
 | `nav`             | `Lux::Application::Nav` | canonical request path (see Nav below) |
 | `route`           | `Lux::Application::Route` | router cursor |
-| `session`         | `Lux::Current::Session` | JWT-encrypted session |
+| `session`         | `Lux::Current::Session` | sealed cookie session (see Session below) |
 | `params`          | `Lux::Hash` | request params (coerced if `opt` declared) |
 | `param_errors`    | hash | `{ field => 'Message' }` from the action's `opt` / `params do` contract, HTML requests only (JSON halts with 422). Empty when clean |
 | `var`             | `Lux::Hash` | request-scoped bag (`current[:k]` shortcut) |
@@ -116,6 +116,26 @@ end
 | `Lux.defer { \|ctx\| ... }`     | bg thread; `ctx` = `Lux.current.snapshot`; `Lux.current` inside is rebuilt from it (request id, method, url, `User.current=`); errors go to `Lux.error.log` |
 | `Lux.defer(context: x) { \|x\| ... }` | bg thread with an explicit context value |
 | `current.files_in_use`          | Set of files touched this request |
+
+## Session
+
+The whole session lives in one sealed (AES-256-GCM) cookie - there is no server
+store. Rules, in [`./lib/session.rb`](./lib/session.rb):
+
+* **Sliding lifetime.** `session_cookie_max_age` (default 10 days) is both the
+  cookie `Max-Age` and the TTL sealed inside it. A cookie older than a day is
+  reissued on the next response, so a daily visitor is never logged off and one
+  gone longer than max age is.
+* **Browser check.** User-Agent (version numbers dropped, so updates do not log
+  out) plus `CF-IPCountry` is hashed into `_c`; a mismatch empties the session.
+  `session_ip_check: true` adds the exact IP.
+* **Cookie name.** Over https the name carries `__Host-` (host-only, `Path=/`,
+  `Secure`), so a subdomain or plain-http page cannot plant one. Setting
+  `session_cookie_domain` shares the cookie with subdomains and switches to
+  `__Secure-`.
+* **CF-* headers** are dropped by `Lux::Current::Request` unless the request came
+  through a Cloudflare edge (or `cloudflare: true`), so `CF-IPCountry` and
+  `CF-Connecting-IP` can be trusted wherever they are read.
 
 ## Nav
 

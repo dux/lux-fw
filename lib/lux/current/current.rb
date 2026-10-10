@@ -6,6 +6,37 @@ module Lux
     # Lux's own request class, so the xhr? change below stays out of every
     # other Rack app and middleware in the process.
     class Request < ::Rack::Request
+      # Cloudflare edge addresses, https://www.cloudflare.com/ips/ (same list as
+      # dboss). CF-* headers are believed only from one of these.
+      CLOUDFLARE_RANGES ||= %w[
+        173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22
+        141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20
+        197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13
+        104.24.0.0/14 172.64.0.0/13 131.0.72.0/22
+        2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32
+        2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+      ].map { IPAddr.new(_1) }.freeze
+
+      # CF-* headers are anyone's to send. Drop them unless the hop is a
+      # Cloudflare edge, so every later read (ip, session check, geo locale)
+      # can take them as Cloudflare's.
+      def initialize env
+        super
+        env.keys.grep(/\AHTTP_CF_/).each { env.delete _1 } unless from_cloudflare?
+      end
+
+      # Rack#ip takes the last untrusted X-Forwarded-For hop, so this also holds
+      # behind a local proxy. `cloudflare: true` in config.yaml declares the app
+      # reachable through Cloudflare only.
+      def from_cloudflare?
+        return true if Lux.config[:cloudflare]
+
+        addr = IPAddr.new(ip.to_s)
+        CLOUDFLARE_RANGES.any? { _1.include?(addr) }
+      rescue IPAddr::Error
+        false
+      end
+
       # Rack's xhr? only matches the legacy X-Requested-With header, which
       # fetch() never sends. Also treat programmatic fetch/XHR as xhr via
       # Sec-Fetch-Dest: browsers set it to 'empty' for fetch/XHR (and
@@ -22,17 +53,6 @@ module Lux
 
     # `/./`, `/../` and their %2e spellings, anywhere in the path.
     DOT_SEGMENT_RE ||= %r{(?:\A|/)(?:\.|%2e){1,2}(?:/|\z)}i
-
-    # Cloudflare edge addresses, https://www.cloudflare.com/ips/ (same list as
-    # dboss). CF-Connecting-IP is believed only from one of these.
-    CLOUDFLARE_RANGES ||= %w[
-      173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22
-      141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20
-      197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13
-      104.24.0.0/14 172.64.0.0/13 131.0.72.0/22
-      2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32
-      2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
-    ].map { IPAddr.new(_1) }.freeze
 
     # set to true if user is admin and you want him to be able to clear caches in production
     attr_accessor :can_clear_cache
@@ -247,15 +267,9 @@ module Lux
 
     # Rack#ip reads X-Forwarded-For only behind a trusted (private) proxy and
     # takes the last untrusted hop, so a client cannot spoof it. CF-Connecting-IP
-    # is anyone's to send, so it counts only when that hop is a Cloudflare edge,
-    # or when the app declares it is reachable through Cloudflare only
-    # (`cloudflare: true` in config.yaml).
+    # is still here only when that hop was Cloudflare (see Request#initialize).
     def ip
-      @ip ||= begin
-        peer = request.ip
-        cf   = request.env['HTTP_CF_CONNECTING_IP']
-        cf && (Lux.config[:cloudflare] || cloudflare_edge?(peer)) ? cf : (peer || '127.0.0.1')
-      end
+      @ip ||= request.env['HTTP_CF_CONNECTING_IP'] || request.ip || '127.0.0.1'
     end
 
     # The client is this machine. Gates dev-only powers (log in as anyone) so a
@@ -332,13 +346,6 @@ module Lux
 
     # Lux::Utils::Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
     private
-
-    def cloudflare_edge? addr
-      addr = IPAddr.new(addr.to_s)
-      CLOUDFLARE_RANGES.any? { _1.include?(addr) }
-    rescue IPAddr::Error
-      false
-    end
 
     def prepare_params
       @params = (request_params.dup || {}).to_lux_hash

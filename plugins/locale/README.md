@@ -205,8 +205,8 @@ uses the current locale, so a `de` visitor hitting `/users` lands on
 
 A visitor who arrives with no `/xx` prefix and no remembered choice can be sent
 to their country's locale in one hop. A true `localized` scope reads the country
-from the request - `CF-IPCountry` (Cloudflare) or `X-Geo-Country` / `X-Country` -
-maps it through `LANGUAGES`, and redirects only when it lands on a non-default
+from the request - `CF-IPCountry` (Cloudflare; dropped unless the request came
+through a Cloudflare edge) or `X-Geo-Country` / `X-Country` - maps it through `LANGUAGES`, and redirects only when it lands on a non-default
 available locale. The choice is recorded in the session, so it fires once and
 never fights a visitor's own choice. `geo:` defaults to `true`; pass
 `geo: false` to keep a scope localized without the redirect.

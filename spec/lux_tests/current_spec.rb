@@ -142,6 +142,20 @@ describe Lux::Current do
     end
   end
 
+  describe 'CF-* headers' do
+    def env_from addr
+      Rack::MockRequest.env_for('http://test.example.com/', 'REMOTE_ADDR' => addr, 'HTTP_CF_IPCOUNTRY' => 'DE')
+    end
+
+    it 'drops them when the request did not come through Cloudflare' do
+      _(Lux::Current.new(env_from('203.0.113.9')).request.env['HTTP_CF_IPCOUNTRY']).must_be_nil
+    end
+
+    it 'keeps them from a Cloudflare edge' do
+      _(Lux::Current.new(env_from('173.245.48.10')).request.env['HTTP_CF_IPCOUNTRY']).must_equal 'DE'
+    end
+  end
+
   describe '#local_request?' do
     it 'is true only for a loopback client' do
       local  = Rack::MockRequest.env_for('http://test.example.com/', 'REMOTE_ADDR' => '127.0.0.1')

@@ -146,8 +146,9 @@ module Lux
       set_default :serve_static_files, true
 
       # true when the app is reachable through Cloudflare only (dboss
-      # cloudflare_only): CF-Connecting-IP is then always the client ip. Off,
-      # it counts only when the forwarding hop is a Cloudflare edge address.
+      # cloudflare_only): CF-* headers (CF-Connecting-IP, CF-IPCountry) are then
+      # always trusted. Off, they are dropped unless the forwarding hop is a
+      # Cloudflare edge address.
       set_default :cloudflare, false
     end
 

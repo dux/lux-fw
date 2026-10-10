@@ -126,4 +126,73 @@ describe Lux::Current::Session do
       _(session['_c']).must_be_kind_of String
     end
   end
+
+  # A follow-up request to `url` that carries the session sealed from `data`.
+  def session_from data, url: 'http://test.example.com/', ua: 'Mozilla/5.0 Chrome/141.0.0.0'
+    env  = Rack::MockRequest.env_for(url, 'HTTP_USER_AGENT' => ua)
+    name = Lux::Current.new(env.dup).session.cookie_name
+    env['HTTP_COOKIE'] = "#{name}=#{Lux::Utils::Crypt.seal(data, purpose: 'session')}"
+    Lux::Current.new(env).session
+  end
+
+  describe 'sliding lifetime' do
+    it 'keeps a cookie issued within the last day' do
+      s = session_from({ 'user' => 1, '_t' => Time.now.to_i - 3600 })
+      _(s[:user]).must_equal 1
+      _(s.generate_cookie).must_be_nil
+    end
+
+    it 'reissues a cookie older than a day' do
+      s = session_from({ 'user' => 1, '_t' => Time.now.to_i - 2.days.to_i })
+      _(s[:user]).must_equal 1
+      _(s.generate_cookie).must_match(/Max-Age=#{Lux.config[:session_cookie_max_age]}/)
+      assert_in_delta Time.now.to_i, s['_t'], 5
+    end
+  end
+
+  describe 'browser check' do
+    def check_for ua
+      session_from({}, ua: ua)['_c']
+    end
+
+    it 'survives a browser version update' do
+      _(check_for('Mozilla/5.0 Chrome/142.0.0.0')).must_equal check_for('Mozilla/5.0 Chrome/141.0.0.0')
+    end
+
+    it 'empties the session for another browser' do
+      c = check_for('Mozilla/5.0 Chrome/141.0.0.0')
+      s = session_from({ 'user' => 1, '_c' => c }, ua: 'Mozilla/5.0 Firefox/131.0')
+      _(s[:user]).must_be_nil
+    end
+  end
+
+  describe 'cookie prefix' do
+    def with_cookie_domain domain
+      old = Lux.config[:session_cookie_domain]
+      Lux.config[:session_cookie_domain] = domain
+      yield
+    ensure
+      Lux.config[:session_cookie_domain] = old
+    end
+
+    it 'has no prefix over http' do
+      _(Lux::Current.new('http://test.example.com/').session.cookie_name).must_match(/\Alux_/)
+    end
+
+    it 'is a host-only __Host- cookie over https' do
+      s = Lux::Current.new('https://test.example.com/').session
+      _(s.cookie_name).must_match(/\A__Host-lux_/)
+      cookie = s.generate_cookie
+      _(cookie).must_include 'Secure'
+      refute_includes cookie, 'Domain='
+    end
+
+    it 'is a __Secure- cookie when shared through session_cookie_domain' do
+      with_cookie_domain 'example.com' do
+        s = Lux::Current.new('https://test.example.com/').session
+        _(s.cookie_name).must_match(/\A__Secure-lux_/)
+        _(s.generate_cookie).must_include 'Domain=example.com'
+      end
+    end
+  end
 end
