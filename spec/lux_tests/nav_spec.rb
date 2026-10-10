@@ -109,18 +109,44 @@ describe Lux::Application::Nav do
   end
 
   describe '#subdomain session: true' do
-    # URL on app.example.com carrying a session with user 1, built on example.com
-    def transfer_url ua: nil
-      env = Rack::MockRequest.env_for('https://example.com/promo')
-      env['HTTP_USER_AGENT'] = ua if ua
-      Lux::Current.new(env)
-      Lux.current.session[:user] = 1
+    def handoff_link
+      Lux::Current.new('https://example.com/promo')
       Lux.current.nav.subdomain(:app, '/dashboard', session: true)
+    end
+
+    # follow a handoff link on example.com as a visitor with user 1
+    def handoff path = handoff_link, ua: nil
+      headers = ua ? { 'User-Agent' => ua } : {}
+      Lux.render.get("https://example.com#{path}", session: { user: 1 }, headers: headers)
+    end
+
+    # URL on app.example.com carrying the session, as /_lux_/handoff redirects to it
+    def transfer_url ua: nil
+      handoff(ua: ua).redirect_to
+    end
+
+    it 'links to the handoff endpoint on the current host, with no session data' do
+      _(handoff_link).must_match(%r{\A/_lux_/handoff\?to=[\w-]+\z})
+    end
+
+    it 'mints the token when the handoff link is followed' do
+      resp = handoff
+      _(resp.status).must_equal 302
+      _(resp.headers['cache-control']).must_equal 'no-store'
+      _(resp.redirect_to).must_match(%r{\Ahttps://app\.example\.com/dashboard\?_lux_st=[\w-]+\z})
+    end
+
+    it 'refuses a forged target' do
+      _(handoff('/_lux_/handoff?to=forged').status).must_equal 400
+    end
+
+    it 'refuses a target outside the current domain' do
+      to = Lux::Utils::Crypt.seal('https://evil.com/', purpose: Lux::Current::Session::HANDOFF_PURPOSE)
+      _(handoff("/_lux_/handoff?to=#{to}").status).must_equal 400
     end
 
     it 'carries the session to the subdomain once and drops the token from the URL' do
       url = transfer_url
-      _(url).must_match(%r{\Ahttps://app\.example\.com/dashboard\?_lux_st=[\w-]+\z})
 
       resp = Lux.render.get(url)
       _(resp.status).must_equal 303

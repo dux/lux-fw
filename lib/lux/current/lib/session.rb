@@ -17,7 +17,9 @@ module Lux
       # one-time handoff to another host, see #transfer_token
       TRANSFER_PARAM   ||= '_lux_st'
       TRANSFER_PURPOSE ||= 'session_transfer'
-      TRANSFER_TTL     ||= 5.minutes.to_i
+      TRANSFER_TTL     ||= 60
+      HANDOFF_PATH     ||= '/_lux_/handoff'
+      HANDOFF_PURPOSE  ||= 'session_handoff'
       # per-host keys, rebuilt by the receiving host
       TRANSFER_SKIP    ||= ['_c', '_t', Dbsc::KEY, Dbsc::OFFERED]
 
@@ -122,9 +124,28 @@ module Lux
         string
       end
 
-      # Sealed one-time handoff of this session to `host` (see nav.subdomain
-      # session: true). Bound to the browser check, so a leaked link is useless
-      # in another browser.
+      # Same-host link that mints the transfer token only when followed, so the
+      # page holding it can sit open or in a public cache. The target URL is
+      # sealed, so the endpoint hands sessions only to places the app linked.
+      def handoff_link url
+        '%s?to=%s' % [HANDOFF_PATH, Lux::Utils::Crypt.seal(url, purpose: HANDOFF_PURPOSE)]
+      end
+
+      # Target of a #handoff_link with a fresh transfer token, or nil for a
+      # forged target or one outside the current domain.
+      def handoff token
+        url = Lux::Utils::Crypt.unseal(token.to_s, purpose: HANDOFF_PURPOSE)
+        return unless url.is_a?(String)
+
+        url    = Url.new(url)
+        domain = Lux.current.nav.domain
+        return unless url.host == domain || url.host.to_s.end_with?(".#{domain}")
+
+        url.qs(TRANSFER_PARAM, transfer_token(url.host)).url
+      end
+
+      # Sealed one-time handoff of this session to `host`, minted by #handoff.
+      # Bound to the browser check, so a leaked link is useless in another browser.
       def transfer_token host
         data = @hash.reject { |k, _| TRANSFER_SKIP.include?(k) }
         Lux::Utils::Crypt.seal(

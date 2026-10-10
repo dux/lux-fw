@@ -52,8 +52,8 @@ module Lux
 
       # Bare: the current subdomain. With a name: absolute URL on that subdomain
       # of the current domain (nil -> the domain itself), on the current path
-      # unless one is given. session: true carries this session over in a
-      # one-time token, see Session#transfer_token.
+      # unless one is given. session: true returns a /_lux_/handoff link on this
+      # host that carries the session over when followed, see Session#handoff_link.
       #   nav.subdomain                                  # 'admin'
       #   nav.subdomain(:app, '/dashboard', session: true)
       def subdomain *args, session: false
@@ -62,8 +62,7 @@ module Lux
         name, path = args
         url = Url.current.subdomain(name)
         url.path path if path
-        url.qs Lux::Current::Session::TRANSFER_PARAM, Lux.current.session.transfer_token(url.host) if session
-        url.url
+        session ? Lux.current.session.handoff_link(url.url) : url.url
       end
 
       # get Url object initialized with request.url - relative

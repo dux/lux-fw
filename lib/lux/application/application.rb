@@ -85,9 +85,19 @@ module Lux
         Lux::Reloader.run
       end
 
-      # ?_lux_st= - a session handed over by nav.subdomain(..., session: true).
-      # Taken ahead of before-filters (they may demand a login it carries), then
-      # dropped from the URL so history and Referer never keep it.
+      # Session handoff to another subdomain (nav.subdomain(..., session: true)),
+      # both legs ahead of before-filters - they may demand the login it carries.
+      # /_lux_/handoff mints the token at click time and redirects to the target;
+      # the target takes ?_lux_st= and drops it from the URL, so history and
+      # Referer never keep it.
+      if lux.request.get? && lux.request.path_info == Lux::Current::Session::HANDOFF_PATH
+        target = lux.session.handoff(lux.request.params['to']) or raise Lux.error.bad_request('bad handoff target')
+        lux.response.header 'cache-control', 'no-store'
+        lux.response.header 'referrer-policy', 'no-referrer'
+        catch(:done) { lux.response.redirect_to target }
+        return lux.response.render self
+      end
+
       transfer = Lux::Current::Session::TRANSFER_PARAM
       if lux.request.get? && (token = lux.request.params[transfer])
         lux.session.receive_transfer token

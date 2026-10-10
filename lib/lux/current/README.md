@@ -134,10 +134,13 @@ store. Rules, in [`./lib/session.rb`](./lib/session.rb):
   `session_cookie_domain` shares the cookie with subdomains and switches to
   `__Secure-`.
 * **Moving to a subdomain.** The host-only cookie is not seen by other hosts.
-  `nav.subdomain(:app, '/dashboard', session: true)` links there with a
-  one-time `?_lux_st=` token: sealed session data, valid 5 minutes, for that
-  host and this browser only. The receiving host merges it before any
-  before-filter and 303-redirects to the same URL without the token.
+  `nav.subdomain(:app, '/dashboard', session: true)` returns a same-host
+  `/_lux_/handoff?to=<sealed target>` link with no session data in it, so the
+  page can be cached or left open. Followed, it mints a one-time `?_lux_st=`
+  token (sealed session data, valid 1 minute, for that host and this browser
+  only) and redirects to the target. The receiving host merges it before any
+  before-filter and 303-redirects to the same URL without the token. Only
+  targets the app sealed, on the current domain, are accepted.
 * **Device binding (DBSC).** Over https every session is offered
   [Device Bound Session Credentials](https://w3c.github.io/webappsec-dbsc/)
   once (`Secure-Session-Registration` header). Chrome/Edge register a TPM key

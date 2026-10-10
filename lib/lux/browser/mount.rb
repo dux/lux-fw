@@ -9,7 +9,8 @@ module Lux
     #   /_lux_/<module>.js           -> Lux::Browser.client_js(:<module>)  (just that one + core)
     #   /_lux_/stream                -> SSE stream for the session's channels
     #
-    # POST /_lux_/dbsc/* belongs to Lux::Current::Dbsc, not to this module.
+    # POST /_lux_/dbsc/* belongs to Lux::Current::Dbsc and GET /_lux_/handoff
+    # to Lux::Current::Session, not to this module.
     module Mount
       PREFIX       ||= '/_lux_/'.freeze
       JS_PATH      ||= %r{\A/_lux_/(?<name>[a-z0-9_]+)\.js\z}
