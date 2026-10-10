@@ -31,7 +31,7 @@ module Lux
           Lux.current.response.header 'vary', 'x-pjax-layout'
         end
 
-        return %[<title>#{header.full_title}</title>\n#{@region}] if browser.pjax?
+        return Lux::SafeString.new(%[<title>#{header.full_title}</title>\n#{@region}]) if browser.pjax?
 
         lang ||= Lux.current.locale.to_s.presence || 'en'
 
@@ -41,11 +41,11 @@ module Lux
         out.push head.strip if head.present?
         out.push %[<title>#{header.full_title}</title>]
 
-        [
+        Lux::SafeString.new [
           '<!DOCTYPE html>',
-          %[<html lang="#{lang.to_s.tr('_', '-')}">],
+          { lang: lang.to_s.tr('_', '-') }.tag(:html).sub(%r{</html>\z}, ''),
           "<head>\n#{out.join("\n")}\n</head>",
-          (@body_attrs || {}).tag(:body, "\n#{@region}\n#{@footer}"),
+          (@body_attrs || {}).tag(:body, Lux::SafeString.new("\n#{@region}\n#{@footer}")),
           '</html>',
         ].join("\n")
       end
@@ -59,7 +59,8 @@ module Lux
 
       # attrs go on the <footer> wrapper; skipped on pjax
       def footer **attrs
-        @footer = attrs.tag(:footer, yield) unless browser.pjax?
+        # the block is template output - already escaped where it printed text
+        @footer = attrs.tag(:footer, Lux::SafeString.new(yield.to_s)) unless browser.pjax?
         nil
       end
 
@@ -82,7 +83,7 @@ module Lux
       # = el.assets :app, :admin -> app.css, admin.css, app.js, admin.js
       def assets *names
         return '' if browser.pjax?
-        %w[css js].flat_map { |ext| names.map { CdnAsset.url "#{_1}.#{ext}" } }.compact.join("\n")
+        Lux::SafeString.join %w[css js].flat_map { |ext| names.map { CdnAsset.url "#{_1}.#{ext}" } }.compact, "\n"
       end
 
       # <link rel="preconnect">, opts are extra attrs (crossorigin: '')
@@ -92,7 +93,7 @@ module Lux
 
       # fonts.gstatic.com serves fonts over CORS, so its preconnect needs crossorigin
       def google_fonts_preconnect
-        [preconnect('https://fonts.googleapis.com'), preconnect('https://fonts.gstatic.com', crossorigin: '')].join("\n")
+        Lux::SafeString.join [preconnect('https://fonts.googleapis.com'), preconnect('https://fonts.gstatic.com', crossorigin: '')], "\n"
       end
 
       private

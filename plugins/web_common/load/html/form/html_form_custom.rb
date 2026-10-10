@@ -1,14 +1,15 @@
 class HtmlForm
   def row name = nil, opts = {}
     if block_given?
-      %[<div class="form-row"><label>#{name || '&nbsp;'}</label>#{yield}</div>]
+      label = (name || Lux::SafeString.new('&nbsp;')).tag(:label)
+      (label + Lux::SafeString.new(yield.to_s)).tag(:div, class: 'form-row')
     else
       return hidden name, opts[:value] if opts[:as] == :hidden
       r = row_prepare(name, opts)
 
-      label = %[<label for="#{opts[:id]}">#{r[:label]}</label>]
-      hint  = opts[:hint] ? %[<small class="gray" style="display:block;">#{opts[:hint]}</small>] : ''
-      info  = opts[:info] ? %[<div class="mb-2 small">#{opts[:info]}</div>] : ''
+      label = r[:label].to_s.tag(:label, for: opts[:id])
+      hint  = opts[:hint] ? opts[:hint].to_s.tag(:small, class: 'gray', style: 'display:block;') : ''
+      info  = opts[:info] ? opts[:info].to_s.tag(:div, class: 'mb-2 small') : ''
 
       if opts[:flag]
         locale = Lux.current.locale
@@ -17,10 +18,10 @@ class HtmlForm
           locale = style
           style = ''
         end
-        label += %[<ui-flag class="input" locale="#{locale}" size="20" style="#{style}"></ui-flag>]
+        label += { class: 'input', locale: locale, size: 20, style: style }.tag(:'ui-flag')
       end
 
-      %[<div class="form-row as-#{@type}">#{label}#{info}#{r[:node]}#{hint}</div>]
+      Lux::SafeString.join([label, info, r[:node], hint]).tag(:div, class: "form-row as-#{@type}")
     end
   end
 
@@ -67,16 +68,17 @@ class HtmlForm
     opts[:'data-key'] ||= 'ctrl+s'
 
     opts[:icon] ||= @object&.id ? :floppy_disk : :plus
-    name = '<ui-icon name="%s"></ui-icon> %s' % [opts[:icon], name]
+    name = { name: opts[:icon] }.tag(:'ui-icon') + ' ' + name
 
     data  = opts.tag(:button, name)
     data += opts[:data] if opts[:data]
-    data += ' ' + block.call if block
-    data += %[ or <a class="btn btn-sm" href="#{opts[:cancel]}">cancel</a>] if opts[:cancel]
-    data += %[ or <a class="btn btn-sm" href="#{opts[:back]}">go back</a>] if opts[:back]
+    # SafeString#+ escapes plain text, so a plain ' ' + markup would lose the markup
+    data += Lux::SafeString.new(" #{block.call}") if block
+    data += Lux::SafeString.join([' or ', 'cancel'.tag(:a, class: 'btn btn-sm', href: opts[:cancel])]) if opts[:cancel]
+    data += Lux::SafeString.join([' or ', 'go back'.tag(:a, class: 'btn btn-sm', href: opts[:back])]) if opts[:back]
 
     if @object && (path = opts[:delete])
-      data = <<~TEXT
+      data = Lux::SafeString.new <<~TEXT
       <div class="flex">
         <div class="flex-1">#{data}</div>
         <div class="flex-1 text-right">
@@ -89,15 +91,13 @@ class HtmlForm
       TEXT
     end
 
-    <<~TEXT
+    Lux::SafeString.new <<~TEXT
       <div class="form-row form-submit"><label>#{opts[:narrow] ? '' : '&nbsp;'}</label>#{data}</div>
     TEXT
   end
 
   def isubmit name
-    HtmlTag.button(class: 'btn btn-lg', style: 'height: 42px; margin-left: 2px; margin-top: -3px;') do |n|
-      n.push name
-    end
+    HtmlTag.button(name, class: 'btn btn-lg', style: 'height: 42px; margin-left: 2px; margin-top: -3px;')
   end
 
   def button name, opts = {}
@@ -112,9 +112,10 @@ class HtmlForm
   end
 
   def fieldset title = nil, desc = nil
-    style = title ? '' : ' style="border-top: none;"'
-    title += %[<div class="gray small" style="padding-top: 10px;">#{desc}</div>] if desc
-    %[<fieldset#{style}><legend>#{title}</legend>#{yield}</fieldset>]
+    legend  = Lux::SafeString.join([title.to_s])
+    legend += desc.to_s.tag(:div, class: 'gray small', style: 'padding-top: 10px;') if desc
+    attrs   = title ? {} : { style: 'border-top: none;' }
+    (legend.tag(:legend) + Lux::SafeString.new(yield.to_s)).tag(:fieldset, **attrs)
   end
 
   def done
@@ -124,7 +125,8 @@ end
 
 ###
 
-module ApplicationHelper
+# HtmlHelper, not ApplicationHelper: the app's own helpers must win
+module HtmlHelper
   def form obj, opts = {}, &block
     begin
       builder = HtmlForm.new obj, opts

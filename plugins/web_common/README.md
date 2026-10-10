@@ -21,7 +21,7 @@ itself needs neither.
 
 | Area | Provides | Loaded from |
 |------|----------|-------------|
-| assets  | `CdnAsset` (manifest/CDN asset URLs) + `ApplicationHelper` template helpers (`request`, `response`) | `load/assets/` |
+| assets  | `CdnAsset` (manifest/CDN asset URLs) + `HtmlHelper` template helpers (`request`, `response`); plugin helpers live in `HtmlHelper` so the app's `ApplicationHelper` overrides them | `load/assets/` |
 | html    | form / input / table builders plus `HtmlMenu`, `HtmlHelper.paginate`, `HtmlFilter`, timezone helpers | `load/html/` |
 | api     | `ApplicationApi` (mounted at `/api`), `ModelApi` (generated CRUD), `SchemaMap` | `load/lib/` |
 | exceptions | legacy PG-backed exception logger (`LuxException` / `LuxExceptionLog`, `LuxExceptionsApi`) | `load/lib/` |

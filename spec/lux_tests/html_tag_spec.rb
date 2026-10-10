@@ -87,4 +87,9 @@ describe 'Lux::Utils::HtmlTag' do
 
     _(decoded).must_equal json
   end
+
+  it 'keeps blank lines inside attribute values and text' do
+    md = "# Title\n\nfirst\n\n\nsecond"
+    _(md.tag(:textarea, value: md)).must_equal %[<textarea value="#{md}">#{md}</textarea>]
+  end
 end

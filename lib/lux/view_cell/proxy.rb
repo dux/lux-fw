@@ -9,6 +9,10 @@ module Lux
         @parent = parent
       end
 
+      def respond_to_missing? cell_name, include_private = false
+        !('%sCell' % cell_name.to_s.classify).constantize?.nil? || super
+      end
+
       def method_missing cell_name, vars = {}
         if Lux.env.dev?
           # the file path is what the render trail is for (dev menu links it to

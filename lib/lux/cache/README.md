@@ -69,7 +69,7 @@ Lux.var                              # the underlying Hash if you need direct ac
 
 | Backend | Notes |
 |---------|-------|
-| `:memory` (default) | per-process RAM, TTL-aware, periodic sweep |
+| `:memory` (default) | per-process RAM, TTL-aware, periodic sweep, LRU-capped at `MemoryServer::MAX_KEYS` (10k) |
 | `:memcached`       | via Dalli. `MEMCACHE_SERVERS`, `MEMCACHE_NAMESPACE` |
 | `:sqlite`          | file-backed, WAL mode, survives restarts |
 | `:null`            | no-op; use in tests |

@@ -8,6 +8,10 @@ module Lux
       # sentinel for "key absent" so fetch can cache a real nil/false value
       MISS ||= Object.new
 
+      # Entry cap; past it the least recently used key goes. Keys built from
+      # request data (paths, params) would otherwise grow without bound.
+      MAX_KEYS ||= 10_000
+
       def initialize
         @lock = Mutex.new
         @ram_cache = {}
@@ -17,8 +21,11 @@ module Lux
 
       def set key, data, ttl=nil
         @lock.synchronize do
-          @ttl_cache[key] = Time.now.to_i + ttl if ttl
+          ttl ? @ttl_cache[key] = Time.now.to_i + ttl : @ttl_cache.delete(key)
+          # delete first, so a rewrite moves the key to the recent end
+          @ram_cache.delete key
           @ram_cache[key] = data
+          evict while @ram_cache.size > MAX_KEYS
 
           @writes_since_sweep += 1
           sweep_expired if @writes_since_sweep >= SWEEP_EVERY
@@ -36,7 +43,7 @@ module Lux
             end
           end
 
-          @ram_cache[key]
+          touch key
         end
       end
 
@@ -49,7 +56,7 @@ module Lux
             @ttl_cache.delete key
             MISS
           elsif @ram_cache.key?(key)
-            @ram_cache[key]
+            touch key
           else
             MISS
           end
@@ -81,6 +88,19 @@ module Lux
       end
 
       private
+
+      # Caller must hold @lock. Hash keeps insertion order, so re-inserting a
+      # read key makes the first key the least recently used one.
+      def touch key
+        return unless @ram_cache.key?(key)
+        @ram_cache[key] = @ram_cache.delete(key)
+      end
+
+      # Caller must hold @lock.
+      def evict
+        key, _ = @ram_cache.shift
+        @ttl_cache.delete key
+      end
 
       # Caller must hold @lock.
       def sweep_expired

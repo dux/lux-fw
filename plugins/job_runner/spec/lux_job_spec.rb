@@ -195,6 +195,23 @@ describe LuxJob do
       _(LuxJob.first.name).must_equal 'second'
     end
 
+    it 'finishes the job in flight on a lost lock instead of swallowing it' do
+      ran = []
+      LuxJob.define(:first)  { sleep 0.3; ran << :first; 'done' }
+      LuxJob.define(:second) { ran << :second; 'done' }
+      LuxJob.create(name: 'first',  run_at: Time.now - 2.minutes)
+      LuxJob.create(name: 'second', run_at: Time.now - 1.minute)
+
+      runner = Thread.new { LuxJob.process_jobs }
+      runner.report_on_exception = false
+      sleep 0.1
+      runner.raise LuxJobLockLost, 'lost'
+
+      assert_raises(LuxJobLockLost) { runner.join }
+      _(ran).must_equal [:first]
+      _(LuxJob.first.name).must_equal 'second'
+    end
+
     it 'skips permanently failed jobs' do
       LuxJob.define(:dead_job) { 'done' }
       LuxJob.create(name: 'dead_job', run_at: Time.now - 1.minute, status_sid: 'x')

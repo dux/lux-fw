@@ -18,14 +18,6 @@ class Object
     self.present? ? self : nil
   end
 
-  def die desc=nil, exp_object=nil
-    desc ||= 'died without desc'
-    desc = '%s: %s' % [exp_object.class, desc] if exp_object
-    puts desc.colorize(:red)
-    puts caller.slice(0, 10)
-    raise desc
-  end
-
   # this will capture plain Hash and Hash With Indifferent Access
   def is_hash?
     self.class.to_s.index('Hash') ? true : false
@@ -85,6 +77,15 @@ class Object
   def in? collection
     collection.include?(self)
   end
-  alias :inside? :in?
+
+  private
+
+  def die desc=nil, exp_object=nil
+    desc ||= 'died without desc'
+    desc = '%s: %s' % [exp_object.class, desc] if exp_object
+    puts desc.colorize(:red)
+    puts caller.slice(0, 10)
+    raise desc
+  end
 end
 

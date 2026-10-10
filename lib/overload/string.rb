@@ -1,3 +1,5 @@
+require 'erb'
+
 class String
   def constantize
     Object.const_get('::' + self)
@@ -9,40 +11,34 @@ class String
     Object.const_defined?('::' + self) ? constantize : nil
   end
 
-  # Storage form for user text: `<` (and the legacy #LT; marker) becomes &LT;,
-  # which browsers render as `<`, so stored text is safe to print raw.
-  # html_unsafe turns it back into real markup. Idempotent.
-  # display: true is a full entity escape for showing raw text (error pages).
-  def html_escape display = false
-    return gsub('#LT;', '&LT;').gsub('<', '&LT;') unless display
-
-    gsub('<', '&lt;').gsub('>', '&gt;').gsub("'", '&apos;').gsub('"', '&quot;').strip
+  # Output escaping. Haml runs with escape_html + use_html_safe, so `=` escapes
+  # every printed string unless it answers html_safe?. A plain String never does.
+  def html_safe?
+    false
   end
 
-  # restore real markup from the storage form (&LT; and the legacy #LT;)
-  def html_unsafe full = false
-    out = gsub('&LT;', '<').gsub('#LT;', '<')
-    return out unless full
-
-    out
-      .gsub('&lt;', '<')
-      .gsub('&gt;', '>')
-      .gsub('&#39', "'")
-      .gsub('&#34', '"')
+  # Mark as markup that templates print as is. <script> and <style> are
+  # neutralized unless allowed, so stored HTML cannot run code by default.
+  #   = @post.body.html_unsafe
+  #   = @page.head.html_unsafe(script: true, style: true)
+  def html_unsafe script: false, style: false
+    out = self
+    out = out.gsub(/<(\/?script)/i, '&lt;\1') unless script
+    out = out.gsub(/<(\/?style)/i, '&lt;\1') unless style
+    Lux::SafeString.new(out)
   end
 
-  # export html without scripts and styles
-  def html_safe full = false
-    html_unsafe(full)
-      .gsub(/<(\/?script)/i,'&lt;\1')
-      .gsub(/<(\/?style)/i,'&lt;\1')
+  # Entity-escaped copy, safe to print or to glue into markup built by hand.
+  def html_escape
+    Lux::SafeString.new(ERB::Util.html_escape(self))
   end
 
-  # simple markdown
+  # simple markdown: escaped text, line breaks and links
   def as_html
-    self
+    html_escape
       .gsub($/, '<br />')
       .gsub(/(https?:\/\/[^\s<]+)/) { %[<a href="#{$1}">#{$1.trim(40)}</a>] }
+      .html_unsafe
   end
 
   def trim len
@@ -50,15 +46,13 @@ class String
     data = self.dup[0,len]+'...'
     data
   end
-  alias :truncate :trim
 
   def first limit = 1
     self[0, limit]
   end
 
   def last num = 1
-    len = self.length
-    self[len-num, len]
+    num >= length ? dup : self[length - num, num]
   end
 
   def wrap node_name, opts={}
@@ -114,11 +108,11 @@ class String
   # starts_with? removed - use Ruby's built-in start_with? instead.
 
   def span_green
-    %[<span style="color: #080;">#{self}</span>]
+    tag(:span, style: 'color: #080;')
   end
 
   def span_red
-    %[<span style="color: #800;">#{self}</span>]
+    tag(:span, style: 'color: #800;')
   end
 
   ANSI_COLORS = {
@@ -173,5 +167,62 @@ class String
   def indent amount = 2, char = ' '
     prefix = char * amount
     gsub(/^/, prefix)
+  end
+end
+
+module Lux
+  # Markup a template prints as is (html_safe? is true). Appending plain text
+  # escapes it first, so `safe + user_text` stays safe. Any other String method
+  # (gsub, strip, interpolation) returns a plain String - treated as text again.
+  class SafeString < ::String
+    # join parts into one safe string, escaping the parts that are plain text
+    def self.join parts, separator = ''
+      new parts.map { _1.to_s.html_safe? ? _1.to_s : ERB::Util.html_escape(_1.to_s) }.join(separator)
+    end
+
+    def html_safe?
+      true
+    end
+
+    # String#to_s on a subclass returns a plain String copy
+    def to_s
+      self
+    end
+
+    def html_unsafe(**)
+      self
+    end
+
+    def + other
+      SafeString.new(super(safe(other)))
+    end
+
+    def concat *others
+      super(*others.map { safe(_1) })
+    end
+
+    def << other
+      concat other
+    end
+
+    private
+
+    def safe other
+      other = other.to_s
+      other.html_safe? ? other : ERB::Util.html_escape(other)
+    end
+
+    # Haml's output buffer (see Lux::Template::HamlBuffer). Haml escapes before
+    # it appends, so << is raw here; the buffer, and so any template block
+    # that hands it back, is markup.
+    class Buffer < SafeString
+      def concat *parts
+        ::String.instance_method(:concat).bind_call(self, *parts)
+      end
+
+      def << part
+        concat part
+      end
+    end
   end
 end

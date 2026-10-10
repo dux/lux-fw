@@ -135,3 +135,46 @@ describe 'Template Helper#render' do
     end
   end
 end
+
+describe 'Template output escaping' do
+  before do
+    Lux::Current.new('http://test-escape')
+    Lux.current.var.views_root = './spec/fixtures/views'
+    Lux.current.var.root_template_path = nil
+  end
+
+  it 'escapes values, keeps markup, partials and helper blocks once' do
+    scope = Object.new
+    scope.extend Lux::Template::Helper
+    scope.instance_variable_set :@name, '<x>'
+    scope.instance_variable_set :@markup, '<u>m</u>'
+    # a helper taking a template block: capture marks the block output as markup
+    def scope.box(&block) = capture(&block).tag(:div, class: 'box')
+
+    out = Lux::Template.render(scope, './spec/fixtures/views/escape/page')
+
+    assert out.html_safe?
+    _(out).must_include '<p>&lt;x&gt;</p>'
+    _(out).must_include '<p><u>m</u></p>'
+    _(out).must_include '<p><b>b</b></p>'
+    _(out).must_include '<span>&lt;x&gt;</span>'
+    _(out).must_include '<div class="box"><i>&lt;x&gt;</i>'
+    refute_includes out, '&amp;'
+  end
+end
+
+describe 'Template block called after its template line' do
+  it 'returns markup from Haml lines and plain text from a bare expression' do
+    Lux::Current.new('http://test-escape')
+    blocks = []
+    scope  = Object.new
+    scope.define_singleton_method(:later) { |&block| blocks << block }
+
+    Tilt.new('./spec/fixtures/views/escape/later.haml').render(scope)
+    markup, text = blocks.map { _1.call('<x>') }
+
+    assert markup.html_safe?
+    _(markup).must_include '<b>&lt;x&gt;</b>'
+    refute text.html_safe?
+  end
+end

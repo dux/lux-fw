@@ -38,6 +38,11 @@ module Lux
         @policy = policy
       end
 
+      # can.read? / can.read! - every predicate and bang form is answered
+      def respond_to_missing? name, include_private = false
+        name.to_s.end_with?('?', '!') || super
+      end
+
       def method_missing name, *args, &block
         name   = name.to_s.sub(/(.)$/, '')
         action = $1

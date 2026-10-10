@@ -1,15 +1,21 @@
 module Lux
   class Template
     module Helper
-      def self.new scope, *names
-        obj = Object.new
-        obj.extend self
-        obj.extend ApplicationHelper if defined?(ApplicationHelper)
+      CLASSES ||= {}
 
-        names.flatten.compact.each do |name|
-          mod = "#{name.to_s.classify}Helper"
-          obj.extend mod.constantize if mod.constantize?
+      # One class per helper set, built once - extending a fresh object per
+      # render made a new singleton class every time. Later includes win:
+      # framework/plugin HtmlHelper < app ApplicationHelper < named helpers.
+      def self.new scope, *names
+        names = names.flatten.compact.map(&:to_s)
+        klass = CLASSES[names] ||= Class.new do
+          include Lux::Template::Helper
+          include HtmlHelper
+          include ApplicationHelper
+          names.each { |name| (mod = "#{name.classify}Helper".constantize?) && include(mod) }
         end
+
+        obj = klass.new
 
         local_vars = scope.is_hash? ? scope : scope.instance_variables_hash
         local_vars.each do |k, v|
@@ -28,7 +34,7 @@ module Lux
       define_method(:user)    { lux.user }
 
       def no_white_space
-        yield.gsub(/>\s+</,'><')
+        Lux::SafeString.new capture { yield }.gsub(/>\s+</,'><')
       end
 
       # = content :foo do ...            # define
@@ -40,12 +46,12 @@ module Lux
         if name.end_with?('?')
           haz = !!Lux.current.var[name.sub(/\?$/, '')]
           if block_given?
-            haz ? "#{yield}" : ''
+            haz ? capture { yield } : ''
           else
             haz
           end
         elsif block_given?
-          Lux.current.var[name] = "#{yield}"
+          Lux.current.var[name] = capture { yield }
           nil
         else
           Lux.current.var[name]
@@ -94,7 +100,7 @@ module Lux
         result = if block_given?
           name = "#{name}/layout" unless name.index('/')
 
-          Lux::Template.render(self, name) { yield() }
+          Lux::Template.render(self, name) { capture { yield } }
         else
           Lux::Template.render(self, name)
         end
@@ -138,7 +144,8 @@ module Lux
           Lux.current.response.etag etag
         end
 
-        Lux.cache.fetch(key, opts) { yield }
+        # the block is template output; the cache stores plain strings
+        Lux::SafeString.new Lux.cache.fetch(key, opts) { capture { yield }.to_str }
       end
 
       # helper(:main).method
@@ -148,8 +155,15 @@ module Lux
 
       def once id = nil
         Lux.current.once("template-#{id || caller[0]}") do
-          block_given? ? yield : true
+          block_given? ? capture { yield } : true
         end
+      end
+
+      # Output of a template block passed to a helper (`= box do ... `). Haml
+      # hands it over as a plain String, already escaped where it printed
+      # values, so it is markup: return it as a Lux::SafeString.
+      def capture
+        Lux::SafeString.new yield.to_s
       end
 
       def flash

@@ -840,6 +840,10 @@ describe 'plugins/db/dataset_methods.rb' do
       _(result.length).must_equal 2
       _(result.first.name).must_equal 'C'
     end
+
+    it 'keeps an explicit order' do
+      _(User.order(:name).reverse.last.name).must_equal 'A'
+    end
   end
 end
 
@@ -874,6 +878,11 @@ describe 'plugins/db/find_precache.rb' do
     it 'returns nil for blank id' do
       _(User.find(nil)).must_be_nil
       _(User.find('')).must_be_nil
+    end
+
+    it 'keeps Sequel semantics for a condition hash' do
+      _(User.find(name: 'Cached').ref).must_equal ref
+      _(User.find(name: 'nobody')).must_be_nil
     end
 
     it 'caches within the same request scope' do

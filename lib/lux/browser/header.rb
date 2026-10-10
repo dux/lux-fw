@@ -121,21 +121,21 @@ module Lux
       # update the `url` reader slot - call #url separately if you also
       # want `header.url` to read the canonical href back.
       def canonical href
-        @links.push '<link rel="canonical" href="%s" />' % href
+        @links.push({ rel: 'canonical', href: href }.tag(:link))
         meta 'og:url', href
       end
 
       def preload resource
         type = 'font/%s' % resource.split('.').last
-        @links.push %[<link rel="preload" href="#{resource}" as="font" type="#{type}" crossorigin="anonymous" />]
+        @links.push({ rel: 'preload', href: resource, as: 'font', type: type, crossorigin: 'anonymous' }.tag(:link))
       end
 
       def rss url, title = nil
-        @links.push %[<link rel="alternate" type="application/rss+xml" title="#{title || 'RSS feed'}" href="#{url}" />]
+        @links.push({ rel: 'alternate', type: 'application/rss+xml', title: title || 'RSS feed', href: url }.tag(:link))
       end
 
       def sitemap href
-        @links.push %[<link rel="sitemap" type="application/xml" title="Sitemap" href="#{href}" />]
+        @links.push({ rel: 'sitemap', type: 'application/xml', title: 'Sitemap', href: href }.tag(:link))
       end
 
       # -- robots flags --------------------------------------------------
@@ -177,7 +177,7 @@ module Lux
 
         # Indent everything to fit a Haml `%head` block and collapse
         # blank lines left by skipped @meta values.
-        ('  ' + out.join("\n")).gsub("\n<", "\n  <").gsub(/\n\s*\n/, "\n")
+        Lux::SafeString.new ('  ' + out.join("\n")).gsub("\n<", "\n  <").gsub(/\n\s*\n/, "\n")
       end
 
       # Meta + link tags as an array (no scripts, no <title>). Also writes the

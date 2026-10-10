@@ -1,3 +1,4 @@
+require 'monitor'
 require 'sequel/connection_pool/threaded'
 
 module Lux
@@ -5,6 +6,8 @@ module Lux
     extend self
 
     CONNECTIONS ||= {}
+    # reentrant: connect may touch Lux.db again while the first connect runs
+    CONNECTIONS_LOCK ||= Monitor.new
 
     # loggers attached to every connection on connect (populated by ext/logger).
     # connections are lazy, so we cannot attach at plugin-load time.
@@ -37,6 +40,10 @@ module Lux
 
     def connection(name = :main)
       name = name.to_sym
+      CONNECTIONS[name] || CONNECTIONS_LOCK.synchronize { connect_once(name) }
+    end
+
+    def connect_once(name)
       CONNECTIONS[name] ||= begin
         url = url_for(name)
         unless url

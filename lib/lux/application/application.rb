@@ -31,14 +31,19 @@ module Lux
     # order. We bypass the public `routes` method because class-callbacks keys
     # by `caller[0]`, which would collapse to the same key for every call from
     # inside our wrapper.
+    #
+    # The key also carries how many times that site ran in the current
+    # `Lux.app` pass, so `%w[a b].each { map _1, ... }` registers both, while a
+    # reload re-running the same block overwrites them instead of appending.
     ROUTING_DSL ||= %i[map call root subdomain plugin_route plugin_routes localized
                        get? head? post? delete? put? patch?]
 
     ROUTING_DSL.each do |name|
       define_singleton_method(name) do |*args, **kw, &block|
         @class_callbacks_routes ||= {}
-        user_caller = caller[0]
-        @class_callbacks_routes[user_caller] = proc do
+        site = caller[0]
+        seen = @dsl_seen ? (@dsl_seen[site] = @dsl_seen.fetch(site, -1) + 1) : 0
+        @class_callbacks_routes["#{site}##{seen}"] = proc do
           # Ruby 3 kwargs: none of the instance DSL methods take keywords, so a
           # trailing hash arrives here as `kw`. Append it as a positional arg -
           # that covers both `map admin: :admin` (route_object) and
@@ -48,6 +53,14 @@ module Lux
           send(name, *full_args, &block)
         end
       end
+    end
+
+    # One `Lux.app { }` evaluation; see ROUTING_DSL for why call sites are counted.
+    def self.dsl_pass &block
+      @dsl_seen = {}
+      class_eval(&block)
+    ensure
+      @dsl_seen = nil
     end
 
     def initialize env, opts={}

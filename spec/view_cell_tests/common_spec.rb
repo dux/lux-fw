@@ -90,7 +90,8 @@ describe 'Lux::ViewCell common' do
 
   it 'renders template with variable lists' do
     data  = VcUserCell.new.profiles
-    _(data).must_equal 'x >dux<>foo< x >dux< x'
+    # the cell render returns plain text, which the list join escapes
+    _(data).must_equal 'x &gt;dux&lt;&gt;foo&lt; x &gt;dux&lt; x'
   end
 
   it 'can deleate functions to parent scope' do

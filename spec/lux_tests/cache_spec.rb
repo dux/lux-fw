@@ -352,3 +352,18 @@ describe Lux::Cache::SqliteServer do
     end
   end
 end
+
+describe Lux::Cache::MemoryServer do
+  it 'evicts the least recently used key past MAX_KEYS' do
+    server = Lux::Cache::MemoryServer.new
+    max    = Lux::Cache::MemoryServer::MAX_KEYS
+
+    max.times { server.set "k#{_1}", _1 }
+    server.get 'k0'           # k0 is now recent, k1 the oldest
+    server.set 'extra', 1
+
+    _(server.get('k0')).must_equal 0
+    assert_nil server.get('k1')
+    _(server.get('extra')).must_equal 1
+  end
+end

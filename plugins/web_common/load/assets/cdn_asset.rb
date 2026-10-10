@@ -101,7 +101,7 @@ module CdnAsset
     case as
     when :js
       opts[:src] = name
-      opts.tag(:script).sub('&lt;script', '<script')
+      opts.tag(:script)
     when :css
       opts[:href]    = name
       opts[:media] ||= 'all'

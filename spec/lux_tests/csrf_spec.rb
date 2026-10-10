@@ -14,11 +14,18 @@ describe 'Lux::Current CSRF' do
   end
 
   describe '#csrf' do
-    it 'generates and persists a 6-char token on first read' do
+    it 'generates and persists a 32-byte token on first read' do
       c = current_for
       token = c.csrf
-      _(token).must_match(/\A[a-z0-9]{6}\z/)
+      _(token).must_match(/\A[\w-]{43}\z/)
       _(c.session[:_csrf]).must_equal token
+    end
+
+    it 'mints a new token after rotate_csrf!' do
+      c = current_for
+      before = c.csrf
+      c.rotate_csrf!
+      refute_equal before, c.csrf
     end
 
     it 'returns the same token on subsequent reads within the request' do

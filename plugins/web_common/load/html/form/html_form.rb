@@ -46,9 +46,9 @@ class HtmlForm
     return hidden name, opts[:value] if opts[:as] == :hidden
     r = row_prepare(name, opts)
 
-    label = %[<label for="#{opts[:id]}">#{r[:label].upcase}</label>]
-    hint  = opts[:hint] ? %[<span class="gray text-sm" style="display:block;">#{opts[:hint]}</span>] : ''
-    info  = opts[:info] ? %[<div class="mb-2 text-sm">#{opts[:info]}</div>] : ''
+    label = r[:label].upcase.tag(:label, for: opts[:id])
+    hint  = opts[:hint] ? opts[:hint].tag(:span, class: 'gray text-sm', style: 'display:block;') : ''
+    info  = opts[:info] ? opts[:info].tag(:div, class: 'mb-2 text-sm') : ''
 
     if opts[:flag]
       locale = Lux.current.locale
@@ -57,20 +57,21 @@ class HtmlForm
         locale = style
         style = ''
       end
-      label += %[<ui-flag class="input" locale="#{locale}" size="20" style="#{style}"></ui-flag>]
+      label += { class: 'input', locale: locale, size: 20, style: style }.tag(:'ui-flag')
     end
 
     if @type.to_s == 'checkbox'
-      %[<div class="form-row as-#{@type}">#{r[:node]}</div>]
+      r[:node].tag(:div, class: "form-row as-#{@type}")
     else
-      %[<div class="form-row as-#{@type}">#{label}#{info}#{r[:node]}#{hint}</div>]
+      Lux::SafeString.join([label, info, r[:node], hint]).tag(:div, class: "form-row as-#{@type}")
     end
   end
 
   def render
     data = []
 
-    yielded = block_given? ? yield(self) : (@data || []).join($/)
+    # a block is template output (escaped where it printed text); pushed data is markup
+    yielded = Lux::SafeString.new(block_given? ? yield(self).to_s : (@data || []).join($/))
 
     if @object && !@object.id
       for k, v in @object.attributes
@@ -85,7 +86,7 @@ class HtmlForm
     end
 
     data.push yielded
-    data = data.join($/)
+    data = Lux::SafeString.join(data, $/)
 
     @opts[:enctype] ||= 'multipart/form-data' if yielded.include?('file') && @opts[:method] != 'get'
 

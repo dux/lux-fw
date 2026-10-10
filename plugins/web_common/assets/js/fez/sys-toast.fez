@@ -131,5 +131,5 @@
 </style>
 
 <div class={'toast toast-' + state.type} onclick="fez.close()">
-  {@html state.msg}
+  {state.msg}
 </div>

@@ -2,33 +2,17 @@ require_relative '../lux/utils/boolean'
 
 class TrueClass
   include Lux::Utils::Boolean
-
-  def to_i
-    1
-  end
 end
 
 class FalseClass
   include Lux::Utils::Boolean
-
-  def to_i
-    0
-  end
-end
-
-class Numeric
-  def to_b
-    self > 0
-  end
-end
-
-class Object
-  def to_b
-    !!Lux::Utils::Boolean.parse(self)
-  end
 end
 
 # Top-level alias so apps can write `value.is_a?(Boolean)` instead of the
 # longer `Lux::Utils::Boolean`. Works because both TrueClass and FalseClass
-# `include Lux::Utils::Boolean` above.
-Boolean = Lux::Utils::Boolean unless defined?(Boolean)
+# `include Lux::Utils::Boolean` above. A different Boolean already loaded
+# would silently change every `is_a?(Boolean)` check, so refuse to boot.
+if defined?(::Boolean) && ::Boolean != Lux::Utils::Boolean
+  raise NameError, "Boolean is already defined (#{::Boolean}); lux aliases it to Lux::Utils::Boolean"
+end
+Boolean ||= Lux::Utils::Boolean

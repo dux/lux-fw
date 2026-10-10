@@ -10,6 +10,10 @@ module Lux
       @block   = block
     end
 
+    def respond_to_missing? name, include_private = false
+      name.to_s.end_with?('=') || @context.instance_variable_defined?("@_#{name}") || super
+    end
+
     def method_missing name, value=nil
       name = name.to_s
 

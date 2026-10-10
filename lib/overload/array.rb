@@ -22,9 +22,7 @@ class Array
     return self[0] if len == 1
     return self.join(opts[:two_words_connector]) if len == 2
 
-    last_word = self.pop
-
-    self.join(opts[:words_connector]) + opts[:last_word_connector].to_s + last_word.to_s
+    self[0..-2].join(opts[:words_connector]) + opts[:last_word_connector].to_s + self[-1].to_s
   end
 
   # Toggle existance of an element in array and return true when one added
@@ -51,9 +49,9 @@ class Array
     uniq.select { |it| it.present? }
   end
 
-  # Convert list to HTML UL list
+  # Convert list to HTML UL list, items escaped unless already markup
   # `@list.to_ul(:foo) # <ul class="foo"><li>...`
   def to_ul klass=nil
-    %[<ul class="#{klass}">#{map{|el| "<li>#{el}</li>" }.join('')}</ul>]
+    Lux::SafeString.join(map { |el| el.to_s.tag(:li) }).tag(:ul, class: klass)
   end
 end

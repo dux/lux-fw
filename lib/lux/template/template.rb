@@ -6,7 +6,7 @@ module Lux
 
         files = [files] unless files.is_a?(Array)
         files = files.compact.map do |file|
-          file, prefix = file.sub(/'$/, '').split(':in `')
+          file, prefix = file.sub(/'$/, '').split(/:in [`']/)
           prefix = ' # %s' % prefix if prefix
 
           %[<a href="vscode://file/%s" style="color: #fff;">%s%s</a>] % [file, Lux.root.pretty(file).split(':').first, prefix]
@@ -98,9 +98,10 @@ module Lux
         yield if block_given?
       end
 
-      Lux::Template.wrap_with_debug_info @template, data
+      # rendered markup - a layout's `= yield` or a partial's `= render` prints it as is
+      Lux::SafeString.new Lux::Template.wrap_with_debug_info(@template, data)
 
-    rescue Exception => error
+    rescue StandardError => error
       if Lux.env.dev? && @dev_info
         msg = error.message
         dev_info = @dev_info
@@ -145,7 +146,7 @@ module Lux
         raise Lux.error 404, Lux.debug?('404 Not Found') { %[Lux::Template "#{template}.{erb,haml}" not found] }
       end
 
-      @tilt = Tilt.new(@template, escape_html: false)
+      @tilt = Tilt.new(@template)
       pointer[template] = [@tilt, @template]
     end
   end

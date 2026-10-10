@@ -1,0 +1,6 @@
+%p= @name
+%p= @markup.html_unsafe
+%p= 'b'.tag(:b)
+= render './spec/fixtures/views/escape/_part'
+= box do
+  %i= @name

@@ -26,7 +26,7 @@ class HtmlTable
   def as_boolean col
     proc do |object|
       val = object.send(col[:field])
-      val ? '&#10003;' : ''
+      val ? Lux::SafeString.new('&#10003;') : ''
     end
   end
 

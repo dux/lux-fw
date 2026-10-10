@@ -16,6 +16,13 @@ class LuxException < ApplicationModel
   IGNORE ||= ['Lux::Error', 'Lux::Api::Error']
 
   class << self
+    # Scalar env values only, never cookies or credentials; urls masked
+    def scrub_env env
+      env
+        .select { |k, v| [String, TrueClass, FalseClass, Integer].include?(v.class) && !k.match?(/cookie|authorization/i) }
+        .transform_values { _1.is_a?(String) ? ExceptionWriter.scrub_url(_1) : _1 }
+    end
+
     def trim str, n
       s = str.to_s
       s.length > n ? s[0, n] + '...' : s
@@ -49,8 +56,8 @@ class LuxException < ApplicationModel
 
       email = User.current.email rescue nil
       ip    = Lux.current.request.ip rescue nil
-      url   = [Lux.current.request.request_method, Lux.current.request.url[0, 200]].join(' ') rescue nil
-      env   = (Lux.current.request.env.reject { |k, v| ![String, TrueClass, FalseClass, Integer].include?(v.class) || k.downcase.include?('cookie') }.to_json rescue nil)
+      url   = [Lux.current.request.request_method, ExceptionWriter.scrub_url(Lux.current.request.url)[0, 200]].join(' ') rescue nil
+      env   = (scrub_env(Lux.current.request.env).to_json rescue nil)
 
       LuxExceptionLog.create uid: uid, url: url, email: email, ip: ip, env: env
 

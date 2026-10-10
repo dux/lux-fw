@@ -121,6 +121,16 @@ describe ExceptionWriter do
     _(row['headers']).must_equal('User-Agent' => 'Mozilla/5.0', 'Referer' => 'http://test-writer/sites')
   end
 
+  it 'masks credential query params in the url and referer' do
+    Lux::Current.new(Rack::MockRequest.env_for('http://test-writer/x?sso_action=tok&tab=seo',
+      'HTTP_REFERER' => 'http://test-writer/y?api_key=k1'))
+
+    ExceptionWriter.new(error).write
+    row = lines.first
+    _(row['url']).must_equal 'http://test-writer/x?sso_action=[FILTERED]&tab=seo'
+    _(row['headers']['Referer']).must_equal 'http://test-writer/y?api_key=[FILTERED]'
+  end
+
   it 'falls back to the signed-in user email, caller user wins' do
     Lux::Current.new('http://test-writer')
     Lux.current.define_singleton_method(:user) { Struct.new(:email).new('ana@example.com') }

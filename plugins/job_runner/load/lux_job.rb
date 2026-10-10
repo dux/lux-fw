@@ -4,8 +4,9 @@
 require 'timeout'
 
 class LuxJobError < StandardError; end
-class LuxJobLockLost < StandardError; end
-# Not a StandardError, so a job's own `rescue => e` cannot swallow it.
+# Control signals sent with Thread#raise. Not StandardError, so run_job's and a
+# job's own `rescue => e` cannot swallow them.
+class LuxJobLockLost < Exception; end
 class LuxJobStop < Exception; end
 
 class LuxJob < ApplicationModel
@@ -296,17 +297,17 @@ class LuxJob < ApplicationModel
       end
     end
 
-    # A stop request is held back until the job in flight is done, then ends
-    # the sweep before the next one starts.
+    # A stop request or a lost lock is held back until the job in flight is
+    # done, then ends the sweep before the next one starts.
     def process_jobs verbose: false
       jobs = LuxJob
         .where { run_at < Time.now }
         .exclude(status_sid: ['r', 'x'])
         .all
 
-      Thread.handle_interrupt(LuxJobStop => :never) do
+      Thread.handle_interrupt(LuxJobStop => :never, LuxJobLockLost => :never) do
         jobs.each do |job|
-          break if Thread.pending_interrupt?(LuxJobStop)
+          break if Thread.pending_interrupt?(LuxJobStop) || Thread.pending_interrupt?(LuxJobLockLost)
           run_job job, verbose: verbose
         end
       end

@@ -8,7 +8,6 @@
 
 class Lux::Type::TranslatedType < Lux::Type
   opts :default_locale, 'Locale for a bare string when Lux.current.locale is unset'
-  opts :html, 'Stores real HTML: skips the `<` -> &LT; input escape'
 
   error :en, :not_translated_type_error, 'value is not a translations hash'
 
@@ -56,13 +55,11 @@ class Lux::Type::TranslatedType < Lux::Type
     end
   end
 
-  # stringify locale keys, drop blank translations, escape `<` like StringType
-  # (on the stored side too, so an old raw value still compares equal)
+  # stringify locale keys, drop blank translations
   def clean hash
     return {} unless hash.respond_to?(:each)
     hash.each_with_object({}) do |(locale, text), out|
       next if text.is_a?(String) && text.strip.empty?
-      text = text.html_escape if text.is_a?(String) && !opts[:html]
       out[locale.to_s] = text
     end
   end

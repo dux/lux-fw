@@ -6,8 +6,6 @@ module Lux
     # named error `rescue_from :not_found, 'No such record'`)
     extend Lux::RescueFrom
 
-    @@opts   = {}
-
     class << self
       # renders api doc or calls api class + action
       def render action = nil, opts = {}
@@ -33,6 +31,11 @@ module Lux
             begin
               "Lux::Api::#{klass}".constantize
             rescue NameError
+              raise Lux::Api::NotFound, 'API class "%s" not found' % klass
+            end
+          end.tap do |found|
+            # the name comes from the request; never instantiate a non-API constant
+            unless found.is_a?(Class) && found < Lux::Api
               raise Lux::Api::NotFound, 'API class "%s" not found' % klass
             end
           end
@@ -112,8 +115,8 @@ module Lux
       def annotation name, &block
         ANNOTATIONS[name] = block
         self.define_singleton_method name do |*args|
-          @@opts[:annotations] ||= {}
-          @@opts[:annotations][name] = args
+          pending_opts[:annotations] ||= {}
+          pending_opts[:annotations][name] = args
         end
       end
 
@@ -254,8 +257,8 @@ module Lux
       def params &block
         raise ArgumentError.new('Block not given for Lux::Api method params') unless block_given?
 
-        @@opts[:_schema] = Lux.schema(&block)
-        @@opts[:params]  = @@opts[:_schema].to_h
+        pending_opts[:_schema] = Lux.schema(&block)
+        pending_opts[:params]  = pending_opts[:_schema].to_h
       end
 
       # reference a top-level model schema by its underscored name
@@ -267,7 +270,7 @@ module Lux
       # it into validation or rename it to make the doc-only nature explicit.
       # See also api_schema / api_schema_ref in introspect.rb.
       def schema_ref name
-        @@opts[:schema_ref] = name.to_s
+        pending_opts[:schema_ref] = name.to_s
       end
 
       # api method icon
@@ -282,7 +285,7 @@ module Lux
 
       # api method description
       def desc data
-        @@opts[:desc] = data
+        pending_opts[:desc] = data
       end
 
       # set class-level description
@@ -294,7 +297,7 @@ module Lux
       def detail data
         return if data.to_s == ''
 
-        @@opts[:detail] = data
+        pending_opts[:detail] = data
       end
 
       # set class-level detailed description
@@ -310,7 +313,7 @@ module Lux
       # allow :get, :post     # both
       # allow :any            # every verb
       def allow *types
-        @@opts[:allow] = Lux::Utils::HttpVerbs.parse(*types)
+        pending_opts[:allow] = Lux::Utils::HttpVerbs.parse(*types)
       end
 
       # define response content type (defaults to JSON)
@@ -326,13 +329,13 @@ module Lux
           end
         end
 
-        @@opts[:content_type] = name
+        pending_opts[:content_type] = name
       end
 
       # mark the next endpoint as unsafe: it skips the class `auth` hook and is
       # callable without a bearer token.
       def unsafe
-        @@opts[:unsafe] = true
+        pending_opts[:unsafe] = true
       end
 
       # Class-level authentication hook. The block receives the request bearer
@@ -442,23 +445,16 @@ module Lux
         # opts and registration - leave them untouched (see @in_define_action)
         return if @in_define_action
 
-        @@opts = {}
-      end
-
-      # escaped copy - the source may be Lux.current.params, which must stay raw
-      def make_hash_html_safe hash
-        (hash || {}).to_h.transform_values do |v|
-          if v.is_hash?
-            make_hash_html_safe v
-          elsif v.class == String
-            v.html_escape
-          else
-            v
-          end
-        end
+        @pending_opts = {}
       end
 
       private
+
+      # desc / params / allow / unsafe / annotations waiting for the next
+      # `define`. Per class, so a stray `unsafe` can never reach another API.
+      def pending_opts
+        @pending_opts ||= {}
+      end
 
       def define_single_action(name, http_methods = nil, &block)
         allow(*Array(http_methods)) if http_methods
@@ -469,8 +465,8 @@ module Lux
         # this define call, register the endpoint under :member when inside
         # `ref do`, otherwise under :collection
         type = @method_type == :member ? :member : :collection
-        set type, name, @@opts
-        @@opts = {}
+        set type, name, pending_opts
+        @pending_opts = {}
 
         # wire up the method body. define_method fires method_added; the
         # @in_define_action guard skips it so our just-captured opts and this

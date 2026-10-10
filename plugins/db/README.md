@@ -27,8 +27,8 @@ lux db:restore              # restore from backup
 lux db:check                # print configured database info
 lux db:exec --sql SQL       # execute SQL against configured databases
 lux db:psql                 # open local psql console
-lux db:lt                   # report stored `<` markers; --apply rewrites legacy #LT; to &LT;,
-                            # --escape t.col,... also escapes raw < in plain-text columns
+lux db:unescape             # report stored &LT; / #LT; markers (pre output escaping);
+                            # --apply turns them back into <, run once per database
 lux db:seed                 # reset and load seeds
 ```
 

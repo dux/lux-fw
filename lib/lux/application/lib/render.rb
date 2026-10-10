@@ -50,7 +50,8 @@ module Lux
         klass = (klass+'Controller').classify.constantize if klass.is_a?(String)
         c = klass.new
         c.instance_exec &block if block
-        c.send action
+        # a redirect_to in the action throws :done; the response already holds it
+        catch(:done) { c.send action }
 
         Lux.current.response
       end

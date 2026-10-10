@@ -1,23 +1,11 @@
 require 'yaml'
-require 'deep_merge'
+# core only - the full gem patches Hash#deep_merge with semantics that differ from ActiveSupport's
+require 'deep_merge/core'
 
 module Lux
   module Boot
     module Config
       extend self
-
-      def app_timeout
-        # Peek at the existing thread-local Current instead of triggering lazy
-        # creation - app_timeout runs before Application#initialize installs the
-        # real Current, so calling Lux.current here would build a throwaway /mock
-        # Current and autoload Rack::MockRequest (and on Ruby 4 + rack 3.1, drag
-        # in cgi/cookie which is no longer a default gem).
-        cur = Thread.current[:lux]
-        per_request = cur && cur[:app_timeout]
-        per_request || Lux.config[:app_timeout] || (Lux.env.dev? ? 3600 : 30)
-      rescue
-        30
-      end
 
       # './config/secrets.yaml'
       # default is shared + specific envs
@@ -58,7 +46,7 @@ module Lux
             bad.(':production section must be a Hash')
           end
 
-          base.deep_merge!(env_data || {})
+          DeepMerge.deep_merge!(env_data || {}, base, preserve_unmergeables: false)
           base['production'] = production_data
           base
         else

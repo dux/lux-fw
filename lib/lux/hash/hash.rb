@@ -15,13 +15,6 @@ module Lux
         end
       end
 
-      # overload common key names so they act as data accessors
-      %i(size length zip minmax store cycle chunk sum uniq chain).each do |el|
-        define_method el do
-          self[el]
-        end
-      end
-
       # all keys are coerced to String. Lookups follow suit, so
       # h[:foo], h['foo'] and h.foo all hit the same slot. Integer /
       # Class keys round-trip via to_s (h[1] stored as "1", h[1] and
@@ -92,6 +85,12 @@ module Lux
           return if root.nil?
         end
         root
+      end
+
+      # a stored key answers as a method (h.foo); Hash's own methods
+      # (size, sum, ...) always win - read such keys with h[:size]
+      def respond_to_missing? name, include_private = false
+        key?(name.to_s) || super
       end
 
       def method_missing name, *args, &block

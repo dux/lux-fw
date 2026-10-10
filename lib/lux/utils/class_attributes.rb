@@ -26,6 +26,11 @@ module Lux
           @host = host
         end
 
+        def respond_to_missing? key, include_private = false
+          name = '@cattr_%s' % key
+          name.end_with?('=') || @host.ancestors.any? { _1.respond_to?(:superclass) && _1.instance_variable_defined?(name) } || super
+        end
+
         def method_missing key, value = nil
           name = '@cattr_%s' % key
 
@@ -85,14 +90,17 @@ end
 # Class receiver -> declare (or return its proxy); plain instance -> read via class.
 class Class
   def cattr name = nil, opts = {}, &block
-    return Lux::Utils::ClassAttributes::Proxy.new(self) unless name
+    # not @cattr_*: that prefix is the value namespace the proxy reads
+    return @_lux_cattr_proxy ||= Lux::Utils::ClassAttributes::Proxy.new(self) unless name
     Lux::Utils::ClassAttributes.define self, name, opts, &block
   end
 end
 
 class Object
+  private
+
   def cattr name = nil
-    proxy = Lux::Utils::ClassAttributes::Proxy.new(self.class)
+    proxy = self.class.cattr
     name ? proxy.send(name) : proxy
   end
 end

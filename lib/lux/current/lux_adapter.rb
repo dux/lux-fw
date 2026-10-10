@@ -28,6 +28,8 @@ end
 
 # exposes lux shortcut anywhere
 class Object
+  private
+
   def lux
     Thread.current[:lux]
   end

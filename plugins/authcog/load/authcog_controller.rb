@@ -97,6 +97,7 @@ class AuthcogController < Lux::Controller
     end
 
     session[:user_ref] = user.ref
+    lux.rotate_csrf!
 
     user.name ||= data[:name]
     user.is_deleted = false

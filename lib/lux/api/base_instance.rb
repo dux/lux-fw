@@ -27,7 +27,7 @@ module Lux
 
     attr_reader :api
 
-    def initialize action, params: {}, opts: {}, development: false, id: nil, bearer: nil, api_host: nil, html_safe: true
+    def initialize action, params: {}, opts: {}, development: false, id: nil, bearer: nil, api_host: nil
       @api = INSTANCE.new
 
       if action.is_a?(Array)
@@ -35,10 +35,6 @@ module Lux
         @api.id, @api.action = action[1] ? action : [nil, action[0]]
       else
         @api.action = action
-      end
-
-      if html_safe
-        params = Lux::Api.make_hash_html_safe params
       end
 
       @api.bearer        = bearer
@@ -227,7 +223,7 @@ module Lux
     # :inline (legacy alias for download:false). Sets ETag + Last-Modified
     # automatically and answers 304 to matching If-None-Match requests.
     def send_file path, opts = {}
-      Lux::Api::FileResponse.new(@api, opts.merge(file: path)).send
+      Lux::Api::FileResponse.new(@api, opts.merge(file: path)).deliver
     end
 
     # Send raw bytes / string (no disk file). Same options as send_file
@@ -236,7 +232,7 @@ module Lux
     #   send_data csv_string, name: 'report.csv', content_type: 'text/csv'
     #   send_data html, name: 'preview.html', content_type: 'text/html', download: false
     def send_data content, opts = {}
-      Lux::Api::FileResponse.new(@api, opts.merge(content: content)).send
+      Lux::Api::FileResponse.new(@api, opts.merge(content: content)).deliver
     end
 
     def params

@@ -5,10 +5,8 @@ module Lux
       # The reloader re-`load`s files in place, so cached classes stay valid.
       CONTROLLER_CLASS_CACHE ||= {}
 
-      # Cached plugin routes.rb sources: '/abs/path/routes.rb' => source string.
-      # Route files are instance_eval'd per request; re-reading them from disk
-      # every time is pure overhead outside reload mode.
-      PLUGIN_ROUTE_SOURCE ||= {}
+      # Compiled plugin routes.rb files: '/abs/path/routes.rb' => [mtime, proc].
+      PLUGIN_ROUTE_PROCS ||= {}
 
       # verb predicates: get?, post?, ...
       # post? { map 'api', 'api#call' }   # block runs on POST only
@@ -283,17 +281,19 @@ module Lux
         lux.route.with_scope(lux.route.capture_length(base)) { call target, nil, opts }
       end
 
-      # Read + instance_eval a plugin routes.rb. The source is memoized unless
-      # we are in reload mode, where the file is expected to change under us.
+      # Compile a plugin routes.rb into a proc once and instance_exec it per
+      # request (a string instance_eval recompiled it every time). In reload
+      # mode a changed file is recompiled.
       def eval_plugin_routes path
-        source =
-          if Lux.reload?
-            ::File.read(path)
-          else
-            PLUGIN_ROUTE_SOURCE[path] ||= ::File.read(path)
-          end
+        mtime  = ::File.mtime(path) if Lux.reload?
+        cached = PLUGIN_ROUTE_PROCS[path]
 
-        instance_eval source, path, 1
+        unless cached && cached[0] == mtime
+          source = ::File.read(path)
+          cached = PLUGIN_ROUTE_PROCS[path] = [mtime, eval("proc do\n#{source}\nend", TOPLEVEL_BINDING, path, 0)]
+        end
+
+        instance_exec(&cached[1])
       end
 
       # Resourceful action resolution from the remaining route cursor path.

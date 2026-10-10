@@ -104,9 +104,13 @@ module Lux
         AUTO_PATH_CACHE.delete(key) if Lux.env.dev?
         return AUTO_PATH_CACHE[key] if AUTO_PATH_CACHE.key?(key)
 
-        AUTO_PATH_CACHE[key] = [tpl_root, "#{tpl_root}/root"].find do |check|
+        found = [tpl_root, "#{tpl_root}/root"].find do |check|
           AUTO_EXTS.any? { |ext| Lux.root.resolve("#{root}#{check}.#{ext}") }
         end
+
+        # only hits are cached: misses are keyed by whatever path a client
+        # sends, so caching them grows the hash without bound
+        found ? AUTO_PATH_CACHE[key] = found : nil
       end
 
       # Render the template matching cattr.layout + the remaining route path, or

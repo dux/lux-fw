@@ -16,7 +16,7 @@ class UsersController < ApplicationController
 
   def show
     # --- request / response ----------------------------------------------
-    current.request          # Rack::Request
+    current.request          # Lux::Current::Request (a Rack::Request)
     current.response         # Lux::Response
     current.env              # raw Rack env
 
@@ -84,7 +84,7 @@ end
 
 | Property | Type | Notes |
 |----------|------|-------|
-| `request`         | `Rack::Request` | the raw request |
+| `request`         | `Lux::Current::Request` | the raw request (`Rack::Request` subclass; `xhr?` also true for fetch) |
 | `response`        | `Lux::Response` | response builder |
 | `nav`             | `Lux::Application::Nav` | canonical request path (see Nav below) |
 | `route`           | `Lux::Application::Route` | router cursor |

@@ -14,6 +14,16 @@ class ExceptionWriter
   # Browser headers worth keeping; Cookie and Authorization are never sent.
   HEADERS ||= %w[User-Agent Referer Accept-Language Accept Content-Type X-Requested-With CF-IPCountry]
 
+  # Query params whose name looks like a credential (sso_action, api_key, token).
+  SECRET_PARAM ||= /pass|token|secret|key|auth|sso|otp|card|cvv/i
+
+  # url or query string with credential-looking values masked, safe to log
+  def self.scrub_url url
+    url.to_s.gsub(/(\A|[?&])([^=&#?]+)=([^&#]*)/) do
+      $2.match?(SECRET_PARAM) ? "#{$1}#{$2}=[FILTERED]" : $&
+    end
+  end
+
   def initialize error
     @error = error
   end
@@ -41,7 +51,7 @@ class ExceptionWriter
     if request
       data['request_id'] = Lux.current.request_id
       data['method']  = request.request_method
-      data['url']     = request.url
+      data['url']     = self.class.scrub_url(request.url)
       headers         = request_headers
       data['headers'] = headers if headers.present?
     end
@@ -112,7 +122,7 @@ class ExceptionWriter
     HEADERS.each_with_object({}) do |name, out|
       key   = name == 'Content-Type' ? 'CONTENT_TYPE' : "HTTP_#{name.upcase.tr('-', '_')}"
       value = request.env[key]
-      out[name] = value.to_s if value.present?
+      out[name] = name == 'Referer' ? self.class.scrub_url(value) : value.to_s if value.present?
     end
   end
 

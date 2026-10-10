@@ -1,15 +1,4 @@
 class Hash
-  def to_query namespace=nil
-    keys = self.keys.sort
-
-    return unless keys.first
-
-    '?' + keys.map do |k|
-      name = namespace ? "#{namespace}[#{k}]" : k
-      "#{name}=#{CGI::escape(self[k].to_s)}"
-    end.join('&')
-  end
-
   def to_css
     self.keys.sort.map{ |k| '%s: %s;' % [k, self[k].to_s.gsub('"', '&quot;')]}.join(' ')
   end
@@ -61,12 +50,6 @@ class Hash
       v = self[el]
       t[covert_to_s ? el.to_s : el] = v if el.present? && v.present?
       t
-    end
-  end
-
-  def html_safe key
-    if data = self[key]
-      self[key] = data.html_safe
     end
   end
 

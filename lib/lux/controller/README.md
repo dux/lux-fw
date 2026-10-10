@@ -99,7 +99,6 @@ class BoardsController < ApplicationController
     end
     cache(key, ttl: 60) { ... }                # request-level cache
     etag(@board)                               # conditional 304
-    timeout(5)                                 # per-action timeout (seconds)
     helper(:bar)                               # mix in BarHelper
   end
 end
@@ -207,7 +206,6 @@ map '/users/:ref/dashboard', 'users#dashboard'
 | `respond_to :js do ... end` | format-based dispatch |
 | `cache(key, ttl:) { ... }` | request-level cache |
 | `etag(*args)` | conditional 304 |
-| `timeout(seconds)` | per-action timeout |
 | `current` / `lux` / `params` / `nav` / `session` / `user` / `request` / `response` | lifecycle delegates |
 
 ## Convention routing - `Lux::Controller::Auto`

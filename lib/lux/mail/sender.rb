@@ -56,8 +56,20 @@ module Lux
           send(method_name, *args).body
         end
 
+        # Mailer.welcome(user) -> prepare(:welcome, user), only for defined mails
+        def respond_to_missing? method_sym, include_private = false
+          mail_defined?(method_sym) || super
+        end
+
         def method_missing method_sym, *args
+          return super unless mail_defined?(method_sym)
           prepare(method_sym, *args)
+        end
+
+        private
+
+        def mail_defined? name
+          method_defined?(name) || private_method_defined?(name)
         end
       end
 

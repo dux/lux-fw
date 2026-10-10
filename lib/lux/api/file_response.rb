@@ -52,7 +52,7 @@ module Lux
         end
       end
 
-      def send
+      def deliver
         content = resolve_content
 
         headers['Content-Type'] = @opt.content_type ||

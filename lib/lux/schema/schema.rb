@@ -76,6 +76,10 @@ module Lux
         field = field.to_sym
         opts = resolve_opts(raw_opts)
 
+        # a virtual field is a model setter, not a column: validate it in input
+        # hashes, but never write it into a model (save would INSERT it)
+        next if opts[:virtual] && !object.is_hash?
+
         read_value field            # normalize string keys to symbol before defaulting
         apply_default field, opts
         value = read_value field

@@ -87,10 +87,7 @@ class HtmlInput
         if @object.respond_to?(name)
           value ||= object.id
         else
-          return [
-            hidden(:model_id, object.id),
-            hidden(:model_type, object.class.name)
-          ].join('')
+          return hidden(:model_id, object.id) + hidden(:model_type, object.class.name)
         end
       end
     end
@@ -103,7 +100,7 @@ class HtmlInput
   #
   #   = HtmlInput.csrf
   def self.csrf
-    %[<input type="hidden" name="_csrf" value="#{Lux.current.csrf}">]
+    Lux::SafeString.new %[<input type="hidden" name="_csrf" value="#{Lux.current.csrf}">]
   end
 
   private

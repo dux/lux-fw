@@ -10,8 +10,12 @@ module Lux
 
   # get config hash pointer or die if key provided and not found
   def config
-    init_env
-    @lux_config ||= Lux::Boot::Config.load.to_lux_hash
+    # init_env writes ENV; do it once, not on every read (setenv racing a
+    # getenv in a C extension on another thread can crash the process)
+    @lux_config ||= begin
+      init_env
+      Lux::Boot::Config.load.to_lux_hash
+    end
   end
   alias :secrets :config
 

@@ -42,7 +42,6 @@ Lux.config.host = 'other.com'    # write at runtime
 # Declare these in config/config.yaml. Lux::Boot.set_defaults fills in only
 # what you left out, so an explicit `false` is never flipped back on.
 
-Lux.config.app_timeout         = 30
 Lux.config.delay_timeout       = 30
 Lux.config.serve_static_files  = true
 Lux.config.log_level           = :info
@@ -56,6 +55,10 @@ Lux.config.log_requests         = true   # JSON access log in ./log/request.log 
 Lux.config.logger_formatter do |severity, datetime, _progname, msg|
   "[#{datetime.utc}] #{severity}: #{msg}\n"
 end
+
+# client ip: trust CF-Connecting-IP always (app reachable through Cloudflare
+# only); default false trusts it only when the forwarding hop is a CF edge
+Lux.config.cloudflare          = false
 
 # session
 Lux.config[:session_cookie_name]      = '_app_session'

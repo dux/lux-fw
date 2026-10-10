@@ -1,5 +1,11 @@
+module Lux
+  LOG_CLEAR_LAST ||= [0.0]
+end
+
+# Debug helpers, private so they are callable bare (`rr @user`) but never
+# answer respond_to? or shadow a data key on proxies.
 class Object
-  LUX_LOG_CLEAR_LAST ||= [0.0]
+  private
 
   # raise object
   def r what
@@ -47,8 +53,8 @@ class Object
         Lux.current.var[:log_screen_cleared] = true
         now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         # throttle clear-screen to once per second across requests
-        if now - LUX_LOG_CLEAR_LAST[0] >= 1.0
-          LUX_LOG_CLEAR_LAST[0] = now
+        if now - Lux::LOG_CLEAR_LAST[0] >= 1.0
+          Lux::LOG_CLEAR_LAST[0] = now
           $stderr.print "\e[H\e[2J"
         end
       end

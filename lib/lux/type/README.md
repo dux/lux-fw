@@ -41,8 +41,8 @@ Located in [`lib/lux/type/types/`](./types).
 
 | Symbol | Coerces to | Notes |
 |--------|------------|-------|
-| `:string`    | String  | default when no type given; `<` stored as `&LT;`, `html: true` opts out |
-| `:text`      | String  | unlimited length, multi-line; `<` stored as `&LT;`, `html: true` opts out |
+| `:string`    | String  | default when no type given |
+| `:text`      | String  | unlimited length, multi-line |
 | `:integer`   | Integer | `min:`, `max:` |
 | `:float`     | Float   | `min:`, `max:` |
 | `:boolean`   | true/false | `Lux::Utils::Boolean.parse`: `true yes on t y 1` / `false no off f n 0` |
@@ -63,17 +63,17 @@ Located in [`lib/lux/type/types/`](./types).
 | `:label`     | String  | enum-friendly |
 | `:point` / `:simple_point` | Array(Float, Float) | lat/lon |
 | `:hash`      | Hash    | passes through |
-| `:translated` | Hash(locale => text) | jsonb; bare string → current locale; prunes stale locales when a single one changes; `<` stored as `&LT;` unless `html: true` |
+| `:translated` | Hash(locale => text) | jsonb; bare string → current locale; prunes stale locales when a single one changes |
 | `:image`     | upload  | works with `plugins/web_common` html form |
 | `:model`     | nested schema | set automatically by `name do ... end` |
 
-User text is escaped on input, never on output: `:string`, `:text` and
-`:translated` store `<` as `&LT;` (browsers render it as `<`), so a stored
-value is safe to print raw. Apply `.html_unsafe` where real markup is wanted,
-declare `html: true` on a field that stores HTML. Lux::Api params get the same
-escape. Values a model sets in its own before-save hooks run after this step;
-escape those with `String#html_escape`. HTML responses turn the attribute-escaped `&amp;LT;` (and the legacy
-`#LT;` marker) into `&lt;`. JSON and plain-text output carry `&LT;` as is.
+User text is stored as typed and escaped on output: Haml's `=` escapes every
+string that is not `html_safe?`, so `= @user.name` is safe as is. Print stored
+markup with `= @post.body.html_unsafe` (`<script>`/`<style>` neutralized unless
+`html_unsafe(script: true, style: true)`). See
+[`lib/overload/README.md`](../../overload/README.md#output-escaping).
+Databases written before output escaping hold `<` as `&LT;`; run
+`lux db:unescape --apply` once per database.
 
 ## Defining a custom type
 

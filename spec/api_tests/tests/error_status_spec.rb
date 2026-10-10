@@ -85,6 +85,12 @@ describe 'error handling with status codes' do
       _(response[:status]).must_equal 404
     end
 
+    it 'returns 404 when the requested class is not a Lux::Api' do
+      Object.const_set(:NotAnApiApi, Class.new) unless defined?(NotAnApiApi)
+      response = ApplicationApi.render :show, class: 'not_an_api'
+      _(response[:status]).must_equal 404
+    end
+
     it 'returns 404 for missing API actions' do
       response = GenericApi.render :missing
       _(response[:status]).must_equal 404

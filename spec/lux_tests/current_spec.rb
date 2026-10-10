@@ -120,9 +120,37 @@ describe Lux::Current do
   end
 
   describe '#ip' do
+    def current_from addr, cf: nil, forwarded: nil
+      env = Rack::MockRequest.env_for('http://test.example.com/', 'REMOTE_ADDR' => addr)
+      env['HTTP_CF_CONNECTING_IP'] = cf if cf
+      env['HTTP_X_FORWARDED_FOR']  = forwarded if forwarded
+      Lux::Current.new(env)
+    end
+
     it 'returns an IP address' do
       _(Lux.current.ip).must_be_kind_of String
       refute_empty Lux.current.ip
+    end
+
+    it 'ignores CF-Connecting-IP from a non Cloudflare peer' do
+      _(current_from('203.0.113.9', cf: '127.0.0.1').ip).must_equal '203.0.113.9'
+    end
+
+    it 'trusts CF-Connecting-IP from a Cloudflare edge, also behind a local proxy' do
+      _(current_from('173.245.48.10', cf: '198.51.100.7').ip).must_equal '198.51.100.7'
+      _(current_from('127.0.0.1', cf: '198.51.100.7', forwarded: '173.245.48.10').ip).must_equal '198.51.100.7'
+    end
+  end
+
+  describe '#local_request?' do
+    it 'is true only for a loopback client' do
+      local  = Rack::MockRequest.env_for('http://test.example.com/', 'REMOTE_ADDR' => '127.0.0.1')
+      remote = Rack::MockRequest.env_for('http://test.example.com/', 'REMOTE_ADDR' => '203.0.113.9')
+      spoof  = Rack::MockRequest.env_for('http://test.example.com/', 'REMOTE_ADDR' => '203.0.113.9', 'HTTP_X_FORWARDED_FOR' => '127.0.0.1')
+
+      assert Lux::Current.new(local).local_request?
+      refute Lux::Current.new(remote).local_request?
+      refute Lux::Current.new(spoof).local_request?
     end
   end
 

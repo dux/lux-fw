@@ -15,7 +15,7 @@
 # registered and does nothing else on Lux.plugin :name.
 
 require 'yaml'
-require 'deep_merge'
+require 'deep_merge/core'
 require_relative '../root'
 
 module Lux
@@ -202,7 +202,7 @@ module Lux
       return data unless base
 
       base = base.dup
-      base.deep_merge!(data[Lux.env.to_s] || {})
+      DeepMerge.deep_merge!(data[Lux.env.to_s] || {}, base, preserve_unmergeables: false)
       base['production'] = data['production'] if data.key?('production')
       base['plugins'] = normalize_names(base['plugins'], data['plugins']) if data.key?('plugins')
       base

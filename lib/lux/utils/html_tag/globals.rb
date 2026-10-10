@@ -25,6 +25,9 @@ module Lux
   end
 end
 
-# Back-compat top-level alias. Lets existing `HtmlTag.div(...)`, `HtmlTag::Inbound`,
-# and `include HtmlTag` keep working without changes.
-HtmlTag = Lux::Utils::HtmlTag unless defined?(HtmlTag) && HtmlTag.equal?(Lux::Utils::HtmlTag)
+# Top-level alias for `HtmlTag.div(...)`, `HtmlTag::Inbound` and `include HtmlTag`.
+# The html-tag gem defines the same name; refuse to run against it.
+if defined?(::HtmlTag) && !::HtmlTag.equal?(Lux::Utils::HtmlTag)
+  raise NameError, "HtmlTag is already defined (#{::HtmlTag}); lux aliases it to Lux::Utils::HtmlTag"
+end
+HtmlTag ||= Lux::Utils::HtmlTag

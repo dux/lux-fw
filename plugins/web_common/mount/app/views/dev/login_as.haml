@@ -1,5 +1,5 @@
 :ruby
-  raise 'Nope' unless Lux.env.dev?
+  raise 'Nope' unless UserSession.impersonate?
 
 = center 800 do
   .mt-5

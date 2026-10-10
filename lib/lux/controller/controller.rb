@@ -184,10 +184,6 @@ module Lux
       end
     end
 
-    def timeout seconds
-      Lux.current.var[:app_timeout] = seconds
-    end
-
     def flash
       lux.response.flash
     end
@@ -344,22 +340,8 @@ module Lux
       data
     end
 
-    HELPERS ||= {}
     def helper helper
-      HELPERS[helper] ||= Class.new Object do
-        include Lux::Template::Helper
-        include HtmlHelper
-        include ApplicationHelper
-        include "#{helper.to_s.classify}Helper".constantize if helper.present?
-      end
-
-      ctx = HELPERS[helper].new
-
-      for k, v in instance_variables_hash
-        ctx.instance_variable_set("@#{k.to_s.sub('@','')}", v)
-      end
-
-      ctx
+      Lux::Template::Helper.new self, helper
     end
 
     # respond_to :js do ...
@@ -432,17 +414,12 @@ module Lux
     end
 
     # No action by that name. Override on a controller to add a custom lookup;
-    # calling `super` from it returns false rather than raising, so you can fall
-    # through to your own pattern.
+    # call `super` when your lookup also misses, to raise the 404.
     #
     # Template-driven actions live on Lux::Controller::Auto (`auto` /
     # auto_render), which resolves a template from the route path explicitly.
     # There is no implicit "a template exists, so define the action" fallback.
     def action_missing name
-      # if called via super from `action_missing', return false,
-      # so once can easily fallback to custom template search pattern
-      return false if caller[0].include?("`action_missing'")
-
       message = Lux.debug? '404 Method Not Found' do
         base = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, lux.nav]
         defined_methods = (methods - Lux::Controller.instance_methods).map(&:to_s)

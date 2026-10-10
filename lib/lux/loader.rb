@@ -113,8 +113,25 @@ String.inflections do |inflect|
   inflect.irregular 'focus', 'focuses'
 end
 
-# load Tilt parsers
-Haml::Template.options[:escape_html] = false
+# Haml escapes every `=` unless the value is html_safe? (Lux::SafeString:
+# rendered templates, tag builders, String#html_unsafe). `!=` prints raw.
+# Its buffer is a Lux::SafeString::Buffer, so template output a block hands
+# back (`= box do`, `- t.col do`) stays markup instead of being escaped again.
+module Lux
+  class Template
+    class HamlBuffer < Temple::Generators::StringBuffer
+      define_options capture_generator: self
+
+      def create_buffer
+        "#{buffer} = ::Lux::SafeString::Buffer.new"
+      end
+    end
+  end
+end
+
+Haml::Template.options[:escape_html]   = true
+Haml::Template.options[:use_html_safe] = true
+Haml::Template.options[:generator]     = Lux::Template::HamlBuffer
 # Tilt.register Tilt::ERBTemplate, 'erb'
 # Tilt.register Haml::Template, 'haml'
 

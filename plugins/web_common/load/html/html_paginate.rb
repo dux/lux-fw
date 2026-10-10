@@ -29,7 +29,7 @@ module HtmlHelper
     if opts[:page] > 1
       url = Url.current
       url.qs(opts[:param], opts[:page]-1)
-      ret.push %[<a href="#{url.relative}" data-key="ArrowLeft">&larr;</a>]
+      ret.push %[<a href="#{url.relative.html_escape}" data-key="ArrowLeft">&larr;</a>]
     else
       ret.push %[<span>&larr;</span>]
     end
@@ -39,12 +39,12 @@ module HtmlHelper
     if opts[:next]
       url = Url.current
       url.qs(opts[:param], opts[:page]+1)
-      ret.push %[<a href="#{url.relative}" data-key="ArrowRight">&rarr;</a>]
+      ret.push %[<a href="#{url.relative.html_escape}" data-key="ArrowRight">&rarr;</a>]
     else
       ret.push %[<span>&rarr;</span>]
     end
 
     ret.push '</div></div>'
-    ret.join('')
+    Lux::SafeString.new ret.join('')
   end
 end

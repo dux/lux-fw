@@ -19,19 +19,6 @@ describe Lux::Response do
     end
   end
 
-  describe 'LT marker restore' do
-    it 'turns attribute-escaped and legacy markers into &lt; in html' do
-      response.body %(<input value="&amp;LT;b"><p>&LT;i #LT;u</p>)
-      body = response.render[2].first
-      _(body).must_equal %(<input value="&lt;b"><p>&LT;i &lt;u</p>)
-    end
-
-    it 'leaves json untouched' do
-      response.body({ v: '&LT;b' })
-      _(response.render[2].first).must_include '&LT;b'
-    end
-  end
-
   describe '#cache' do
     it 'returns a CachePolicy' do
       _(response.cache).must_be_kind_of Lux::Response::CachePolicy

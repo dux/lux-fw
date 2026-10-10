@@ -106,7 +106,7 @@ internal use and old apps.
 | Call a model API from JS | `app.m.user(ref).update({...})` (`app.m.user.create({...})` for collection actions) | [web_common](./plugins/web_common/README.md#model-handles) |
 | Mail | `class Mailer < Lux::Mail::Sender`, `Mailer.deliver(:welcome, user)` | [mail](./lib/lux/mail/README.md) |
 | Model fields | `schema do ... end` in the model, migrated by `lux db:am` | [db](./plugins/db/README.md) |
-| User text / HTML | stored with `<` as `&LT;` by the type layer, printed raw; `html: true` on a field that stores markup, `.html_unsafe` to render markup | [type](./lib/lux/type/README.md) |
+| User text / HTML | stored as typed, escaped on output by Haml `=`; build markup with `.tag` (returns `Lux::SafeString`), print stored markup with `.html_unsafe`; never `%[<b>#{x}</b>]` | [overload](./lib/overload/README.md#output-escaping) |
 
 ## Core modules - `lib/lux/<name>/`
 

@@ -35,6 +35,28 @@ describe Lux::Utils::Crypt do
     end
   end
 
+  describe '.seal / .unseal' do
+    it 'round-trips data the holder cannot read' do
+      token = Lux::Utils::Crypt.seal({ 'user_ref' => 'abc' }, purpose: 'session')
+
+      refute_includes Base64.urlsafe_decode64(token), 'abc'
+      _(Lux::Utils::Crypt.unseal(token, purpose: 'session')).must_equal({ 'user_ref' => 'abc' })
+    end
+
+    it 'rejects altered, foreign-purpose and expired tokens' do
+      token  = Lux::Utils::Crypt.seal('x', purpose: 'session')
+      bytes  = Base64.urlsafe_decode64(token)
+      bytes[-1] = (bytes[-1].ord ^ 1).chr
+      altered = Base64.urlsafe_encode64(bytes, padding: false)
+
+      assert_nil Lux::Utils::Crypt.unseal(altered, purpose: 'session')
+      assert_nil Lux::Utils::Crypt.unseal(token, purpose: 'other')
+      assert_nil Lux::Utils::Crypt.unseal(Lux::Utils::Crypt.seal('x', ttl: -10), purpose: 'lux')
+      assert_nil Lux::Utils::Crypt.unseal('garbage!')
+      assert_nil Lux::Utils::Crypt.unseal(nil)
+    end
+  end
+
   describe '.sha1' do
     it 'returns a consistent hex digest' do
       result = Lux::Utils::Crypt.sha1('test')

@@ -64,20 +64,25 @@ describe 'clean hash' do
       _(h[name]).must_equal value
     end
 
-    it 'it allows special key name' do
+    it 'keeps Hash methods real for keys that share their name' do
       h = { foo: :bar, keys: :baz, size: 453, length: 'foo' }.to_lux_hash
 
       _(h.keys).must_equal ['foo', 'keys', 'size', 'length']
       _(h[:keys]).must_equal :baz
       _(h['keys']).must_equal :baz
 
-      _(h.size).must_equal 453
+      _(h.size).must_equal 4
       _(h[:size]).must_equal 453
 
-      _(h.length).must_equal 'foo'
+      _(h.length).must_equal 4
       _(h['length']).must_equal 'foo'
+    end
 
-      _(h.keys.length).must_equal 4
+    it 'answers respond_to? for stored keys only' do
+      h = { foo: 1 }.to_lux_hash
+
+      assert h.respond_to?(:foo)
+      refute h.respond_to?(:bar)
     end
 
     it 'can add proc to hash' do

@@ -16,6 +16,9 @@ module Crypt
 
   ALGORITHM = 'HS512'
 
+  # sealed token layout: 12 byte iv + 16 byte GCM tag + ciphertext
+  SEAL_HEAD = 28
+
   def secret
     ENV.fetch('SECRET') { Lux.config.secret } || die('Lux.config.secret not set')
   end
@@ -85,6 +88,40 @@ module Crypt
     raise err unless opts[:unsafe]
   end
 
+  # Authenticated encryption (AES-256-GCM). encrypt above is a signed JWT the
+  # holder can read; a sealed token can be neither read nor altered. purpose
+  # binds a token to one use, so a session cookie is not valid anywhere else.
+  # Crypt.seal({ 'user_ref' => 'x' }, ttl: 1.day, purpose: 'session')
+  def seal data, ttl: nil, purpose: 'lux'
+    payload = { 'data' => data }
+    payload['exp'] = Time.now.to_i + ttl.to_i if ttl
+
+    cipher = OpenSSL::Cipher.new('aes-256-gcm').encrypt
+    cipher.key = seal_key(purpose)
+    iv = cipher.random_iv
+    cipher.auth_data = purpose.to_s
+    body = cipher.update(payload.to_json) + cipher.final
+
+    Base64.urlsafe_encode64(iv + cipher.auth_tag + body, padding: false)
+  end
+
+  # nil when the token is forged, altered, sealed for another purpose or expired
+  def unseal token, purpose: 'lux'
+    raw = Base64.urlsafe_decode64(token.to_s)
+    return if raw.bytesize <= SEAL_HEAD
+
+    cipher = OpenSSL::Cipher.new('aes-256-gcm').decrypt
+    cipher.key = seal_key(purpose)
+    cipher.iv = raw[0, 12]
+    cipher.auth_tag = raw[12, 16]
+    cipher.auth_data = purpose.to_s
+    payload = JSON.parse(cipher.update(raw[SEAL_HEAD..]) + cipher.final)
+
+    payload['data'] unless payload['exp'] && payload['exp'] < Time.now.to_i
+  rescue ArgumentError, OpenSSL::Cipher::CipherError, JSON::ParserError
+    nil
+  end
+
   # encrypts data, with unsafe base64 + basic check
   # not for sensitive data
   def short_encrypt data, ttl = nil
@@ -115,6 +152,12 @@ module Crypt
 
   def simple_encode str
     Base64.encode64(str).gsub('_', '/').tr('A-Za-z', 'N-ZA-Mn-za-m').gsub(/=+$/, '').gsub(/\s/, '')
+  end
+
+  private
+
+  def seal_key purpose
+    OpenSSL::KDF.hkdf(secret, salt: 'lux-seal', info: purpose.to_s, length: 32, hash: 'SHA256')
   end
 end
 end

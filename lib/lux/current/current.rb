@@ -1,22 +1,38 @@
 require 'set'
-
-# Rack's xhr? only matches the legacy X-Requested-With header, which fetch()
-# never sends. Also treat programmatic fetch/XHR as xhr via Sec-Fetch-Dest:
-# browsers set it to 'empty' for fetch/XHR (and 'document' for navigations),
-# and JS can't forge it. Falls back to the legacy header for non-browser clients.
-class Rack::Request
-  def xhr?
-    get_header('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ||
-      get_header('HTTP_SEC_FETCH_DEST') == 'empty'
-  end
-end
+require 'ipaddr'
 
 module Lux
   class Current
+    # Lux's own request class, so the xhr? change below stays out of every
+    # other Rack app and middleware in the process.
+    class Request < ::Rack::Request
+      # Rack's xhr? only matches the legacy X-Requested-With header, which
+      # fetch() never sends. Also treat programmatic fetch/XHR as xhr via
+      # Sec-Fetch-Dest: browsers set it to 'empty' for fetch/XHR (and
+      # 'document' for navigations), and JS can't forge it.
+      def xhr?
+        super || get_header('HTTP_SEC_FETCH_DEST') == 'empty'
+      end
+    end
+
     OPTS ||= Struct.new 'LuxCurrentOpts', :params, :post, :http_method, :session, :cookies, :query_string, :headers, :bearer
 
     # Same charset Rage and most proxies accept for X-Request-Id.
     REQUEST_ID_RE ||= /\A[\w\-@.]{1,128}\z/
+
+    # `/./`, `/../` and their %2e spellings, anywhere in the path.
+    DOT_SEGMENT_RE ||= %r{(?:\A|/)(?:\.|%2e){1,2}(?:/|\z)}i
+
+    # Cloudflare edge addresses, https://www.cloudflare.com/ips/ (same list as
+    # dboss). CF-Connecting-IP is believed only from one of these.
+    CLOUDFLARE_RANGES ||= %w[
+      173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22
+      141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20
+      197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13
+      104.24.0.0/14 172.64.0.0/13 131.0.72.0/22
+      2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32
+      2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+    ].map { IPAddr.new(_1) }.freeze
 
     # set to true if user is admin and you want him to be able to clear caches in production
     attr_accessor :can_clear_cache
@@ -64,7 +80,7 @@ module Lux
       @env     = env || '/mock'
       # body: raw request body for a mock (e.g. a JSON string with a content-type header)
       @env     = ::Rack::MockRequest.env_for(env, input: opts[:body]) if @env.is_a?(String)
-      @request = ::Rack::Request.new @env
+      @request = Request.new @env
       # lets a mounted Lux::Api find the Current that already parsed this request
       @request.env['lux.current'] = self
 
@@ -95,6 +111,12 @@ module Lux
       @request.env['HTTP_AUTHORIZATION'] = "Bearer #{@opt.bearer}" if @opt.bearer
 
       prepare_params
+
+      # Puma passes `..` through unnormalized; Nav and the static server build
+      # disk paths from the URL, so a dot segment is a 400, never a lookup.
+      if @request.path.match?(DOT_SEGMENT_RE)
+        @malformed_request ||= ArgumentError.new('dot segment in path')
+      end
 
       # base vars
       @files_in_use = Set.new
@@ -224,11 +246,24 @@ module Lux
     end
 
     # Rack#ip reads X-Forwarded-For only behind a trusted (private) proxy and
-    # takes the last untrusted hop, so a client cannot spoof it.
+    # takes the last untrusted hop, so a client cannot spoof it. CF-Connecting-IP
+    # is anyone's to send, so it counts only when that hop is a Cloudflare edge,
+    # or when the app declares it is reachable through Cloudflare only
+    # (`cloudflare: true` in config.yaml).
     def ip
-      request.env['HTTP_CF_CONNECTING_IP'] || # will not work with cloudflare if removed
-      request.ip ||
-      '127.0.0.1'
+      @ip ||= begin
+        peer = request.ip
+        cf   = request.env['HTTP_CF_CONNECTING_IP']
+        cf && (Lux.config[:cloudflare] || cloudflare_edge?(peer)) ? cf : (peer || '127.0.0.1')
+      end
+    end
+
+    # The client is this machine. Gates dev-only powers (log in as anyone) so a
+    # staging or test deploy never exposes them, whatever LUX_ENV says.
+    def local_request?
+      IPAddr.new(request.ip.to_s).loopback?
+    rescue IPAddr::Error
+      false
     end
 
     # Upstream X-Request-Id when it is sane, else a fresh one. Echoed in the
@@ -297,6 +332,13 @@ module Lux
 
     # Lux::Utils::Crypt.encrypt('secret', ttl:1.hour, password:'pa$$w0rd')
     private
+
+    def cloudflare_edge? addr
+      addr = IPAddr.new(addr.to_s)
+      CLOUDFLARE_RANGES.any? { _1.include?(addr) }
+    rescue IPAddr::Error
+      false
+    end
 
     def prepare_params
       @params = (request_params.dup || {}).to_lux_hash

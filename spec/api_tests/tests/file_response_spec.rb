@@ -87,7 +87,7 @@ describe Lux::Api::FileResponse do
   it 'inline: true switches Content-Disposition to inline' do
     api  = FileTestApi.new(:_x, api_host: FileApiHost.new)
     Lux::Api::FileResponse.new(api.instance_variable_get(:@api),
-                                    file: __FILE__, inline: true).send
+                                    file: __FILE__, inline: true).deliver
     headers = api.instance_variable_get(:@api).api_host.response.header
     _(headers['Content-Disposition']).must_match(/\Ainline;/)
   end
@@ -95,7 +95,7 @@ describe Lux::Api::FileResponse do
   it 'download: false switches Content-Disposition to inline' do
     api  = FileTestApi.new(:_x, api_host: FileApiHost.new)
     Lux::Api::FileResponse.new(api.instance_variable_get(:@api),
-                             file: __FILE__, download: false).send
+                             file: __FILE__, download: false).deliver
     headers = api.instance_variable_get(:@api).api_host.response.header
     _(headers['Content-Disposition']).must_match(/\Ainline;/)
   end
@@ -103,7 +103,7 @@ describe Lux::Api::FileResponse do
   it 'download: true (or default) forces attachment' do
     api  = FileTestApi.new(:_x, api_host: FileApiHost.new)
     Lux::Api::FileResponse.new(api.instance_variable_get(:@api),
-                             file: __FILE__, download: true).send
+                             file: __FILE__, download: true).deliver
     headers = api.instance_variable_get(:@api).api_host.response.header
     _(headers['Content-Disposition']).must_match(/\Aattachment;/)
   end
@@ -111,7 +111,7 @@ describe Lux::Api::FileResponse do
   it 'explicit disposition wins over download/inline shortcuts' do
     api  = FileTestApi.new(:_x, api_host: FileApiHost.new)
     Lux::Api::FileResponse.new(api.instance_variable_get(:@api),
-                             file: __FILE__, download: false, disposition: 'attachment').send
+                             file: __FILE__, download: false, disposition: 'attachment').deliver
     headers = api.instance_variable_get(:@api).api_host.response.header
     _(headers['Content-Disposition']).must_match(/\Aattachment;/)
   end
@@ -120,7 +120,7 @@ describe Lux::Api::FileResponse do
     api = FileTestApi.new(:_x, api_host: FileApiHost.new)
     _{
       Lux::Api::FileResponse.new(api.instance_variable_get(:@api),
-                               file: '/nonexistent.bin').send
+                               file: '/nonexistent.bin').deliver
     }.must_raise Lux::Api::Error
   end
 end

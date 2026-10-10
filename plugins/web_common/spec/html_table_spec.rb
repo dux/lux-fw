@@ -62,7 +62,7 @@ describe HtmlTable do
       html = t.render
 
       assert_includes html, 'Full'
-      assert_includes html, '>> Alice'
+      assert_includes html, '&gt;&gt; Alice'
     end
 
     it 'adds column with custom title' do

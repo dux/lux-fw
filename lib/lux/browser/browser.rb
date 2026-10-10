@@ -126,13 +126,13 @@ module Lux
     # header.render emits it whole; render_html splits it into boot_script
     # (<head>) and state_script (pjax region).
     def window_script
-      %[<script id="lux-state">#{(boot_lines + state_lines).join("\n")}</script>]
+      Lux::SafeString.new %[<script id="lux-state">#{(boot_lines + state_lines).join("\n")}</script>]
     end
 
     # <head> half of window_script for render_html: Lux client surface + the
     # window.app guard, before any bundle loads.
     def boot_script
-      %[<script>#{boot_lines.join("\n")}</script>]
+      Lux::SafeString.new %[<script>#{boot_lines.join("\n")}</script>]
     end
 
     # Per-request half for render_html, emitted as the first child of the pjax
@@ -141,7 +141,7 @@ module Lux
     def state_script
       lines = [lux_cfg_line] + state_lines
       lines << 'window.noCache = true;' if Lux.current.no_cache?
-      %[<script id="lux-state">#{lines.join("\n")}</script>]
+      Lux::SafeString.new %[<script id="lux-state">#{lines.join("\n")}</script>]
     end
 
     # Composed framework client JS (delegates to the class-level bundler).

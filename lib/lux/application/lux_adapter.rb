@@ -1,8 +1,6 @@
-require 'timeout'
-
 module Lux
   def app &block
-    block ? Lux::Application.class_eval(&block) : Lux::Application
+    block ? Lux::Application.dsl_pass(&block) : Lux::Application
   end
   alias :application :app
 
@@ -40,20 +38,12 @@ module Lux
     end
   end
 
+  # No Timeout.timeout here: Thread#raise can land mid-transaction or inside an
+  # ensure and leave the DB connection half-done. Bound slow requests at the
+  # proxy and slow queries with PG statement_timeout.
   def rack_dispatch env
-    render = -> do
-      app = Lux::Application.new env
-      app.render_base || raise('No RACK response given')
-    end
-
-    if Lux.env.fibers?
-      # Timeout fires via Thread#raise; on a fiber scheduler thread the
-      # interrupt lands in whichever request fiber happens to be running.
-      # Rely on the server (falcon) for request timeouts instead.
-      render.call
-    else
-      Timeout::timeout(Lux::Boot::Config.app_timeout) { render.call }
-    end
+    app = Lux::Application.new env
+    app.render_base || raise('No RACK response given')
   rescue => err
     Lux.error.log err
 
@@ -64,6 +54,9 @@ module Lux
     else
       [500, { 'content-type' => 'text/plain; charset=utf-8' }, ['Server error']]
     end
+  ensure
+    # Puma reuses threads; never let this request's user/session reach the next.
+    Thread.current[:lux] = nil
   end
 end
 
@@ -72,6 +65,6 @@ end
 # inside Rack::Builder's instance_eval, where `self` is the builder.
 def Lux &block
   raise 'Lux error: Rack not found' unless self.class == Rack::Builder
-  Lux::Application.class_eval(&block) if block
+  Lux::Application.dsl_pass(&block) if block
   run Lux
 end

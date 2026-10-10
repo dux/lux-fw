@@ -51,6 +51,9 @@ end
   default; override with `template_root` on the controller).
 * `app/views/layouts/<name>.haml` for layouts; `<controller>Helper`
   module for per-controller helpers.
+* Helper lookup order, later wins: `Lux::Template::Helper` < `HtmlHelper`
+  (framework and plugins) < `ApplicationHelper` (app) < named helpers.
+  One class is built and cached per helper set.
 * Production: Tilt caches compiled templates. Dev: recompiled on every
   request.
 

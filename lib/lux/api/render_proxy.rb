@@ -13,6 +13,10 @@ module Lux
         @api = api
       end
 
+      def respond_to_missing? method_name, include_private = false
+        @api.method_defined?(method_name) || super
+      end
+
       def method_missing method_name, *args
         # if first param present, it must be resource ID
         api_id = args.shift unless args.first.is_hash?

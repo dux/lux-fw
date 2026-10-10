@@ -411,7 +411,16 @@ module Lux
       val ||= fallback
       return "[#{key}]" if val.nil?
 
-      vars.empty? ? val : (val.to_s % vars rescue val)
+      doc_value val, ext == 'html', vars
+    end
+
+    # An .html doc is markup the app ships, printed as is; vars are escaped
+    # into it. Any other doc (md, txt) stays text.
+    def doc_value val, markup, vars
+      return (vars.empty? ? val : (val.to_s % vars rescue val)) unless markup
+
+      vars = vars.transform_values { _1.to_s.html_safe? ? _1.to_s : _1.to_s.html_escape }
+      Lux::SafeString.new(vars.empty? ? val.to_s : (val.to_s % vars rescue val.to_s))
     end
 
     def read_doc(ext, path, lc)
@@ -432,7 +441,7 @@ module Lux
       val ||= fallback
       return "[#{key}]" if val.nil?
 
-      vars.empty? ? val : (val.to_s % vars rescue val)
+      doc_value val, File.extname(key) == '.html', vars
     end
 
     def read_view(path, lc)

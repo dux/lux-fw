@@ -18,10 +18,10 @@ module Lux
       # Raw HTML is escaped (visible as text) by default; unsafe: true lets it
       # through. Comrak would otherwise drop it with an "omitted" comment.
       def to_html text, unsafe: false
-        Commonmarker.to_html text.to_s, options: {
+        Lux::SafeString.new Commonmarker.to_html(text.to_s, options: {
           render:    { unsafe: unsafe, escape: !unsafe },
           extension: EXTENSIONS
-        }
+        })
       end
       alias :render :to_html
     end

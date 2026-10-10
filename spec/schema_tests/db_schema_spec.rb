@@ -43,5 +43,19 @@ describe Lux::Schema do
       VirtualSchema.validate(data)
       _(data[:full_name]).must_equal '123'   # coerced to string
     end
+
+    it 'never writes a virtual field into a model object' do
+      model = Class.new do
+        attr_reader :values
+        def initialize = @values = { name: 'a' }
+        def [](k) = @values[k]
+        def []=(k, v)
+          @values[k] = v
+        end
+      end.new
+
+      VirtualSchema.validate(model)
+      _(model.values.key?(:full_name)).must_equal false
+    end
   end
 end

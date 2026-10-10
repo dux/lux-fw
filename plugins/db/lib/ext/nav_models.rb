@@ -41,9 +41,9 @@ module Ref
   def public_link key_link
     object = self.load key_link rescue nil
     if object
-      %[<a href="#{object.path}">#{object.name || '-'} (#{key_link.split('-')[0]})</a>]
+      "#{object.name || '-'} (#{key_link.split('-')[0]})".tag(:a, href: object.path)
     else
-      %[<span class="gray">#{key_link}</span>]
+      key_link.to_s.tag(:span, class: 'gray')
     end
   end
 end

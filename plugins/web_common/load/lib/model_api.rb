@@ -13,17 +13,31 @@ class ModelApi < ApplicationApi
     @model_class ||= to_s.sub(/Api$/, '').singularize.constantize
   end
 
+  # Fields a client may write (generated_create/update assign only these, see
+  # object_params) and the schema the API docs list. A model setter that is not
+  # a column is declared in the model schema with `virtual: true`.
+  def self.api_schema
+    model_class.api_schema
+  end
+
+  # schemas: key in /sys/schema (see Lux::Api::Introspect)
+  def self.api_schema_ref
+    model_class.to_s.underscore
+  end
+
   def self.generate name, desc: nil, detail: nil
+    # an action the API defines itself wins (member actions live as <name>_ref)
+    target = name == :create ? name : :"#{name}_ref"
+    return if method_defined?(target) || private_method_defined?(target)
+
     object_name = to_s.sub(/Api$/, '').tableize.singularize.humanize.downcase
     desc ||= '%s %s' % [name.to_s.capitalize, object_name]
 
-    # No schema-based param filtering: generated_create/update assign any incoming
-    # field that has a matching setter (respond_to? "field="), so virtual attributes
-    # (encrypted/jsonb helpers like Provider#data=) are not stripped before the
-    # action runs - the setter check is the only gate.
     body = proc do
       self.desc   desc   if desc
       self.detail detail if detail
+      # doc generators (postman, openapi, web) list the writable fields
+      pending_opts[:params] = api_schema.to_h if %i[create update].include?(name)
       proc { send('generated_%s' % name) }
     end
 
@@ -109,15 +123,23 @@ class ModelApi < ApplicationApi
   end
 
   # Params a client may never set: the audit quartet is framework-owned and
-  # filled by the before_save filters. generated_create/update assign any field
-  # with a setter, and that runs before the policy; remove the keys at every
-  # depth so a nested payload cannot smuggle one in.
+  # filled by the before_save filters. Removed at every depth so a nested json
+  # payload cannot smuggle one in.
   PROTECTED_PARAMS ||= Sequel::Plugins::LuxSchema::AUDIT_COLUMNS
 
+  # Assignable params: only fields of the model's api_schema (`toggle__<field>`
+  # counts as <field>). Anything else - is_admin=, ref=, a setter the schema
+  # does not declare - is dropped, so the policy never sees a forged value.
   def object_params
     base = params[@object.class.to_s.underscore]
     base = base.respond_to?(:values) ? base : params
-    base.deep_destroy(*PROTECTED_PARAMS)
+    allowed = self.class.api_schema.rules.keys.map(&:to_s)
+
+    base.deep_destroy(*PROTECTED_PARAMS).to_h.select do |key, _|
+      ok = allowed.include?(key.to_s.delete_prefix('toggle__'))
+      Lux.log { 'ModelApi: unpermitted param "%s" for %s' % [key, @object.class] } unless ok
+      ok
+    end
   end
 
   def display_name
@@ -213,7 +235,7 @@ class ModelApi < ApplicationApi
       if @object.respond_to?(m)
         if db_type.to_s.include?('json')
           data = @object.send(key.to_sym) || {}
-          data = data.to_h.dup.deep_merge!(value)
+          data = DeepMerge.deep_merge!(value, data.to_h.dup, preserve_unmergeables: false)
           @object.send(m, data)
           # Lux.logger(:debug).info [key, value, data].to_json
         else

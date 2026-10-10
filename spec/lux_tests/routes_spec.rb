@@ -184,6 +184,9 @@ Lux.app do
 
   map %w[array1 array2], 'routes_test#root'
 
+  # same source line, two calls - both must register
+  %w[looped1 looped2].each { |path| map path, 'routes_test#root' }
+
   map '/test1/test2/:foo', 'routes_test#foo'
 
   map 'zagreb', 'routes_test#city'
@@ -223,6 +226,11 @@ describe 'Lux::Application' do
   it 'should get right routes' do
     _(Lux.render.get('/').body).must_equal 'root'
     _(Lux.render.get('/plain').body).must_equal 'plain'
+  end
+
+  it 'registers every route declared from one line in a loop' do
+    _(Lux.render.get('/looped1').body).must_equal 'root'
+    _(Lux.render.get('/looped2').body).must_equal 'root'
   end
 
   it 'adds a charset to text content types only' do
@@ -303,14 +311,14 @@ describe 'Lux::Application' do
       _(res.json[:data]).must_equal 'pong'
     end
 
-    # Lux::Current reads the JSON body before the API runs; the API must take
-    # its params from there and must not escape Lux.current.params in place
+    # Lux::Current reads the JSON body before the API runs; the API takes its
+    # params from there, as sent (escaping happens on HTML output only)
     it 'passes JSON body and query params to the API' do
       res = Lux.render.post('/echo-api/mounted_echo/echo?q=1', body: '{"space_ref":"abc","name":"<b>"}', headers: { 'Content-Type' => 'application/json' })
       _(res.status).must_equal 200
       _(res.json[:data][:space_ref]).must_equal 'abc'
       _(res.json[:data][:q]).must_equal '1'
-      _(res.json[:data][:name]).must_equal '<b>'.html_escape
+      _(res.json[:data][:name]).must_equal '<b>'
       _(Lux.current.params[:name]).must_equal '<b>'
     end
   end

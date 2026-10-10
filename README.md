@@ -272,7 +272,7 @@ YAML config + `.env` loader + lifecycle hooks. Indifferent access.
 
 ```ruby
 Lux.config.host                        # read from config/config.yaml
-Lux.config.app_timeout = 30            # write at runtime
+Lux.config.static_file_max_age = 600   # write at runtime
 Lux.config.on_mail_send { |m| ... }    # lifecycle hook
 ```
 

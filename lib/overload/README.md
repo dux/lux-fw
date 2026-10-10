@@ -2,7 +2,7 @@
 
 Monkey-patches that reopen Ruby core/stdlib classes (`Object`, `String`,
 `Array`, `Hash`, `Integer`, `Float`, `NilClass`, `Symbol`, `Date`/`Time`,
-`Struct`, `Dir`, `File`, ...) and add or override methods on them. These load
+`Dir`, `File`, ...) and add or override methods on them. These load
 globally for the whole process - once required, every object in the app sees
 them, including code outside Lux. They change core Ruby behavior, so read this
 before assuming a stdlib method does what the docs say: several existing
@@ -12,18 +12,15 @@ methods are redefined here.
 
 These shadow methods that already exist in Ruby. Highest surprise potential.
 
-* `String#last(num = 1)` - returns last `num` chars (slices `self[len-num, len]`).
-* `String#truncate` - alias of `#trim`; cuts to `len` chars and appends `...`.
-* `String#html_safe(full = false)` - strips `<script>`/`<style>` tags; NOT Rails' "mark as safe".
+* `String#last(num = 1)` - returns last `num` chars (the whole string when `num` exceeds its length), ActiveSupport style.
 * `Array#last=` - assigns the last element (`self[length-1] = what`).
 * `Array#all` - returns `self` (a no-op for easier Sequel query chaining).
 * `Array#wrap(name, opts={})` - maps each element through `el.tag(name, opts)` (HTML), not `Array.wrap`.
 * `Integer#pluralize(desc)` - returns a phrase like `"no users"` / `"1 user"` / `"5 users"` (relies on `String#pluralize` from an inflector loaded elsewhere).
 * `Date#to_i` - `Time.parse(to_s).to_i` (epoch seconds), instead of Ruby's Julian day number.
-* `TrueClass#to_i` -> `1`, `FalseClass#to_i` -> `0`.
-* `NilClass#empty?` -> `true`, `NilClass#present?` -> `false`, `NilClass#blank?` -> `true`.
+* `NilClass#present?` -> `false`, `NilClass#blank?` -> `true`.
 * `NilClass#is?(klass)` -> `false` (always).
-* `Object#blank?` / `Object#present?` - global predicates added to every object (see below); core classes get tuned versions (`String#blank?` treats whitespace-only as blank, `Array#blank?`/`Hash#blank?` check length, `Numeric#blank?`/`Time#blank?` -> `false`, `FalseClass#blank?` -> `true`, `TrueClass#blank?` -> `false`).
+* `Object#blank?` / `Object#present?` - global predicates added to every object (see below), ActiveSupport semantics: anything answering `empty?` is blank when empty; core classes get tuned versions (`String#blank?` treats whitespace-only as blank, `Array#blank?`/`Hash#blank?` check length, `Numeric#blank?`/`Time#blank?` -> `false`, `FalseClass#blank?` -> `true`, `TrueClass#blank?` -> `false`).
 
 ## Added methods, by class
 
@@ -32,9 +29,9 @@ See "Global helpers on Object" below - all of `Object`'s additions are callable 
 
 ### String (`string.rb`)
 * `constantize` / `constantize?` - `'User'.constantize`; `?` variant returns nil if undefined.
-* `html_escape(display = false)` / `html_unsafe(full = false)` - storage form (`<` and legacy `#LT;` -> `&LT;`, idempotent; `display: true` is a full entity escape) and its inverse (`&LT;` / `#LT;` -> `<`).
-* `as_html` - tiny markdown: newlines -> `<br />`, bare URLs -> links.
-* `trim(len)` (alias `truncate`) - cut to `len` and append `...`.
+* `html_safe?` / `html_unsafe(script: false, style: false)` / `html_escape` - see [Output escaping](#output-escaping).
+* `as_html` - tiny markdown: escaped text, newlines -> `<br />`, bare URLs -> links; returns markup.
+* `trim(len)` - cut to `len` and append `...`.
 * `first(limit = 1)` / `last(num = 1)` - char slicing, ActiveSupport style.
 * `wrap(node_name, opts={})` / `tag(node_name, **attrs, &block)` - wrap string in an HTML tag (via vendored html-tag).
 * `fix_ut8` - re-encode to UTF-8 replacing invalid bytes.
@@ -55,18 +52,16 @@ See "Global helpers on Object" below - all of `Object`'s additions are callable 
 ### Array (`array.rb`)
 * `wrap(name, opts={})` - map each element through `#tag` (HTML).
 * `last=` - set the last element.
-* `to_sentence(opts={})` - Rails-like "a, b, and c".
+* `to_sentence(opts={})` - Rails-like "a, b, and c" (does not change the array).
 * `toggle(element)` - add/remove element, returns true when added.
 * `all` - returns self (Sequel chaining).
 * `xuniq` - `uniq` then keep only `present?`.
 * `to_ul(klass=nil)` - render as `<ul><li>...`.
 
 ### Hash (`hash.rb`)
-* `to_query(namespace=nil)` - build a sorted `?k=v&...` query string.
 * `to_css` - sorted `k: v;` CSS string.
 * `deep_stringify_keys` - recursively convert keys to strings (nested Hash + Array of Hash).
 * `remove_empty(covert_to_s = false)` - drop keys/values that are blank.
-* `html_safe(key)` - run the value at `key` through `String#html_safe` in place.
 * `tag(node_name, inner = nil, &block)` - render an HTML tag using self as attributes (via vendored html-tag).
 
 ### Integer (`integer.rb`)
@@ -78,19 +73,15 @@ See "Global helpers on Object" below - all of `Object`'s additions are callable 
 * `as_currency(opts={})` - format as currency; opts `pretty`, `strip`, `symbol`.
 * `dotted(round_to=2)` - integer part dotted, comma + decimals.
 
-### Numeric (`boolean.rb`, `blank.rb`)
-* `to_b` - `self > 0`.
+### Numeric (`blank.rb`)
 * `blank?` -> `false`.
 
 ### NilClass (`blank.rb`, `nil.rb`)
-* `empty?` / `present?` / `blank?` - see overrides.
+* `present?` / `blank?` - see overrides. `nil.empty?` raises, as in plain Ruby.
 * `is?(klass)` -> `false`.
 
 ### Symbol
 No file in this directory patches Symbol directly.
-
-### Struct (`struct.rb`)
-* `to_hash` - members zipped with values into a Hash.
 
 ### Date / Time / DateTime (`time.rb`)
 * `Time.speed(num = 1) { ... }` - benchmark a block (1st run reported separately).
@@ -108,7 +99,7 @@ Both include `Lux::Utils::Json` -> `to_jsons` (pretty in dev), `to_jsonp` (prett
 * `many?` - `count > 1`.
 
 ### Class (`class.rb`)
-* `descendants(fast = false)` - all subclasses via ObjectSpace.
+* `descendants` - all subclasses, walked through `Class#subclasses`.
 * `source_location(as_folder=false)` - file (or dir) defining the class, relative to `Lux.root`.
 
 ### Dir (`dir.rb`)
@@ -133,6 +124,29 @@ A small fixed-size worker-pool. `Thread::Simple.run { |t| t.add { ... } }`,
 `Thread::Simple.each(list, size: 3) { |item| ... }`; named tasks readable via
 `pool[name]` / `pool.named`.
 
+## Output escaping
+
+Haml runs with `escape_html` + `use_html_safe`: every `=` escapes its value
+unless the string answers `html_safe?`. Nothing is escaped on input or in Ruby.
+
+* `String#html_safe?` - always false; a `Lux::SafeString` answers true.
+* `String#html_unsafe(script: false, style: false)` - returns the string as a
+  `Lux::SafeString` (printed as is). `<script>` / `<style>` are neutralized
+  unless allowed.
+* `String#html_escape` - entity-escaped `Lux::SafeString`, for text glued into
+  markup built by hand.
+* `Lux::SafeString` - what rendered templates, cells and every tag builder
+  (`'x'.tag(:b)`, `{}.tag`, `HtmlTag.div`) return. `safe + text` escapes the text
+  and stays safe; `Lux::SafeString.join(parts)` does the same for a list. Any
+  other String method (`gsub`, interpolation) returns a plain String, which `=`
+  escapes again - so build markup with `tag`, not with `%[<b>#{x}</b>]`.
+* Tag builders escape plain inner text and block results; `n.push` inserts raw.
+* Haml's buffer is a `Lux::SafeString::Buffer`, so template output handed back by
+  a block (`- t.col do`, `= box do` with dynamic lines) is markup. Static-only
+  blocks compile to a plain literal: a helper taking a block should still wrap
+  it with `capture { yield }` (`Lux::Template::Helper#capture`).
+* `!=` in Haml prints raw; `&=` always escapes.
+
 ## Global helpers on Object
 
 Added to `Object`, so callable on any value (`object.rb`, plus predicates in `blank.rb`):
@@ -141,18 +155,19 @@ Added to `Object`, so callable on any value (`object.rb`, plus predicates in `bl
 * `presence` - returns self if `present?`, else nil.
 * `or(_or = nil, &block)` - returns `_or` (or block result) when self is blank or `0`.
 * `try(method, *args)` - ActiveSupport semantics: nil when the receiver is nil or does not respond; a bare block yields self.
-* `in?(collection)` (alias `inside?`) - `collection.include?(self)`.
+* `in?(collection)` - `collection.include?(self)`.
 * `is_hash?` / `is_array?` / `is_numeric?` - type predicates (`is_hash?`/`is_array?` match by class-name substring so they also catch indifferent-access variants).
 * `is_true?` - true when `Lux::Utils::Boolean.parse` reads it as true (`true yes on t y 1`).
 * `is!(value = :_nil)` - assert presence (no arg) or type/ancestor membership, returning self or raising `ArgumentError`.
 * `is?(value = nil)` - boolean form of `is!` (rescues the raise).
 * `is_a!(klass, error = nil)` - true if `klass` is an ancestor; raises (or returns false) otherwise.
-* `die(desc=nil, exp_object=nil)` - print red message + caller, then raise.
+* `die(desc=nil, exp_object=nil)` - private; print red message + caller, then raise.
 * `instance_variables_hash` - ivars (minus `@current` and `@_*`) as a Hash.
 
 ### Debug / raise helpers (NEVER commit)
 
-These are interactive console helpers (`raise_variants.rb`, `object.rb`). They
+These are interactive console helpers (`raise_variants.rb`), defined private on
+`Object` so they work bare (`rr @user`) without answering `respond_to?`. They
 must NEVER appear in library or committed code - if you find `r`/`rr`/`r?`/`m?`/`LOG`
 in `lib/` or `plugins/`, delete it.
 
@@ -167,5 +182,4 @@ in `lib/` or `plugins/`, delete it.
 
 * `Boolean` (`boolean.rb`) - alias for `Lux::Utils::Boolean`. Because `TrueClass`
   and `FalseClass` both `include` it, `value.is_a?(Boolean)` works as a boolean
-  type check. Companions: `Object#to_b` (parses strings via `Boolean.parse`),
-  `Numeric#to_b` (`self > 0`).
+  type check. Loading fails if another `Boolean` is already defined.

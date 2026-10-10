@@ -2,21 +2,24 @@ require 'logger'
 
 module Lux
   LOGGER_CACHE ||= {}
+  LOGGER_LOCK  ||= Mutex.new
 
   # Lux.logger — default logger (STDERR in dev, silent in test, ./log/error.log in prod)
   # Lux.logger(:foo) — named file logger (writes to ./log/foo.log)
   def logger name = nil
     return default_logger unless name
 
-    LOGGER_CACHE[name] ||= begin
-      output_location = Lux.config.logger_path_mask % name
-      logger = Logger.new output_location, Lux.config.logger_files_to_keep, Lux.config.logger_file_max_size
+    LOGGER_CACHE[name] || LOGGER_LOCK.synchronize do
+      LOGGER_CACHE[name] ||= begin
+        output_location = Lux.config.logger_path_mask % name
+        logger = Logger.new output_location, Lux.config.logger_files_to_keep, Lux.config.logger_file_max_size
 
-      if Lux.config.logger_formatter
-        logger.formatter = Lux.config.logger_formatter
+        if Lux.config.logger_formatter
+          logger.formatter = Lux.config.logger_formatter
+        end
+
+        logger
       end
-
-      logger
     end
   end
 

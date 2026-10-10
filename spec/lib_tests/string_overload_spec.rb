@@ -1,22 +1,37 @@
 require 'test_helper'
 
 describe 'String overloads' do
-  describe '#html_escape / #html_unsafe' do
-    it 'stores < as &LT; and is idempotent' do
-      _('a <b> c'.html_escape).must_equal 'a &LT;b> c'
-      _('a <b> c'.html_escape.html_escape).must_equal 'a &LT;b> c'
+  describe 'output escaping' do
+    it 'escapes into a safe string' do
+      out = %(<a href="x">).html_escape
+      _(out).must_equal '&lt;a href=&quot;x&quot;&gt;'
+      assert out.html_safe?
+      refute 'plain'.html_safe?
     end
 
-    it 'migrates the legacy #LT; marker' do
-      _('#LT;b>'.html_escape).must_equal '&LT;b>'
+    it 'html_unsafe marks markup and neutralizes script and style by default' do
+      out = '<b>x</b><script>1</script><style>a{}</style>'.html_unsafe
+      assert out.html_safe?
+      _(out).must_equal '<b>x</b>&lt;script>1&lt;/script>&lt;style>a{}&lt;/style>'
+      _('<script>1</script>'.html_unsafe(script: true)).must_equal '<script>1</script>'
     end
 
-    it 'restores markup from both markers' do
-      _('&LT;b> #LT;i>'.html_unsafe).must_equal '<b> <i>'
+    it 'escapes plain text appended to a safe string' do
+      out = '<b>'.html_unsafe + '<i>'
+      assert out.html_safe?
+      _(out).must_equal '<b>&lt;i&gt;'
+      _(Lux::SafeString.join(['<b>'.html_unsafe, '<i>'], ' ')).must_equal '<b> &lt;i&gt;'
     end
 
-    it 'keeps the full display escape' do
-      _(%(<a href="x">).html_escape(true)).must_equal '&lt;a href=&quot;x&quot;&gt;'
+    it 'loses safety on any other transformation' do
+      refute '<b>'.html_unsafe.gsub('b', 'i').html_safe?
+      refute "#{'<b>'.html_unsafe}".html_safe?
+    end
+
+    it 'tag builders escape plain inner text but keep markup' do
+      _('<x>'.tag(:b)).must_equal '<b>&lt;x&gt;</b>'
+      _('<i>y</i>'.html_unsafe.tag(:b)).must_equal '<b><i>y</i></b>'
+      assert 'x'.tag(:b).html_safe?
     end
   end
 

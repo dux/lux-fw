@@ -1,6 +1,7 @@
 class Object
+  # ActiveSupport semantics: anything that answers empty? is blank when empty
   def blank?
-    !self
+    respond_to?(:empty?) ? !!empty? : !self
   end
 
   def present?
@@ -9,10 +10,6 @@ class Object
 end
 
 class NilClass
-  def empty?
-    true
-  end
-
   def present?
     false
   end

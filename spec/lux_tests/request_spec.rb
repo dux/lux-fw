@@ -108,6 +108,13 @@ describe 'Malformed input' do
     assert_status 400, Lux.render.get('/request_test/echo?a[]=1&a[b]=2')
   end
 
+  it 'answers a dot segment in the path with 400' do
+    assert_status 400, Lux.render.get('/request_test/../config/config.yaml')
+    assert_status 400, Lux.render.get('/request_test/%2e%2e/echo')
+    assert_status 400, Lux.render.get('/./request_test/echo')
+    assert_status 200, Lux.render.get('/request_test/echo?v=..')
+  end
+
   it 'answers a broken JSON body with 400' do
     page = Lux.render.post('/request_test/echo', body: '{"a":', headers: { 'Content-Type' => 'application/json' })
 

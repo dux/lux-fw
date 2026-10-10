@@ -24,8 +24,8 @@ module Lux
   module Shell
     extend self
 
-    # Raised by Lux.shell.die when running in the test env, so failures can
-    # be asserted on instead of exiting the suite.
+    # Raised by Lux.shell.die in the test env (so failures can be asserted on)
+    # and inside a web server, where exit would kill every request in flight.
     class Die < StandardError; end
 
     # Run a command. Returns stripped stdout on success.
@@ -144,8 +144,8 @@ module Lux
     # Log fatal, render to stderr and exit (1).
     # Accepts a string or an array. With an array the first entry is
     # the title and the rest are rendered as indented detail lines.
-    # In test env, raises Lux::Shell::Die instead of exiting so callers
-    # can assert on the error path with `must_raise`.
+    # In test env and in a web server it raises Lux::Shell::Die instead of
+    # exiting; only a CLI process may exit.
     def die text
       lines = Array(text).map(&:to_s)
       if app_line = Lux.app_caller
@@ -153,7 +153,7 @@ module Lux
       end
       Lux.logger.fatal "Lux FATAL: #{lines.join(' | ')}" if Lux.debug?
 
-      if Lux.env.test?
+      if Lux.env.test? || Lux.runtime.web?
         raise Lux::Shell::Die, lines.join(' | ')
       end
 

@@ -1,7 +1,8 @@
 # CSRF token surface on Lux::Current.
 #
-# Token is a 6-character random string stored in the session under :_csrf.
-# Same value for the lifetime of the session; generated lazily on first read.
+# Token is a 43-character random string (32 bytes) stored in the session under
+# :_csrf, generated lazily on first read. It lives as long as the session, except
+# that a sign-in replaces it (rotate_csrf!), so a token seen before login is dead.
 #
 #   lux.session[:_csrf]   # raw token from session (or nil before first read)
 #   lux.csrf              # lazy generate+persist; safe to call from anywhere
@@ -18,7 +19,12 @@ module Lux
 
     # Returns the session's CSRF token, generating one on first read.
     def csrf
-      @session[SESSION_CSRF_KEY] ||= Lux::Utils::Crypt.random(6)
+      @session[SESSION_CSRF_KEY] ||= SecureRandom.urlsafe_base64(32)
+    end
+
+    # Drop the token; the next csrf read mints a fresh one. Call on sign-in.
+    def rotate_csrf!
+      @session.delete SESSION_CSRF_KEY
     end
 
     # True if the incoming request submitted a token that matches the session.

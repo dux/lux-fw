@@ -10,6 +10,8 @@
 module Lux
   class Current
     class Session
+      SEAL_PURPOSE ||= 'session'
+
       attr_reader :hash, :cookie_name
 
       def initialize request
@@ -22,7 +24,8 @@ module Lux
         @cookie_name += "_#{request.port}" # we do not want http and https cookie name conflicts
         @request     = request
         @raw_cookie  = request.cookies[@cookie_name]
-        @hash        = JSON.parse(Lux::Utils::Crypt.decrypt(@raw_cookie || '{}')) rescue {}
+        @hash        = Lux::Utils::Crypt.unseal(@raw_cookie, purpose: SEAL_PURPOSE)
+        @hash        = {} unless @hash.is_a?(::Hash)
 
         security_check
 
@@ -65,10 +68,10 @@ module Lux
       def generate_cookie
         return nil unless dirty?
 
-        # Sign with the same lifetime the browser gets. Max-Age alone is a client
-        # hint - a copied cookie replays forever without a TTL inside the token.
-        encrypted     = Lux::Utils::Crypt.encrypt(@hash.to_json, ttl: Lux.config[:session_cookie_max_age])
-        return nil if encrypted == @raw_cookie
+        # Sealed (AES-256-GCM), so the browser can neither read nor edit it, with
+        # the same lifetime the browser gets. Max-Age alone is a client hint - a
+        # copied cookie replays forever without a TTL inside the token.
+        encrypted     = Lux::Utils::Crypt.seal(@hash, ttl: Lux.config[:session_cookie_max_age], purpose: SEAL_PURPOSE)
 
         cookie_domain = Lux.current.var[:lux_cookie_domain] || Lux.current.nav.domain
 

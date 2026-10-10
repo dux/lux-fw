@@ -10,8 +10,8 @@ class HtmlInput
     out = @opts.tag(:input)
     out =
     if prefix
-      %[<table style="width: 100%;"><tr>
-          <td style="background: #eee; color: #888; border: 1px solid #ddd; border-right: none; padding: 8px 10px 0 10px; width: 20px;">#{prefix}</td>
+      Lux::SafeString.new %[<table style="width: 100%;"><tr>
+          <td style="background: #eee; color: #888; border: 1px solid #ddd; border-right: none; padding: 8px 10px 0 10px; width: 20px;">#{escape_text prefix}</td>
           <td>#{out}</td>
         </tr></table>]
     else
@@ -19,7 +19,7 @@ class HtmlInput
     end
 
     if @opts[:focus]
-      out += <<~TEXT
+      out += Lux::SafeString.new <<~TEXT
         <script>
           setTimeout(()=>{
             const el = document.getElementById('#{@opts[:id]}')
@@ -62,7 +62,7 @@ class HtmlInput
 
       if @opts[:value]
         n.push ' &sdot; '
-        n.span(class: 'btn xs danger', onclick: "document.getElementById('#{@opts[:id]}').value=''") { '&times;' }
+        n.span(class: 'btn xs danger', onclick: "document.getElementById('#{@opts[:id]}').value=''") { Lux::SafeString.new('&times;') }
       end
     end
   end
@@ -156,16 +156,16 @@ class HtmlInput
 
     # blank keeps the field in the post when every box is unchecked; the schema drops blank elements
     body.push({ type: :hidden, name: @opts[:name], value: '' }.tag(:input))
-    body.push %[<label>#{attrs.merge(value: '').tag(:input)} #{null}</label>] if null
+    body.push label_for(attrs.merge(value: '').tag(:input), null) if null
 
     prepare_collection(collection).each do |el|
       opts = attrs.merge(value: el[0])
       opts[:checked] = true if values.include?(el[0].to_s)
 
-      body.push %[<label>#{opts.tag(:input)} #{el[1]}</label>]
+      body.push label_for(opts.tag(:input), el[1])
     end
 
-    '<div class="form-checkboxes">%s</div>' % body.join("\n")
+    Lux::SafeString.join(body, "\n").tag(:div, class: 'form-checkboxes')
   end
 
   def as_select
@@ -174,7 +174,7 @@ class HtmlInput
     @opts[:class] ||= 'form-select'
 
     if nullval = @opts.delete(:null)
-      body.push %[<option value="">#{nullval}</option>] if nullval
+      body.push({ value: '' }.tag(:option, nullval))
     end
 
     collection = @opts.delete(:collection)
@@ -186,8 +186,7 @@ class HtmlInput
       body.push opts.tag(:option, name)
     end
 
-    body = body.join("\n")
-    @opts.tag(:select, body)
+    @opts.tag(:select, Lux::SafeString.join(body, "\n"))
   end
 
   def as_radio
@@ -207,17 +206,17 @@ class HtmlInput
     null  = @opts.delete(:null)
     value = @opts.delete(:value).to_s
 
-    body.push %[<label>#{opts.tag(:input)} #{null}</label>] if null
+    body.push label_for(opts.tag(:input), null) if null
 
     prepare_collection(collection).each do |el|
       opts = @opts.dup
       opts[:value]   = el[0]
       opts[:checked] = true if value == el[0].to_s
 
-      body.push %[<label>#{opts.tag(:input)} #{el[1]}</label>]
+      body.push label_for(opts.tag(:input), el[1])
     end
 
-    '<div class="form-radios">%s</div>' % body.join("\n")
+    Lux::SafeString.join(body, "\n").tag(:div, class: 'form-radios')
   end
 
   def as_tag
@@ -228,7 +227,7 @@ class HtmlInput
     @opts[:autocomplete] ||= 'off'
     @opts[:style] = ['display: block; width: 100%;', @opts[:style]].join(';')
 
-    ret = %[
+    ret = Lux::SafeString.new %[
     <script>
        window.draw_tag = window.draw_tag || function (id) {
         tags = $.map(String($('#'+id).val()).split(/\s*,\s*/), function(el) {
@@ -238,8 +237,8 @@ class HtmlInput
         $('#'+id+'_tags').html(tags)
       }</script>]
     ret += @opts.tag(:input)
-    ret += %[<div id="#{@opts[:id]}_tags" style="margin-top:5px;"></div>]
-    ret += %[<script>if (window.$) { draw_tag('#{@opts[:id]}'); } else { window.onload = function(){ draw_tag('#{@opts[:id]}'); } }</script>]
+    ret += { id: "#{@opts[:id]}_tags", style: 'margin-top:5px;' }.tag(:div)
+    ret += Lux::SafeString.new %[<script>if (window.$) { draw_tag('#{@opts[:id]}'); } else { window.onload = function(){ draw_tag('#{@opts[:id]}'); } }</script>]
     ret
   end
 
@@ -278,7 +277,7 @@ class HtmlInput
       @opts[:style] = 'width:200px; float:left; margin-right: 20px;'
       @opts[:value] = @opts[:value].map(&:to_f).join(', ')
       ret = @opts.tag(:input)
-      ret += %[ <a target="new" href="http://maps.google.com/maps?q=loc:#{@opts[:value]}" style="display:block; margin-top:7px;">&nbsp;Show on map</a>]
+      ret += Lux::SafeString.new %[ <a target="new" href="http://maps.google.com/maps?q=loc:#{@opts[:value]}" style="display:block; margin-top:7px;">&nbsp;Show on map</a>]
     else
       @opts.tag(:input)
     end
@@ -288,7 +287,7 @@ class HtmlInput
     val = @opts[:value]
     @opts[:style] ||= 'height:55px; width:250px; float: left; margin-right:5px;'
     ret = as_textarea
-    ret += %[<div><a class="btn btn-default btn-xs" onclick="window.open('https://www.google.hr/maps?q='+$('##{@opts[:id]}').val()); return false;">open in new window</a></div>] if val.to_s.length > 5
+    ret += Lux::SafeString.new %[<div><a class="btn btn-default btn-xs" onclick="window.open('https://www.google.hr/maps?q='+$('##{@opts[:id]}').val()); return false;">open in new window</a></div>] if val.to_s.length > 5
     ret
   end
 
@@ -296,5 +295,17 @@ class HtmlInput
     @opts[:disabled] = true
     @opts.delete(:name)
     as_text
+  end
+
+  private
+
+  # markup (html_safe?) as is, anything else as escaped text
+  def escape_text text
+    text.to_s.html_safe? ? text.to_s : text.to_s.html_escape
+  end
+
+  # <label><input> text</label>
+  def label_for input, text
+    Lux::SafeString.new("#{input} #{escape_text text}").tag(:label)
   end
 end

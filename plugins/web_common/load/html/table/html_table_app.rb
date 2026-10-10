@@ -57,7 +57,7 @@ class AppTable < HtmlTable
 
   def delete
     col(align: :right, width: 40) do |object|
-      { size: :xs, type: :danger, onclick: "if (confirm('Sure?')) { Api('#{object.api_path(:destroy)}').refresh() }; return false" }.tag('ui-btn', '&times;')
+      { size: :xs, type: :danger, onclick: "if (confirm('Sure?')) { Api('#{object.api_path(:destroy)}').refresh() }; return false" }.tag('ui-btn', Lux::SafeString.new('&times;'))
     end
   end
 
@@ -81,11 +81,11 @@ class AppTable < HtmlTable
     proc do |o|
       src = o.send(opts[:field])
       if src.present?
-        if src[0] == '<'
+        if src.html_safe?
           src
         else
           src = "/a/r/#{src}/100" unless src.include?('/')
-          %[<ui-asset src="#{src}" style="width:100%; margin: -3px 0; vertical-align: middle;" size="200"></ui-asset>]
+          { src: src, style: 'width:100%; margin: -3px 0; vertical-align: middle;', size: 200 }.tag(:'ui-asset')
         end
       else
         ''
@@ -140,7 +140,7 @@ class AppTable < HtmlTable
     proc do |o|
       values = o.send(opts[:field])
       values = values.map(&:as_scope_link) if values.first && values.first.is_a?(ApplicationModel)
-      values.to_sentence
+      Lux::SafeString.new values.map { _1.to_s.html_safe? ? _1.to_s : _1.to_s.html_escape }.to_sentence
     end
   end
 
@@ -160,8 +160,8 @@ class AppTable < HtmlTable
 
     proc do |o|
       user = o.creator
-      name = user.name
-      name += " &sdot; #{user.email}" if opts[:email]
+      name = user.name.to_s.html_escape
+      name += Lux::SafeString.new(' &sdot; ') + user.email.to_s if opts[:email]
       name
     end
   end
@@ -174,7 +174,7 @@ class AppTable < HtmlTable
       onclick = opts.delete(:onclick) || Proc.new { |o| "Api('#{o.api_path(:destroy)}').refresh(); return false;" }
       onclick = onclick.call o
       onclick = %[event.stopPropagation(); if (confirm('Sure to delete?')) { #{onclick} }]
-      %[<i class="icon icon-trash gray" onmouseover="$(this).toggleClass('gray')" onmouseout="$(this).toggleClass('gray')" onclick="#{onclick}"></i>]
+      { class: 'icon icon-trash gray', onmouseover: "$(this).toggleClass('gray')", onmouseout: "$(this).toggleClass('gray')", onclick: onclick }.tag(:i)
     end
   end
 
@@ -198,21 +198,22 @@ class AppTable < HtmlTable
 
   def as_html opts
     proc do |o|
-      o.send(opts[:field]).html_safe
+      o.send(opts[:field]).to_s.html_unsafe
     end
   end
 
   def as_tags opts
     proc do |o|
       tags = o.send(opts[:field] || :tags)
-      tags.join(' &sdot; ')
+      Lux::SafeString.join(tags, ' &sdot; ')
     end
   end
 end
 
 ###
 
-module ApplicationHelper
+# HtmlHelper, not ApplicationHelper: the app's own helpers must win
+module HtmlHelper
   def table list, opts = {}, &block
     opts[:class] ||= 'table hover'
 
@@ -231,7 +232,7 @@ module ApplicationHelper
     else
       unless opts[:not_found] == false
         not_found = opts[:not_found] || 'No records found'
-        not_found = not_found.split($/).map { _1.tag(:p) }.join($/)
+        not_found = Lux::SafeString.join(not_found.split($/).map { _1.tag(:p) }, $/)
         not_found.tag('div', class: 'gray')
       end
     end

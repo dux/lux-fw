@@ -40,19 +40,16 @@ module Lux
             args[0] = [args.first]
           end
 
-          out =
           if args.first.class == Array
             # cell @users
-            args.first.map do |object|
+            Lux::SafeString.join(args.first.map do |object|
               name = object.class.to_s.underscore.to_sym
               Lux::ViewCell.get(parent, name).render object
-            end.join('')
+            end)
           else
             # cell(:user, user: @user).profile
             Lux::ViewCell.get parent, *args
           end
-
-          out.respond_to?(:html_safe) ? out.html_safe : out
         else
           # cell.user.profile
           Lux::ViewCell::Proxy.new(parent)

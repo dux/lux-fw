@@ -349,6 +349,9 @@ module Lux
   end
 end
 
-# Back-compat top-level alias. Keeps existing `Url.new`, `Url.current`,
-# `Url.escape` call sites working unchanged.
-Url = Lux::Utils::Url unless defined?(Url) && Url.equal?(Lux::Utils::Url)
+# Top-level alias for `Url.new`, `Url.current`, `Url.escape`. Framework code
+# calls it too, so another Url (an app model) must fail loudly, not replace it.
+if defined?(::Url) && !::Url.equal?(Lux::Utils::Url)
+  raise NameError, "Url is already defined (#{::Url}); lux aliases it to Lux::Utils::Url"
+end
+Url ||= Lux::Utils::Url

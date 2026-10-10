@@ -1,4 +1,4 @@
-ApplicationHelper.class_eval do
+HtmlHelper.class_eval do
 
   def request
     Lux.current.request

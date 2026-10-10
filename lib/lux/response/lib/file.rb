@@ -5,7 +5,9 @@ module Lux
     class File
       class << self
         def deliver_from_current
-          path = './public' + Lux.current.request.path
+          root = ::File.expand_path('./public')
+          path = ::File.expand_path('.' + Lux.current.request.path, root)
+          return unless path.start_with?(root + '/')
           ext = path.split('.').last
           return unless ext.length > 1 && ext.length < 5
           rack_file = new file: path, inline: true
@@ -13,7 +15,7 @@ module Lux
             # Static assets are safe for shared caches; this also suppresses Set-Cookie.
             response = Lux.current.response
             response.cache_public(Lux.config[:static_file_max_age] || 600) unless response.cached?
-            rack_file.send
+            rack_file.deliver
           end
         end
 
@@ -25,8 +27,8 @@ module Lux
           ::Rack::Mime.mime_type(".#{name}", nil)
         end
 
-        def send opts
-          new(opts).send
+        def deliver opts
+          new(opts).deliver
         end
       end
 
@@ -55,7 +57,7 @@ module Lux
         @opt.file.exist?
       end
 
-      def send
+      def deliver
         @opt.name ||= @opt.path.split('/').last
         if @opt.disposition == 'attachment'
           response.headers['content-disposition'] = 'attachment; filename=%s' % @opt.name

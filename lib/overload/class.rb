@@ -1,15 +1,9 @@
 class Class
 
-  # Get all class descendants
+  # Get all class descendants (walks Class#subclasses, no ObjectSpace heap scan)
   # `ApplicationModel.descendants # get all DB models`
-  def descendants fast = false
-    ObjectSpace.each_object(Class).select do |klass|
-      if fast
-        klass < self
-      else
-        klass.ancestors.include?(self)
-      end
-    end - [self]
+  def descendants
+    subclasses.flat_map { [_1, *_1.descendants] }
   end
 
   # OrgsController.source_location -> ./app/controllers/orgs_controller.rb

@@ -20,7 +20,7 @@ module UserSession
       resolve_bearer bearer
     elsif token = params[:sso_action]
       resolve_sso_action token
-    elsif params[:uref] && Lux.env.dev?
+    elsif params[:uref] && impersonate?
       uref = params[:uref]
       ref  = uref.include?('@') ? User.find_by(email: uref)&.ref : uref
       login_user_ref ref if ref
@@ -28,6 +28,13 @@ module UserSession
     elsif ref = session_ref
       load_user_by_ref ref
     end
+  end
+
+  # Dev-only powers - ?uref=, Bearer <email>, sudo without being admin,
+  # /dev/login_as. Needs the dev env AND a client on this machine: dev? is just
+  # "not production", so LUX_ENV alone would open them on staging/test deploys.
+  def impersonate?
+    Lux.env.dev? && current.local_request?
   end
 
   # Load a user by API key. Caches key -> ref; cache hits reload via User.find(ref).
@@ -98,13 +105,14 @@ module UserSession
     return unless sudo?
     user  = User.take(session[SUDO_USER_REF]) or return
     label = ::Rack::Utils.escape_html(user.name.presence || user.email)
-    %[<div style="background:#c0392b;color:#fff;font:13px/1.4 sans-serif;padding:6px 12px;text-align:center;">] +
+    Lux::SafeString.new %[<div style="background:#c0392b;color:#fff;font:13px/1.4 sans-serif;padding:6px 12px;text-align:center;">] +
       %[Sudo as <b>#{label}</b> &middot; ] +
       %[<a href="?sso_action=false" style="color:#fff;text-decoration:underline;">sudo off</a></div>]
   end
 
   def login_user_ref ref
     session[USER_REF] = ref
+    current.rotate_csrf!
     load_user_by_ref ref
   end
 
@@ -157,12 +165,13 @@ module UserSession
   def action_login data
     user = User.take(data['ref']) or return redirect_to('/', error: 'User cant be loaded')
     session[USER_REF] = user.ref
+    current.rotate_csrf!
     User.current = user
     redirect_to request.path, info: 'Loged in as %s' % user.email
   end
 
   def action_sudo_as data
-    return unless (User.current && User.current.can.admin?) || Lux.env.dev?
+    return unless (User.current && User.current.can.admin?) || impersonate?
     target = User.take(data['ref'])
     if target && User.current && target.ref != User.current.ref
       session[SUDO_USER_REF] = target.ref
@@ -191,7 +200,7 @@ module UserSession
   end
 
   def resolve_bearer bearer
-    if Lux.env.dev? && bearer.include?('@')
+    if impersonate? && bearer.include?('@')
       User.current = User.find_by(email: bearer)
     elsif User.columns.include?(:api_key)
       Lux.logger.error "Bad bearer token: #{bearer}" unless User.current = api_key_load(bearer)

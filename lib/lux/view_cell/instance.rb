@@ -63,7 +63,8 @@ module Lux
       end
 
       data = RENDER_CACHE[path].render(self)
-      defined?(Lux::Template) ? Lux::Template.wrap_with_debug_info(file_name, data) : data
+      data = Lux::Template.wrap_with_debug_info(file_name, data) if defined?(Lux::Template)
+      Lux::SafeString.new data
     end
 
     private

@@ -26,7 +26,7 @@ module Lux
     #
     #   Lux.boot! do
     #     Lux.config.localize = false
-    #     Lux.config.app_timeout = 10
+    #     Lux.config.serve_static_files = false
     #   end
     def call
       return if @booted
@@ -70,6 +70,10 @@ module Lux
           Lux.shell.info plugins.any? ? "Lux plugins: #{plugins.join(', ')}" : 'Lux: no plugins'
           puts start_info
         end
+      rescue Exception
+        # a half-done boot must never pass as booted; the next caller retries
+        @booted = false
+        raise
       end
     end
 
@@ -140,6 +144,11 @@ module Lux
 
       # Serve static files is on by default
       set_default :serve_static_files, true
+
+      # true when the app is reachable through Cloudflare only (dboss
+      # cloudflare_only): CF-Connecting-IP is then always the client ip. Off,
+      # it counts only when the forwarding hop is a Cloudflare edge address.
+      set_default :cloudflare, false
     end
 
     def set_default key, value = nil

@@ -235,7 +235,7 @@ module Lux
     end
 
     def send_file file, opts = {}
-      ::Lux::Response::File.new(opts.merge(file: file)).send
+      ::Lux::Response::File.new(opts.merge(file: file)).deliver
     end
 
     # redirect_to '/foo'
@@ -285,7 +285,7 @@ module Lux
           </head>
           <body>
             <p>redirecting to #{where.gsub('<', '&lt;').gsub('>', '&gt;')}</p>
-            <p>#{opts.values.join("\n")}</p>
+            <p>#{ERB::Util.html_escape opts.values.join("\n")}</p>
             <script>location.href = '#{escaped_where}'</script>
           </body>
         </html>
@@ -320,11 +320,11 @@ module Lux
       # Fire Application#after BEFORE headers are written so callbacks can mutate
       # @body (translations, HTML rewrites, etc.) and content-length / etag are
       # computed against the final body. Flash added in :after also makes the cookie.
+      # catch :done - a redirect_to in an after callback ends the chain, not the request
       if app
-        app.run_callback :after
+        catch(:done) { app.run_callback :after }
       end
 
-      restore_lt_markers
       write_response_header
 
       @status ||= 200
@@ -443,15 +443,6 @@ module Lux
       elsif current.session[:lux_flash]
         current.session.delete(:lux_flash)
       end
-    end
-
-    # User text is stored with `<` as &LT; (String#html_escape), which renders as
-    # `<` in text. Inside an attribute Haml escapes it to &amp;LT;, and rows saved
-    # before &LT; carry the old #LT; marker - both become &lt; here.
-    def restore_lt_markers
-      return unless @body.is_a?(String) && @body.include?('LT;') && @content_type.to_s.include?('html')
-
-      @body = @body.gsub('&amp;LT;', '&lt;').gsub('#LT;', '&lt;')
     end
 
     def write_response_body

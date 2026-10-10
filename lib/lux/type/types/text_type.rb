@@ -7,7 +7,6 @@ class Lux::Type::TextType < Lux::Type::StringType
   def coerce
     value(&:to_s)
     value(&:downcase) if opts[:downcase]
-    value(&:html_escape) unless opts[:html]
 
     error_for(:min_length_error, opts[:min], value.length) if opts[:min] && value.length < opts[:min]
     error_for(:max_length_error, opts[:max], value.length) if opts[:max] && value.length > opts[:max]

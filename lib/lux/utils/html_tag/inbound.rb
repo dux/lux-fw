@@ -52,7 +52,7 @@ module Lux
         alias :this    :parent
 
         def render
-          @_buffer.join.gsub(/\n+/, $/)
+          Lux::SafeString.new @_buffer.join
         end
 
         # Single canonical signature:
@@ -88,17 +88,18 @@ module Lux
             before = @_buffer.length
             result = @_context ? instance_exec(self, &block) : block.call(self)
             # If the block returned a String and pushed nothing, use it as inner.
-            @_buffer << result if result.is_a?(::String) && @_buffer.length == before
+            @_buffer << _text(result) if result.is_a?(::String) && @_buffer.length == before
             @_depth -= 1
           elsif inner
-            @_buffer << (inner.is_a?(::Array) ? inner.join : inner.to_s)
+            @_buffer << (inner.is_a?(::Array) ? inner.map { _text(_1) }.join : _text(inner))
           end
 
           @_buffer << _indent << "</#{name}>#{_newline}"
           @_buffer
         end
 
-        # Raw insertion - already-rendered HTML or a block returning one.
+        # Raw insertion - already-rendered HTML or a block returning one. Never
+        # pass user text here; inner text and block results are escaped instead.
         def push(data = nil)
           data = yield if block_given?
           @_buffer << data
@@ -149,6 +150,12 @@ module Lux
           else
             %(#{_dasherize(key)}=#{_escape(value)})
           end
+        end
+
+        # inner content: markup (html_safe?) as is, anything else as escaped text
+        def _text(value)
+          value = value.to_s
+          value.html_safe? ? value : ERB::Util.html_escape(value)
         end
 
         def _dasherize(key)

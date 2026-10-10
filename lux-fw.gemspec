@@ -73,8 +73,9 @@ Gem::Specification.new 'lux-fw' do |gem|
   # because it is awesome
   gem.add_dependency 'amazing_print'
 
-  # best server side templateing
-  gem.add_dependency 'haml'
+  # best server side templateing; pinned because lib/lux/render/haml_parser_patch.rb
+  # replaces Haml::Parser internals (spec/lib_tests/haml_parser_patch_spec.rb)
+  gem.add_dependency 'haml', '~> 7.5'
 
   # server-side markdown (CommonMark + GFM) for the API guide and .md views
   gem.add_dependency 'commonmarker'

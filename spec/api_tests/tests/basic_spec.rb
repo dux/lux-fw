@@ -31,9 +31,9 @@ describe 'dev' do
     _(response).must_equal({success: true, message: 'all ok', meta: { ip: '1.2.3.4' }, data: 'ACME corp', status: 200 })
   end
 
-  it 'stores < from params as &LT;' do
+  it 'keeps params as sent' do
     api = CompanyApi.new(:index, params: { name: '<b>' })
-    _(api.api.params[:name]).must_equal '&LT;b>'
+    _(api.api.params[:name]).must_equal '<b>'
   end
 
   it 'expects clasic module to be incuded' do

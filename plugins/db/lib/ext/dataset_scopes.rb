@@ -56,7 +56,11 @@ Sequel::Model.dataset_module do
     order(Sequel.desc(:updated_at))
   end
 
+  # newest by created_at; an explicit order keeps Sequel's meaning instead
+  # (`order(:imported_at).last` is the last by imported_at)
   def last num = nil
+    return num ? super(num) : super() if opts[:order]
+
     base = xorder('%s desc' % :created_at)
     num ? base.limit(num).all : base.first
   end

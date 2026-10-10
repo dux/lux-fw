@@ -37,19 +37,12 @@ module Lux
 
       # Render error inline (e.g. embedded in a template error fallback).
       def inline object, msg = nil
-        error, message = if object.is_a?(String)
-          [nil, object]
-        else
-          [object, object.message]
-        end
-
-        message = message.to_s.gsub('","', %[",\n "]).gsub('<', '&lt;')
+        error = object.is_a?(String) ? nil : object
 
         HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|
           if error && Lux.debug?
-            plain = format(error, message: true).gsub('&', '&amp;').gsub('<', '&lt;')
             n.button 'Copy', class: 'btn', style: 'float: right;', onclick: copy_onclick
-            n.tag :textarea, plain, style: 'display:none;'
+            n.tag :textarea, format(error, message: true), style: 'display:none;'
             n.push format(error, html: true, message: true)
           end
         end
@@ -63,7 +56,7 @@ module Lux
           lines = []
           lines << "[#{error.class}] #{error.message}" if error && opts[:message] == true
           lines << 'no backtrace present'
-          return lines.join($/)
+          return opts[:html] ? lines.join($/).html_escape : lines.join($/)
         end
 
         root = Lux.root.to_s
@@ -75,6 +68,8 @@ module Lux
           .select { |line| opts[:gems] == false ? line[0, 3] == '  .' : true }
 
         if opts[:html]
+          # messages and paths are text (a Rack error echoes the param name)
+          lines.map!(&:html_escape)
           lines[0] = "<b>%s</b>\n" % lines[0]
           lines.map! { |line| line[0, 3] == '  .' ? "<b>#{line}</b>" : line }
         end
@@ -82,11 +77,11 @@ module Lux
         lines.shift unless opts[:message] == true
 
         if (url = current_url)
-          url_line = opts[:html] ? %[<b>URL: <a href="#{url}">#{url}</a></b>\n] : "URL: #{url}"
+          url_line = opts[:html] ? %[<b>URL: <a href="#{url.html_escape}">#{url.html_escape}</a></b>\n] : "URL: #{url}"
           lines.unshift url_line
         end
 
-        lines.join($/)
+        opts[:html] ? Lux::SafeString.new(lines.join($/)) : lines.join($/)
       end
 
       # Dev-only "Copy for LLM" button. A hidden textarea carries an
@@ -95,10 +90,9 @@ module Lux
       def copy_button error, status = nil
         return '' unless Lux.env.dev?
 
-        payload = copy_payload(error, status).gsub('&', '&amp;').gsub('<', '&lt;')
         HtmlTag.span do |n|
           n.button 'Copy for LLM', class: 'btn', style: 'cursor: pointer;', onclick: copy_onclick
-          n.tag :textarea, payload, style: 'display:none;'
+          n.tag :textarea, copy_payload(error, status), style: 'display:none;'
         end
       end
 
