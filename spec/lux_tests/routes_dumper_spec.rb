@@ -21,7 +21,7 @@ end
 # Routes that read the current URL while the dump replays them.
 class DumpUrlApp < Lux::Application
   routes do
-    redirect_to Url.subdomain('app') if params[:login]
+    redirect_to nav.subdomain('app') if params[:login]
     map 'after-url', 'main#after_url'
   end
 end

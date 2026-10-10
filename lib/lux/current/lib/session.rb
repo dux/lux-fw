@@ -14,6 +14,13 @@ module Lux
       SEAL_PURPOSE  ||= 'session'
       REFRESH_AFTER ||= 1.day.to_i
 
+      # one-time handoff to another host, see #transfer_token
+      TRANSFER_PARAM   ||= '_lux_st'
+      TRANSFER_PURPOSE ||= 'session_transfer'
+      TRANSFER_TTL     ||= 60
+      # per-host keys, rebuilt by the receiving host
+      TRANSFER_SKIP    ||= ['_c', '_t', Dbsc::KEY, Dbsc::OFFERED]
+
       attr_reader :hash, :cookie_name
 
       def initialize request
@@ -115,7 +122,37 @@ module Lux
         string
       end
 
+      # Sealed one-time handoff of this session to `host` (see nav.subdomain
+      # session: true). Bound to the browser check, so a leaked link is useless
+      # in another browser.
+      def transfer_token host
+        data = @hash.reject { |k, _| TRANSFER_SKIP.include?(k) }
+        Lux::Utils::Crypt.seal(
+          { 'data' => data, 'to' => host.to_s, 'c' => browser_check, 'n' => Lux::Utils::Crypt.uid(16) },
+          ttl: TRANSFER_TTL, purpose: TRANSFER_PURPOSE
+        )
+      end
+
+      # Merges a #transfer_token handed to this host. False for a forged,
+      # expired, already used or foreign token, or one from another browser.
+      # The used-token mark is not atomic; the browser check covers the race.
+      def receive_transfer token
+        t = Lux::Utils::Crypt.unseal(token.to_s, purpose: TRANSFER_PURPOSE)
+        return false unless t.is_a?(::Hash) && t['to'] == @request.host && t['c'] == browser_check
+
+        used = 'lux:session-transfer:%s' % t['n']
+        return false if Lux.cache.get(used)
+
+        Lux.cache.set used, 1, TRANSFER_TTL
+        merge! t['data']
+        true
+      end
+
       private
+
+      def browser_check
+        Lux::Utils::Crypt.sha1(security_string)[0, 5]
+      end
 
       # Browsers refuse a __Host- cookie that is not Secure, has a Domain, or a
       # Path other than /, so neither cookie can be planted from a subdomain or
@@ -146,7 +183,7 @@ module Lux
 
       def security_check
         key   = '_c'
-        check = Lux::Utils::Crypt.sha1(security_string)[0, 5]
+        check = browser_check
         @hash = {} if @hash[key] && @hash[key] != check
         @hash[key] = check
       end

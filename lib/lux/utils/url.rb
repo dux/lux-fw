@@ -42,13 +42,6 @@ module Lux
           u.relative
         end
 
-        # change current subdomain
-        def subdomain name, in_path=nil
-          b = current.subdomain(name)
-          b.path in_path if in_path
-          b.url
-        end
-
         # set a query string on the current request and return its relative form
         def qs name, value
           current.qs(name, value).relative

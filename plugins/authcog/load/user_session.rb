@@ -71,16 +71,6 @@ module UserSession
     Lux.current.url.subdomain(subdomain).path(path || '/').qs('sso_action', token).url
   end
 
-  # absolute cross-subdomain link for the current user: auto-login token when
-  # signed in, plain navigation link when User.current is nil.
-  def transfer_link path = nil, subdomain:
-    if user = User.current
-      login_link user, path: path, subdomain: subdomain
-    else
-      Lux.current.url.subdomain(subdomain).path(path || '/').url
-    end
-  end
-
   # admins only: start a sudo overlay
   def sudo_login_link user, path: nil
     '%s?sso_action=%s' % [path || '/', sso_action_token(:sudo_as, ref: user.ref, ttl: 1.minute)]

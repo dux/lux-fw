@@ -176,14 +176,6 @@ describe Lux::Utils::Url do
       _(Url.locale(:en)).must_equal '/en/some/path?foo=bar'
     end
 
-    it 'Url.subdomain rewrites the subdomain' do
-      _(Url.subdomain('admin')).must_equal 'https://admin.lvh.me:3000/fr/some/path?foo=bar'
-    end
-
-    it 'Url.subdomain with nil drops to the apex/root' do
-      _(Url.subdomain(nil)).must_equal 'https://lvh.me:3000/fr/some/path?foo=bar'
-    end
-
     it 'Url.host returns host of the current request' do
       _(Url.host).must_equal 'base.lvh.me'
     end

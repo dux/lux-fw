@@ -98,6 +98,48 @@ describe Lux::Application::Nav do
     it 'handles multiple subdomains' do
       _(nav_for('/', host: 'a.b.example.com').subdomain).must_equal 'a.b'
     end
+
+    it 'builds a URL on another subdomain, keeping the current path' do
+      _(nav_for('/some/path?foo=bar', host: 'base.lvh.me:3000').subdomain('admin')).must_equal 'http://admin.lvh.me:3000/some/path?foo=bar'
+    end
+
+    it 'builds a URL on the domain itself for nil, with a new path' do
+      _(nav_for('/some/path', host: 'base.lvh.me:3000').subdomain(nil, '/')).must_equal 'http://lvh.me:3000/'
+    end
+  end
+
+  describe '#subdomain session: true' do
+    # URL on app.example.com carrying a session with user 1, built on example.com
+    def transfer_url ua: nil
+      env = Rack::MockRequest.env_for('https://example.com/promo')
+      env['HTTP_USER_AGENT'] = ua if ua
+      Lux::Current.new(env)
+      Lux.current.session[:user] = 1
+      Lux.current.nav.subdomain(:app, '/dashboard', session: true)
+    end
+
+    it 'carries the session to the subdomain once and drops the token from the URL' do
+      url = transfer_url
+      _(url).must_match(%r{\Ahttps://app\.example\.com/dashboard\?_lux_st=[\w-]+\z})
+
+      resp = Lux.render.get(url)
+      _(resp.status).must_equal 303
+      _(resp.redirect_to).must_equal '/dashboard'
+      _(resp.headers['referrer-policy']).must_equal 'no-referrer'
+      _(resp.session[:user]).must_equal 1
+
+      _(Lux.render.get(url).session[:user]).must_be_nil
+    end
+
+    it 'is refused on another host' do
+      url = transfer_url.sub('app.example.com', 'other.example.com')
+      _(Lux.render.get(url).session[:user]).must_be_nil
+    end
+
+    it 'is refused in another browser' do
+      url = transfer_url(ua: 'Mozilla/5.0 Chrome/141.0.0.0')
+      _(Lux.render.get(url, headers: { 'User-Agent' => 'Mozilla/5.0 Firefox/131.0' }).session[:user]).must_be_nil
+    end
   end
 
   describe '#format' do

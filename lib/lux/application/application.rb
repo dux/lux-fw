@@ -85,6 +85,17 @@ module Lux
         Lux::Reloader.run
       end
 
+      # ?_lux_st= - a session handed over by nav.subdomain(..., session: true).
+      # Taken ahead of before-filters (they may demand a login it carries), then
+      # dropped from the URL so history and Referer never keep it.
+      transfer = Lux::Current::Session::TRANSFER_PARAM
+      if lux.request.get? && (token = lux.request.params[transfer])
+        lux.session.receive_transfer token
+        lux.response.header 'referrer-policy', 'no-referrer'
+        catch(:done) { lux.response.redirect_to Url.current.delete(transfer).relative, status: 303, silent: true }
+        return lux.response.render self
+      end
+
       # catch :done so an app-level before-filter can redirect/halt via
       # redirect_to (which throws :done); without it the throw escapes to the
       # rescue below and render_error downgrades the 302 to 500.

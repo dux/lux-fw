@@ -133,6 +133,11 @@ store. Rules, in [`./lib/session.rb`](./lib/session.rb):
   `Secure`), so a subdomain or plain-http page cannot plant one. Setting
   `session_cookie_domain` shares the cookie with subdomains and switches to
   `__Secure-`.
+* **Moving to a subdomain.** The host-only cookie is not seen by other hosts.
+  `nav.subdomain(:app, '/dashboard', session: true)` links there with a
+  one-time `?_lux_st=` token: sealed session data, valid 60 seconds, for that
+  host and this browser only. The receiving host merges it before any
+  before-filter and 303-redirects to the same URL without the token.
 * **Device binding (DBSC).** Over https every session is offered
   [Device Bound Session Credentials](https://w3c.github.io/webappsec-dbsc/)
   once (`Secure-Session-Registration` header). Chrome/Edge register a TPM key
@@ -160,6 +165,8 @@ nav.last                          # last segment
 nav.format                        # :html / :json / etc (from .ext suffix)
 nav.locale                        # locale extracted from path
 nav.subdomain                     # TLD-aware subdomain
+nav.subdomain(:app, '/x')         # URL on app.<domain> (nil -> the domain itself)
+nav.subdomain(:app, '/x', session: true)  # ... carrying this session (see Session)
 nav.domain                        # bare domain
 nav.base                          # scheme://host:port
 nav.url(foo: 1)                   # current URL + query merge

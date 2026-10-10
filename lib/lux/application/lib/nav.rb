@@ -6,7 +6,7 @@ module Lux
   class Application
     class Nav
       attr_accessor :format
-      attr_reader :domain, :subdomain, :source_path
+      attr_reader :domain, :source_path
 
       # acepts path as a string
       def initialize request
@@ -48,6 +48,22 @@ module Lux
 
       def last
         @path.last
+      end
+
+      # Bare: the current subdomain. With a name: absolute URL on that subdomain
+      # of the current domain (nil -> the domain itself), on the current path
+      # unless one is given. session: true carries this session over in a
+      # one-time token, see Session#transfer_token.
+      #   nav.subdomain                                  # 'admin'
+      #   nav.subdomain(:app, '/dashboard', session: true)
+      def subdomain *args, session: false
+        return @subdomain if args.empty?
+
+        name, path = args
+        url = Url.current.subdomain(name)
+        url.path path if path
+        url.qs Lux::Current::Session::TRANSFER_PARAM, Lux.current.session.transfer_token(url.host) if session
+        url.url
       end
 
       # get Url object initialized with request.url - relative
