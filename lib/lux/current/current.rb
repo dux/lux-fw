@@ -119,7 +119,7 @@ module Lux
       Thread.current[:lux] = self
 
       @request.env['REQUEST_METHOD'] = @opt.http_method.to_s.upcase if @opt.http_method
-      @request.cookies.merge @opt.cookies if @opt.cookies
+      @request.cookies.merge! @opt.cookies if @opt.cookies
 
       @opt.headers.or({}).each do |k, v|
         key = k.to_s.upcase.tr('-', '_')

@@ -133,6 +133,15 @@ store. Rules, in [`./lib/session.rb`](./lib/session.rb):
   `Secure`), so a subdomain or plain-http page cannot plant one. Setting
   `session_cookie_domain` shares the cookie with subdomains and switches to
   `__Secure-`.
+* **Device binding (DBSC).** Over https every session is offered
+  [Device Bound Session Credentials](https://w3c.github.io/webappsec-dbsc/)
+  once (`Secure-Session-Registration` header). Chrome/Edge register a TPM key
+  at `/_lux_/dbsc/register` and from then on must sign a challenge at
+  `/_lux_/dbsc/refresh` every 10 minutes to renew a proof cookie
+  (`<session cookie>_b`); a bound session without a fresh proof is emptied, so a
+  copied cookie dies off the device. Stateless - the public key is sealed into
+  the session as `_k`. Other browsers ignore the header. Off with
+  `session_dbsc: false`. See [`./lib/dbsc.rb`](./lib/dbsc.rb).
 * **CF-* headers** are dropped by `Lux::Current::Request` unless the request came
   through a Cloudflare edge (or `cloudflare: true`), so `CF-IPCountry` and
   `CF-Connecting-IP` can be trusted wherever they are read.

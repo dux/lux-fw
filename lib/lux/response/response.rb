@@ -491,7 +491,11 @@ module Lux
       # only emit Set-Cookie when cache policy allows it; one header line per
       # cookie (Rack 3 array), keeping any the app set on the header itself
       if @cache.allow_cookies? && !is_bot?
-        cookies = [*@headers['set-cookie'], current.session.generate_cookie, *app_cookies].compact
+        if offer = Lux::Current::Dbsc.registration_header(current)
+          @headers['secure-session-registration'] = offer
+        end
+
+        cookies =[*@headers['set-cookie'], current.session.generate_cookie, *app_cookies].compact
         @headers['set-cookie'] = cookies.length > 1 ? cookies : cookies.first if cookies.any?
       end
 

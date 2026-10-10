@@ -66,6 +66,7 @@ Lux.config[:session_cookie_name]      = '_app_session'
 Lux.config[:session_cookie_max_age]   = 10.days  # sliding: reissued once a day while in use
 Lux.config[:session_cookie_domain]    = nil      # nil = host-only __Host- cookie; 'example.com' shares it (as __Secure-)
 Lux.config[:session_ip_check]         = false    # bind session to exact IP (strict, breaks on network switch)
+Lux.config[:session_dbsc]             = true     # device-bound sessions over https (Chrome/Edge), see Lux::Current::Dbsc
 
 # csrf opt-out (default on)
 Lux.config.csrf                = false

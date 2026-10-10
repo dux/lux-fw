@@ -150,6 +150,9 @@ module Lux
       # always trusted. Off, they are dropped unless the forwarding hop is a
       # Cloudflare edge address.
       set_default :cloudflare, false
+
+      # Device Bound Session Credentials over https (Chrome/Edge); see Lux::Current::Dbsc
+      set_default :session_dbsc, true
     end
 
     def set_default key, value = nil

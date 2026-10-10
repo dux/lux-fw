@@ -28,6 +28,7 @@ module Lux
         @raw_cookie  = request.cookies[@cookie_name]
         @hash        = Lux::Utils::Crypt.unseal(@raw_cookie, purpose: SEAL_PURPOSE)
         @hash        = {} unless @hash.is_a?(::Hash)
+        @hash        = {} unless Dbsc.proven?(request, self)
 
         security_check
 

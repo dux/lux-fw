@@ -120,6 +120,12 @@ module Lux
         end
       end
 
+      # /_lux_/dbsc/* - device-bound session endpoints. The browser posts them on
+      # its own, without a CSRF token. See Lux::Current::Dbsc.
+      if request_method == 'POST' && !lux.response.body? && lux.request.path_info.start_with?(Lux::Current::Dbsc::PREFIX)
+        Lux::Current::Dbsc.handle lux
+      end
+
       # CSRF: enforce for non-safe verbs that aren't Bearer-authenticated.
       # Opt-out per-app via Lux.config.csrf = false. See Lux::Current#csrf.
       # Responses already produced by a before-hook are exempt (e.g. WebDAV
