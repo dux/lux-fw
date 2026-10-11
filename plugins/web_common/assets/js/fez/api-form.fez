@@ -132,8 +132,9 @@
 
       if (!this.props.action?.includes('/api/')) return Toast.error(`api-form: [${this.props.action}] is not an API path`)
 
-      this.before()
+      // read the fields before before() disables the button: a disabled submitter is left out
       const formData = new FormData(this.root, e.submitter)
+      this.before()
       this.props.upload_url ? this.uploadThenPost(formData) : this.post(formData)
     }
 
