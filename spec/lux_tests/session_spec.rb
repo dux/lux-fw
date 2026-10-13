@@ -175,24 +175,37 @@ describe Lux::Current::Session do
       Lux.config[:session_cookie_domain] = old
     end
 
-    it 'has no prefix over http' do
-      _(Lux::Current.new('http://test.example.com/').session.cookie_name).must_match(/\Alux_/)
+    it 'has no prefix over http and is shared on the root domain' do
+      s = Lux::Current.new('http://test.example.com/').session
+      _(s.cookie_name).must_match(/\Alux_/)
+      _(s.generate_cookie).must_include 'Domain=example.com'
     end
 
-    it 'is a host-only __Host- cookie over https' do
+    it 'is a __Secure- cookie on the root domain over https' do
       s = Lux::Current.new('https://test.example.com/').session
-      _(s.cookie_name).must_match(/\A__Host-lux_/)
-      cookie = s.generate_cookie
-      _(cookie).must_include 'Secure'
-      refute_includes cookie, 'Domain='
+      _(s.cookie_name).must_match(/\A__Secure-lux_/)
+      _(s.generate_cookie).must_include 'Domain=example.com'
     end
 
-    it 'is a __Secure- cookie when shared through session_cookie_domain' do
-      with_cookie_domain 'example.com' do
-        s = Lux::Current.new('https://test.example.com/').session
-        _(s.cookie_name).must_match(/\A__Secure-lux_/)
-        _(s.generate_cookie).must_include 'Domain=example.com'
+    it 'uses an explicit session_cookie_domain' do
+      with_cookie_domain 'other.com' do
+        _(Lux::Current.new('https://test.example.com/').session.generate_cookie).must_include 'Domain=other.com'
       end
+    end
+
+    it 'is a host-only __Host- cookie when session_cookie_domain is false' do
+      with_cookie_domain false do
+        s = Lux::Current.new('https://test.example.com/').session
+        _(s.cookie_name).must_match(/\A__Host-lux_/)
+        cookie = s.generate_cookie
+        _(cookie).must_include 'Secure'
+        refute_includes cookie, 'Domain='
+      end
+    end
+
+    it 'never sets Domain= for localhost or an IP' do
+      refute_includes Lux::Current.new('http://localhost:3000/').session.generate_cookie, 'Domain='
+      refute_includes Lux::Current.new('http://127.0.0.1:3000/').session.generate_cookie, 'Domain='
     end
   end
 end

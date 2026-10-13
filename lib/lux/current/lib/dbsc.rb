@@ -11,7 +11,10 @@
 #   POST /_lux_/dbsc/refresh   Sec-Secure-Session-Id: <sid>             -> 403 + Secure-Session-Challenge
 #                              + Secure-Session-Response: <signed jwt>  -> new proof cookie, 200 JSON
 #
-# Off with `session_dbsc: false`; only active over https.
+# Off with `session_dbsc: false`; only active over https and for a host-only
+# session cookie (`session_cookie_domain: false`). Chrome scopes the bound
+# session to the registering origin, so a sibling subdomain could never refresh
+# the proof and would wipe the shared session for the whole domain.
 
 module Lux
   class Current
@@ -30,8 +33,8 @@ module Lux
 
       extend self
 
-      def enabled? request
-        Lux.config[:session_dbsc] != false && request.ssl?
+      def enabled? request, session
+        Lux.config[:session_dbsc] != false && request.ssl? && !session.cookie_domain
       end
 
       # Proof cookie name, tied to the session cookie it guards.
@@ -42,7 +45,7 @@ module Lux
       # False for a device-bound session without a fresh proof cookie of its own.
       # The refresh endpoint is exempt - it is called because the proof expired.
       def proven? request, session
-        return true unless session.hash[KEY] && enabled?(request)
+        return true unless session.hash[KEY] && enabled?(request, session)
         return true if request.path_info == REFRESH_PATH
 
         proof = Lux::Utils::Crypt.unseal(request.cookies[cookie_name(session)], purpose: PROOF_PURPOSE)
@@ -52,7 +55,7 @@ module Lux
       # Offer registration once per unbound session; nil when there is nothing to offer.
       def registration_header current
         session = current.session
-        return unless enabled?(current.request)
+        return unless enabled?(current.request, session)
         return if session[KEY] || session[OFFERED]
 
         session[OFFERED] = 1
@@ -62,7 +65,7 @@ module Lux
       # POST /_lux_/dbsc/* - fills lux.response. Runs before the CSRF check, the
       # browser posts these on its own.
       def handle lux
-        return unless enabled?(lux.request)
+        return unless enabled?(lux.request, lux.session)
 
         case lux.request.path_info
         when REGISTER_PATH then register lux

@@ -141,8 +141,8 @@ module Lux
       # base vars
       @files_in_use = Set.new
       @response     = Lux::Response.new
-      @session      = Lux::Current::Session.new @request
       @nav          = Lux::Application::Nav.new @request
+      @session      = Lux::Current::Session.new @request, @nav.domain
       @route        = Lux::Application::Route.new @nav
       @var          = { cache: {} }.to_lux_hash
 

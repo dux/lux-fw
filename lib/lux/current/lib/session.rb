@@ -1,7 +1,8 @@
 # vars
 # Lux.config.session_cookie_name
 # Lux.config.session_cookie_max_age
-# Lux.config.session_cookie_domain
+# Lux.config.session_cookie_domain - nil: root domain of the host (foo.lvh.me -> lvh.me),
+#   'example.com': that domain, false: host-only (__Host- over https)
 # Lux.config.session_ip_check
 
 # IMPORTANT - it is probably not a bug!
@@ -23,15 +24,17 @@ module Lux
       # per-host keys, rebuilt by the receiving host
       TRANSFER_SKIP    ||= ['_c', '_t', Dbsc::KEY, Dbsc::OFFERED]
 
-      attr_reader :hash, :cookie_name
+      attr_reader :hash, :cookie_name, :cookie_domain
 
-      def initialize request
+      # root_domain is nav.domain, the default cookie domain
+      def initialize request, root_domain = nil
         Lux.config[:session_cookie_max_age]    ||= 10.days.to_i
 
         # name of the session cookie, encodes Accept-Language for immediate invalidation
         base = Lux.config[:session_cookie_name] || 'lux'
         identity = request.env['HTTP_ACCEPT_LANGUAGE'].to_s
-        @request     = request
+        @request       = request
+        @cookie_domain = resolve_cookie_domain root_domain
         @cookie_name = cookie_prefix + base + '_' + Lux::Utils::Crypt.sha1(Lux.config.secret + identity)[0,6].downcase
         @cookie_name += "_#{request.port}" # we do not want http and https cookie name conflicts
         @raw_cookie  = request.cookies[@cookie_name]
@@ -87,13 +90,11 @@ module Lux
         # copied cookie replays forever without a TTL inside the token.
         encrypted     = Lux::Utils::Crypt.seal(@hash, ttl: Lux.config[:session_cookie_max_age], purpose: SEAL_PURPOSE)
 
-        cookie_domain = Lux.config[:session_cookie_domain]
-
         cookie = []
         cookie.push [@cookie_name, encrypted].join('=')
         cookie.push 'Max-Age=%s' % (Lux.config.session_cookie_max_age)
         cookie.push 'Path=/'
-        cookie.push "Domain=#{cookie_domain}" if valid_cookie_domain?(cookie_domain)
+        cookie.push "Domain=#{@cookie_domain}" if @cookie_domain
         cookie.push 'Secure' if @request.ssl?
         cookie.push 'HttpOnly'
         cookie.push "SameSite=#{Lux.config[:session_cookie_same_site] || 'Lax'}"
@@ -177,10 +178,17 @@ module Lux
 
       # Browsers refuse a __Host- cookie that is not Secure, has a Domain, or a
       # Path other than /, so neither cookie can be planted from a subdomain or
-      # over plain http. A shared session_cookie_domain allows only __Secure-.
+      # over plain http. A shared (Domain=) cookie allows only __Secure-.
       def cookie_prefix
         return '' unless @request.ssl?
-        valid_cookie_domain?(Lux.config[:session_cookie_domain]) ? '__Secure-' : '__Host-'
+        @cookie_domain ? '__Secure-' : '__Host-'
+      end
+
+      # Domain= for the session cookie, nil when it stays host-only
+      def resolve_cookie_domain root_domain
+        domain = Lux.config[:session_cookie_domain]
+        domain = root_domain if domain.nil?
+        domain if valid_cookie_domain?(domain)
       end
 
       # Reissue a day-old cookie, so the max_age window slides while the visitor
@@ -195,7 +203,8 @@ module Lux
 
       # Don't emit Domain= for localhost or bare IP hosts.
       def valid_cookie_domain? domain
-        return false if domain.nil? || domain.empty?
+        domain = domain.to_s
+        return false if domain.empty?
         return false if domain == 'localhost'
         return false if domain =~ /\A[\d.]+\z/        # IPv4
         return false if domain =~ /\A[0-9a-f:]+\z/i && domain.include?(':')   # IPv6

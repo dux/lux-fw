@@ -4,6 +4,16 @@ describe Lux::Current::Dbsc do
   HOST ||= 'https://test.example.com'
   DBSC ||= Lux::Current::Dbsc
 
+  # DBSC binds only a host-only session cookie
+  before do
+    @cookie_domain = Lux.config[:session_cookie_domain]
+    Lux.config[:session_cookie_domain] = false
+  end
+
+  after do
+    Lux.config[:session_cookie_domain] = @cookie_domain
+  end
+
   def device_key
     @device_key ||= OpenSSL::PKey::EC.generate('prime256v1')
   end
@@ -44,6 +54,11 @@ describe Lux::Current::Dbsc do
 
     it 'does not offer over http' do
       _(DBSC.registration_header(Lux::Current.new('http://test.example.com/'))).must_be_nil
+    end
+
+    it 'does not offer for a session shared on the root domain' do
+      Lux.config[:session_cookie_domain] = nil
+      _(DBSC.registration_header(Lux::Current.new("#{HOST}/"))).must_be_nil
     end
   end
 
