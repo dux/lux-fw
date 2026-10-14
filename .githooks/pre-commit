@@ -1,10 +1,16 @@
 #!/bin/sh
-# Stamp .version with the commit count this commit lands on, dboss-style and
-# rendered dotted: 371 -> v3.7.1, 12345 -> v123.4.5, 5 -> v0.0.5. Installed
-# with `git config core.hooksPath .githooks` (see `hammer hooks`).
+# Stamp .version with the commit count this commit lands on (371 -> 3.7.1)
+# via vstamp (github.com/dux/vstamp). Installed with
+# `git config core.hooksPath .githooks` (see `hammer hooks`).
 set -e
 
-count=$(git rev-list --count HEAD 2>/dev/null || echo 0)
-printf 'v%s\n' "$(printf '%03d' "$((count + 1))" | sed -E 's/(.)(.)$/.\1.\2/')" > .version
+# detached HEAD (rebase, cherry-pick): leave .version alone
+branch=$(git symbolic-ref -q --short HEAD) || exit 0
 
+command -v vstamp >/dev/null || {
+  echo 'pre-commit: vstamp not found, install from https://github.com/dux/vstamp' >&2
+  exit 1
+}
+
+vstamp count --next --branch "$branch" >/dev/null
 git add .version

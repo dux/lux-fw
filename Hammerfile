@@ -64,7 +64,7 @@ task :version do
 end
 
 task :hooks do
-  desc 'Point git at .githooks (pre-commit stamps .version with the commit count)'
+  desc 'Point git at .githooks (pre-commit stamps .version via vstamp count --next)'
   proc do
     system('git', 'config', 'core.hooksPath', '.githooks') or error 'git config core.hooksPath failed'
     say 'core.hooksPath -> .githooks'

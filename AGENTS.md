@@ -23,12 +23,13 @@ module's `README.md`.** Links are in the tables below.
 * ASCII only - `-` not `—`, `*` not `•`. No emojis unless asked.
 * Models use `ref` (string ULID) as primary key. Sequel-based ORM.
 * `Lux.current` (alias `lux`) is the thread-local request context.
-* Versioning mirrors dboss: `.version` holds the commit count rendered
-  dotted (`v371` -> `v3.7.1`, `v12345` -> `v123.4.5`), stamped on every
-  commit by the tracked `.githooks/pre-commit` hook (install with
-  `hammer hooks`); `Lux::Version.string` reads it and `Lux::VERSION` is the
-  semver gem form. An unstamped checkout reports `dev`. `Version` lives in
-  `lib/lux/version.rb`.
+* Versioning: `.version` is YAML (`version: X.Y.Z`) holding the commit
+  count rendered dotted (`371` -> `3.7.1`, `12345` -> `123.4.5`), stamped on
+  every commit by the tracked `.githooks/pre-commit` hook via
+  [vstamp](https://github.com/dux/vstamp) (`vstamp count --next`; install
+  the hook with `hammer hooks`); `Lux::Version.string` reads it and
+  `Lux::VERSION` is the gem form. An unstamped checkout reports `dev`.
+  `Version` lives in `lib/lux/version.rb`.
 
 ## Routing invariants
 

@@ -1,9 +1,9 @@
 require 'pathname'
 
 module Lux
-  # Build version, mirroring dboss: the commit count rendered dotted
-  # (v371 -> v3.7.1), stamped into `.version` by `.githooks/pre-commit`; a
-  # checkout with no stamp reports `dev`.
+  # Build version: the commit count rendered dotted (371 -> 3.7.1), stamped
+  # into `.version` (YAML, `version: X.Y.Z`) by vstamp from
+  # `.githooks/pre-commit`; a checkout with no stamp reports `dev`.
   module Version
     Dev ||= 'dev'
 
@@ -11,20 +11,20 @@ module Lux
       Pathname.new(__dir__).join('../../.version')
     end
 
-    # `v<a>.<b>.<c>` or `dev`. LUX_VERSION overrides the file, so a build can
-    # pin a version without touching the repo.
+    # `X.Y.Z` or `dev`. LUX_VERSION overrides the file, so a build can pin a
+    # version without touching the repo.
     def self.string
       @string ||=
         if (env = ENV['LUX_VERSION']) && !env.empty?
           env
         elsif file.exist?
-          file.read.strip
+          file.read[/^version:[ \t]*([^\s#]+)/, 1] || Dev
         else
           Dev
         end
     end
 
-    # Gem::Specification version: dotted form without the leading v.
-    def self.gem = string.start_with?('v') ? string[1..] : '0.0.0'
+    # Gem::Specification version: no leading v, 0.0.0 for dev.
+    def self.gem = string == Dev ? '0.0.0' : string.delete_prefix('v')
   end
 end
