@@ -692,7 +692,7 @@ Specs live under `spec/<area>_tests/` and are Minitest::Spec - named
 
 ## Status
 
-* Version: `Lux::Version.string`, from [`.version`](./.version) (YAML `version: X.Y.Z`, the commit count stamped dotted, `371` -> `3.7.1`, written by [vstamp](https://github.com/dux/vstamp) from the tracked `.githooks/pre-commit` hook; run `hammer hooks` once)
+* Version: `Lux::Version.string`, from [`.version`](./.version) (YAML `version: X.Y.Z`, the commit count stamped dotted, `371` -> `3.7.1`, stamped, tagged and pushed by `hammer deploy` via [vstamp](https://github.com/dux/vstamp), which then pushes the gem)
 * License: MIT, (c) 2017 Dino Reic
 * GitHub: <https://github.com/dux/lux-fw>
 * Author: Dino Reic ([@dux](https://github.com/dux))

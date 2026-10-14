@@ -2,8 +2,8 @@ require 'pathname'
 
 module Lux
   # Build version: the commit count rendered dotted (371 -> 3.7.1), stamped
-  # into `.version` (YAML, `version: X.Y.Z`) by vstamp from
-  # `.githooks/pre-commit`; a checkout with no stamp reports `dev`.
+  # into `.version` (YAML, `version: X.Y.Z`) by `hammer deploy` via vstamp;
+  # a checkout with no stamp reports `dev`.
   module Version
     Dev ||= 'dev'
 

@@ -63,11 +63,15 @@ task :version do
   end
 end
 
-task :hooks do
-  desc 'Point git at .githooks (pre-commit stamps .version via vstamp count --next)'
+task :deploy do
+  desc 'Test, stamp + tag + push the version (vstamp count --release), then push the gem to RubyGems'
   proc do
-    system('git', 'config', 'core.hooksPath', '.githooks') or error 'git config core.hooksPath failed'
-    say 'core.hooksPath -> .githooks'
+    hammer :test
+    sh 'vstamp count --release'
+    gem_file = "lux-fw-#{`vstamp`.strip}.gem"
+    sh 'gem build lux-fw.gemspec'
+    sh "gem push #{gem_file}"
+    File.delete(gem_file)
   end
 end
 

@@ -24,11 +24,11 @@ module's `README.md`.** Links are in the tables below.
 * Models use `ref` (string ULID) as primary key. Sequel-based ORM.
 * `Lux.current` (alias `lux`) is the thread-local request context.
 * Versioning: `.version` is YAML (`version: X.Y.Z`) holding the commit
-  count rendered dotted (`371` -> `3.7.1`, `12345` -> `123.4.5`), stamped on
-  every commit by the tracked `.githooks/pre-commit` hook via
-  [vstamp](https://github.com/dux/vstamp) (`vstamp count --next`; install
-  the hook with `hammer hooks`); `Lux::Version.string` reads it and
-  `Lux::VERSION` is the gem form. An unstamped checkout reports `dev`.
+  count rendered dotted (`371` -> `3.7.1`, `12345` -> `123.4.5`). Only
+  `hammer deploy` stamps it: tests, `vstamp count --release` (stamp, amend
+  or release commit, tag `vX.Y.Z`, push), then `gem build` + `gem push`.
+  No git hooks. `Lux::Version.string` reads it and `Lux::VERSION` is the
+  gem form. An unstamped checkout reports `dev`.
   `Version` lives in `lib/lux/version.rb`.
 
 ## Routing invariants
