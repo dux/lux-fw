@@ -5,7 +5,7 @@
 #
 #   lux_boot do |is_prod|
 #     # optional overrides, e.g.
-#     # threads 1, 32 if is_prod    # lower it if the box is memory-tight
+#     # workers 2 if is_prod        # opt into cluster mode (memory per worker)
 #   end
 #
 # lux_boot applies the standard lux puma config (port, threads, pidfile,
@@ -14,9 +14,9 @@
 #
 #   port            ENV['PUMA_PORT'] || ENV['PORT'] || 3000
 #   host            ENV['PUMA_HOST'] || 127.0.0.1  (the proxy is always on the same box)
-#   threads         1, 100  (an open SSE stream parks one for its lifetime)
+#   threads         1, 32  (an open SSE stream parks one for its lifetime)
 #   plugin          :tmp_restart
-#   production      stdout -> ./log, workers 2 (environment derived from LUX_ENV)
+#   production      stdout -> ./log, single process (environment derived from LUX_ENV)
 #   development     stdout on-screen (no redirect), banner host rewritten to lvh.me
 #
 # When clustered (workers >= 2 after overrides) it installs three hooks:
@@ -57,16 +57,15 @@ module Lux
 
         # An SSE stream parks a thread for as long as the client stays connected,
         # so the max thread count is also the concurrent-stream ceiling per
-        # worker. 32 is too tight once a page holds a stream open; 100 leaves
-        # room. Idle threads are cheap - blocked ones hold no DB connection.
-        threads       1, 100
+        # process. Idle threads are cheap - blocked ones hold no DB connection.
+        threads       1, 32
 
         # debug/reload are resolved from ENV (set by `lux s` or the deploy unit),
-        # not here. prod runs clustered with file logging; dev/test stay single
-        # and keep stdout on-screen.
+        # not here. Every env runs one process: without preload_app! each
+        # clustered worker loads its own copy of the app, so workers multiply
+        # memory. prod logs to file; dev/test keep stdout on-screen.
         if is_prod
           stdout_redirect './log/puma.log', './log/puma_errors.log'
-          workers 2
         else
           # Puma logs the resolved socket address ('0.0.0.0:3000', '[::]:3000'),
           # which no terminal turns into a link. lvh.me resolves to 127.0.0.1 and
