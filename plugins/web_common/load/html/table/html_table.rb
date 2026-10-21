@@ -121,8 +121,7 @@ class HtmlTable
 
     th_opts[:style] = style.join('; ') if style.first
 
-    title = opts[:title]
-    title = opts[:field].to_s.humanize if title.nil? && opts[:field]
+    title = col_title(opts)
 
     if opts[:sort]
       sort = opts[:sort]
@@ -140,8 +139,9 @@ class HtmlTable
   def render_tr n, object
     tr_opts = {}
 
-    if @onclick
-      tr_opts[:onclick] = @onclick.call object
+    # a row with no target gets no onclick, so it does not look clickable
+    if @onclick && (onclick = @onclick.call(object)).present?
+      tr_opts[:onclick] = onclick
     end
 
     # Do not put HTML width= on <td> — Firefox table-layout:fixed treats it
@@ -151,9 +151,18 @@ class HtmlTable
     n.tr(**tr_opts.slice(*allowed)) do |n|
       for opts in @cols
         content = render_cell object, opts
-        n.td content, **opts.slice(*allowed)
+        td_opts = opts.slice(*allowed)
+        # mobile CSS stacks cells and shows the column title next to each value
+        label = col_title(opts)
+        td_opts[:'data-label'] = label if label.present?
+        n.td content, **td_opts
       end
     end
+  end
+
+  def col_title opts
+    return opts[:title] unless opts[:title].nil?
+    opts[:field].to_s.humanize if opts[:field]
   end
 
   def render_cell object, opts
