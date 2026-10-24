@@ -140,10 +140,10 @@ A dispatch that writes the response body throws `:done`, caught only in
 of the route block kept running as no-ops, so work after a match (extra DB
 queries, model loading) still executed. Now the first match ends routing.
 
-Practical effect: guards like `unless response.body?` around statements that
-follow a `map` / `call` / `root` are no longer needed. Guards after code that
-writes the body *without* dispatching (`response.body 'ok' if healthcheck`,
-`response.send_file`) are still needed - those do not throw.
+Practical effect: guards like `unless response.body?` are no longer needed.
+`map` / `call` / `root` throw after a dispatch, the router `body` helper throws
+when it sets the body, and `map` / `call` throw before dispatching if a raw
+`response.body` / `response.send_file` already answered.
 
 ### `root?` in the router reads the cursor
 

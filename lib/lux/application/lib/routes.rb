@@ -53,6 +53,7 @@ module Lux
       def subdomain name, &block
         return unless lux.nav.subdomain == name.to_s
         instance_exec(&block)
+        throw :done if lux.response.body?
         raise Lux.error.not_found Lux.debug?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
       end
 
@@ -92,7 +93,7 @@ module Lux
       # /admin/users/foo/bar         -> :foo    (trailing segments past action ignored)
       # ```
       def map path = nil, target = nil, opts = nil, &block
-        return if lux.response.body?
+        throw :done if lux.response.body?
 
         unless path.is_a?(String) || path.is_a?(Array)
           raise ArgumentError, "map takes a path segment, '/abs/:path' or a list of segments first, got #{path.inspect}. Write map 'users', 'users#index'"
@@ -130,6 +131,8 @@ module Lux
       # call { [400, {}, ['error']] }    # a [status, headers, body] triple sets status
       # ```
       def call object=nil, action=nil, opts=nil, &block
+        throw :done if lux.response.body?
+
         # log original app caller (skipped in production - caller() is expensive)
         if Lux.debug?
           root    = Lux.root.join('app/').to_s

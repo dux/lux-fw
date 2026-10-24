@@ -127,10 +127,22 @@ later statement in the block - and any remaining `routes do` callback - is
 skipped outright. Guarding trailing statements with `unless response.body?` is
 therefore unnecessary for anything after a `map` / `call` / `root`.
 
-Code that writes the body *without* dispatching (a bare
-`response.body 'ok' if nav.root == 'healthcheck'`, `response.send_file`,
-`response.redirect_to`) does not throw, so it does still need a guard - or use
-`redirect_to`, which throws `:done` for you.
+Writing the body in the router ends routing too. `body 'ok'` throws `:done`
+itself. A raw `response.body` / `response.send_file` does not, but the next
+`map` / `call` (or the end of a `subdomain` block) sees the body and stops
+instead of dispatching, so no controller `before` filter runs. App `before`
+hooks stop at the first one that writes the body, like controller `before` /
+`before_action` filters. Inside a controller `response.body` does not throw -
+code after `render` still runs.
+
+## Request hygiene
+
+`render_base` answers `GET`/`HEAD /healthcheck` with `ok` before reload,
+session, `before` hooks and routing, so probes skip auth. A host without a
+letter (bare IP) and any request carrying `SOAPACTION` get a 403. In dev,
+`/app/assets/*` serves the source files that sass/rollup source maps point at,
+and opening a page (`Sec-Fetch-Dest: document` or a pjax request) clears the
+terminal at most every 2s when stdout is a tty.
 
 ## Conditions are evaluated per request, in the block
 

@@ -54,10 +54,32 @@ class FilterHaltController < Lux::Controller
   end
 end
 
+class HaltProbeController < Lux::Controller
+  before { lux.response.header 'x-probe', '1' }
+
+  def index
+    render text: 'probe'
+  end
+end
+
 Lux.app do
+  before { lux.response.body 'from before' if lux.request.path == '/static_guard.txt' }
+  before { lux.response.body 'first' if lux.request.path == '/halt_before' }
+  before { lux.response.header 'x-second', '1' if lux.request.path == '/halt_before' }
+
   map 'request_test', 'request_test'
   map 'filter_halt', 'filter_halt#show'
   map '/request_flavor/:x', 'request_test#flavor', flavor: 'mint'
+
+  map 'halt_body' do
+    body 'stop'
+    raise 'unreachable'
+  end
+
+  map 'raw_then_call' do
+    lux.response.body 'raw'
+    call 'halt_probe#index'
+  end
 end
 
 describe 'Lux.render result' do
@@ -83,6 +105,30 @@ describe 'Lux.render result' do
     client.get('/request_test/remember', params: { v: 'kept' })
 
     assert_body_includes 'kept', client.get('/request_test/recall')
+  end
+end
+
+describe 'Static files' do
+  it 'leaves a path to the before hook that answered it' do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p File.join(dir, 'public')
+      File.write File.join(dir, 'public/static_guard.txt'), 'from public'
+      File.write File.join(dir, 'public/static_plain.txt'), 'plain file'
+      was = Lux.config[:serve_static_files]
+      Lux.config[:serve_static_files] = true
+
+      Dir.chdir(dir) do
+        # the body is set-once, so a leaked file shows up as its headers
+        page = Lux.render.get('/static_guard.txt')
+        assert_body_includes 'from before', page
+        assert_nil page.headers['last-modified']
+        assert_nil page.headers['access-control-allow-origin']
+
+        assert_body_includes 'plain file', Lux.render.get('/static_plain.txt')
+      end
+    ensure
+      Lux.config[:serve_static_files] = was
+    end
   end
 end
 
@@ -145,6 +191,42 @@ describe 'Controller filters' do
 
   it 'runs the action when no filter answers' do
     assert_body_includes 'shown', Lux.render.get('/filter_halt')
+  end
+end
+
+describe 'Router halting' do
+  it 'stops app before hooks once one wrote the body' do
+    page = Lux.render.get('/halt_before')
+
+    assert_equal 'first', page.body
+    assert_nil page.headers['x-second']
+  end
+
+  it 'ends routing when a route sets the body' do
+    page = Lux.render.get('/halt_body')
+
+    assert_status 200, page
+    assert_equal 'stop', page.body
+  end
+
+  it 'does not dispatch once the body is written' do
+    page = Lux.render.get('/raw_then_call')
+
+    assert_equal 'raw', page.body
+    assert_nil page.headers['x-probe']
+  end
+end
+
+describe 'Request hygiene' do
+  it 'answers /healthcheck without routing' do
+    page = Lux.render.get('/healthcheck')
+
+    assert_status 200, page
+    assert_equal 'ok', page.body
+  end
+
+  it 'rejects a bare IP host' do
+    assert_status 403, Lux.render.get('http://127.0.0.1/')
   end
 end
 

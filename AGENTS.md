@@ -42,7 +42,8 @@ touching the router. The three rules that catch people out:
 * **The first match ends routing.** A dispatch that writes the body throws
   `:done`, caught once in `Application#resolve_routes`. Adding a second
   `catch(:done)` anywhere re-enables the old "keep walking as no-ops" behaviour
-  and silently re-runs work after a match.
+  and silently re-runs work after a match. A body written in the router (`body`,
+  or a raw `response.body` before the next `map` / `call`) ends routing the same way.
 * **`-` and `_` are equal at compare time only** (`Route#norm`). `nav.path`
   keeps the URL's own spelling so slug lookups work; never normalise it in
   place.

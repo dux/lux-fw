@@ -67,18 +67,32 @@ module Lux
       Lux::Current.new env, opts
     end
 
-    # Sinatra-style shorthand for setting/getting the response body inside a
-    # routes block. Forwards to Lux::Response#body, which handles all arg shapes
-    # (data, data+opts, block transform, no-arg getter).
+    # Routing-layer body writer. Setting the body ends the phase it runs in
+    # (before hooks, routes, rescue_from) the same way a dispatch does. The block
+    # form transforms an existing body (after hooks) and does not halt.
     def body *args, &blk
-      args.empty? && !blk ? response.body : response.body(*args, &blk)
+      return response.body(&blk) if blk
+      return response.body if args.empty?
+
+      response.body(*args)
+      throw :done
     end
 
     # main render called by Lux.call
     def render_base
+      clear_dev_console
+
       if err = lux.malformed_request
         raise Lux.error.bad_request Lux.debug?('400 Bad Request') { 'Malformed request: %s' % err.message }
       end
+
+      # answered before reload, session, before hooks and auth, so probes stay cheap
+      if lux.request.path_info == '/healthcheck' && (lux.request.get? || lux.request.head?)
+        return [200, { 'content-type' => 'text/plain' }, ['ok']]
+      end
+
+      raise Lux.error.forbidden('Bad host name') unless lux.request.host.to_s.match?(/[a-z]/i)
+      raise Lux.error.forbidden('Not allowed') if lux.request.env['HTTP_SOAPACTION']
 
       # reload first, so before-filters run on the code just saved
       if Lux.reload? && Lux.runtime.web?
@@ -155,7 +169,8 @@ module Lux
         raise Lux.error.forbidden 'CSRF token missing or invalid'
       end
 
-      if Lux.config.serve_static_files
+      # a before-hook that already answered owns the path, even one under ./public
+      if Lux.config.serve_static_files && !lux.response.body?
         Lux::Response::File.deliver_from_current
       end
 
@@ -199,6 +214,23 @@ module Lux
     end
 
     private
+
+    LAST_CONSOLE_CLEAR ||= [0.0]
+
+    # Dev: wipe the terminal when a page is opened (full load or pjax), at most every
+    # 2s, so the log shows the current page only. Assets, xhr and probes never clear.
+    def clear_dev_console
+      return unless Lux.env.dev? && !Lux.env.test? && Lux.runtime.web? && $stdout.tty?
+
+      env = lux.request.env
+      return unless env['HTTP_SEC_FETCH_DEST'] == 'document' || env['HTTP_X_PJAX_LAYOUT']
+
+      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      return if now - LAST_CONSOLE_CLEAR[0] < 2
+
+      LAST_CONSOLE_CLEAR[0] = now
+      print "\e[H\e[2J\e[3J"
+    end
 
     FILTERED_PARAMS ||= /pass|token|secret|card|cvv|otp|auth/i
 

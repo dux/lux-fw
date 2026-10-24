@@ -5,8 +5,20 @@ module Lux
     class File
       class << self
         def deliver_from_current
+          path = Lux.current.request.path
+
+          # dev: sass/rollup source maps point the browser at ../../app/assets/*
+          if Lux.env.dev? && path.start_with?('/app/assets/')
+            root = ::File.expand_path('./app/assets')
+            file = ::File.expand_path('.' + path)
+            return unless file.start_with?(root + '/')
+            source = new(file: file, inline: true)
+            return source.deliver if source.is_static_file?
+            return
+          end
+
           root = ::File.expand_path('./public')
-          path = ::File.expand_path('.' + Lux.current.request.path, root)
+          path = ::File.expand_path('.' + path, root)
           return unless path.start_with?(root + '/')
           ext = path.split('.').last
           return unless ext.length > 1 && ext.length < 5
