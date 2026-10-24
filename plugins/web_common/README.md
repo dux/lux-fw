@@ -25,6 +25,7 @@ itself needs neither.
 | html    | form / input / table builders plus `HtmlMenu`, `HtmlHelper.paginate`, `HtmlFilter`, timezone helpers | `load/html/` |
 | api     | `ApplicationApi` (mounted at `/api`), `ModelApi` (generated CRUD), `SchemaMap` | `load/lib/` |
 | exceptions | legacy PG-backed exception logger (`LuxException` / `LuxExceptionLog`, `LuxExceptionsApi`) | `load/lib/` |
+| routes  | router helpers for `Lux.app` blocks: `server_info` (`/lux` diagnostics via `ServerInfo`, dev or admin) | `load/lib/web_common_routes.rb`, `load/lib/server_info.rb` |
 | dev     | `/dev` pages: schema map, login-as | `mount/app/controllers/dev_controller.rb`, `mount/app/views/dev/` |
 
 Sign-in (`AuthcogController`, `UserSession`) is the separate
