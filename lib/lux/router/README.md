@@ -295,7 +295,7 @@ Errors anywhere in the pipeline land in `render_error`, which hands them to the 
 2. else its `error` action.
 
 The default `error` action renders JSON for JSON requests, else the `error` template in the views dir (e.g. `app/views/main/error.haml`), else a self-contained framework page.
-`@error` (the exception) and `@status` (the HTTP code) are set on the router first.
+`@error` (the exception) and `@status` (the HTTP code: a `Lux::Error`'s own `status`, 403 for a policy denial, else 500) are set on the router first.
 Error pages skip `before`, the verb check and params validation.
 
 `rescue_from` is one macro (`Lux::RescueFrom`) on routers and APIs: `rescue_from { }` for any error, `rescue_from SomeError do ... end` for a class and its subclasses.

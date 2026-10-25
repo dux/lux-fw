@@ -11,8 +11,8 @@ module Lux
     not_implemented:       501,
   }.freeze
 
-  # Named shortcuts. Each method sets the HTTP status on the response
-  # and returns a Lux::Error - the caller must `raise` it explicitly:
+  # Named shortcuts. Each method returns a Lux::Error carrying that HTTP
+  # status - the caller must `raise` it explicitly:
   #
   #   raise Lux.error.not_found('user missing')
   #
@@ -84,8 +84,8 @@ module Lux
     end
   end
 
-  # Canonical helper: set HTTP status on response, return a Lux::Error.
-  # Caller is responsible for `raise`.
+  # Canonical helper: return a Lux::Error carrying the HTTP status. Nothing
+  # touches the response until the error is raised and handled.
   #
   #   raise Lux.error 404                 # status 404, message "Not Found"
   #   raise Lux.error 404, 'custom'       # status 404, custom message
@@ -104,9 +104,8 @@ module Lux
 
     message ||= ::Rack::Utils::HTTP_STATUS_CODES[code] || 'Error'
 
-    Lux.current.response.status code
     Lux.log " Lux.error #{code} at #{Lux.app_caller} - #{message}".colorize(:red) if Lux.debug?
 
-    Lux::Error.new(message)
+    Lux::Error.new(message, status: code)
   end
 end

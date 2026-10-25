@@ -1,12 +1,21 @@
 # frozen_string_literal: true
 
-# Lux::Error - thin exception class. No HTTP status, no registry, no shortcuts.
-# HTTP status is set on lux.response by `Lux.error CODE, msg` (see error/lux_adapter.rb),
-# not carried on the exception itself. `Lux.error` builds the exception; the caller raises it.
+# Lux::Error - thin exception class that carries its HTTP status (default 400).
+# `Lux.error CODE, msg` builds one (see error/lux_adapter.rb) and the caller
+# raises it; whoever handles it (Router#render_error, the Api rescue) applies
+# `status` to the response. Building one never touches the response, so a
+# rescued Lux::Error leaves no trace.
 #
 # Static helpers below (.inline, .format) handle error display.
 module Lux
   class Error < StandardError
+    attr_reader :status
+
+    def initialize message = nil, status: 400
+      super(message)
+      @status = status
+    end
+
     class << self
       # Render error inline (e.g. embedded in a template error fallback).
       def inline object, msg = nil

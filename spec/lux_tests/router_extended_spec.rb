@@ -159,15 +159,14 @@ describe 'Lux::Router extended' do
       _(Lux.current.response.body).must_include '<!DOCTYPE html>'
     end
 
-    it 'derives status from response.status when @status is not set' do
-      Lux.current.response.status 422
-      err = Lux::Error.new('unprocessable')
+    it 'derives status from the Lux::Error when @status is not set' do
+      err = Lux::Error.new('unprocessable', status: 422)
       ExtendedTestRouter.action(:error, ivars: { '@error' => err })
       _(Lux.current.response.status).must_equal 422
     end
 
-    it 'defaults to 500 when neither @status nor response.status is set' do
-      err = Lux::Error.new('boom')
+    it 'defaults to 500 for an error that carries no status' do
+      err = StandardError.new('boom')
       ExtendedTestRouter.action(:error, ivars: { '@error' => err })
       _(Lux.current.response.status).must_equal 500
     end

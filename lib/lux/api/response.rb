@@ -8,7 +8,7 @@ module Lux
       def self.auto_format error
         Lux.error.log error unless error.is_a?(Lux::Api::Error)
 
-        code     = client_error?(error) ? 400 : 500
+        code     = error_status error
         response = new nil
         response.error error.message, code: code, status: code
         response.render
@@ -19,9 +19,17 @@ module Lux
       # logged as server errors. Anything else is an unexpected server error.
       def self.client_error? error
         return true if error.is_a?(Lux::Api::Error)
+        return error.status < 500 if error.is_a?(Lux::Error)
         name = error.class.name.to_s
         # Lux::Policy::Error = authorization denial; an expected 4xx, not a server 500
         %w[JSON::ParserError Sequel::ValidationFailed Lux::Policy::Error].include?(name) || name.start_with?('Rack::')
+      end
+
+      # HTTP status for an error that escaped an action: a Lux::Error carries
+      # its own, the rest map to 400 (client fault) or 500.
+      def self.error_status error
+        return error.status if error.is_a?(Lux::Error)
+        client_error?(error) ? 400 : 500
       end
 
       ###
@@ -37,7 +45,7 @@ module Lux
         meta key, value
       end
 
-      # forward header to the host controller's rack response
+      # forward header to the host router's rack response
       def header *args
         rack = @api.api_host&.response
         if args.first

@@ -116,8 +116,8 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
     it 'rejects POST with 405' do
       Lux::Current.new('http://test/show', method: 'POST')
-      _{ GetDefaultRouter.action(:show) }.must_raise Lux::Error
-      _(Lux.current.response.status).must_equal 405
+      err = _{ GetDefaultRouter.action(:show) }.must_raise Lux::Error
+      _(err.status).must_equal 405
     end
 
     it 'names the accepted verbs in the Allow header on 405' do
@@ -129,8 +129,8 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
     it 'rejects PUT, PATCH, DELETE with 405' do
       %w(PUT PATCH DELETE).each do |verb|
         Lux::Current.new('http://test/show', method: verb)
-        _{ GetDefaultRouter.action(:show) }.must_raise Lux::Error
-        _(Lux.current.response.status).must_equal 405
+        err = _{ GetDefaultRouter.action(:show) }.must_raise Lux::Error
+        _(err.status).must_equal 405
       end
     end
   end
@@ -144,26 +144,26 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
     it 'rejects GET with 405 (allow replaces default)' do
       Lux::Current.new('http://test/create')
-      _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
-      _(Lux.current.response.status).must_equal 405
+      err = _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
+      _(err.status).must_equal 405
     end
 
     it 'rejects HEAD with 405 (no implicit HEAD without :get)' do
       Lux::Current.new('http://test/create', method: 'HEAD')
-      _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
-      _(Lux.current.response.status).must_equal 405
+      err = _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
+      _(err.status).must_equal 405
     end
 
     it 'rejects OPTIONS with 405 (no implicit OPTIONS without :get)' do
       Lux::Current.new('http://test/create', method: 'OPTIONS')
-      _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
-      _(Lux.current.response.status).must_equal 405
+      err = _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
+      _(err.status).must_equal 405
     end
 
     it 'rejects PATCH with 405' do
       Lux::Current.new('http://test/create', method: 'PATCH')
-      _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
-      _(Lux.current.response.status).must_equal 405
+      err = _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
+      _(err.status).must_equal 405
     end
   end
 
@@ -182,14 +182,14 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
     it 'rejects GET' do
       Lux::Current.new('http://test/update')
-      _{ AllowMultiRouter.action(:update) }.must_raise Lux::Error
-      _(Lux.current.response.status).must_equal 405
+      err = _{ AllowMultiRouter.action(:update) }.must_raise Lux::Error
+      _(err.status).must_equal 405
     end
 
     it 'rejects DELETE' do
       Lux::Current.new('http://test/update', method: 'DELETE')
-      _{ AllowMultiRouter.action(:update) }.must_raise Lux::Error
-      _(Lux.current.response.status).must_equal 405
+      err = _{ AllowMultiRouter.action(:update) }.must_raise Lux::Error
+      _(err.status).must_equal 405
     end
   end
 
@@ -220,8 +220,8 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
     it 'rejects PATCH' do
       Lux::Current.new('http://test/upsert', method: 'PATCH')
-      _{ AllowGetPostRouter.action(:upsert) }.must_raise Lux::Error
-      _(Lux.current.response.status).must_equal 405
+      err = _{ AllowGetPostRouter.action(:upsert) }.must_raise Lux::Error
+      _(err.status).must_equal 405
     end
   end
 
@@ -276,8 +276,8 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
     it 'leaves the following def at GET-default' do
       Lux::Current.new('http://test/show', method: 'POST')
-      _{ AllowIsolationRouter.action(:show) }.must_raise Lux::Error
-      _(Lux.current.response.status).must_equal 405
+      err = _{ AllowIsolationRouter.action(:show) }.must_raise Lux::Error
+      _(err.status).must_equal 405
     end
   end
 
@@ -292,8 +292,8 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
     it 'still rejects undeclared verbs' do
       Lux::Current.new('http://test/things/abc', method: 'POST')
       Lux.current.nav.map_path { |el| el == 'abc' ? 'abc' : nil }
-      _{ AllowRefRouter.action(:destroy) }.must_raise Lux::Error
-      _(Lux.current.response.status).must_equal 405
+      err = _{ AllowRefRouter.action(:destroy) }.must_raise Lux::Error
+      _(err.status).must_equal 405
     end
   end
 

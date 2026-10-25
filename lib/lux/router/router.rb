@@ -287,18 +287,16 @@ module Lux
     # `rescue_from` (walking up to the root's), else its `error` action. If
     # either raises, Lux.call's outer rescue returns a low-level Rack tuple.
     def render_error err
-      # a policy denial (`can.read!`) is an expected 403, not a server error -
-      # same as Lux::Api::Response.client_error?
-      if defined?(Lux::Policy::Error) && err.is_a?(Lux::Policy::Error)
-        lux.response.status 403 unless lux.response.status.to_i >= 400
-      else
-        Lux.error.log err
-      end
+      # Lux::Error carries its status; a policy denial (`can.read!`) is an
+      # expected 403, not a server error - same as Lux::Api::Response.client_error?
+      policy = defined?(Lux::Policy::Error) && err.is_a?(Lux::Policy::Error)
+      Lux.error.log err unless policy
 
-      # Lux.error helpers set lux.response.status before raising; honour that.
-      # Anything else (raw StandardError) defaults to 500.
-      status = lux.response.status.to_i
-      status = 500 unless status >= 400
+      status =
+        if err.is_a?(Lux::Error) then err.status
+        elsif policy then 403
+        else 500
+        end
       lux.response.status status
 
       app = lux.var[:lux_router] || self

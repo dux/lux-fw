@@ -1,14 +1,14 @@
 # Lux::Error
 
-Thin exception class. HTTP status is set on the response, not carried
-on the exception. `Lux.error` returns a proxy with named helpers that
-raise with the right status.
+Thin exception class that carries its HTTP status (`err.status`, default 400).
+`Lux.error` returns a proxy with named helpers that build one with the right status.
+Building an error never touches the response; the handler that catches it applies the status, so a rescued `Lux::Error` leaves no trace.
 
 ## Full example
 
 ```ruby
-# --- raise helpers (set response status, BUILD the error; you must raise) --
-# Each helper sets the HTTP status and RETURNS a Lux::Error - it does not
+# --- raise helpers (BUILD the error with its status; you must raise) -------
+# Each helper RETURNS a Lux::Error carrying the HTTP status - it does not
 # raise on its own. Always `raise` the result.
 
 raise Lux.error.bad_request 'name missing'             # 400
@@ -78,8 +78,9 @@ Handled by the innermost running router:
 2. Else its `:error` action (default: JSON, the `error` template, or the
    framework error page)
 
-The `:error` action receives `@error` (exception)
-and `@status` (resolved HTTP code) as instance variables.
+The status comes from the error: a `Lux::Error` uses its own `status`, a policy denial (`Lux::Policy::Error`) is 403, anything else is 500.
+The `:error` action receives `@error` (exception) and `@status` (that HTTP code) as instance variables.
+In a `Lux::Api` the same rule holds: a `Lux::Error` answers with its own `status`.
 
 ## See also
 

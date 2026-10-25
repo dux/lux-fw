@@ -83,7 +83,7 @@ module Lux
             response.error handler, status: 500
           else
             response[:error_class] = error.class.name
-            response.error error.message, status: 500
+            response.error error.message, status: Lux::Api::Response.error_status(error)
           end
         end
 

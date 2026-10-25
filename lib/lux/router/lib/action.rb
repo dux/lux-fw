@@ -63,7 +63,7 @@ module Lux
       # present, else a self-contained HTML page. Override with `def error`.
       # Reads @error and @status set by render_error.
       def error
-        @status ||= (lux.response.status.to_i >= 400 ? lux.response.status : 500)
+        @status ||= @error.is_a?(Lux::Error) ? @error.status : 500
         lux.response.status @status
 
         if lux.nav.format.to_s == 'json' || request.content_type.to_s.include?('json')
