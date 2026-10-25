@@ -20,9 +20,9 @@ class ApplicationApi < Lux::Api
     end
   end
 
-  after do
-    Lux.log { response.render.to_jsonp }
-  end
+  # after do
+  #   Lux.log { response.render.to_jsonp }
+  # end
 
   after_auto_mount do |path|
     path.shift if path.first == 'api'
