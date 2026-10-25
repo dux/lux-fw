@@ -72,7 +72,7 @@ class MainRouter < FrontendRouter             # FrontendRouter < ApplicationRout
 
   route do
     map :spaces, :ref, :admin do              # segments matched in sequence, :ref by type
-      @space.can.update!                      # guard, then falls through
+      @space.can.update!                      # guard, then falls through (logged in debug)
     end
     map 'boards', :ref, 'edit', :edit_board   # no block: last arg is the target, the rest are segments
     map 'export',  :export

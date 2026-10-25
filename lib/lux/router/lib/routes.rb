@@ -93,7 +93,15 @@ module Lux
           raise ArgumentError, 'map with a block needs a path segment' if args.empty?
 
           check_map_segments! args
-          return map_scope(args, &block)
+          matched = map_scope(args, &block)
+
+          # guards fall through on purpose; a block that forgot to render would
+          # otherwise end in `auto` or a 404 with nothing pointing back at it
+          if matched && Lux.debug?
+            file, line = block.source_location
+            Lux.log { ' map %s (%s:%d) rendered nothing, routing continues' % [args.map(&:inspect).join(', '), Lux.root.pretty(file), line] }
+          end
+          return
         end
 
         if args.empty?
@@ -171,15 +179,17 @@ module Lux
       end
 
       # Matches the segments one by one against the route cursor, each in its
-      # own scope, then runs the block with the next segment.
+      # own scope, then runs the block with the next segment. True when the
+      # segments matched (the block ran and did not render).
       def map_scope segments, &block
-        return unless lux.route.match?(segments.first)
+        return false unless lux.route.match?(segments.first)
 
         lux.route.with_scope(1) do
           if segments.length > 1
             map_scope segments.drop(1), &block
           else
             instance_exec lux.route.root, &block
+            true
           end
         end
       end
