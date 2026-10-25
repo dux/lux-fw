@@ -36,7 +36,7 @@ Lux.router do
       plugin_routes                           # every loaded plugin's routes.rb
       map AdminRouter
     end
-    nav.load_models                           # sets @board, @space ... on this router; copied on mount
+    nav.load_models                           # sets @board, @space ... on this router; copied on mount; unknown ref 404s
     root 'main#index'                         # == map '', 'main#index' (cursor empty)
     map(user ? MainRouter : 'promo#auto')     # one arg = dispatch without matching
   end

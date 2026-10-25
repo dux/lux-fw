@@ -165,7 +165,7 @@ plugins/db/
       nav_models.rb            # Nav#load_models + the ref->model registry
       dataset_methods.rb       # x* query-builder primitives
       dataset_scopes.rb        # convenience scopes layered on dataset_methods
-      find_precache.rb
+      find_precache.rb         # Model.find(ref) request-cached, 404 on miss; Model.take(ref) nil on miss
       paginate.rb
       logger.rb
       model_tree.rb

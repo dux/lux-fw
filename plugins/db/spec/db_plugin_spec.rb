@@ -870,9 +870,10 @@ describe 'plugins/db/find_precache.rb' do
       _(user.name).must_equal 'Cached'
     end
 
-    it 'raises when not found' do
-      err = _ { User.find('nonexistent') }.must_raise Sequel::Error
+    it 'raises a 404 when not found' do
+      err = _ { User.find('nonexistent') }.must_raise Lux::Error
       _(err.message).must_match(/not found/)
+      _(err.status).must_equal 404
     end
 
     it 'returns nil for blank id' do
