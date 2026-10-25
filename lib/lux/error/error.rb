@@ -6,7 +6,7 @@
 # `status` to the response. Building one never touches the response, so a
 # rescued Lux::Error leaves no trace.
 #
-# Static helpers below (.inline, .format) handle error display.
+# Static helpers below (.format, .copy_button) handle error display.
 module Lux
   class Error < StandardError
     attr_reader :status
@@ -17,19 +17,6 @@ module Lux
     end
 
     class << self
-      # Render error inline (e.g. embedded in a template error fallback).
-      def inline object, msg = nil
-        error = object.is_a?(String) ? nil : object
-
-        HtmlTag.pre(class: 'lux-inline-error', style: 'background: #fff; margin-top: 10px; padding: 10px; font-size: 14px; border: 2px solid #600; line-height: 20px;') do |n|
-          if error && Lux.debug?
-            n.button 'Copy', class: 'btn', style: 'float: right;', onclick: copy_onclick
-            n.tag :textarea, format(error, message: true), style: 'display:none;'
-            n.push format(error, html: true, message: true)
-          end
-        end
-      end
-
       # Format error backtrace for CLI/screen output.
       # Local app lines start with ./ , gem/global lines keep full path.
       #   format error, html: true, message: true, gems: true

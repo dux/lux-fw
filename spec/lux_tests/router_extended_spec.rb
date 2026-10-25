@@ -148,39 +148,6 @@ describe 'Lux::Router extended' do
     end
   end
 
-  describe 'default :error action' do
-    it 'renders a self-contained HTML page with status and message' do
-      err = Lux::Error.new('missing thing')
-      ExtendedTestRouter.action(:error, ivars: { '@error' => err, '@status' => 404 })
-      _(Lux.current.response.status).must_equal 404
-      _(Lux.current.response.body).must_include '404'
-      _(Lux.current.response.body).must_include 'Not Found'
-      _(Lux.current.response.body).must_include 'missing thing'
-      _(Lux.current.response.body).must_include '<!DOCTYPE html>'
-    end
-
-    it 'derives status from the Lux::Error when @status is not set' do
-      err = Lux::Error.new('unprocessable', status: 422)
-      ExtendedTestRouter.action(:error, ivars: { '@error' => err })
-      _(Lux.current.response.status).must_equal 422
-    end
-
-    it 'defaults to 500 for an error that carries no status' do
-      err = StandardError.new('boom')
-      ExtendedTestRouter.action(:error, ivars: { '@error' => err })
-      _(Lux.current.response.status).must_equal 500
-    end
-
-    it 'renders JSON when nav.format is json' do
-      Lux::Current.new('http://testing/x.json')
-      err = Lux::Error.new('boom')
-      ExtendedTestRouter.action(:error, ivars: { '@error' => err, '@status' => 500 })
-      _(Lux.current.response.body).must_include '"error"'
-      _(Lux.current.response.body).must_include 'boom'
-      _(Lux.current.response.body).must_include '500'
-    end
-  end
-
   describe 'blank action name' do
     it 'raises on blank action' do
       _{ ExtendedTestRouter.action('') }.must_raise ArgumentError

@@ -113,7 +113,7 @@ class MainRouter < FrontendRouter             # FrontendRouter < ApplicationRout
     action params[:edit] ? :edit_board : :index   # transfer, no before rerun
   end
 
-  def error                                   # error page for this router; @error/@status are set
+  def error                                   # rescue_from target (`map 'main#error'`); @error/@status are set
     render :error                             # app/views/main/error.haml
   end
 end
@@ -265,8 +265,6 @@ allow :get, :post        # GET + HEAD + OPTIONS + POST
 allow :any               # any verb (also: allow :all)
 ```
 
-The `:error` action accepts any verb, so error rendering never 405s.
-
 ## Instance helpers
 
 | Method | Notes |
@@ -289,14 +287,17 @@ A raw `response.body` does not throw, but the next `map` sees the body and stops
 
 ## Error handling
 
-Errors anywhere in the pipeline land in `render_error`, which hands them to the innermost running router:
+Errors anywhere in the pipeline land in `render_error`, which hands them to the innermost running router.
+The rule:
 
-1. its nearest `rescue_from` handler matching the error, walking up to the root's;
-2. else its `error` action.
+1. The first error goes to that router's nearest `rescue_from` handler matching it, walking up to the root's; the handler takes it from there (usually `map 'main#error'`).
+2. If the handler raises, the answer is a 500 dump: the framework page with the second error's message and backtrace in debug, a bare `500 Internal Server Error` otherwise.
+3. No matching handler, or a handler that renders nothing, gets the default error screen: JSON (`{ status:, error: }`) for JSON requests, else `Lux::Router.default_error_page`.
 
-The default `error` action renders JSON for JSON requests, else the `error` template in the views dir (e.g. `app/views/main/error.haml`), else a self-contained framework page.
+A template exception raises like any other, so it reaches `rescue_from` too.
 `@error` (the exception) and `@status` (the HTTP code: a `Lux::Error`'s own `status`, 403 for a policy denial, else 500) are set on the router first.
-Error pages skip `before`, the verb check and params validation.
+An action reached from a `rescue_from` handler skips the mounted router's `before`, the verb check and params validation.
+`after` hooks do not run on error responses.
 
 `rescue_from` is one macro (`Lux::RescueFrom`) on routers and APIs: `rescue_from { }` for any error, `rescue_from SomeError do ... end` for a class and its subclasses.
 

@@ -97,27 +97,28 @@ module Lux
           instance_variable_set(ivar, v)
         end
 
-        result = if block_given?
+        if block_given?
           name = "#{name}/layout" unless name.index('/')
 
           Lux::Template.render(self, name) { capture { yield } }
         else
           Lux::Template.render(self, name)
         end
-
-        # restore previous locals so nested/sibling renders don't leak
-        saved.each do |ivar, (existed, old_val)|
-          if existed
-            instance_variable_set(ivar, old_val)
-          else
-            remove_instance_variable(ivar)
+      ensure
+        # template errors propagate, so restore even when the render raised
+        if saved
+          # restore previous locals so nested/sibling renders don't leak
+          saved.each do |ivar, (existed, old_val)|
+            if existed
+              instance_variable_set(ivar, old_val)
+            else
+              remove_instance_variable(ivar)
+            end
           end
+
+          # restore previous root so sibling renders still resolve correctly
+          Lux.current.var.root_template_path = previous_root
         end
-
-        # restore previous root so sibling renders still resolve correctly
-        Lux.current.var.root_template_path = previous_root
-
-        result
       end
 
       def cache name = nil, opts = {}, &block

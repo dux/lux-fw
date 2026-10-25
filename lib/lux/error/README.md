@@ -41,23 +41,22 @@ raise Lux.error.not_found Lux.debug?('404 Not Found') {
   'Subdomain "%s" matched but nothing called' % name
 }
 
-# --- override the router :error action to customise rescue --------------
+# --- error pages via rescue_from ----------------------------------------
 
-class ApplicationRouter < Lux::Router
+Lux.router do
+  rescue_from { |err| map 'main#error' }   # MainRouter#error renders app/views/main/error.haml
+end
+
+class MainRouter < ApplicationRouter
   def error
-    Lux.logger.error @error.message
-    if @status == 404
-      render :not_found
-    else
-      render :server_error
-    end
+    render(@status == 404 ? :not_found : :error)
   end
 end
 
 # --- format helpers ------------------------------------------------------
 
-Lux::Error.inline(exception)         # inline panel (for embeds)
 Lux::Error.format(exception, html: true, gems: false, message: true)
+Lux::Error.copy_button(exception, status)   # dev-only "Copy for LLM" button
 
 # --- logging -------------------------------------------------------------
 
@@ -73,15 +72,15 @@ Lux.error.on_log { |error| Sentry.capture_exception error }
 
 Handled by the innermost running router:
 
-1. Its nearest `rescue_from` handler matching the error (`Lux::RescueFrom`),
-   walking up to the root's (`Lux.router do rescue_from ... end`)
-2. Else its `:error` action (default: JSON, the `error` template, or the
-   framework error page)
+1. The first error goes to its nearest `rescue_from` handler matching the error (`Lux::RescueFrom`), walking up to the root's (`Lux.router do rescue_from ... end`).
+2. If that handler raises, the answer is a 500 dump (message and backtrace in debug only).
+3. No handler, or a handler that renders nothing: the default error screen (JSON for JSON requests, else the framework error page).
 
+Template exceptions raise too, so they follow the same order.
 The status comes from the error: a `Lux::Error` uses its own `status`, a policy denial (`Lux::Policy::Error`) is 403, anything else is 500.
-The `:error` action receives `@error` (exception) and `@status` (that HTTP code) as instance variables.
-In a `Lux::Api` the same rule holds: a `Lux::Error` answers with its own `status`.
+The handler, and any action it maps to, sees `@error` (exception) and `@status` (that HTTP code) as instance variables.
+In a `Lux::Api`, a `Lux::Error` also answers with its own `status`.
 
 ## See also
 
-* [`../router/README.md`](../router/README.md) - `rescue_from`, default `:error` action
+* [`../router/README.md`](../router/README.md) - `rescue_from` and the error rule

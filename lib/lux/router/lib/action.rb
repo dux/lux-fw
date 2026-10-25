@@ -57,24 +57,6 @@ module Lux
         lux.response.flash
       end
 
-      # Default :error action, reached through Router#render_error when no
-      # `rescue_from` handler matches. Renders JSON for JSON requests, else the
-      # `error` template in the views dir (e.g. app/views/main/error.haml) when
-      # present, else a self-contained HTML page. Override with `def error`.
-      # Reads @error and @status set by render_error.
-      def error
-        @status ||= @error.is_a?(Lux::Error) ? @error.status : 500
-        lux.response.status @status
-
-        if lux.nav.format.to_s == 'json' || request.content_type.to_s.include?('json')
-          render json: { status: @status, error: @error.message }
-        elsif template_file_exists?(build_template_path('error', template_dir))
-          render :error
-        else
-          render html: self.class.default_error_page(@status, @error)
-        end
-      end
-
       private
 
       define_method(:etag)          { |*args, **kw| lux.response.etag(*args, **kw) }
@@ -228,32 +210,21 @@ module Lux
       end
 
       # View subfolder under template_root. `views :foo` overrides it; otherwise it
-      # follows the runtime layout, then the class layout. Used by the :error
-      # action and auto_render, which have no per-render layout option.
+      # follows the runtime layout, then the class layout. Used by auto_render,
+      # which has no per-render layout option.
       def template_dir
         cattr.views || @_lux.layout || cattr.layout
       end
 
       # Build a "<template_root>/<dir>/<name>" path (or "<template_root>/<name>"
       # when the name already contains a slash). No extension - extension probing
-      # lives in template_file_exists? and Lux::Template.compile_template.
+      # lives in Lux::Template.compile_template.
       def build_template_path template, dir
         if template.include?('/')
           [cattr.template_root, template].join('/')
         else
           [cattr.template_root, dir, template].compact.join('/')
         end
-      end
-
-      # True if any Tilt-recognised extension exists at the given (extension-less)
-      # path. Memoized in Lux.var (prod, process-wide) or Lux.current.var
-      # (dev/test, per-request) so we don't stat the disk on every render.
-      def template_file_exists? path
-        pointer = Lux.env.production? ? Lux.var : Lux.current.var
-        cache   = (pointer[:_template_exists] ||= {})
-        return cache[path] if cache.key?(path)
-
-        cache[path] = Lux::Template.tilt_extensions.any? { |ext| Lux.root.resolve("#{path}.#{ext}") }
       end
 
       def render_cache key = :_nil

@@ -99,16 +99,13 @@ module Lux
         end
 
         # Verbs permitted for `action_name`. Walks the ancestor chain so
-        # subclasses inherit parent declarations. The :error action is always
-        # permitted on every verb so error rendering never 405s.
+        # subclasses inherit parent declarations.
         #
         # When the action declares `allow`, the declared set REPLACES the
         # default. HEAD and OPTIONS are implicit only when GET is in the declared set.
         # Returns either a `Set` of verb symbols, or the sentinel `:any` for
         # opt-out actions.
         def allowed_verbs_for action_name
-          return :any if action_name == :error
-
           ancestors.each do |a|
             next unless a.is_a?(Class) && a <= Lux::Router
             store = a.instance_variable_get(:@_action_allows)

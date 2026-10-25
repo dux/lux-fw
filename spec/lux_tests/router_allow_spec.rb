@@ -84,7 +84,7 @@ class AllowRefRouter < Lux::Router
   end
 end
 
-# Error action must be implicitly :any.
+# GET-only action used as a rescue_from target.
 class AllowErrorRouter < Lux::Router
   def error
     @status ||= 500
@@ -297,9 +297,10 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
     end
   end
 
-  describe ':error action' do
-    it 'is implicitly :any so POSTed errors render' do
+  describe 'error page dispatch' do
+    it 'skips the verb check so POSTed errors render' do
       Lux::Current.new('http://test/anything', method: 'POST')
+      lux.var[:error_page] = true
       AllowErrorRouter.action(:error)
       _(Lux.current.response.body).must_match(/^error:/)
     end

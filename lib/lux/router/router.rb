@@ -102,9 +102,9 @@ module Lux
         end
       end
 
-      # Self-contained HTML error page (no template lookup). Fallback of the
-      # default `error` action when the app has no error template; can be called
-      # from a custom `error` to wrap the framework chrome around your content.
+      # Self-contained HTML error page (no template lookup): the default error
+      # screen, and the 500 dump when the error handling itself fails. A
+      # rescue_from target can render it to keep the framework chrome.
       def default_error_page status, error
         name      = ::Rack::Utils::HTTP_STATUS_CODES[status] || 'Error'
         message   = error.message.to_s.gsub('<', '&lt;').gsub('>', '&gt;')
@@ -283,9 +283,10 @@ module Lux
       end
     end
 
-    # Error sink. The innermost running router handles it: its nearest
-    # `rescue_from` (walking up to the root's), else its `error` action. If
-    # either raises, Lux.call's outer rescue returns a low-level Rack tuple.
+    # Error sink. The innermost running router hands the error to its nearest
+    # `rescue_from` (walking up to the root's). No handler, or a handler that
+    # renders nothing, gets the default error screen. A handler that raises
+    # gets the 500 dump.
     def render_error err
       # Lux::Error carries its status; a policy denial (`can.read!`) is an
       # expected 403, not a server error - same as Lux::Api::Response.client_error?
@@ -304,15 +305,36 @@ module Lux
       app.instance_variable_set :@status, status
       lux.var[:error_page] = true
 
-      catch :done do
-        if handler = app.class.rescue_handler_for(err)
-          app.instance_exec err, &handler
-        else
-          app.send :error
+      if handler = app.class.rescue_handler_for(err)
+        begin
+          catch(:done) { app.instance_exec err, &handler }
+        rescue StandardError => again
+          return error_dump(again)
         end
       end
 
+      default_error_screen status, err unless lux.response.body?
+
       lux.response.render
+    end
+
+    # No handler captured the error: JSON for JSON requests, else the framework page.
+    def default_error_screen status, err
+      if lux.nav.format.to_s == 'json' || request.content_type.to_s.include?('json')
+        lux.response.body({ status: status, error: err.message }.to_json, content_type: :json)
+      else
+        lux.response.body self.class.default_error_page(status, err), content_type: :html
+      end
+    end
+
+    # The error handler raised. Its response may be half written (set-once
+    # body, a redirect's location), so answer with a bare tuple. Outside debug
+    # the message stays hidden: it can carry SQL, paths or secrets.
+    def error_dump err
+      Lux.error.log err
+      shown = Lux.debug? ? err : Lux.error(500)
+
+      [500, { 'content-type' => 'text/html; charset=utf-8' }, [self.class.default_error_page(500, shown)]]
     end
 
     # The single `catch :done` for routing: the first dispatch that writes the
