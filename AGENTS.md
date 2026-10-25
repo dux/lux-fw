@@ -1,8 +1,8 @@
 # Lux framework - agent index
 
 Ruby web framework. Rack + Sequel + PostgreSQL. Sinatra speed,
-Rails-shaped controllers, Hanami-style schemas, **one shared DSL across
-controllers, APIs, models, and schemas**.
+Rails-shaped routers, Hanami-style schemas, **one shared DSL across
+routers, APIs, models, and schemas**.
 
 Do not program Ruby as Java. Ruby is Ruby, dynamic and adaptive.
 Use minimal code to accomplish desired task, but keep concerns separate allways.
@@ -33,17 +33,17 @@ module's `README.md`.** Links are in the tables below.
 
 ## Routing invariants
 
-Read [`lib/lux/application/README.md`](./lib/lux/application/README.md) before
+Read [`lib/lux/router/README.md`](./lib/lux/router/README.md) before
 touching the router. The three rules that catch people out:
 
 * **`lux.route` is the only path matcher.** It owns `match?` / `start_with?` /
-  `capture` over an offset stack, and both `map` and the controller `filter`
-  tree walk it. Never re-derive a match from `nav.path` indices.
+  `capture` over an offset stack, and every router `map` scope (root or
+  mounted) walks it. Never re-derive a match from `nav.path` indices.
 * **The first match ends routing.** A dispatch that writes the body throws
-  `:done`, caught once in `Application#resolve_routes`. Adding a second
+  `:done`, caught once in `Router#resolve_routes`. Adding a second
   `catch(:done)` anywhere re-enables the old "keep walking as no-ops" behaviour
-  and silently re-runs work after a match. A body written in the router (`body`,
-  or a raw `response.body` before the next `map` / `call`) ends routing the same way.
+  and silently re-runs work after a match. `render` and `redirect_to` throw
+  `:done` too, so code after them never runs.
 * **`-` and `_` are equal at compare time only** (`Route#norm`). `nav.path`
   keeps the URL's own spelling so slug lookups work; never normalise it in
   place.
@@ -54,7 +54,7 @@ touching the router. The three rules that catch people out:
   `normalized_path`, "what arrived" -> `source_path`. Never snapshot `nav.path`
   yourself.
 * **A classified id is an object, never a symbol.** `nav.map_path` replaces the
-  segment with a `Lux::Application::Nav::Base` instance carrying the value, so
+  segment with a `Lux::Router::Nav::Base` instance carrying the value, so
   `nav.refs` is derived from `nav.path` and cannot drift from it. Test with
   `is_a?(Nav::Base)`, never `== :ref`; `:ref` in a route pattern is matched by
   type, so a URL segment spelled `ref` is not one. `nav.ref` is read-only.
@@ -66,13 +66,14 @@ touching the router. The three rules that catch people out:
 
 There are no per-action URL macros and no `_ref` action suffix - URLs are
 declared in the router. See [`doc/migration-routing.md`](./doc/migration-routing.md)
-for what was removed and why. Note `Lux::Api.ref` is a separate, live macro on a
-different class.
+for what was removed and why, and [`doc/migration-router.md`](./doc/migration-router.md)
+for moving an app from controllers to routers. Note `Lux::Api.ref` is a
+separate, live macro on a different class.
 
 ## The unified DSL
 
 `Lux::Schema::Define` (`lib/lux/schema/define.rb`) is the shared line
-parser used by `Lux::Controller#opt` / `params do`, `Lux::Api.params`,
+parser used by `Lux::Router#opt` / `params do`, `Lux::Api.params`,
 standalone `Lux::Schema`, model `schema do` blocks, and DB migrations.
 
 ```ruby
@@ -84,7 +85,7 @@ set :name, type: String, max: 30           # explicit
 Field-name suffix `?` marks optional. Type vocabulary is any built-in
 (`String`, `Integer`, `Boolean`, ...) or a named `Lux::Type` (`:email`,
 `:url`, `:uuid`, `:slug`, `:locale`, `:translated`, ...). **When generating params code
-anywhere, use this DSL.** Don't invent per-controller validators.
+anywhere, use this DSL.** Don't invent per-router validators.
 
 ## One way to do it
 
@@ -93,13 +94,13 @@ internal use and old apps.
 
 | Task | Canonical form | Read |
 |------|----------------|------|
-| Route a path | `map 'users', 'users#index'` (match, then target) / `map 'admin' do ... end` / `root 'main'` / `call 'ctrl#action'` (no match) inside `Lux.app { routes do ... end }` (app/routes.rb); other shapes raise | [application](./lib/lux/application/README.md) |
+| Route a path | `map 'users', UsersRouter` / `map 'users', 'users#index'` (match, then target) / `map 'admin' do ... end` / `root 'main#index'` / one-arg `map MainRouter` (no match) inside `Lux.router { route do ... end }` (app/routes.rb); other shapes raise | [router](./lib/lux/router/README.md) |
 | Mount an API | `map 'api', ApplicationApi` | [api](./lib/lux/api/README.md) |
-| Validate params | `opt :name, String, max: 30` above `def`, or `params do ... end` | [controller](./lib/lux/controller/README.md) |
+| Validate params | `opt :name, String, max: 30` above `def`, or `params do ... end` | [router](./lib/lux/router/README.md) |
 | JSON endpoint | `define :name do proc { ... } end` in a `Lux::Api` class | [api](./lib/lux/api/README.md) |
 | Fail a request | `raise Lux.error.not_found 'no such user'` (`forbidden`, `bad_request`, ...) | [error](./lib/lux/error/README.md) |
 | Access check | `@model.can.read?` (policy class `ModelPolicy`) | [policy](./lib/lux/policy/README.md) |
-| Render | implicit `app/views/<controller>/<action>.haml`, or `render text:` / `render json:` | [controller](./lib/lux/controller/README.md) |
+| Render | implicit `app/views/<router>/<action>.haml`, or `render text:` / `render json:` | [router](./lib/lux/router/README.md) |
 | Redirect + flash | `response.flash.info 'Saved'` then `response.redirect_to '/path'` | [response](./lib/lux/response/README.md) |
 | Request context | `lux` (in request code), `Lux.current` outside of it | [current](./lib/lux/current/README.md) |
 | Cache | `Lux.cache.fetch(key, ttl: 60) { ... }` | [cache](./lib/lux/cache/README.md) |
@@ -114,15 +115,14 @@ internal use and old apps.
 
 | Module | What it is | Read |
 |--------|------------|------|
-| `Lux::Application`     | Router + request lifecycle; routing DSL at top level or in an optional `routes do` | [README](./lib/lux/application/README.md) |
-| `Lux::Controller`      | Rails-shaped HTTP controllers with `opt` / `params do`     | [README](./lib/lux/controller/README.md) |
-| `Lux::Api`             | JSON API classes; same params DSL as controllers           | [README](./lib/lux/api/README.md) |
+| `Lux::Router`          | Root router + app routers (`class MainRouter < ApplicationRouter`): `route do ... end` with `map`, actions, `opt` / `params do`, rendering | [README](./lib/lux/router/README.md) |
+| `Lux::Api`             | JSON API classes; same params DSL as routers               | [README](./lib/lux/api/README.md) |
 | `Lux::Schema`          | The shared schema DSL parser at the heart of the framework | [README](./lib/lux/schema/README.md) |
 | `Lux::Type`            | Named type vocabulary (`:email`, `:uuid`, `:slug`, ...)    | [README](./lib/lux/type/README.md) |
 | `Lux::Policy`          | Framework- and ORM-agnostic access policy                  | [README](./lib/lux/policy/README.md) |
 | `Lux::Current`         | Thread-local per-request context (`Lux.current` / `lux`)   | [README](./lib/lux/current/README.md) |
-| `Lux::Response`        | HTTP response builder (`response` inside controllers)      | [README](./lib/lux/response/README.md) |
-| `Lux::Render`          | Render pages, controllers, templates, cells from anywhere  | [README](./lib/lux/render/README.md) |
+| `Lux::Response`        | HTTP response builder (`response` inside routers)          | [README](./lib/lux/response/README.md) |
+| `Lux::Render`          | Render pages, templates, cells from anywhere               | [README](./lib/lux/render/README.md) |
 | `Lux::Template`        | Template rendering via Tilt (HAML, ERB, ...)               | [README](./lib/lux/template/README.md) |
 | `Lux::ViewCell`        | Reusable view components with their own templates          | [README](./lib/lux/view_cell/README.md) |
 | `Lux::Mail`            | Inbound + outbound mail: `Sender` (compose/send) + `Inbox` (`on_receive` event, IMAP `mail:pull`) | [README](./lib/lux/mail/README.md) |
@@ -147,7 +147,7 @@ internal use and old apps.
 | Plugin            | What it is | Read |
 |-------------------|------------|------|
 | `db`              | Sequel extensions (hooks, links, paginate, enums) + auto-migrate | [README](./plugins/db/README.md) |
-| `authcog`         | Central-auth sign-in: `AuthcogController` + `UserSession`           | [README](./plugins/authcog/README.md) |
+| `authcog`         | Central-auth sign-in: `AuthcogRouter` + `UserSession`               | [README](./plugins/authcog/README.md) |
 | `web_common`      | Shared web layer: html builders, assets, PG exception logger + `/admin`; list `authcog` next to it | [README](./plugins/web_common/README.md) |
 | `locale`          | Small, namespaced translation lookup + `/<xx>` URL prefixes (`localized`, `lux.lpath`) | [README](./plugins/locale/README.md) |
 | `favicon`         | `public/favicon.svg` -> generated `.ico` + touch icon, `<head>` links from `lux.render_html` / `header.render` (`el.icon false` opts out) | [README](./plugins/favicon/README.md) |
@@ -175,7 +175,7 @@ bin/cli/<name>_hammer.rb  # CLI subcommands
 * Base class: `Lux::Test::Case` (transparently mixed into every `describe` block).
 * Factories: vendored clean-mock at `lib/lux/test/factory/`, exposed as `factory` in every spec.
 * Helpers available everywhere: `factory`, `capture_log`/`capture_stdout`/`capture_stderr`, `with_transaction`, plus `assert_status` / `assert_redirect` / `assert_body_includes` / `assert_json_includes`.
-* HTTP requests: use `Lux.render.get/post/...` - returns a `Lux::Application::Page` with `.status`, `.body`, `.json`, `.headers`, `.redirect_to`, `.ok?`, `.session`. `Lux.render.client` carries the session between calls.
+* HTTP requests: use `Lux.render.get/post/...` - returns a `Lux::Router::Page` with `.status`, `.body`, `.json`, `.headers`, `.redirect_to`, `.ok?`, `.session`. `Lux.render.client` carries the session between calls.
 * Rulebook for writing tests: **[`lib/lux/test/AGENTS.md`](./lib/lux/test/AGENTS.md)**. AI agents converting or writing specs must read it first - it lists the only allowed assertions and the banned RSpec syntax.
 * Run: `bundle exec hammer test` (folder-isolated). Single folder: `hammer test --folder lux_tests`. Per-spec processes: `hammer test --isolated`. Tasks are defined in `./Hammerfile` (powered by the `lux-hammer` gem - replaces Rake).
 
@@ -196,7 +196,7 @@ require 'lux-fw'
 Lux.boot!
 ```
 
-See `lib/lux/application/README.md` and `lib/lux/boot/config/README.md` for
+See `lib/lux/router/README.md` and `lib/lux/boot/config/README.md` for
 entry-point details.
 
 ## Adding code

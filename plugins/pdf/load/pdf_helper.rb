@@ -1,4 +1,4 @@
-# View helper for PDF pages (app/views/pdf/, rendered by PdfController).
+# View helper for PDF pages (app/views/pdf/, rendered by PdfRouter).
 #
 # Ships a self-contained `format_money` so the bundled demo renders in any app
 # with no dependencies. Apps that have their own money formatter reopen this

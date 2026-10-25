@@ -1,14 +1,14 @@
 # Lux::Current
 
 Thread-local request context. One object per request, available as
-`Lux.current` or just `current` inside controllers and APIs, or `lux`
+`Lux.current` or just `current` inside routers and APIs, or `lux`
 anywhere. Holds the request, response, params, session, nav, browser,
 and a per-request variable bag.
 
 ## Full example
 
 ```ruby
-class UsersController < ApplicationController
+class UsersRouter < ApplicationRouter
   before do
     @user = User.find_by_token(current.bearer_token) if current.bearer_token
     Lux.current.locale = current.session[:locale] || 'en'
@@ -23,7 +23,7 @@ class UsersController < ApplicationController
     # --- params + nav ----------------------------------------------------
     current.params           # validated/coerced if opt declared (Lux::Hash)
     current.nav.path         # canonical path array
-    current.nav.ref          # captured id (see Application docs)
+    current.nav.ref          # captured id (see Router docs)
 
     # --- session (sealed cookie, see Session below) ---------------------
     current.session[:user_id] = @user.id
@@ -86,8 +86,8 @@ end
 |----------|------|-------|
 | `request`         | `Lux::Current::Request` | the raw request (`Rack::Request` subclass; `xhr?` also true for fetch) |
 | `response`        | `Lux::Response` | response builder |
-| `nav`             | `Lux::Application::Nav` | canonical request path (see Nav below) |
-| `route`           | `Lux::Application::Route` | router cursor |
+| `nav`             | `Lux::Router::Nav` | canonical request path (see Nav below) |
+| `route`           | `Lux::Router::Route` | router cursor |
 | `session`         | `Lux::Current::Session` | sealed cookie session (see Session below) |
 | `params`          | `Lux::Hash` | request params (coerced if `opt` declared) |
 | `param_errors`    | hash | `{ field => 'Message' }` from the action's `opt` / `params do` contract, HTML requests only (JSON halts with 422). Empty when clean |
@@ -157,7 +157,7 @@ store. Rules, in [`./lib/session.rb`](./lib/session.rb):
 ## Nav
 
 `current.nav` is the canonical request path - routing inspects it but
-does not mutate. See [`../application/lib/nav.rb`](../application/lib/nav.rb) for full DSL.
+does not mutate. See [`../router/lib/nav.rb`](../router/lib/nav.rb) for full DSL.
 
 ```ruby
 nav.path                          # working path array - rewritten in place
@@ -215,6 +215,6 @@ and `key:value` segments intact, and not split into segments.
 
 ## See also
 
-* [`../application/README.md`](../application/README.md) - routing
+* [`../router/README.md`](../router/README.md) - routing
 * [`../response/README.md`](../response/README.md) - response object
 * [`../browser/README.md`](../browser/README.md) - `current.browser`

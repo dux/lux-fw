@@ -2,7 +2,7 @@
 
 Named types - the type vocabulary the rest of the framework uses. Each
 type defines its own coercion, validation, and DB column shape. The same
-type works in a controller `opt`, an API `params do`, a schema, or a
+type works in a router `opt`, an API `params do`, a schema, or a
 migration.
 
 `Lux.type(name)` returns the type class; `Lux.type(name, value)` coerces

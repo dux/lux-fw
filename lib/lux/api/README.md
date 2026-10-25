@@ -1,7 +1,7 @@
 # Lux::Api
 
 JSON-RPC-ish API classes. Same `params do` / shared schema DSL as
-`Lux::Controller`, plus:
+`Lux::Router`, plus:
 
 * automatic JSON request/response
 * introspection: `/sys/web` (interactive explorer), `/sys/openapi`,
@@ -88,7 +88,7 @@ class BoardsApi < ApplicationApi
   end
 end
 
-# In controller-style endpoints you can also reach for:
+# In router-style endpoints you can also reach for:
 #   send_file(path, opts)   send_data(blob, opts)
 #   super!                  # call the superclass implementation
 ```
@@ -143,7 +143,7 @@ endpoint. Private and protected methods are never endpoints.
 | `class_desc` / `class_detail` | apply to whole class |
 | `params do ... end`     | param schema for the next endpoint |
 | `schema_ref :name`      | reference a top-level model schema instead of inline params |
-| `allow :get, :put`      | exact HTTP verbs, replacing the POST default (same contract as controllers; HEAD/OPTIONS ride with GET, `:any` disables the check) |
+| `allow :get, :put`      | exact HTTP verbs, replacing the POST default (same contract as routers; HEAD/OPTIONS ride with GET, `:any` disables the check) |
 | `unsafe`                | endpoint skips the class `auth` hook (callable anonymously) |
 | `undocumented`          | endpoint stays callable but is hidden from OpenAPI/Postman/introspect output |
 | `define name do; proc {...}; end` | collection endpoint (at class root) |
@@ -199,6 +199,6 @@ The guide is markdown rendered server-side by `Lux::Utils::Markdown`
 
 ## See also
 
-* [`../controller/README.md`](../controller/README.md) - same DSL, HTML-shaped
+* [`../router/README.md`](../router/README.md) - same DSL, HTML-shaped
 * [`../schema/README.md`](../schema/README.md) - the underlying schema DSL
 * [`../type/README.md`](../type/README.md) - named types used in `params do`

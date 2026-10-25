@@ -36,7 +36,7 @@ require_relative './lux'
 require_relative './hash/hash'
 
 # Class attributes (`cattr` macro), vendored from class-cattr. Patches
-# Class/Object, so load it before Controller/Mailer/ViewCell call `cattr`.
+# Class/Object, so load it before Router/Mailer/ViewCell call `cattr`.
 require_relative './utils/class_attributes'
 
 # Subsystems required ahead of the Dir.require_all sweep below because boot

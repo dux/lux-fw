@@ -11,12 +11,12 @@ Lux.config[:logger_files_to_keep] = 3              unless Lux.config.key?(:logge
 Lux.config[:logger_file_max_size] = 10_240_000     unless Lux.config.key?(:logger_file_max_size)
 Lux.config[:logger_formatter]     = nil            unless Lux.config.key?(:logger_formatter)
 
-class ExplodingController < Lux::Controller
+class ExplodingRouter < Lux::Router
   def boom
     raise 'BOOM!'
   end
 
-  def boom_via_call
+  def boom_via_map
     raise 'BOOM2'
   end
 
@@ -25,7 +25,7 @@ class ExplodingController < Lux::Controller
   end
 end
 
-class AfterMutateController < Lux::Controller
+class AfterMutateRouter < Lux::Router
   def show
     render text: 'hello'
   end
@@ -33,21 +33,21 @@ end
 
 # a handler that knows the size without building the body, the way a proxied
 # file HEAD does
-class HeadLengthController < Lux::Controller
+class HeadLengthRouter < Lux::Router
   def show
     response.headers['content-length'] = '1024'
     response.body ''
   end
 end
 
-class AppRescueRenderController < Lux::Controller
+class AppRescueRenderRouter < Lux::Router
   def show
     render text: 'APP-CATCH(%d): %s' % [@status, @error.message]
   end
 end
 
-class RoutesTestController < Lux::Controller
-  def root
+class RoutesTestRouter < Lux::Router
+  def index
     render text: 'root'
   end
 
@@ -115,21 +115,21 @@ class MountedEchoApi < Lux::Api
   end
 end
 
-class BoardsController < Lux::Controller
-  def root;    render text: 'boards:root';    end
+class BoardsRouter < Lux::Router
+  def index;   render text: 'boards:index';   end
   def new;     render text: 'boards:new';     end
   def archive; render text: 'boards:archive'; end
   def show;    render text: 'boards:show';    end
   def edit;    render text: 'boards:edit';    end
 end
 
-class ProfileController < Lux::Controller
-  def root;  render text: 'profile:root'; end
+class ProfileRouter < Lux::Router
+  def index; render text: 'profile:index'; end
   def edit;  render text: 'profile:edit'; end
 end
 
-class AdminTestController < Lux::Controller
-  def root;  render text: 'admin:root:';                 end
+class AdminTestRouter < Lux::Router
+  def index; render text: 'admin:index:';                end
   def edit;  render text: "admin:edit:#{nav.ref}";       end
   def users; render text: "admin:users:#{nav.ref}";      end
   def foo;   render text: "admin:foo:#{nav.ref}";        end
@@ -137,9 +137,60 @@ class AdminTestController < Lux::Controller
   def show;  render text: "admin:show:#{nav.ref}";       end
 end
 
+# mounted without matching: sees the whole cursor it was mounted at
+class SpecPromoRouter < Lux::Router
+  route { render text: "promo:#{lux.route.path.join('/')}" }
+end
+
+class IvarProbeRouter < Lux::Router
+  def show = render(text: "seen:#{@seen}")
+end
+
+class BeforeCountParentRouter < Lux::Router
+  before { lux.var[:parent_before] = lux.var[:parent_before].to_i + 1 }
+end
+
+class BeforeCountRouter < BeforeCountParentRouter
+  before { lux.var[:child_before] = lux.var[:child_before].to_i + 1 }
+
+  route { map 'deep', 'before_count_deep#show' }
+end
+
+class BeforeCountDeepRouter < BeforeCountParentRouter
+  def show
+    render text: %i[root_before parent_before child_before].map { "#{_1}=#{lux.var[_1].to_i}" }.join(' ')
+  end
+end
+
+class RenderStopRouter < Lux::Router
+  def show
+    render text: 'once'
+    raise 'code after render ran'
+  end
+end
+
+class ChildRescueRouter < Lux::Router
+  rescue_from { |err| render text: "child:#{err.message}" }
+
+  def show = raise('oops')
+end
+
+class EmptyRouteRouter < Lux::Router
+  route { @nothing = true }
+end
+
+class LayoutSwitchRouter < Lux::Router
+  template_root './spec/fixtures/views'
+  layout :boards
+
+  before { layout :pages }
+
+  route { auto }
+end
+
 ###
 
-Lux.app do
+Lux.router do
   after do
     if request.path == '/after-mutate'
       response.body { |b| b.gsub('hello', 'GREETINGS-FRIEND') }
@@ -147,26 +198,34 @@ Lux.app do
   end
 
   rescue_from do |err|
-    call 'app_rescue_render#show'
+    map 'app_rescue_render#show'
   end
 
   before do
     # canonicalize ID-like segments to :ref before routing
     nav.map_path { |el| el =~ /\A\d+\z/ ? el : nil }
+    lux.var[:root_before] = lux.var[:root_before].to_i + 1
   end
 
-  root 'routes_test#root'
+  def root_meth = render(text: 'root-meth')
+  def edit_card = render(text: "edit-card:#{nav.ref}")
+end
+
+ROUTES_SPEC_ROUTE ||= proc do
+  @seen = 'root-ivar'
+
+  root 'routes_test#index'
 
   map 'boards', 'boards'
   map 'profile', 'profile'
   map 'admin_test', 'admin_test'
 
   map 'plain' do
-    call { 'plain' }
+    render text: 'plain'
   end
 
   map 'binary' do
-    call { response.content_type = :png; "\x89PNG" }
+    render text: "\x89PNG", content_type: :png
   end
 
   map 'city' do
@@ -174,18 +233,16 @@ Lux.app do
     map 'user', 'routes_test#user'
   end
 
-  # verb-scope and subdomain blocks are written at the top level of Lux.app,
-  # so their `self` is the class until the router rebinds it
   post? { map 'post_scope', 'routes_test#posted' }
 
   subdomain 'sub' do
     map 'page', 'routes_test#user'
   end
 
-  map %w[array1 array2], 'routes_test#root'
+  map %w[array1 array2], 'routes_test#index'
 
-  # same source line, two calls - both must register
-  %w[looped1 looped2].each { |path| map path, 'routes_test#root' }
+  # same source line, two calls - both must dispatch
+  %w[looped1 looped2].each { |path| map path, 'routes_test#index' }
 
   map '/test1/test2/:foo', 'routes_test#foo'
 
@@ -196,13 +253,13 @@ Lux.app do
   end
 
   map 'exploding', 'exploding#boom'
-  map 'exploding-via-call', 'exploding#boom_via_call'
+  map 'exploding-via-map', 'exploding#boom_via_map'
   map 'exploding-denied', 'exploding#denied'
   map 'after-mutate', 'after_mutate#show'
   map 'head-length', 'head_length#show'
 
   # Rack-app dispatch: any class responding to .call(env) is routed via
-  # `map`/`call` exactly like a controller.
+  # `map` exactly like a router.
   map '/r1',          MountedRackApp     # absolute path
   map '/foo/bar/baz', MountedRackApp     # deep absolute path
   map 'r3',           MountedRackApp     # single segment
@@ -215,14 +272,27 @@ Lux.app do
   map 'api1',       MountedTestApi         # single segment
   map 'echo-api',   MountedEchoApi
 
-  # Fallback 404 - this used to be a bare line inside `routes do` and ran on
-  # every unmatched request. Wrap in a routes callback so it still fires last.
-  routes { lux.response.body 'not found', status: 404 unless lux.response.body? }
+  map 'promo-any' do
+    map SpecPromoRouter
+  end
+
+  map 'root-meth', :root_meth
+  map 'cards', :ref, 'edit', :edit_card
+  map 'ivar-probe', 'ivar_probe#show'
+  map 'before-count', BeforeCountRouter
+  map 'render-stop', 'render_stop#show'
+  map 'child-rescue', 'child_rescue#show'
+  map 'empty-route', EmptyRouteRouter
+  map 'layout-switch', LayoutSwitchRouter
+
+  render text: 'not found', status: 404
 end
 
 ###
 
-describe 'Lux::Application' do
+describe 'Lux::Router' do
+  before { Lux.router.route(&ROUTES_SPEC_ROUTE) }
+
   it 'should get right routes' do
     _(Lux.render.get('/').body).must_equal 'root'
     _(Lux.render.get('/plain').body).must_equal 'plain'
@@ -238,12 +308,14 @@ describe 'Lux::Application' do
     _(Lux.render.get('/binary').headers['content-type']).must_equal 'image/png'
   end
 
-  it 'rejects removed route shapes with the canonical form in the message' do
-    app = Lux::Application.new('/')
+  it 'rejects bad map shapes with the canonical form in the message' do
+    app = Lux::Router.new('/')
     error = assert_raises(ArgumentError) { app.map(user: 'routes_test#user') }
-    assert_includes error.message, "map 'users', 'users#index'"
-    error = assert_raises(ArgumentError) { app.map('routes_test#user') }
-    assert_includes error.message, 'call'
+    assert_includes error.message, "map 'users', UsersRouter"
+    error = assert_raises(ArgumentError) { app.map('routes_test') }
+    assert_includes error.message, 'map UsersRouter'
+    error = assert_raises(ArgumentError) { app.map({ a: 1 }, 'routes_test#user') }
+    assert_includes error.message, 'path segments'
   end
 
   it 'should get nested routes' do
@@ -345,14 +417,14 @@ describe 'Lux::Application' do
     _(Lux.render.get('/routes_test/foo-nested.js').json[:a]).must_equal 1
   end
 
-  it 'dispatches errors through Application rescue_from when defined (always wins)' do
+  it 'dispatches errors through Router rescue_from when defined (always wins)' do
     res = Lux.render.get('/exploding')
     _(res.status).must_equal 500
     _(res.body).must_equal 'APP-CATCH(500): BOOM!'
   end
 
-  it 'rescue_from with `call` dispatches unconditionally' do
-    res = Lux.render.get('/exploding-via-call')
+  it 'rescue_from with `map` dispatches unconditionally' do
+    res = Lux.render.get('/exploding-via-map')
     _(res.status).must_equal 500
     _(res.body).must_equal 'APP-CATCH(500): BOOM2'
   end
@@ -363,7 +435,7 @@ describe 'Lux::Application' do
     _(res.body).must_equal 'APP-CATCH(403): DENIED'
   end
 
-  it 'fires Application :after BEFORE headers, so content-length matches the mutated body' do
+  it 'fires Router :after BEFORE headers, so content-length matches the mutated body' do
     res = Lux.render.get('/after-mutate')
     _(res.body).must_equal 'GREETINGS-FRIEND'
     _(res.headers['content-length']).must_equal 'GREETINGS-FRIEND'.bytesize.to_s
@@ -380,9 +452,9 @@ describe 'Lux::Application' do
     _(res.headers['content-length']).must_equal '0'
   end
 
-  describe 'resourceful map (single segment controllers)' do
-    it 'maps /boards (empty remaining) to :root' do
-      _(Lux.render.get('/boards').body).must_equal 'boards:root'
+  describe 'resourceful map (single segment routers)' do
+    it 'maps /boards (empty remaining) to :index' do
+      _(Lux.render.get('/boards').body).must_equal 'boards:index'
     end
 
     it 'maps /boards/new to :new' do
@@ -401,8 +473,8 @@ describe 'Lux::Application' do
       _(Lux.render.get('/boards/archive').body).must_equal 'boards:archive'
     end
 
-    it 'maps /profile (no further segment) to :root' do
-      _(Lux.render.get('/profile').body).must_equal 'profile:root'
+    it 'maps /profile (no further segment) to :index' do
+      _(Lux.render.get('/profile').body).must_equal 'profile:index'
     end
 
     it 'maps /profile/edit to :edit' do
@@ -411,8 +483,8 @@ describe 'Lux::Application' do
   end
 
   describe 'resourceful map action resolution' do
-    it '/admin_test -> :root' do
-      _(Lux.render.get('/admin_test').body).must_equal 'admin:root:'
+    it '/admin_test -> :index' do
+      _(Lux.render.get('/admin_test').body).must_equal 'admin:index:'
     end
 
     it '/admin_test/edit -> :edit' do
@@ -445,6 +517,67 @@ describe 'Lux::Application' do
 
     it '/admin_test/users/123/foo/bar -> :bar with nav.ref' do
       _(Lux.render.get('/admin_test/users/123/foo/bar').body).must_equal 'admin:bar:123'
+    end
+  end
+
+  describe 'map dispatch' do
+    it 'mounts a router class without matching a segment' do
+      _(Lux.render.get('/promo-any/some/page').body).must_equal 'promo:some/page'
+    end
+
+    it 'runs a method of the root router from a Symbol target' do
+      _(Lux.render.get('/root-meth').body).must_equal 'root-meth'
+    end
+
+    it 'answers root only when the cursor is empty' do
+      _(Lux.render.get('/').body).must_equal 'root'
+      _(Lux.render.get('/routes_test').status).must_equal 404
+    end
+
+    it 'matches several segments before the target' do
+      _(Lux.render.get('/cards/123/edit').body).must_equal 'edit-card:123'
+      _(Lux.render.get('/cards/123').status).must_equal 404
+    end
+
+    it 'copies ivars set in the root route into a mounted router' do
+      _(Lux.render.get('/ivar-probe').body).must_equal 'seen:root-ivar'
+    end
+
+    it 'runs each before hook once across nested mounts' do
+      _(Lux.render.get('/before-count/deep').body).must_equal 'root_before=1 parent_before=1 child_before=1'
+    end
+
+    it 'ends the action at render' do
+      res = Lux.render.get('/render-stop')
+      _(res.status).must_equal 200
+      _(res.body).must_equal 'once'
+    end
+
+    it 'lets the innermost rescue_from win over the root one' do
+      _(Lux.render.get('/child-rescue').body).must_equal 'child:oops'
+    end
+
+    it 'answers 404 when a mounted router renders nothing' do
+      _(Lux.render.get('/empty-route').status).must_equal 404
+    end
+
+    it 'switches layout, views dir included, from a before hook' do
+      body = Lux.render.get('/layout-switch/index').body
+      _(body).must_include 'layout:pages'
+      _(body).must_include 'page:index'
+    end
+  end
+
+  describe 'router class guards' do
+    it 'refuses an action that shadows the routing DSL' do
+      error = assert_raises(NameError) { Class.new(Lux::Router) { def map; end } }
+      assert_includes error.message, 'shadows the Lux::Router DSL'
+    end
+
+    it 'accepts after on the root router only' do
+      error = assert_raises(ArgumentError) { Class.new(Lux::Router) { after {} } }
+      assert_includes error.message, 'root router'
+      Lux.router { after {} }
     end
   end
 end

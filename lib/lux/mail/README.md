@@ -89,7 +89,7 @@ Handlers receive a `Lux::Mail::Inbox::Message`:
 A webhook builds a Message from the parsed payload and fires the event:
 
 ```ruby
-# in an API/controller that a Cloudflare Email Worker POSTs to
+# in an API/router that a Cloudflare Email Worker POSTs to
 Lux.mail_received(params, :post)   # params -> Message -> on_receive handlers
 ```
 

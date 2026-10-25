@@ -39,7 +39,7 @@ task :render do
       cookies:  parse_pairs.(opts[:cookie])
     }
 
-    page = Lux.app.new(env, render_opts).render_page
+    page = Lux.router.new(env, render_opts).render_page
 
     if opts[:info]
       data = page.to_h.merge(time: page.time, dispatch: Lux.current.var[:dispatch])

@@ -1,69 +1,82 @@
 require 'test_helper'
 
-# A throwaway Application subclass so we don't pollute Lux.app for other specs.
-class DumpApp < Lux::Application
+# Throwaway Router subclasses so we don't pollute Lux.router for other specs.
+class DumpAdminRouter < Lux::Router
+  route do
+    map 'users', 'dump_admin_users'
+    auto
+  end
+end
+
+class DumpRouter < Lux::Router
   before { 1 }   # should not appear in the dump
 
-  root 'main'
-  map 'about', 'static#about'
-  map 'boards', 'boards'           # resourceful - matches /boards
-  call 'reports#monthly'           # unconditional dispatch
-  map 'admin' do
-    root 'admin/dashboard'
-    map 'users', 'admin/users'
-  end
-  map '/abs/:id', 'main#show'
+  route do
+    root 'dump_main#index'
+    map 'about', 'static#about'
+    map 'boards', 'dump_boards'        # router name without a route block
+    map 'logout', :logout              # action on this router
+    map 'admin', DumpAdminRouter       # router with a route block - replayed in place
+    map :spaces, :ref, :admin do
+      auto
+    end
+    map '/abs/:id', 'main#show'
 
-  # conditional via http-method predicate: should still be visible in dump
-  get? { map 'preview', 'main#preview' }
+    # conditional via http-method predicate: should still be visible in dump
+    get? { map 'preview', 'main#preview' }
+
+    map 'reports#monthly'              # unconditional dispatch
+  end
 end
 
 # Routes that read the current URL while the dump replays them.
-class DumpUrlApp < Lux::Application
-  routes do
+class DumpUrlRouter < Lux::Router
+  route do
     redirect_to nav.subdomain('app') if params[:login]
     map 'after-url', 'main#after_url'
   end
 end
 
-describe Lux::Application::RoutesDumper do
+describe Lux::Router::RoutesDumper do
   def entries
-    @entries ||= DumpApp.dump_routes
+    @entries ||= DumpRouter.dump_routes
+  end
+
+  def at path
+    entries.select { |x| x.path == path }.map(&:target)
   end
 
   it 'records the root route' do
-    e = entries.find { |x| x.path == '/' }
-    _(e).wont_be_nil
-    _(e.target).must_equal 'main'
+    _(at('/')).must_include 'dump_main#index'
   end
 
   it 'records simple map with explicit target' do
-    e = entries.find { |x| x.path == '/about' }
-    _(e).wont_be_nil
-    _(e.target).must_equal 'static#about'
+    _(at('/about')).must_equal ['static#about']
   end
 
-  it 'records a resourceful map at its own segment, not at /' do
-    e = entries.find { |x| x.path == '/boards' }
-    _(e).wont_be_nil
-    _(e.target).must_equal 'boards'
+  it 'records a router name at its own segment' do
+    _(at('/boards')).must_equal ['dump_boards']
   end
 
-  it "records an unconditional call at /" do
-    e = entries.find { |x| x.target == 'reports#monthly' }
-    _(e).wont_be_nil
-    _(e.path).must_equal '/'
+  it 'records a Symbol target as an action' do
+    _(at('/logout')).must_equal ['#logout']
   end
 
-  it 'records nested map block as joined path' do
-    paths = entries.map(&:path)
-    _(paths).must_include '/admin/users'
+  it 'replays a mounted router route under its segment' do
+    _(at('/admin/users')).must_equal ['dump_admin_users']
+    _(at('/admin')).must_equal ['[auto]']
+  end
+
+  it 'records segment chains, with :ref kept as a placeholder' do
+    _(at('/spaces/:ref/admin')).must_equal ['[auto]']
+  end
+
+  it 'records an unconditional map at the current path' do
+    _(at('/')).must_include 'reports#monthly'
   end
 
   it 'records absolute-path match form' do
-    e = entries.find { |x| x.path == '/abs/:id' }
-    _(e).wont_be_nil
-    _(e.target).must_equal 'main#show'
+    _(at('/abs/:id')).must_equal ['main#show']
   end
 
   it 'records http-method-scoped routes with the right verb' do
@@ -72,11 +85,11 @@ describe Lux::Application::RoutesDumper do
     _(e.verb).must_equal 'GET'
   end
 
-  it 'survives Url helpers inside the routes block' do
-    _(DumpUrlApp.dump_routes.map(&:path)).must_include '/after-url'
+  it 'survives Url helpers inside the route block' do
+    _(DumpUrlRouter.dump_routes.map(&:path)).must_include '/after-url'
   end
 
-  it 'records source location on each entry' do
+  it 'records the source of the route block each entry came from' do
     refute_empty entries
     entries.each do |entry|
       assert_match %r{routes_dumper_spec\.rb}, entry.source.to_s

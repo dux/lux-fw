@@ -20,23 +20,23 @@ Needs the `db` plugin and an app-side `User` model - see **Requirements**.
 
 | Constant | Role | Loaded from |
 |----------|------|-------------|
-| `AuthcogController` | Sign-in entry point + callback landing. Exchanges a one-time hash, bound to a per-browser challenge, for a local session. | `load/authcog_controller.rb` |
+| `AuthcogRouter` | Sign-in entry point + callback landing. Exchanges a one-time hash, bound to a per-browser challenge, for a local session. | `load/authcog_router.rb` |
 | `UserSession` | Session identity, `?sso_action=` links, sudo overlay, API-key login. | `load/user_session.rb` |
 
 ## Wiring
 
 ```ruby
 # app/routes.rb
-Lux.app do
+Lux.router do
   before do
     UserSession.resolve
     UserSession.destroy_session if user && (user.is_locked || user.is_deleted)
   end
 
-  routes do
+  route do
     map '/authcog', 'authcog#call'   # callback landing
     map '/login',   'main#login'     # your action, redirects to the auth link
-    root 'main'
+    root 'main#index'
   end
 end
 ```
@@ -44,24 +44,24 @@ end
 ```ruby
 # the /login action
 def login
-  return redirect_to '/' if user
-  redirect_to AuthcogController.auth_link
+  redirect_to '/' if user
+  redirect_to AuthcogRouter.auth_link
 end
 ```
 
 `UserSession.resolve` must run before routing. It restores `User.current` from
 the session cookie, a bearer token, or a `?sso_action=` link, so `user` is set
-by the time a controller runs.
+by the time a router runs.
 
 ## The flow
 
 1. `auth_link` is just `/authcog`, so it can be linked from any view or layout.
-2. Following it hits `AuthcogController#start`, which mints a one-time challenge,
+2. Following it hits `AuthcogRouter#start`, which mints a one-time challenge,
    keeps it in the visitor's session, and redirects to
    `https://<realm>.authcog.com/domain:<host>[/port:<port>]?state=<challenge>`.
 3. Central auth signs the person in and sends the browser back to
    `/authcog?callback=<40-char hash>&state=<challenge>`.
-4. `AuthcogController#callback` spends the challenge, then exchanges the hash
+4. `AuthcogRouter#callback` spends the challenge, then exchanges the hash
    server-side for `{ email, name, avatar, provider }`, calls
    `User.quick_create(email)`, and writes `session[:user_ref]`.
 5. It redirects to `session[:redirect_after_login]` or `/`.
@@ -106,7 +106,7 @@ ever spent, so a bogus `?state=` cannot clear a real one.
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `authcog_realm` | `auth` | Subdomain of `authcog.com` to authenticate against. |
-| `authcog_path` | `/authcog` | Where this controller is mounted; what `auth_link` returns. |
+| `authcog_path` | `/authcog` | Where this router is mounted; what `auth_link` returns. |
 | `host` | - | The app's own URL; its domain bounds which request hosts sign-in trusts. |
 
 ## Redirect after login
@@ -115,7 +115,7 @@ ever spent, so a bogus `?state=` cannot clear a real one.
 UserSession.redirect_after_login = request.path   # before bouncing to /login
 ```
 
-`AuthcogController#callback` consumes the same session key, so a guest who hits
+`AuthcogRouter#callback` consumes the same session key, so a guest who hits
 a protected page lands back on it after signing in. Only site-local paths are
 kept (`UserSession.local_path`): a full URL or a protocol-relative `//host`
 is dropped, so the redirect cannot be turned into an open redirect.

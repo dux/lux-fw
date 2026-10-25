@@ -1,9 +1,9 @@
 require 'test_helper'
 
-NavBase      ||= Lux::Application::Nav::Base
-NavRefString ||= Lux::Application::Nav::RefString
+NavBase      ||= Lux::Router::Nav::Base
+NavRefString ||= Lux::Router::Nav::RefString
 
-describe Lux::Application::Nav::Base do
+describe Lux::Router::Nav::Base do
   describe 'the format contract' do
     it 'leaves generate to the subclass' do
       _(-> { NavBase.new('x').generate }).must_raise NotImplementedError
@@ -69,7 +69,7 @@ describe Lux::Application::Nav::Base do
   end
 end
 
-describe Lux::Application::Nav::RefString do
+describe Lux::Router::Nav::RefString do
   describe '#generate' do
     it 'returns a new instance of the same format' do
       _(NavRefString.new.generate).must_be_kind_of NavRefString
@@ -137,10 +137,10 @@ end
 
 ###
 
-NavBaseClass ||= Lux::Application::Nav::Base
-NavUuid7     ||= Lux::Application::Nav::RefUuid7
+NavBaseClass ||= Lux::Router::Nav::Base
+NavUuid7     ||= Lux::Router::Nav::RefUuid7
 
-describe 'Lux::Application::Nav::Base registry' do
+describe 'Lux::Router::Nav::Base registry' do
   def with_format value
     was = Lux.config[:ref_format]
     Lux.config[:ref_format] = value
@@ -249,7 +249,7 @@ describe 'Lux::Application::Nav::Base registry' do
   end
 end
 
-describe Lux::Application::Nav::RefUuid7 do
+describe Lux::Router::Nav::RefUuid7 do
   it 'generates a valid uuid7' do
     _(NavUuid7.new.generate.valid?).must_equal true
   end

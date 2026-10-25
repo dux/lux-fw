@@ -9,7 +9,7 @@
 #     SupportTicket.intake(mail) if mail.verified
 #   end
 #
-#   # in the inbound route/controller
+#   # in the inbound route/router action
 #   Lux::Mail::CloudflareInbound.receive(params)
 #
 # The Worker may POST either the raw MIME (key :raw, parsed here in full) or

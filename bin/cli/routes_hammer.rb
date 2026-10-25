@@ -4,7 +4,7 @@ task :routes do
   opt :verbose, alias: :v, type: :boolean, default: false, desc: 'Show source location for each route'
 
   proc do |opts|
-    entries = Lux.app.dump_routes
+    entries = Lux.router.dump_routes
 
     if entries.empty?
       puts '(no routes registered)'

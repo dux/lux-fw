@@ -154,7 +154,7 @@ module Lux
       # A resolver that raises is treated as [].
       #
       # Note it runs before route resolution, so a current-user helper set up by
-      # a controller filter is not available yet - read the session directly.
+      # a router before filter is not available yet - read the session directly.
       def session_channels &block
         return @session_channels = block if block
         @session_channels

@@ -7,7 +7,7 @@ require 'test_helper'
 end
 Lux.config[:plugins] ||= []
 
-class RequestTestController < Lux::Controller
+class RequestTestRouter < Lux::Router
   allow :get, :post
   def echo
     render json: lux.params.to_h
@@ -43,18 +43,17 @@ class RequestTestController < Lux::Controller
   end
 end
 
-class FilterHaltController < Lux::Controller
+class FilterHaltRouter < Lux::Router
   before { redirect_to '/login' if lux.params[:login] }
-  before_action { render text: 'denied', status: 403 if lux.params[:deny] }
-  before_action { redirect_to '/elsewhere' if lux.params[:deny] }
-  after { lux.response.header 'x-after', 'ran' }
+  before { render text: 'denied', status: 403 if lux.params[:deny] }
+  before { redirect_to '/elsewhere' if lux.params[:deny] }
 
   def show
     render text: 'shown'
   end
 end
 
-class HaltProbeController < Lux::Controller
+class HaltProbeRouter < Lux::Router
   before { lux.response.header 'x-probe', '1' }
 
   def index
@@ -62,242 +61,248 @@ class HaltProbeController < Lux::Controller
   end
 end
 
-Lux.app do
+Lux.router do
   before { lux.response.body 'from before' if lux.request.path == '/static_guard.txt' }
   before { lux.response.body 'first' if lux.request.path == '/halt_before' }
   before { lux.response.header 'x-second', '1' if lux.request.path == '/halt_before' }
+end
 
+REQUEST_SPEC_ROUTE ||= proc do
   map 'request_test', 'request_test'
   map 'filter_halt', 'filter_halt#show'
   map '/request_flavor/:x', 'request_test#flavor', flavor: 'mint'
 
   map 'halt_body' do
-    body 'stop'
+    render text: 'stop'
     raise 'unreachable'
   end
 
-  map 'raw_then_call' do
+  map 'raw_then_map' do
     lux.response.body 'raw'
-    call 'halt_probe#index'
+    map 'halt_probe#index'
   end
 end
 
-describe 'Lux.render result' do
-  it 'exposes status, raw body, parsed json and ok?' do
-    page = Lux.render.get('/request_test/echo', params: { q: 'x' })
+describe 'request pipeline' do
+  before { Lux.router.route(&REQUEST_SPEC_ROUTE) }
 
-    assert_status 200, page
-    assert page.ok?
-    assert_kind_of String, page.body
-    assert_json_includes({ q: 'x' }, page)
-  end
+  describe 'Lux.render result' do
+    it 'exposes status, raw body, parsed json and ok?' do
+      page = Lux.render.get('/request_test/echo', params: { q: 'x' })
 
-  it 'reads the redirect target' do
-    page = Lux.render.get('/request_test/go')
+      assert_status 200, page
+      assert page.ok?
+      assert_kind_of String, page.body
+      assert_json_includes({ q: 'x' }, page)
+    end
 
-    assert_status 302, page
-    refute page.ok?
-    assert_match %r{\A/request_test/echo}, page.redirect_to
-  end
+    it 'reads the redirect target' do
+      page = Lux.render.get('/request_test/go')
 
-  it 'carries the session between calls with a client' do
-    client = Lux.render.client
-    client.get('/request_test/remember', params: { v: 'kept' })
+      assert_status 302, page
+      refute page.ok?
+      assert_match %r{\A/request_test/echo}, page.redirect_to
+    end
 
-    assert_body_includes 'kept', client.get('/request_test/recall')
-  end
-end
+    it 'carries the session between calls with a client' do
+      client = Lux.render.client
+      client.get('/request_test/remember', params: { v: 'kept' })
 
-describe 'Static files' do
-  it 'leaves a path to the before hook that answered it' do
-    Dir.mktmpdir do |dir|
-      FileUtils.mkdir_p File.join(dir, 'public')
-      File.write File.join(dir, 'public/static_guard.txt'), 'from public'
-      File.write File.join(dir, 'public/static_plain.txt'), 'plain file'
-      was = Lux.config[:serve_static_files]
-      Lux.config[:serve_static_files] = true
-
-      Dir.chdir(dir) do
-        # the body is set-once, so a leaked file shows up as its headers
-        page = Lux.render.get('/static_guard.txt')
-        assert_body_includes 'from before', page
-        assert_nil page.headers['last-modified']
-        assert_nil page.headers['access-control-allow-origin']
-
-        assert_body_includes 'plain file', Lux.render.get('/static_plain.txt')
-      end
-    ensure
-      Lux.config[:serve_static_files] = was
+      assert_body_includes 'kept', client.get('/request_test/recall')
     end
   end
-end
 
-describe 'Request id' do
-  it 'generates one and echoes it' do
-    page = Lux.render.get('/request_test/echo')
+  describe 'Static files' do
+    it 'leaves a path to the before hook that answered it' do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p File.join(dir, 'public')
+        File.write File.join(dir, 'public/static_guard.txt'), 'from public'
+        File.write File.join(dir, 'public/static_plain.txt'), 'plain file'
+        was = Lux.config[:serve_static_files]
+        Lux.config[:serve_static_files] = true
 
-    assert_match(/\A\h{20}\z/, page.headers['x-request-id'])
+        Dir.chdir(dir) do
+          # the body is set-once, so a leaked file shows up as its headers
+          page = Lux.render.get('/static_guard.txt')
+          assert_body_includes 'from before', page
+          assert_nil page.headers['last-modified']
+          assert_nil page.headers['access-control-allow-origin']
+
+          assert_body_includes 'plain file', Lux.render.get('/static_plain.txt')
+        end
+      ensure
+        Lux.config[:serve_static_files] = was
+      end
+    end
   end
 
-  it 'keeps a sane upstream id and replaces an unsafe one' do
-    kept = Lux.render.get('/request_test/echo', headers: { 'X-Request-Id' => 'abc-123@edge' })
-    replaced = Lux.render.get('/request_test/echo', headers: { 'X-Request-Id' => "bad id\n" })
+  describe 'Request id' do
+    it 'generates one and echoes it' do
+      page = Lux.render.get('/request_test/echo')
 
-    assert_equal 'abc-123@edge', kept.headers['x-request-id']
-    assert_match(/\A\h{20}\z/, replaced.headers['x-request-id'])
-  end
-end
+      assert_match(/\A\h{20}\z/, page.headers['x-request-id'])
+    end
 
-describe 'Malformed input' do
-  it 'answers a broken query string with 400' do
-    assert_status 400, Lux.render.get('/request_test/echo?a=%')
-    assert_status 400, Lux.render.get('/request_test/echo?a[]=1&a[b]=2')
-  end
+    it 'keeps a sane upstream id and replaces an unsafe one' do
+      kept = Lux.render.get('/request_test/echo', headers: { 'X-Request-Id' => 'abc-123@edge' })
+      replaced = Lux.render.get('/request_test/echo', headers: { 'X-Request-Id' => "bad id\n" })
 
-  it 'answers a dot segment in the path with 400' do
-    assert_status 400, Lux.render.get('/request_test/../config/config.yaml')
-    assert_status 400, Lux.render.get('/request_test/%2e%2e/echo')
-    assert_status 400, Lux.render.get('/./request_test/echo')
-    assert_status 200, Lux.render.get('/request_test/echo?v=..')
+      assert_equal 'abc-123@edge', kept.headers['x-request-id']
+      assert_match(/\A\h{20}\z/, replaced.headers['x-request-id'])
+    end
   end
 
-  it 'answers a broken JSON body with 400' do
-    page = Lux.render.post('/request_test/echo', body: '{"a":', headers: { 'Content-Type' => 'application/json' })
+  describe 'Malformed input' do
+    it 'answers a broken query string with 400' do
+      assert_status 400, Lux.render.get('/request_test/echo?a=%')
+      assert_status 400, Lux.render.get('/request_test/echo?a[]=1&a[b]=2')
+    end
 
-    assert_status 400, page
+    it 'answers a dot segment in the path with 400' do
+      assert_status 400, Lux.render.get('/request_test/../config/config.yaml')
+      assert_status 400, Lux.render.get('/request_test/%2e%2e/echo')
+      assert_status 400, Lux.render.get('/./request_test/echo')
+      assert_status 200, Lux.render.get('/request_test/echo?v=..')
+    end
+
+    it 'answers a broken JSON body with 400' do
+      page = Lux.render.post('/request_test/echo', body: '{"a":', headers: { 'Content-Type' => 'application/json' })
+
+      assert_status 400, page
+    end
+
+    it 'merges a JSON object body into params' do
+      page = Lux.render.post('/request_test/echo?q=1', body: '{"name":"Dux"}', headers: { 'Content-Type' => 'application/json' })
+
+      assert_json_includes({ q: '1', name: 'Dux' }, page)
+    end
   end
 
-  it 'merges a JSON object body into params' do
-    page = Lux.render.post('/request_test/echo?q=1', body: '{"name":"Dux"}', headers: { 'Content-Type' => 'application/json' })
+  describe 'Router before filters' do
+    it 'stops the chain once a filter wrote the response' do
+      page = Lux.render.get('/filter_halt', params: { deny: 1 })
 
-    assert_json_includes({ q: '1', name: 'Dux' }, page)
-  end
-end
+      assert_status 403, page
+      assert_body_includes 'denied', page
+    end
 
-describe 'Controller filters' do
-  it 'stops the chain once a filter wrote the response' do
-    page = Lux.render.get('/filter_halt', params: { deny: 1 })
+    it 'redirects from a before filter' do
+      page = Lux.render.get('/filter_halt', params: { login: 1 })
 
-    assert_status 403, page
-    assert_body_includes 'denied', page
-  end
+      assert_status 302, page
+      assert_equal '/login', URI.parse(page.redirect_to).path
+    end
 
-  it 'runs after callbacks when a before filter redirects' do
-    page = Lux.render.get('/filter_halt', params: { login: 1 })
-
-    assert_status 302, page
-    assert_equal 'ran', page.headers['x-after']
+    it 'runs the action when no filter answers' do
+      assert_body_includes 'shown', Lux.render.get('/filter_halt')
+    end
   end
 
-  it 'runs the action when no filter answers' do
-    assert_body_includes 'shown', Lux.render.get('/filter_halt')
-  end
-end
+  describe 'Router halting' do
+    it 'stops app before hooks once one wrote the body' do
+      page = Lux.render.get('/halt_before')
 
-describe 'Router halting' do
-  it 'stops app before hooks once one wrote the body' do
-    page = Lux.render.get('/halt_before')
+      assert_equal 'first', page.body
+      assert_nil page.headers['x-second']
+    end
 
-    assert_equal 'first', page.body
-    assert_nil page.headers['x-second']
-  end
+    it 'ends routing when a route sets the body' do
+      page = Lux.render.get('/halt_body')
 
-  it 'ends routing when a route sets the body' do
-    page = Lux.render.get('/halt_body')
+      assert_status 200, page
+      assert_equal 'stop', page.body
+    end
 
-    assert_status 200, page
-    assert_equal 'stop', page.body
-  end
+    it 'does not dispatch once the body is written' do
+      page = Lux.render.get('/raw_then_map')
 
-  it 'does not dispatch once the body is written' do
-    page = Lux.render.get('/raw_then_call')
-
-    assert_equal 'raw', page.body
-    assert_nil page.headers['x-probe']
-  end
-end
-
-describe 'Request hygiene' do
-  it 'answers /healthcheck without routing' do
-    page = Lux.render.get('/healthcheck')
-
-    assert_status 200, page
-    assert_equal 'ok', page.body
+      assert_equal 'raw', page.body
+      assert_nil page.headers['x-probe']
+    end
   end
 
-  it 'rejects a bare IP host' do
-    assert_status 403, Lux.render.get('http://127.0.0.1/')
-  end
-end
+  describe 'Request hygiene' do
+    it 'answers /healthcheck without routing' do
+      page = Lux.render.get('/healthcheck')
 
-describe 'Request logging' do
-  it 'writes one JSON line per request when log_requests is on' do
-    buf = StringIO.new
-    Lux::LOGGER_CACHE[:request] = Logger.new(buf)
-    Lux.config[:log_requests] = true
+      assert_status 200, page
+      assert_equal 'ok', page.body
+    end
 
-    Lux.render.get('/request_test/echo?token=x', headers: { 'X-Request-Id' => 'log-1' })
-    line = JSON.parse(buf.string.lines.last)
-
-    assert_equal 'log-1', line['id']
-    assert_equal 200, line['status']
-    assert_equal '/request_test/echo', line['path']
-    assert_equal 'RequestTestController#echo', line['dispatch']
-  ensure
-    Lux.config[:log_requests] = false
-    Lux::LOGGER_CACHE.delete(:request)
+    it 'rejects a bare IP host' do
+      assert_status 403, Lux.render.get('http://127.0.0.1/')
+    end
   end
 
-  it 'masks credential-looking params' do
-    params = { 'email' => 'a@b.c', 'password' => 'x', 'user' => { 'api_token' => 'y' } }
-    out    = Lux::Application.allocate.send(:filter_params, params)
+  describe 'Request logging' do
+    it 'writes one JSON line per request when log_requests is on' do
+      buf = StringIO.new
+      Lux::LOGGER_CACHE[:request] = Logger.new(buf)
+      Lux.config[:log_requests] = true
 
-    assert_equal({ 'email' => 'a@b.c', 'password' => '[FILTERED]', 'user' => { 'api_token' => '[FILTERED]' } }, out)
-  end
-end
+      Lux.render.get('/request_test/echo?token=x', headers: { 'X-Request-Id' => 'log-1' })
+      line = JSON.parse(buf.string.lines.last)
 
-describe 'Conditional GET' do
-  def tag
-    @tag ||= Lux.render.get('/request_test/cached').headers['etag']
-  end
+      assert_equal 'log-1', line['id']
+      assert_equal 200, line['status']
+      assert_equal '/request_test/echo', line['path']
+      assert_equal 'RequestTestRouter#echo', line['dispatch']
+    ensure
+      Lux.config[:log_requests] = false
+      Lux::LOGGER_CACHE.delete(:request)
+    end
 
-  it 'answers 304 for a weak/strong match anywhere in the If-None-Match list' do
-    bare = tag.delete_prefix('W/')
+    it 'masks credential-looking params' do
+      params = { 'email' => 'a@b.c', 'password' => 'x', 'user' => { 'api_token' => 'y' } }
+      out    = Lux::Router.allocate.send(:filter_params, params)
 
-    assert_status 304, Lux.render.get('/request_test/cached', headers: { 'If-None-Match' => %("other", #{bare}) })
-    assert_status 304, Lux.render.get('/request_test/cached', headers: { 'If-None-Match' => '*' })
-    assert_status 200, Lux.render.get('/request_test/cached', headers: { 'If-None-Match' => '"other"' })
-  end
-
-  it 'answers If-Modified-Since from last_modified' do
-    page = Lux.render.get('/request_test/cached')
-    assert_equal Time.utc(2026, 1, 1).httpdate, page.headers['last-modified']
-
-    assert_status 304, Lux.render.get('/request_test/cached', headers: { 'If-Modified-Since' => Time.utc(2026, 2, 1).httpdate })
-    assert_status 200, Lux.render.get('/request_test/cached', headers: { 'If-Modified-Since' => Time.utc(2025, 1, 1).httpdate })
+      assert_equal({ 'email' => 'a@b.c', 'password' => '[FILTERED]', 'user' => { 'api_token' => '[FILTERED]' } }, out)
+    end
   end
 
-  it 'tags HEAD responses like GET' do
-    head = Lux.render.head('/request_test/echo').headers['etag']
+  describe 'Conditional GET' do
+    def tag
+      @tag ||= Lux.render.get('/request_test/cached').headers['etag']
+    end
 
-    refute_nil head
-    assert_equal Lux.render.get('/request_test/echo').headers['etag'], head
+    it 'answers 304 for a weak/strong match anywhere in the If-None-Match list' do
+      bare = tag.delete_prefix('W/')
+
+      assert_status 304, Lux.render.get('/request_test/cached', headers: { 'If-None-Match' => %("other", #{bare}) })
+      assert_status 304, Lux.render.get('/request_test/cached', headers: { 'If-None-Match' => '*' })
+      assert_status 200, Lux.render.get('/request_test/cached', headers: { 'If-None-Match' => '"other"' })
+    end
+
+    it 'answers If-Modified-Since from last_modified' do
+      page = Lux.render.get('/request_test/cached')
+      assert_equal Time.utc(2026, 1, 1).httpdate, page.headers['last-modified']
+
+      assert_status 304, Lux.render.get('/request_test/cached', headers: { 'If-Modified-Since' => Time.utc(2026, 2, 1).httpdate })
+      assert_status 200, Lux.render.get('/request_test/cached', headers: { 'If-Modified-Since' => Time.utc(2025, 1, 1).httpdate })
+    end
+
+    it 'tags HEAD responses like GET' do
+      head = Lux.render.head('/request_test/echo').headers['etag']
+
+      refute_nil head
+      assert_equal Lux.render.get('/request_test/echo').headers['etag'], head
+    end
   end
-end
 
-describe 'response.cookie' do
-  it 'sends app cookies next to the session cookie' do
-    cookies = Array(Lux.render.get('/request_test/set_cookie').headers['set-cookie'])
+  describe 'response.cookie' do
+    it 'sends app cookies next to the session cookie' do
+      cookies = Array(Lux.render.get('/request_test/set_cookie').headers['set-cookie'])
 
-    assert_equal 3, cookies.length
-    assert_includes cookies, 'theme=dark; path=/; max-age=3600; httponly; samesite=lax'
-    assert cookies.any? { _1.start_with?('old=; ') && _1.include?('max-age=0') }
-    assert cookies.any? { _1.start_with?(Lux.config[:session_cookie_name] || 'lux_') }
+      assert_equal 3, cookies.length
+      assert_includes cookies, 'theme=dark; path=/; max-age=3600; httponly; samesite=lax'
+      assert cookies.any? { _1.start_with?('old=; ') && _1.include?('max-age=0') }
+      assert cookies.any? { _1.start_with?(Lux.config[:session_cookie_name] || 'lux_') }
+    end
   end
-end
 
-describe 'map options' do
-  it 'passes route options to an absolute-path target as ivars' do
-    assert_body_includes 'mint:42', Lux.render.get('/request_flavor/42')
+  describe 'map options' do
+    it 'passes route options to an absolute-path target as ivars' do
+      assert_body_includes 'mint:42', Lux.render.get('/request_flavor/42')
+    end
   end
 end

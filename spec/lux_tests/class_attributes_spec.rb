@@ -2,7 +2,7 @@ require 'test_helper'
 
 # Behavior lock for the vendored class-attributes macro
 # (Lux::Utils::ClassAttributes). `cattr` is patched onto Class/Object; these
-# cover the paths Controller/Mailer/ViewCell and the db plugins rely on.
+# cover the paths Router/Mailer/ViewCell and the db plugins rely on.
 describe 'Lux::Utils::ClassAttributes (cattr)' do
   describe 'class: true' do
     it 'defines a class getter/setter seeded with the default' do

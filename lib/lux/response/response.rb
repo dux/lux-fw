@@ -211,7 +211,7 @@ module Lux
     #               headers: %w[Authorization], credentials: true, max_age: 600
     # Sets CORS response headers. On a preflight (OPTIONS + ACRM), also sets
     # status 204 + empty body so the response is complete without an action.
-    # Call from a controller action or - more commonly - a `before` callback.
+    # Call from a router action or - more commonly - a `before` callback.
     def cors *args, **opts
       Lux::Response::Cors.apply self, *args, **opts
     end
@@ -294,7 +294,7 @@ module Lux
       @headers['location'] = where
       @headers['access-control-expose-headers'] ||= 'Location'
 
-      # if we do not have this here, controller will proceed executing code after redirect_to
+      # if we do not have this here, the router would keep executing code after redirect_to
       throw :done
     end
 
@@ -317,7 +317,7 @@ module Lux
     def render app = nil
       write_response_body
 
-      # Fire Application#after BEFORE headers are written so callbacks can mutate
+      # Fire Router#after BEFORE headers are written so callbacks can mutate
       # @body (translations, HTML rewrites, etc.) and content-length / etag are
       # computed against the final body. Flash added in :after also makes the cookie.
       # catch :done - a redirect_to in an after callback ends the chain, not the request
@@ -378,7 +378,7 @@ module Lux
         ms:       ((Time.monotonic - @render_start) * 1000).round(1),
         ip:       current.ip,
         user:     (user.ref if user.respond_to?(:ref)),
-        dispatch: current.var[:dispatch]&.values_at(:controller, :action)&.join('#')
+        dispatch: current.var[:dispatch]&.values_at(:router, :action)&.join('#')
       }
 
       logger = Lux.logger(:request)

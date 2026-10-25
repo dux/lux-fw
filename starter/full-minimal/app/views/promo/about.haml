@@ -6,7 +6,7 @@
     behind AuthCog sign-in, and an admin area. Nothing here is precious - delete
     it and build your own.
   %ul.space-y-2.text-slate-600
-    %li URLs are declared in ./app/routes.rb; /app and /admin get their own controllers.
+    %li URLs are declared in ./app/routes.rb; /app and /admin get their own routers.
     %li This page has no action - promo is convention routed, so app/views/promo/about.haml is enough.
     %li PostgreSQL through Sequel, with the schema declared on the model.
     %li Access is decided on the server by UserPolicy, never in the view.

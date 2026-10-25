@@ -1,7 +1,7 @@
 module Lux
   module Utils
-    # The `allow` contract shared by Lux::Controller and Lux::Api: the declared
-    # verbs REPLACE the default set (GET for controllers, POST for APIs), `:any`
+    # The `allow` contract shared by Lux::Router and Lux::Api: the declared
+    # verbs REPLACE the default set (GET for routers, POST for APIs), `:any`
     # (alias `:all`) turns the check off, and HEAD + OPTIONS ride along with GET.
     module HttpVerbs
       extend self

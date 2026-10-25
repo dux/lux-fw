@@ -1,8 +1,8 @@
 require 'test_helper'
-require_relative '../load/authcog_controller'
+require_relative '../load/authcog_router'
 require_relative '../load/user_session'
 
-describe AuthcogController do
+describe AuthcogRouter do
   def with_host host
     was = Lux.config[:host]
     Lux.config[:host] = host
@@ -12,13 +12,13 @@ describe AuthcogController do
   end
 
   def base_for url
-    AuthcogController.exchange_base(Lux::Utils::Url.new(url))
+    AuthcogRouter.exchange_base(Lux::Utils::Url.new(url))
   end
 
   # what a view renders: a plain local path, so a link drawn into a shared layout
   # or a cached page carries no per-browser secret
   it 'links to its own mount path' do
-    _(AuthcogController.auth_link).must_equal '/authcog'
+    _(AuthcogRouter.auth_link).must_equal '/authcog'
   end
 
   it 'builds the exchange base with the development port' do

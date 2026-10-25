@@ -11,7 +11,7 @@ describe Lux::Current do
       _(current.request).must_be_kind_of Rack::Request
       _(current.response).must_be_kind_of Lux::Response
       _(current.session).must_be_kind_of Lux::Current::Session
-      _(current.nav).must_be_kind_of Lux::Application::Nav
+      _(current.nav).must_be_kind_of Lux::Router::Nav
       _(current.params).must_be_kind_of Hash
     end
 

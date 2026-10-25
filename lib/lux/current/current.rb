@@ -61,7 +61,7 @@ module Lux
     attr_reader   :request, :response, :nav, :route, :var, :env, :params
 
     # Query string or body that could not be parsed (Rack::BadRequest,
-    # JSON::ParserError). Application#render_base answers it with a 400.
+    # JSON::ParserError). Router#render_base answers it with a 400.
     attr_reader   :malformed_request
 
     # Body-only params: parsed POST/PUT/PATCH body, no GET/route merge,
@@ -141,9 +141,9 @@ module Lux
       # base vars
       @files_in_use = Set.new
       @response     = Lux::Response.new
-      @nav          = Lux::Application::Nav.new @request
+      @nav          = Lux::Router::Nav.new @request
       @session      = Lux::Current::Session.new @request, @nav.domain
-      @route        = Lux::Application::Route.new @nav
+      @route        = Lux::Router::Route.new @nav
       @var          = { cache: {} }.to_lux_hash
 
       @opt.session.or({}).each {|k,v| @session[k] = v }
@@ -151,7 +151,7 @@ module Lux
 
     # Param validation errors from the action's `opt` / `params do` contract,
     # as { field => 'Message' }. Only populated for HTML requests - a JSON
-    # request halts with 422 instead (see Controller::ParamsDsl). Note that
+    # request halts with 422 instead (see Router::ParamsDsl). Note that
     # lux.params has already been filtered and coerced by the time this is set,
     # so re-render the form from the submitted values you kept, not from params.
     def param_errors

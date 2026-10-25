@@ -108,7 +108,7 @@ In the host:
 
 ```ruby
 Lux do
-  routes do
+  route do
     plugin_route :web_common           # explicit, at root
     map 'admin' do
       plugin_route :my_plugin          # explicit, mounted under /admin
@@ -148,11 +148,11 @@ Files are used in place - nothing is copied or symlinked into the host app.
 * The same roots feed eager loading (`Lux.root.require_all 'app'`), template
   lookup and the asset pipeline.
 * `mount/app/**/*.rb` files are registered for autoload when the mount is
-  added, so a plugin controller loads on first reference.
+  added, so a plugin router loads on first reference.
 * Node build files (`rollup.config.js`) cannot read `Lux::Root`; each app
   owns its config. A mount's `app/assets/<name>.<ext>.rb` generator is run by
   `lux assets:build` into the app's `app/assets/<name>.tmp.<ext>`.
 
 ## See also
 
-* [`../application/README.md`](../application/README.md) - `plugin_route :name`, `plugin_routes`
+* [`../router/README.md`](../router/README.md) - `plugin_route :name`, `plugin_routes`

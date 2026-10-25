@@ -20,7 +20,7 @@ via their full namespace, or through monkey-patches on stdlib classes
 | `Lux::Utils::TimeOptions`   | `time_options.rb`    | `short` / `long` date formatters, mixed into Time/Date/DateTime |
 | `Lux::Utils::HtmlTag`       | `html_tag/`          | tag-based HTML builder DSL (vendored, rewritten); top-level `HtmlTag` kept as alias |
 | `Lux::Utils::Url`           | `url.rb`             | URL parser/builder with path attrs, locale, qs, pqs (vendored from `lux-url` gem); top-level `Url` kept as alias; browser twin is `$.url` |
-| `Lux::Utils::Ref`           | `ref.rb`             | `generate` / `is?` for the default ref format; the rule lives in `Lux::Application::Nav::RefString` |
+| `Lux::Utils::Ref`           | `ref.rb`             | `generate` / `is?` for the default ref format; the rule lives in `Lux::Router::Nav::RefString` |
 
 The db plugin reopens `Lux::Utils::Ref` in `ext/nav_models.rb` to add the model
 registry (`register` / `klass` / `load` / `models` / `public_link`), which needs
@@ -186,7 +186,7 @@ tag(name, inner = nil, **attrs, &block)
 
 * `inner` is the text/value placed between the tags (overridden by `&block`).
 * `attrs` are always kwargs - the old `div 123, class: :foo` arg-order swap is gone.
-* Inside a `&block`, unknown methods flow to the host (cell/controller), and host
+* Inside a `&block`, unknown methods flow to the host (cell/router), and host
   `@ivars` are visible. Use `this` / `context` / `parent` for an explicit host handle.
 
 ### Url (`lib/lux/utils/url.rb`)
@@ -255,6 +255,6 @@ Time.now.short(true) # force default format, ignore config
 
 * [`../current/README.md`](../current/README.md) - `Lux.current.encrypt/decrypt` (per-request variants)
 * [`url.rb`](./url.rb) - `Lux::Utils::Url` (server); browser twin [`dollar_url.js`](../../../plugins/web_common/assets/js/dollar/dollar_url.js) (`$.url`)
-* [`../application/lib/nav/ref_string.rb`](../application/lib/nav/ref_string.rb) - the format behind `Lux::Utils::Ref`
+* [`../router/lib/nav/ref_string.rb`](../router/lib/nav/ref_string.rb) - the format behind `Lux::Utils::Ref`
 * [`../../../plugins/db/lib/ext/nav_models.rb`](../../../plugins/db/lib/ext/nav_models.rb) - `Lux::Utils::Ref` model registry + `Nav#load_models` (db plugin)
 * [`../../../plugins/db/lib/ext/paginate.rb`](../../../plugins/db/lib/ext/paginate.rb) - `Lux::Utils::PaginatedArray`

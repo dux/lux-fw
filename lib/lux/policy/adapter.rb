@@ -12,9 +12,9 @@ module Lux
       end
     end
 
-    # Mix into controllers for authorize / is_authorized?.
-    # Auto-mounted into Lux::Controller below.
-    module Controller
+    # Mix into routers for authorize / is_authorized?.
+    # Included into Lux::Router (lib/lux/router/router.rb).
+    module Authorize
       def authorize result = false
         if (block_given? ? yield : result)
           @_is_policy_authorized = true
@@ -36,9 +36,4 @@ module Lux
       end
     end
   end
-end
-
-# mount controller helpers into Lux::Controller when loaded
-if Object.const_defined?('Lux::Controller')
-  Lux::Controller.include Lux::Policy::Controller
 end

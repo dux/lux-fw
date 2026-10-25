@@ -4,37 +4,10 @@
 # HTTP status is set on lux.response by `Lux.error CODE, msg` (see error/lux_adapter.rb),
 # not carried on the exception itself. `Lux.error` builds the exception; the caller raises it.
 #
-# Static helpers below (.render, .inline, .format) handle error display.
+# Static helpers below (.inline, .format) handle error display.
 module Lux
   class Error < StandardError
     class << self
-      # Last-resort framework chrome. Reached only when there's no Lux.app
-      # rescue_from and no controller :error. Reads status from lux.response.
-      def render error
-        error = StandardError.new(error) if error.is_a?(String)
-
-        code  = Lux.current.response.status.to_i
-        code  = 500 if code < 400
-        Lux.current.response.status code
-        name  = ::Rack::Utils::HTTP_STATUS_CODES[code] || 'Error'
-
-        Lux.current.response.body(
-          HtmlTag.html do |n|
-            n.tag(:head) do |n|
-              n.title 'Lux error'
-            end
-            n.tag(:body, style: "margin: 20px 20px 20px 140px; background-color:#fdd; font-size: 14pt; font-family: sans-serif;") do |n|
-              n.img src: "https://i.imgur.com/Zy7DLXU.png", style: "width: 100px; position: absolute; margin-left: -120px;"
-              n.h4 do |n|
-                n.push %[HTTP Error &mdash; <a href="https://httpstatuses.com/#{code}" target="http_error">#{code}</a>]
-                n.push %[ &dash; #{name}]
-              end
-              n.push inline(error)
-            end
-          end
-        )
-      end
-
       # Render error inline (e.g. embedded in a template error fallback).
       def inline object, msg = nil
         error = object.is_a?(String) ? nil : object

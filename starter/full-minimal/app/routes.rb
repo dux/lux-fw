@@ -1,10 +1,10 @@
-Lux.app do
+Lux.router do
   before do
     UserSession.resolve
     UserSession.destroy_session if user && (user.is_locked || user.is_deleted)
   end
 
-  routes do
+  route do
     map '/authcog', 'authcog#call'
     map '/login', 'promo#login'
 
@@ -17,6 +17,6 @@ Lux.app do
     end
 
     # public pages are convention routed - /about renders app/views/promo/about.haml
-    call 'promo#auto'
+    map 'promo#auto'
   end
 end

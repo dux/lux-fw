@@ -34,7 +34,7 @@ if Lux.debug? || ENV['DB_LOG'] == 'true'
   end
 
   if Lux.debug?
-    Lux.app do
+    Lux.router do
       before do
         Thread.current[:db_q] = { time: 0.0, cnt: 0, list:{} }
       end

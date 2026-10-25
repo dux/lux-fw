@@ -1,7 +1,7 @@
 # App-boot orchestration: env resolution, .env, gemfile load, config.yaml,
 # defaults, plugins. Loaded after Shell/Environment/Config so it can call
 # into them directly. Idempotent - safe to call from config/env.rb, from
-# `bin/lux`'s :app task, and defensively from Lux::Application#call.
+# `bin/lux`'s :app task, and defensively from Lux::Router#call.
 #
 # Public entry is Lux.boot! (thin delegator in boot/lux_adapter.rb).
 
@@ -139,7 +139,7 @@ module Lux
       # What an id looks like, app-wide: the router (nav.map_path), the :ref
       # column type, Lux::Utils::Ref and load_models all resolve through it, so
       # they cannot drift apart. A registered name, or `{ name => attrs }`.
-      # See Lux::Application::Nav::Base.register for what is available.
+      # See Lux::Router::Nav::Base.register for what is available.
       set_default :ref_format, :string
 
       # Serve static files is on by default

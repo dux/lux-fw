@@ -120,7 +120,7 @@ describe 'lux new' do
     assert_includes File.read(File.join(path, 'config/app.rb')), "Lux.root.require_all 'app'"
     assert_includes File.read(File.join(path, 'config/config.yaml')), '- authcog'
     refute_includes File.read(File.join(path, 'config/config.yaml')), 'web_common'
-    refute File.exist?(File.join(path, 'app/controllers/admin_controller.rb'))
+    refute File.exist?(File.join(path, 'app/routers/admin_router.rb'))
     refute File.exist?(File.join(path, '.gitignore.template'))
     assert_includes File.read(File.join(path, '.gitignore')), '/config/config.yaml'
     assert_includes File.read(File.join(path, '.gitignore')), '/.libs/'
@@ -230,10 +230,10 @@ describe 'lux new' do
     assert_includes spec.files, 'starter/hello-world/public/components/app-nav.fez'
     assert_includes spec.files, 'starter/full-minimal/public/components/starter-counter.fez'
     # the extracted plugin has to ship too, or authcog apps break on install
-    assert_includes spec.files, 'plugins/authcog/load/authcog_controller.rb'
+    assert_includes spec.files, 'plugins/authcog/load/authcog_router.rb'
     assert_includes spec.files, 'plugins/authcog/load/user_session.rb'
     assert_includes spec.files, 'plugins/job_runner/config.yaml'
-    assert_includes spec.files, 'assets/controller/error_page.html.erb'
+    assert_includes spec.files, 'assets/router/error_page.html.erb'
     refute spec.files.any? { |file| File.basename(file).include?('.tmp.') }
     refute spec.files.any? { |file| file.start_with?('assets/new_app/') }
   end
@@ -271,7 +271,7 @@ describe 'lux new' do
       start = Lux.render.get('http://lvh.me:3000/authcog')
       assert_match %r{\Ahttps://auth\.authcog\.com/domain:lvh\.me/port:3000\?state=}, start.headers['location']
 
-      AuthcogController.class_eval do
+      AuthcogRouter.class_eval do
         def fetch_identity(_hash)
           { email: 'new@example.com', name: '<b>New user</b>', provider: 'test' }
         end
@@ -320,7 +320,7 @@ describe 'lux new' do
         assert_equal '/login', URI.parse(guest.headers['location']).path
         assert_equal path, guest.session[:redirect_after_login]
       end
-      AuthcogController.class_eval do
+      AuthcogRouter.class_eval do
         def fetch_identity(_hash)
           { email: 'member@example.com', name: 'Member', provider: 'test' }
         end

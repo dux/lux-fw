@@ -27,9 +27,9 @@ Both include PostgreSQL, AuthCog, Tailwind and Fez; see the [CLI guide](./bin/RE
 require 'lux-fw'
 
 Lux do
-  routes do
-    map 'foo', 'foo#call'         # /foo -> FooController#call
-    body 'Hello world, this is 404'
+  route do
+    map 'foo', 'foo#call'         # /foo -> FooRouter#call
+    render text: 'Hello world, this is 404', status: 404
   end
 end
 ```
@@ -65,7 +65,7 @@ run Lux
 
 CLI tasks declare `needs :app` and the `:app` task in `bin/lux` runs
 `Lux.boot!` for you. Light commands like `lux routes` or `lux --help`
-never call it, so they stay fast. `Lux::Application#call` also calls
+never call it, so they stay fast. `Lux.call` also calls
 `Lux.boot!` defensively on the first request, so hosts that skip
 `config/env.rb` in `config.ru` still work.
 
@@ -80,12 +80,12 @@ new dialect.
 
 Lux ships these as first-class modules that **share the same primitives**:
 
-* **One schema DSL** drives params validation in controllers
+* **One schema DSL** drives params validation in routers
   (`opt :name, String, max: 30`), API endpoints (`params do ... end`),
   model field definitions, and DB migrations.
 * **One type system** (`:email`, `:uuid`, `:slug`, `:locale`, ...) is
   the vocabulary everywhere a type is named.
-* **One access policy** used identically by controllers, APIs, and
+* **One access policy** used identically by routers, APIs, and
   models (`@blog.can.read?`).
 * **One request context** (`Lux.current`) used by everything that
   needs to know about the in-flight request.
@@ -93,7 +93,7 @@ Lux ships these as first-class modules that **share the same primitives**:
 The win is twofold:
 
 1. **For humans:** learn `opt :email, type: :email, req: false` once -
-   it works the same in a controller, an API, a schema block, a form
+   it works the same in a router, an API, a schema block, a form
    helper.
 2. **For LLMs:** one DSL means generated code is consistent across the
    codebase - fewer hallucinations and better completions. The framework
@@ -103,14 +103,13 @@ The win is twofold:
 ## Framework features
 
 * Routing DSL with tree-style scoping (`map`, `root`, `subdomain`,
-  `plugin_route`, HTTP-method predicates), usable at the top level of
-  `Lux do ... end` or inside an optional `routes do` wrapper
-* Controllers with the shared `opt` / `params do` schema DSL
+  `plugin_route`, HTTP-method predicates) inside `route do ... end`
+* Routers with the shared `opt` / `params do` schema DSL
 * JSON-RPC-style APIs with auto-generated explorer, OpenAPI, Postman, and
   `/sys/AGENTS.md` for agents
-* Schema + type system used identically in controllers / APIs / models /
+* Schema + type system used identically in routers / APIs / models /
   DB migrations
-* Access policies usable from controllers, APIs, and models
+* Access policies usable from routers, APIs, and models
 * Multi-DB Sequel pool, eager-on-boot, lazy-on-access
 * JWT-encrypted sessions
 * Memory / Memcached / SQLite / null cache with one API
@@ -125,12 +124,12 @@ The win is twofold:
 
 ## A taste of the unification
 
-The same line parser handles the schema in a controller, in an API, in
+The same line parser handles the schema in a router, in an API, in
 a model, or in a standalone `Lux.schema` block:
 
 ```ruby
-# in a controller
-class UsersController < Lux::Controller
+# in a router
+class UsersRouter < Lux::Router
   opt :name,  String, max: 30
   opt :email, type: :email
   def create
@@ -169,11 +168,10 @@ guidance is consolidated in the top-level [`AGENTS.md`](./AGENTS.md).
 | Module | Adapter / usage |
 |--------|-----------------|
 | [`Lux::Api`](./lib/lux/api/README.md)                   | `Lux::Api` (subclass `ApplicationApi`)     |
-| [`Lux::Application`](./lib/lux/application/README.md)   | `Lux do ... end` / `Lux.app`               |
+| [`Lux::Router`](./lib/lux/router/README.md)             | `Lux do ... end` / `Lux.router`            |
 | [`Lux::Browser::Channel`](./lib/lux/browser/channel/README.md) | `Lux.channel(user).push(...)`       |
 | [`Lux::Cache`](./lib/lux/cache/README.md)               | `Lux.cache`                                |
 | [`Lux::Boot::Config`](./lib/lux/boot/config/README.md)             | `Lux.config`                               |
-| [`Lux::Controller`](./lib/lux/controller/README.md)     | `class X < Lux::Controller`                |
 | [`Lux::Current`](./lib/lux/current/README.md)           | `Lux.current` / `current` / `lux`          |
 | [`Lux::Db`](./lib/lux/db/README.md)                     | `Lux.db` / `Lux.db(:name)` / `DB`          |
 | [`Lux::Environment`](./lib/lux/environment/README.md)   | `Lux.env` / `Lux.debug?` / `Lux.runtime`     |
@@ -195,7 +193,7 @@ guidance is consolidated in the top-level [`AGENTS.md`](./AGENTS.md).
 
 ### Lux::Api
 
-JSON-RPC-ish API classes. Shares the `params do` DSL with controllers
+JSON-RPC-ish API classes. Shares the `params do` DSL with routers
 and the schema layer. Auto-mounts, relative to the API's mount point
 (e.g. `/api`): `sys/web` (interactive explorer), `sys/openapi.json`,
 `sys/postman.json`, `sys/AGENTS.md`.
@@ -213,10 +211,10 @@ class UsersApi < ApplicationApi
 end
 ```
 
-### Lux::Application
+### Lux::Router
 
 Router and request lifecycle. Lifecycle callbacks at the top level of
-`Lux do ... end`; routing DSL inside `routes do ... end`.
+`Lux do ... end`; routing DSL inside `route do ... end`.
 
 ```ruby
 Lux do
@@ -230,11 +228,11 @@ Lux do
   end
 
   rescue_from do |err|
-    call 'main#error'                          # MainController#error
+    map 'main#error'                           # MainRouter#error
   end
 
-  routes do
-    root 'main'
+  route do
+    root 'main#index'
     map 'about', 'static#about' if get?
     map 'admin' do
       raise Lux.error.not_found unless user&.can&.admin?   # path-scoped guard
@@ -250,9 +248,9 @@ Two rules worth knowing up front:
 * **The first match ends routing.** A dispatch that writes the response body
   throws `:done`, caught once in the router, so every later statement in the
   block is skipped. No `unless response.body?` guards needed after a
-  `map` / `call` / `root`.
-* **`-` and `_` are the same character** to `map`, `match`, controller
-  `filter` and resourceful dispatch - normalised on both sides at compare
+  `map` / `root`.
+* **`-` and `_` are the same character** to `map`, `match`
+  and resourceful dispatch - normalised on both sides at compare
   time. `nav.path` keeps the URL's own spelling, so slug lookups still see
   `my-post-title`.
 
@@ -276,13 +274,13 @@ Lux.config.static_file_max_age = 600   # write at runtime
 Lux.config.on_mail_send { |m| ... }    # lifecycle hook
 ```
 
-### Lux::Controller
+### Routers
 
-HTTP controllers. Rails-shaped lifecycle; params declared with the
-shared `opt` / `params do` DSL.
+App request handlers subclass `Lux::Router` (`app/routers/<name>_router.rb`);
+params declared with the shared `opt` / `params do` DSL.
 
 ```ruby
-class BoardsController < Lux::Controller
+class BoardsRouter < ApplicationRouter
   before { @user = User.current or Lux.error.unauthorized }
 
   opt :name,  String, max: 30
@@ -370,7 +368,7 @@ status.
 Lux.error.not_found                    # 404
 Lux.error.forbidden 'no access'        # 403
 Lux.error(418, "I'm a teapot")         # arbitrary status
-Lux::Error.render(exception)           # last-resort rendering
+Lux.error.unauthorized                 # 401
 ```
 
 ### Lux::Hash
@@ -460,7 +458,7 @@ Lux.plugin.get(:db).folder             # filesystem path of a loaded plugin
 
 ### Lux::Policy
 
-Access policies usable from models, controllers, and APIs.
+Access policies usable from models, routers, and APIs.
 
 ```ruby
 class BlogPolicy < Lux::Policy
@@ -471,7 +469,7 @@ end
 
 @blog.can.read?                         # bool
 @blog.can.read!                         # raises Lux::Policy::Error on fail
-authorize @blog.can.read?               # in a controller: 403 on fail
+authorize @blog.can.read?               # in a router: 403 on fail
 ```
 
 ### Lux::Reloader
@@ -486,12 +484,11 @@ reload!                                 # console helper
 
 ### Lux::Render
 
-Render pages, controllers, templates, view cells - with or without an
+Render pages, templates, view cells - with or without an
 HTTP server.
 
 ```ruby
 Lux.render.get('/about').body           # full-page render via router
-Lux.render.controller('users#show') { @user = User.first }.body
 Lux.render.template(self, './app/views/welcome.haml')
 Lux.render.cell(:user, self).avatar(@user)
 ```
@@ -510,7 +507,7 @@ response.send_file './tmp/report.pdf', inline: true
 
 ### Lux::Schema
 
-The schema DSL at the heart of the framework - shared by controllers,
+The schema DSL at the heart of the framework - shared by routers,
 APIs, models, and migrations.
 
 ```ruby
@@ -539,7 +536,7 @@ Named types - the type vocabulary the rest of the framework uses.
 Plug-in new types under `lib/lux/type/types/`.
 
 ```ruby
-opt :email,   type: :email             # in a controller or API
+opt :email,   type: :email             # in a router or API
 opt :country, type: :country
 opt :id,      type: :uuid
 
@@ -570,7 +567,7 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 | Plugin | What | Docs |
 |--------|------|------|
 | `db`               | Sequel model extensions, auto-migrate, `link` associations | [README](./plugins/db/README.md) |
-| `authcog`          | Central-auth sign-in: `AuthcogController`, `UserSession` + sudo | [README](./plugins/authcog/README.md) |
+| `authcog`          | Central-auth sign-in: `AuthcogRouter`, `UserSession` + sudo | [README](./plugins/authcog/README.md) |
 | `web_common`       | Shared web layer: html builders, assets, PG exception logger + `/admin`; list `authcog` next to it | [README](./plugins/web_common/README.md) |
 | `locale`           | Namespaced translation lookup + `/<xx>` URL prefixes (`localized`, `lux.lpath`) | [README](./plugins/locale/README.md) |
 | `job_runner`       | Background job queue (LuxJob) + admin dashboard | [README](./plugins/job_runner/README.md) |
@@ -584,7 +581,7 @@ lux server         # Start web server (alias: s, ss)
 lux console        # Start Pry console (alias: c)
 lux render /path   # Render any path locally (session, bearer, headers)
 lux routes         # Print mounted route tree
-lux generate       # Generate models, cells, controllers
+lux generate       # Generate models, cells, routers
 lux evaluate CODE  # Evaluate Ruby in app context (alias: eval, e)
 lux test           # Run the test suite (alias: t)
 lux secrets        # Display ENV and secrets

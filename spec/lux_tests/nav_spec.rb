@@ -1,6 +1,6 @@
 require 'test_helper'
 
-describe Lux::Application::Nav do
+describe Lux::Router::Nav do
   def nav_for path, host: 'example.com'
     Lux::Current.new("http://#{host}#{path}")
     Lux.current.nav
@@ -215,7 +215,7 @@ describe Lux::Application::Nav do
     it 'reflects ref classification from nav.ref' do
       nav = nav_for('/boards/abc-123/edit')
       nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
-      _(nav[1]).must_be_kind_of Lux::Application::Nav::Base
+      _(nav[1]).must_be_kind_of Lux::Router::Nav::Base
       _(nav[1].value).must_equal '123'
     end
   end
@@ -236,7 +236,7 @@ describe Lux::Application::Nav do
       nav = nav_for('/boards/abc-123/edit')
       nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
       nav.normalized_path
-      _(nav.path[1]).must_be_kind_of Lux::Application::Nav::Base
+      _(nav.path[1]).must_be_kind_of Lux::Router::Nav::Base
       _(nav.path.map(&:to_s)).must_equal %w[boards 123 edit]
     end
 
@@ -336,7 +336,7 @@ describe Lux::Application::Nav do
       nav.map_path { |el| el == 'abc123' }
       _(nav.ref).must_equal 'abc123'
       _(nav.path.map(&:to_s)).must_equal %w[boards abc123]
-      _(nav.path[1]).must_be_kind_of Lux::Application::Nav::Base
+      _(nav.path[1]).must_be_kind_of Lux::Router::Nav::Base
     end
 
     it 'classifies from a format class with no block' do

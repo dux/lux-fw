@@ -21,7 +21,7 @@ Lux.template.render(self, template: './template.haml', layout: './layout.haml')
 
 Lux.template.render(self, './layout.haml') { 'content to yield' }
 
-# --- build a helper (used by Lux::Mailer / out-of-controller rendering) -
+# --- build a helper (used by Lux::Mailer / out-of-router rendering) -----
 
 # define your helper module
 module MainHelper
@@ -36,10 +36,10 @@ helper = Lux.template.helper(
 )
 helper.link_to 'Home', '/'
 
-# Inside a Lux::Controller, `helper` returns the same kind of object:
-class MainController < Lux::Controller
+# Inside a Lux::Router, `helper` returns the same kind of object:
+class MainRouter < ApplicationRouter
   def show
-    helper.link_to 'Home', '/'   # MainHelper#link_to (matches controller name)
+    helper.link_to 'Home', '/'   # MainHelper#link_to (matches the layout name)
     helper(:bar).format_date(t)  # BarHelper#format_date
   end
 end
@@ -47,10 +47,10 @@ end
 
 ## Conventions
 
-* Templates live under `./app/views/<controller>/<action>.haml` (Lux
-  default; override with `template_root` on the controller).
-* `app/views/layouts/<name>.haml` for layouts; `<controller>Helper`
-  module for per-controller helpers.
+* Templates live under `./app/views/<router>/<action>.haml` (Lux
+  default; override with `template_root` on the router).
+* `app/views/layouts/<name>.haml` for layouts; `<name>Helper`
+  module for per-router helpers.
 * Helper lookup order, later wins: `Lux::Template::Helper` < `HtmlHelper`
   (framework and plugins) < `ApplicationHelper` (app) < named helpers.
   One class is built and cached per helper set.
@@ -60,5 +60,5 @@ end
 ## See also
 
 * [`../render/README.md`](../render/README.md) - `Lux.render.template`
-* [`../controller/README.md`](../controller/README.md) - `render`, `helper`
+* [`../router/README.md`](../router/README.md) - `render`, `helper`
 * [`../view_cell/README.md`](../view_cell/README.md) - reusable components

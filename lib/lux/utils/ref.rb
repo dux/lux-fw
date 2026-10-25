@@ -1,7 +1,7 @@
 # Lux::Utils::Ref - the short name for the app's declared ref format.
 #
 # The format is named by Lux.config.ref_format and resolved through
-# Lux::Application::Nav::Base, so the router, the db column type and model
+# Lux::Router::Nav::Base, so the router, the db column type and model
 # primary keys all agree on what an id is. This is the facade models and
 # plugins call.
 #
@@ -19,7 +19,7 @@ module Ref
   # An instance of the declared format. Resolved per call, not memoized, so a
   # host that sets ref_format after this file loads still gets its own format.
   def format value = nil
-    Lux::Application::Nav::Base.build value
+    Lux::Router::Nav::Base.build value
   end
 
   # Extra args go to the format's #generate - RefString takes a length.

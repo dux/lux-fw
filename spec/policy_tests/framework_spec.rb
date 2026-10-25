@@ -2,8 +2,8 @@ require 'test_helper'
 require_relative './factories'
 require_relative './policies'
 
-class PolFakeController
-  include Lux::Policy::Controller
+class PolFakeAuthorize
+  include Lux::Policy::Authorize
 end
 
 class PolMocvara
@@ -18,7 +18,7 @@ end
 
 describe Lux::Policy do
   def controller
-    @controller ||= PolFakeController.new
+    @controller ||= PolFakeAuthorize.new
   end
 
   def post
@@ -72,12 +72,6 @@ describe Lux::Policy do
     it 'checks if it can access current user' do
       Thread.current[:current_user] = user
       _(PolMocvara.new.can.admin?).must_equal true
-    end
-  end
-
-  describe 'lux controller is wired with policy adapter' do
-    it 'has authorize / is_authorized? on Lux::Controller' do
-      _(Lux::Controller.include?(Lux::Policy::Controller)).must_equal true
     end
   end
 end

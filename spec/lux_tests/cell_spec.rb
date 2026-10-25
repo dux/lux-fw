@@ -1,12 +1,12 @@
 require 'test_helper'
 
-class TestController < Lux::Controller
+class TestRouter < Lux::Router
   before do
     @before = 'before'
   end
 
-  before_action do
-    @before_action = 'before_action'
+  before do
+    @second = 'second'
   end
 
   before_render do
@@ -28,7 +28,7 @@ class TestController < Lux::Controller
   end
 
   def test_before
-    render text: @before + @before_action
+    render text: @before + @second
   end
 
   def test_before_render_value
@@ -41,35 +41,35 @@ end
 
 ###
 
-describe Lux::Controller do
+describe Lux::Router do
   before do
     Lux::Current.new('http://testing')
   end
 
   it 'renders text' do
-    TestController.action(:render_text)
+    TestRouter.action(:render_text)
 
     _(Lux.current.response.body).must_equal 'foo'
   end
 
   it 'renders json' do
-    TestController.action(:render_json)
+    TestRouter.action(:render_json)
 
     _(Lux.current.response.body).must_equal '{"foo":"bar"}'
   end
 
   it 'raises on invalid render options' do
-    _{ TestController.action(:render_fail) }.must_raise ArgumentError
+    _{ TestRouter.action(:render_fail) }.must_raise ArgumentError
   end
 
-  it 'executes before and before_action filters' do
-    TestController.action(:test_before)
+  it 'executes before filters in order' do
+    TestRouter.action(:test_before)
 
-    _(Lux.current.response.body).must_equal 'beforebefore_action'
+    _(Lux.current.response.body).must_equal 'beforesecond'
   end
 
   it 'executes before_render callback when invoked' do
-    TestController.action(:test_before_render_value)
+    TestRouter.action(:test_before_render_value)
 
     _(Lux.current.response.body).must_equal 'before_render'
   end

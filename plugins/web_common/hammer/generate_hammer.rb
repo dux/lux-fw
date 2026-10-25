@@ -26,7 +26,7 @@ module LuxGenerate
       p: 'api',
       m: 'model',
       a: 'admin',
-      c: 'controller',
+      c: 'router',
       v: 'view'
     }
 

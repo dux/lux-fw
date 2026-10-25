@@ -7,8 +7,8 @@ class LuxStat
     puts
   end
 
-  def controllers
-    list_method_classes Lux::Controller
+  def routers
+    list_method_classes Lux::Router
   end
 
   def cells
@@ -126,7 +126,7 @@ task :stats do
 
   proc do |_opts|
     stat = LuxStat.new
-    stat.call :controllers
+    stat.call :routers
     stat.call :cells if defined?(Lux::ViewCell)
     stat.call :models
     stat.call :views

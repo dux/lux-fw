@@ -28,7 +28,7 @@ All `lux` commands use Hammer; run `lux --help` to see the available tasks.
 `./config/config.yaml` loads two plugins:
 
 * `db` - Sequel models, the schema DSL and `lux db:am`.
-* `authcog` - `AuthcogController` and `UserSession`.
+* `authcog` - `AuthcogRouter` and `UserSession`.
 
 The larger `web_common` plugin is deliberately absent. It brings html builders,
 an asset pipeline, an exception logger and an `/admin` area, and overlays
@@ -53,7 +53,7 @@ jsDelivr. PostWind bundles the Tailwind v4 compiler and styles HAML and Fez
 components without a build step. Browser internet access is required for these
 scripts.
 
-`ApplicationController` exports the current user to the page:
+`ApplicationRouter` exports the current user to the page:
 
 ```ruby
 lux.browser.window[:app][:current] = { user: ... }

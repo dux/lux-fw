@@ -150,13 +150,13 @@ per-channel authorization to write.
 * no resolver configured -> `501`
 * resolver returns `[]` (guest) -> `403`
 
-Note the resolver runs before route resolution, so anything a controller
-`before` filter would normally set up is not available yet - read the session
+Note the resolver runs before route resolution, so anything a router
+`before` hook would normally set up is not available yet - read the session
 directly rather than reaching for a current-user helper.
 
 `response.sse(*channels)` still exists for app-defined SSE endpoints,
 but for the standard publish/subscribe surface you no longer need a
-custom controller.
+custom router.
 
 `Lux::Browser::Channel.subscribe(name, queue)` /
 `Lux::Browser::Channel.unsubscribe(name, queue)` are internal - used by

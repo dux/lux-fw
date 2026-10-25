@@ -1,7 +1,7 @@
 # Lux.plugin :web_common
 
 The shared web layer for a Lux app, bundled as one plugin: asset URLs, html
-builders, the exception writer (dboss reads its file) and the `/dev` pages. Each app owns its `/admin` area (controller, layout, assets).
+builders, the exception writer (dboss reads its file) and the `/dev` pages. Each app owns its `/admin` area (router, layout, assets).
 
 ```yaml
 # config/config.yaml
@@ -25,10 +25,10 @@ itself needs neither.
 | html    | form / input / table builders plus `HtmlMenu`, `HtmlHelper.paginate`, `HtmlFilter`, timezone helpers | `load/html/` |
 | api     | `ApplicationApi` (mounted at `/api`), `ModelApi` (generated CRUD), `SchemaMap` | `load/lib/` |
 | exceptions | legacy PG-backed exception logger (`LuxException` / `LuxExceptionLog`, `LuxExceptionsApi`) | `load/lib/` |
-| routes  | router helpers for `Lux.app` blocks: `server_info` (`/lux` diagnostics via `ServerInfo`, dev or admin) | `load/lib/web_common_routes.rb`, `load/lib/server_info.rb` |
-| dev     | `/dev` pages: schema map, login-as | `mount/app/controllers/dev_controller.rb`, `mount/app/views/dev/` |
+| routes  | router helpers for `Lux.router` blocks: `server_info` (`/lux` diagnostics via `ServerInfo`, dev or admin) | `load/lib/web_common_routes.rb`, `load/lib/server_info.rb` |
+| dev     | `/dev` pages: schema map, login-as | `mount/app/routers/dev_router.rb`, `mount/app/views/dev/` |
 
-Sign-in (`AuthcogController`, `UserSession`) is the separate
+Sign-in (`AuthcogRouter`, `UserSession`) is the separate
 [`authcog`](../authcog/README.md) plugin.
 
 The detailed per-builder docs live next to the code:
@@ -43,7 +43,7 @@ The detailed per-builder docs live next to the code:
 
 ```ruby
 Lux do
-  routes do
+  route do
     map 'authcog', 'authcog#call'    # central-auth callback landing
     map 'dev',     'dev#auto'        # dev pages (ship in mount/)
   end
@@ -113,7 +113,7 @@ plugins/web_common/
     assets/  html/{form,input,table,...}
     lib/                 # ApplicationApi, ModelApi, SchemaMap, ExceptionWriter, legacy LuxException(s)
   assets/js/           # browser sources ($ shim, sys-* fez, lib), imported as @web-common/js/...
-  mount/               # /dev controller and views, lux_models.js.rb generator (Lux::Root overlay)
+  mount/               # /dev router and views, lux_models.js.rb generator (Lux::Root overlay)
   spec/                # exception writer/hook specs, HtmlForm/HtmlInput/HtmlTable
 ```
 
@@ -190,4 +190,4 @@ Lux.models                                       // { user: { path, member: [...
 ## See also
 
 * [`../../lib/lux/plugin/README.md`](../../lib/lux/plugin/README.md) - plugin layout, mount overlays
-* [`../../lib/lux/application/README.md`](../../lib/lux/application/README.md) - `plugin_routes`, routing DSL
+* [`../../lib/lux/router/README.md`](../../lib/lux/router/README.md) - `plugin_routes`, routing DSL

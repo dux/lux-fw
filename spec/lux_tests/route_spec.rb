@@ -1,6 +1,6 @@
 require 'test_helper'
 
-describe Lux::Application::Route do
+describe Lux::Router::Route do
   def route_for path
     Lux::Current.new("http://example.com#{path}")
     Lux.current.route
@@ -218,7 +218,7 @@ describe Lux::Application::Route do
     it 'binds the id, not the placeholder, when nav.ref classification already ran' do
       Lux::Current.new('http://example.com/users/abc123/dashboard')
       Lux.current.nav.map_path { |el| el == 'abc123' ? el : nil }
-      _(Lux.current.nav.path[1]).must_be_kind_of Lux::Application::Nav::Base
+      _(Lux.current.nav.path[1]).must_be_kind_of Lux::Router::Nav::Base
       _(Lux.current.route.capture('/users/:ref/dashboard')).must_equal({ ref: 'abc123' })
     end
 

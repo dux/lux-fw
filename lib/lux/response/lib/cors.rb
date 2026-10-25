@@ -2,7 +2,7 @@ module Lux
   class Response
     # CORS response headers + automatic preflight handling.
     #
-    # Usage from inside a controller action or `before` callback:
+    # Usage from inside a router action or `before` callback:
     #
     #   response.cors :all
     #   response.cors origins: ['https://app.example.com', /\Ahttps:\/\/[\w-]+\.example\.com\z/],
@@ -19,7 +19,7 @@ module Lux
     # When the request is a CORS preflight (OPTIONS + Access-Control-Request-Method),
     # this method also sets status 204 + empty body so the response is complete
     # without the action body running. The dispatcher's OPTIONS short-circuit
-    # in Application#render_base now only fires for non-preflight OPTIONS, so
+    # in Router#render_base now only fires for non-preflight OPTIONS, so
     # preflight requests flow through `before` callbacks and reach this code.
     module Cors
       DEFAULT_METHODS ||= %w[GET HEAD POST PUT PATCH DELETE OPTIONS].freeze

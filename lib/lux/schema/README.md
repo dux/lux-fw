@@ -1,7 +1,7 @@
 # Lux::Schema
 
 The schema DSL at the heart of the framework. The same line parser drives
-controller params, API params, model field definitions, and standalone
+router params, API params, model field definitions, and standalone
 validation/coercion.
 
 `Lux.schema(name) { ... }` defines and stores a schema by name;
@@ -51,7 +51,7 @@ name String, max: 30                  # method-missing -> set
 set :name, type: String, max: 30      # explicit
 name? String, max: 30                 # optional
 
-# above a controller / API def:
+# above a router / API def:
 opt :name, String, max: 30            # same parser, method-level form
 
 # --- enums (db plugin only) -------------------------------------------
@@ -90,7 +90,7 @@ data = { 'name' => 'Dux', 'email' => 'd@x.com', 'role' => 'admin', 'age' => '42'
 errors = Lux.schema(:user).validate(data)
 # errors == {} ; data is now { 'name' => 'Dux', email: ..., role: 'admin', age: 42 (coerced), ... }
 
-# Strict mode (default for controllers/APIs): also DROPS undeclared keys
+# Strict mode (default for routers/APIs): also DROPS undeclared keys
 Lux.schema(:user).validate(data, strict: true)
 
 # Block form yields (field, message) for each error and returns nil
@@ -125,7 +125,7 @@ on a custom type via `Lux::Type.opts :key, 'desc'`.
 
 * `schema.validate(hash)` mutates the hash in place: coerced values
   replace raw input, blank empty strings become `nil`.
-* Pass `strict: true` to also drop undeclared keys (controllers and APIs
+* Pass `strict: true` to also drop undeclared keys (routers and APIs
   do this by default when any opts are declared).
 * Block form yields `(field, message)` for each error; otherwise returns
   the errors hash.
@@ -134,5 +134,5 @@ on a custom type via `Lux::Type.opts :key, 'desc'`.
 ## See also
 
 * [`../type/README.md`](../type/README.md) - the named-type vocabulary
-* [`../controller/README.md`](../controller/README.md) - `opt` / `params do`
+* [`../router/README.md`](../router/README.md) - `opt` / `params do`
 * [`../api/README.md`](../api/README.md) - same DSL for API endpoints

@@ -42,7 +42,7 @@ Routes live in `./app/routes.rb`.
 `UserSession.resolve` restores the current user before routing and handles signed logout links.
 Locked and deleted users cannot keep an active local session.
 
-`PromoController` is mounted as `call 'promo#auto'`, the convention router from `Lux::Controller::Auto`.
+`PromoRouter` is mounted as `map 'promo#auto'`, the convention renderer `Lux::Router#auto`.
 Public pages need no action and no route line: drop `./app/views/promo/NAME.haml` and `/NAME` serves it.
 `/app` and `/admin` are mounted explicitly, because they carry access rules.
 

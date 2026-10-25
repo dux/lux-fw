@@ -41,14 +41,14 @@ Lux.browser.client_js(:sse, :api)                         # core + listed
 #   /_lux_/client.js?modules=sse,api  -> just those
 #   /_lux_/<name>.js                  -> core + that one (404 if unknown)
 
-# --- INSTANCE-LEVEL: per-request (controller / before-filter) ---
+# --- INSTANCE-LEVEL: per-request (router / before hook) ---
 
 # header (<head> builder)
 lux.browser.header.title       'Home'
 lux.browser.header.description  'short summary'
 
 # window - a plain Hash, unrestricted; set whatever you want. The :app bucket
-# is pre-seeded, so controllers can accumulate into it incrementally:
+# is pre-seeded, so routers can accumulate into it incrementally:
 lux.browser.window[:app][:cfg]     = { host: Lux.config.host, locale: lux.locale }
 lux.browser.window[:app][:current] = { user: lux.user&.to_h }
 lux.browser.window[:api]           = { url: '/api' }    # extra top-level key

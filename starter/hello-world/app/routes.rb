@@ -1,10 +1,10 @@
-Lux.app do
+Lux.router do
   before do
     UserSession.resolve
     UserSession.destroy_session if user && (user.is_locked || user.is_deleted)
   end
 
-  routes do
+  route do
     map '/authcog', 'authcog#call'
     map '/login', 'main#login'
     map '/about', 'main#about'

@@ -28,7 +28,7 @@ module Lux
   #   Lux::Browser.register :sse, file: 'assets/lux/sse.js'
   #   Lux::Browser.client_js(:sse)     # -> JS string
   #
-  #   # per-request (in a controller / before-filter)
+  #   # per-request (in a router action / before-filter)
   #   lux.browser.header.title          'My page'
   #   lux.browser.window[:app]        = { cfg: { host: Lux.config.host } }
   #   lux.browser.channel(:notifications).push(message: 'Hello')
@@ -89,7 +89,7 @@ module Lux
       @html ||= Html.new.tap { |h| h.browser = self }
     end
 
-    # Layout file path, set by the controller right before the layout renders.
+    # Layout file path, set by the router right before the layout renders.
     attr_accessor :layout
 
     # Identifies the layout + deploy the client is running. pjax sends it back

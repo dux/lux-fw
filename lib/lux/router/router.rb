@@ -1,0 +1,332 @@
+# Lux::Router - the root router (`Lux.router do ... end`, one instance per
+# request) and the base class of every app router (`class MainRouter <
+# FrontendRouter`, app/routers/main_router.rb). One class owns routing (`map`),
+# actions, rendering, `before` hooks, `rescue_from` and `opt` / `allow`.
+
+require 'erb'
+require_relative '../current/lifecycle'
+require_relative '../error/rescue_from'
+require_relative '../policy/adapter'
+require_relative './lib/routes'
+require_relative './lib/routes_dumper'
+require_relative './lib/params_dsl'
+require_relative './lib/auto'
+require_relative './lib/action'
+
+module Lux
+  class Router
+    include ClassCallbacks
+    include Lifecycle
+    include Routes
+    include ParamsDsl
+    include Auto
+    include Action
+    include Lux::Policy::Authorize
+
+    # Error handler, innermost router first (see #render_error). The block is
+    # instance_exec'd on the router that was running, so it can `map` to the
+    # router that renders the error page; ivars (incl. @error) pass along:
+    #   rescue_from do |err|
+    #     map 'promo#app_error'
+    #   end
+    extend Lux::RescueFrom
+
+    DEFAULT_ERROR_TEMPLATE ||= ERB.new(Lux.fw_root.join('assets/router/error_page.html.erb').read)
+
+    # per-instance framework state; @_ prefixed, so a mount never copies it
+    IVARS ||= Struct.new 'LuxRouterIvars', :action, :layout, :render_cache, :only, :except
+    RENDER_OPTS ||= Struct.new 'LuxRouterRenderOpts', :inline, :text, :plain, :html, :json, :javascript, :xml, :cache, :template, :layout, :render_to_string, :status, :ttl, :content_type
+
+    # Layout name; views dir and helper follow it unless set. Inherited, so
+    # `layout :x` in `Lux.router do` is the base of every router class.
+    cattr :layout, class: true
+
+    # view subfolder under template_root; `views :foo` overrides, else layout name
+    cattr :views, class: true
+
+    # helper module context; `helper :foo` overrides, else layout name
+    cattr :helper, class: true
+
+    # custom template root instead calcualted one
+    cattr :template_root, default: './app/views', class: true
+
+    # Root: part of the page pipeline, runs before CSRF and static files.
+    # Router class: once when mounted, before its route or action.
+    define_callback :before
+
+    # right before a template renders
+    define_callback :before_render
+
+    class << self
+      # Root router only - runs from Response#render, after the body is set and
+      # before headers are written. Keyed by call site, like define_callback.
+      def after &block
+        raise ArgumentError, 'after runs only on the root router - declare it in Lux.router do ... end' unless self == Lux::Router
+
+        (@class_callbacks_after ||= {})[caller[0].split(':in ').first] = block
+      end
+
+      # The routing block of this router. Calling it again replaces it.
+      def route &block
+        raise ArgumentError, 'route needs a block' unless block
+
+        @route_block = block
+      end
+
+      # A router class inherits its parents' route, never the root's.
+      def route_block
+        return @route_block if self == Lux::Router
+
+        klass = self
+        while klass != Lux::Router
+          return klass.instance_variable_get(:@route_block) if klass.instance_variable_defined?(:@route_block)
+          klass = klass.superclass
+        end
+      end
+
+      # Runs one action without routing (specs, consoles):
+      #   MainRouter.action(:index)
+      def action name, ivars: {}
+        raise ArgumentError, 'Router action called with blank action name argument' if name.blank?
+
+        router = new
+        ivars.each { |k, v| router.instance_variable_set(k, v) }
+        router.send :run_mounted, name.to_sym, Lux::Router
+      end
+
+      # create mock function, to enable template rendering
+      # mock :index, :login
+      def mock *args
+        args.each do |el|
+          define_method(el) { true }
+        end
+      end
+
+      # Self-contained HTML error page (no template lookup). Fallback of the
+      # default `error` action when the app has no error template; can be called
+      # from a custom `error` to wrap the framework chrome around your content.
+      def default_error_page status, error
+        name      = ::Rack::Utils::HTTP_STATUS_CODES[status] || 'Error'
+        message   = error.message.to_s.gsub('<', '&lt;').gsub('>', '&gt;')
+        show_dev  = Lux.debug?
+        backtrace = (show_dev && error.respond_to?(:backtrace) && error.backtrace) ?
+                    error.backtrace.first(40).join("\n").gsub('<', '&lt;').gsub('>', '&gt;') : nil
+        color     = status >= 500 ? '#dc2626' : status >= 400 ? '#d97706' : '#374151'
+
+        DEFAULT_ERROR_TEMPLATE.result(binding)
+      end
+
+      # Returns a flat list of route Entries by replaying the route block
+      # against a recorder. See lib/routes_dumper.rb for limitations.
+      def dump_routes
+        RoutesDumper.new(self).dump
+      end
+    end
+
+    def initialize env = nil, opts = {}
+      Lux::Current.new env, opts if env
+      @_lux = IVARS.new
+    end
+
+    # main render called by Lux.call
+    def render_base
+      clear_dev_console
+
+      if err = lux.malformed_request
+        raise Lux.error.bad_request Lux.debug?('400 Bad Request') { 'Malformed request: %s' % err.message }
+      end
+
+      # answered before reload, session, before hooks and auth, so probes stay cheap
+      if lux.request.path_info == '/healthcheck' && (lux.request.get? || lux.request.head?)
+        return [200, { 'content-type' => 'text/plain' }, ['ok']]
+      end
+
+      raise Lux.error.forbidden('Bad host name') unless lux.request.host.to_s.match?(/[a-z]/i)
+      raise Lux.error.forbidden('Not allowed') if lux.request.env['HTTP_SOAPACTION']
+
+      # reload first, so before-filters run on the code just saved
+      if Lux.reload? && Lux.runtime.web?
+        Lux::Reloader.run
+      end
+
+      # Session handoff to another subdomain (nav.subdomain(..., session: true)),
+      # both legs ahead of before-filters - they may demand the login it carries.
+      # /_lux_/handoff mints the token at click time and redirects to the target;
+      # the target takes ?_lux_st= and drops it from the URL, so history and
+      # Referer never keep it.
+      if lux.request.get? && lux.request.path_info == Lux::Current::Session::HANDOFF_PATH
+        target = lux.session.handoff(lux.request.params['to']) or raise Lux.error.bad_request('bad handoff target')
+        lux.response.header 'cache-control', 'no-store'
+        lux.response.header 'referrer-policy', 'no-referrer'
+        catch(:done) { lux.response.redirect_to target }
+        return lux.response.render self
+      end
+
+      transfer = Lux::Current::Session::TRANSFER_PARAM
+      if lux.request.get? && (token = lux.request.params[transfer])
+        lux.session.receive_transfer token
+        lux.response.header 'referrer-policy', 'no-referrer'
+        catch(:done) { lux.response.redirect_to Url.current.delete(transfer).relative, status: 303, silent: true }
+        return lux.response.render self
+      end
+
+      # catch :done so an app-level before-filter can redirect/halt via
+      # redirect_to (which throws :done); without it the throw escapes to the
+      # rescue below and render_error downgrades the 302 to 500.
+      catch(:done) { run_callback :before, lux.nav.path }
+
+      request_method = lux.request.request_method
+
+      Lux.log ''
+      Lux.log { [request_method.colorize(:white), lux.request.url].join(' ') }
+
+      if lux.request.post?
+        Lux.log { filter_params(lux.request.params.to_h).to_jsonp }
+      end
+
+      # Vanilla OPTIONS (no preflight) gets the canned allow+cache reply.
+      # Preflight (OPTIONS + Access-Control-Request-Method) flows through so
+      # `response.cors` in a before/action can answer it. See Lux::Response::Cors.
+      # A before-hook that already set the body owns the response (e.g. WebDAV
+      # OPTIONS needs its own DAV/allow headers) - do not overwrite it.
+      if request_method == 'OPTIONS' && !lux.request.env['HTTP_ACCESS_CONTROL_REQUEST_METHOD'] && !lux.response.body?
+        return [204, {
+          'allow' => Lux.config[:request_options] || 'OPTIONS, GET, HEAD, POST',
+          'cache-control' => 'max-age=604800',
+        }, ['']]
+      end
+
+      # /_lux_/* - framework-served client assets (composed JS bundles).
+      # Always GET; csrf is skipped because the response carries the current
+      # token, not consumes one. See Lux::Browser::Mount.
+      if request_method == 'GET' && lux.request.path_info.start_with?(Lux::Browser::Mount::PREFIX)
+        if result = Lux::Browser::Mount.handle(lux)
+          return result
+        end
+      end
+
+      # /_lux_/dbsc/* - device-bound session endpoints. The browser posts them on
+      # its own, without a CSRF token. See Lux::Current::Dbsc.
+      if request_method == 'POST' && !lux.response.body? && lux.request.path_info.start_with?(Lux::Current::Dbsc::PREFIX)
+        Lux::Current::Dbsc.handle lux
+      end
+
+      # CSRF: enforce for non-safe verbs that aren't Bearer-authenticated.
+      # Opt-out per-app via Lux.config.csrf = false. See Lux::Current#csrf.
+      # Responses already produced by a before-hook are exempt (e.g. WebDAV
+      # PROPFIND is Basic-authed and sessionless - not CSRF-vulnerable).
+      if Lux.config[:csrf] != false && !lux.response.body? && lux.csrf_required? && !lux.csrf_valid?
+        raise Lux.error.forbidden 'CSRF token missing or invalid'
+      end
+
+      # a before-hook that already answered owns the path, even one under ./public
+      if Lux.config.serve_static_files && !lux.response.body?
+        Lux::Response::File.deliver_from_current
+      end
+
+      resolve_routes unless lux.response.body?
+
+      raise Lux.error.not_found unless lux.response.body?
+
+      lux.response.render self
+    rescue StandardError => err
+      render_error err
+    end
+
+    # Finished response of a server-side render (Lux.render.get/post/...).
+    Page ||= Struct.new(:status, :headers, :body, :session) do
+      def json
+        @json ||= JSON.parse(body).then { _1.is_a?(::Hash) ? _1.to_lux_hash : _1 }
+      end
+
+      def redirect_to = headers['location']
+      def ok?         = status.between?(200, 299)
+      def time        = headers['x-lux-speed']
+    end
+
+    # full page render
+    # Lux.router.new('/').render_page.body
+    def render_page
+      out  = @_response_render ||= render_base
+      body = out[2].respond_to?(:join) ? out[2].join : out[2].to_a.join
+
+      Page.new(out[0].to_i, out[1], body, lux.session.hash.to_lux_hash)
+    end
+
+    private
+
+    LAST_CONSOLE_CLEAR ||= [0.0]
+
+    # Dev: wipe the terminal when a page is opened (full load or pjax), at most every
+    # 2s, so the log shows the current page only. Assets, xhr and probes never clear.
+    def clear_dev_console
+      return unless Lux.env.dev? && !Lux.env.test? && Lux.runtime.web? && $stdout.tty?
+
+      env = lux.request.env
+      return unless env['HTTP_SEC_FETCH_DEST'] == 'document' || env['HTTP_X_PJAX_LAYOUT']
+
+      now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      return if now - LAST_CONSOLE_CLEAR[0] < 2
+
+      LAST_CONSOLE_CLEAR[0] = now
+      print "\e[H\e[2J\e[3J"
+    end
+
+    FILTERED_PARAMS ||= /pass|token|secret|card|cvv|otp|auth/i
+
+    # Request params with credential-looking keys masked, for logging only.
+    def filter_params value
+      case value
+      when ::Hash  then value.to_h { |k, v| [k, k.to_s.match?(FILTERED_PARAMS) ? '[FILTERED]' : filter_params(v)] }
+      when ::Array then value.map { filter_params _1 }
+      else value
+      end
+    end
+
+    # Error sink. The innermost running router handles it: its nearest
+    # `rescue_from` (walking up to the root's), else its `error` action. If
+    # either raises, Lux.call's outer rescue returns a low-level Rack tuple.
+    def render_error err
+      # a policy denial (`can.read!`) is an expected 403, not a server error -
+      # same as Lux::Api::Response.client_error?
+      if defined?(Lux::Policy::Error) && err.is_a?(Lux::Policy::Error)
+        lux.response.status 403 unless lux.response.status.to_i >= 400
+      else
+        Lux.error.log err
+      end
+
+      # Lux.error helpers set lux.response.status before raising; honour that.
+      # Anything else (raw StandardError) defaults to 500.
+      status = lux.response.status.to_i
+      status = 500 unless status >= 400
+      lux.response.status status
+
+      app = lux.var[:lux_router] || self
+      app.instance_variable_set :@error, err
+      app.instance_variable_set :@status, status
+      lux.var[:error_page] = true
+
+      catch :done do
+        if handler = app.class.rescue_handler_for(err)
+          app.instance_exec err, &handler
+        else
+          app.send :error
+        end
+      end
+
+      lux.response.render
+    end
+
+    # The single `catch :done` for routing: the first dispatch that writes the
+    # response body throws, unwinding the rest of the route in one step.
+    def resolve_routes
+      # the running router; mounts replace it with the innermost one, so
+      # nav.load_models(ivars: true) and render_error reach the right instance
+      lux.var[:lux_router] = self
+
+      catch :done do
+        run_route
+      end
+    end
+  end
+end

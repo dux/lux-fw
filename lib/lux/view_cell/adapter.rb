@@ -5,4 +5,4 @@ require_relative './proxy'
 #   FooCell.new(self).bar -> cell.foo.bar
 
 Lux::Template::Helper.include Lux::ViewCell::ProxyMethod
-Lux::Controller.include Lux::ViewCell::ProxyMethod
+Lux::Router.include Lux::ViewCell::ProxyMethod

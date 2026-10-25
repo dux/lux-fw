@@ -518,7 +518,7 @@ end
 # prefix is peeled and nav.locale is populated. An un-localized scope has to
 # be declared before a force: true one - the first dispatch ends routing.
 module Lux
-  class Application
+  class Router
     def localized value = true, force: false, geo: true, &block
       return if lux.response.body?
 

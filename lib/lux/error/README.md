@@ -27,7 +27,7 @@ raise Lux.error 404                              # status 404, default message
 raise Lux.error 418, "I'm a teapot"              # status + custom message
 raise Lux.error 'generic'                        # status 400, custom message
 
-# --- in-controller use ---------------------------------------------------
+# --- in-router use -------------------------------------------------------
 
 def show
   @user = User.find(nav.ref) or raise Lux.error.not_found
@@ -41,9 +41,9 @@ raise Lux.error.not_found Lux.debug?('404 Not Found') {
   'Subdomain "%s" matched but nothing called' % name
 }
 
-# --- override controller :error to customise rescue ---------------------
+# --- override the router :error action to customise rescue --------------
 
-class ApplicationController < Lux::Controller
+class ApplicationRouter < Lux::Router
   def error
     Lux.logger.error @error.message
     if @status == 404
@@ -54,9 +54,8 @@ class ApplicationController < Lux::Controller
   end
 end
 
-# --- direct render helpers (used by the framework's fallback) ------------
+# --- format helpers ------------------------------------------------------
 
-Lux::Error.render(exception)         # full HTML/JSON error page
 Lux::Error.inline(exception)         # inline panel (for embeds)
 Lux::Error.format(exception, html: true, gems: false, message: true)
 
@@ -72,14 +71,16 @@ Lux.error.on_log { |error| Sentry.capture_exception error }
 
 ## Resolution order on raise
 
-1. A `Lux.app` `rescue_from` handler matching the error (router-level, `Lux::RescueFrom`)
-2. The active controller's `:error` action
-3. `Lux::Error.render` (framework default)
+Handled by the innermost running router:
 
-The active controller's `:error` action receives `@error` (exception)
+1. Its nearest `rescue_from` handler matching the error (`Lux::RescueFrom`),
+   walking up to the root's (`Lux.router do rescue_from ... end`)
+2. Else its `:error` action (default: JSON, the `error` template, or the
+   framework error page)
+
+The `:error` action receives `@error` (exception)
 and `@status` (resolved HTTP code) as instance variables.
 
 ## See also
 
-* [`../application/README.md`](../application/README.md) - `rescue_from`
-* [`../controller/README.md`](../controller/README.md) - default `:error` action + `rescue_from` handlers
+* [`../router/README.md`](../router/README.md) - `rescue_from`, default `:error` action

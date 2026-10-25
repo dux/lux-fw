@@ -13,15 +13,17 @@ Lux.config[:logger_formatter]     ||= nil
 
 Lux::Plugin.load File.expand_path('..', __dir__)
 
-class LocalizedTestController < Lux::Controller
-  def root;  render text: 'public'; end
+class LocalizedTestRouter < Lux::Router
+  def index; render text: 'public'; end
   def users; render text: 'users';  end
   def admin; render text: 'admin';  end
 end
 
-Lux.app do
+Lux.router do
   before { Lux.locale.detect }
+end
 
+LOCALIZED_SPEC_ROUTE ||= proc do
   # response already written without a dispatch - localized must not touch it
   map 'ping' do
     lux.response.body 'pong'
@@ -51,12 +53,13 @@ Lux.app do
 
   # forced: the prefix is required, default locale included
   localized force: true do
-    root 'localized_test#root'
+    root 'localized_test#index'
   end
 end
 
-describe 'Lux::Application#localized' do
+describe 'Lux::Router#localized' do
   before do
+    Lux.router.route(&LOCALIZED_SPEC_ROUTE)
     Lux.locale.default         = :en
     Lux.locale.available       = %i[en de]
     Lux.current.locale         = nil
@@ -232,6 +235,7 @@ end
 
 describe 'localized first-visit geo redirect' do
   before do
+    Lux.router.route(&LOCALIZED_SPEC_ROUTE)
     Lux.locale.default         = :en
     Lux.locale.available       = %i[en de]
     Lux.current.locale         = nil

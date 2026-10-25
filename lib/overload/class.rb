@@ -6,7 +6,7 @@ class Class
     subclasses.flat_map { [_1, *_1.descendants] }
   end
 
-  # OrgsController.source_location -> ./app/controllers/orgs_controller.rb
+  # OrgsRouter.source_location -> ./app/routers/orgs_router.rb
   def source_location as_folder=false
     for name in instance_methods(false)
       src = Lux.root.pretty(instance_method(name).source_location.first)

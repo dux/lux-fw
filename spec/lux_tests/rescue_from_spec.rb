@@ -27,8 +27,8 @@ describe Lux::RescueFrom do
     _(RescueFromChild.rescue_handler_for(:missing)).must_be_nil
   end
 
-  it 'is the macro on Application, Controller and Api' do
-    [Lux::Application, Lux::Controller, Lux::Api].each do |klass|
+  it 'is the macro on Router and Api' do
+    [Lux::Router, Lux::Api].each do |klass|
       _(klass.singleton_class.include?(Lux::RescueFrom)).must_equal true
     end
   end

@@ -1,19 +1,19 @@
 # Lux::Render
 
-Render full pages, controllers, templates, and view cells - from
+Render full pages, templates, and view cells - from
 production code (server-rendered HTML in a job, mailer body, etc.) or
 from tests / scripts.
 
 `Lux.render` returns the render namespace; the shortcuts below dispatch
 HTTP-shaped renders (`get`/`post`/...) and lower-level renders
-(`controller`/`template`/`cell`).
+(`template`/`cell`).
 
 ## Full example
 
 ```ruby
-# --- full-page render (drives Lux.app like a real HTTP request) --------
+# --- full-page render (drives Lux.router like a real HTTP request) --------
 
-page = Lux.render.get('/about')     # Lux::Application::Page
+page = Lux.render.get('/about')     # Lux::Router::Page
 page.body                          # body string, always raw
 page.json                          # parsed body (Lux::Hash for an object)
 page.status                        # HTTP code (Integer)
@@ -52,11 +52,6 @@ page = Lux.render.get('/dashboard', bearer: 'rejotl@gmail.com')
 #   headers:       hash, request headers ('Authorization' => ..., mapped to HTTP_*)
 #   bearer:        string, shortcut for headers: { 'Authorization' => "Bearer <token>" }
 
-# --- controller render (skips routing, runs the controller directly) ---
-
-Lux.render.controller('main/cities#foo').body
-Lux.render.controller('main/cities#bar') { @city = City.last_updated }.body
-
 # --- template render (Tilt-based) --------------------------------------
 
 Lux.render.template(self, './app/views/mailer/welcome.haml')
@@ -68,7 +63,7 @@ Lux.render.template(scope, './layout.haml') { 'inner content' }
 Lux.render.cell(:user, self, product: @bar).in_a_box   # UserCell.new(self, product: @bar).in_a_box
 Lux.render.cell(:user).in_a_box(@user)                  # UserCell.new.in_a_box(@user)
 
-# --- helper builder (for use outside a template / controller) ----------
+# --- helper builder (for use outside a template / router) --------------
 
 helper = Lux::Template.helper(self.instance_variables_hash, :html, :main)
 helper.link_to 'Home', '/'
@@ -106,4 +101,4 @@ lux.browser.header.canonical   'https://example.com/page'
 
 * [`../template/README.md`](../template/README.md) - the template engine
 * [`../view_cell/README.md`](../view_cell/README.md) - reusable view components
-* [`../controller/README.md`](../controller/README.md) - controllers
+* [`../router/README.md`](../router/README.md) - routers

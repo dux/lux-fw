@@ -1,6 +1,6 @@
 module Lux
   class Browser
-    # Handles requests under /_lux_/*. Called from Application#render_base
+    # Handles requests under /_lux_/*. Called from Router#render_base
     # before route resolution. The /_lux_/ namespace is reserved for the
     # framework - apps must not register routes under it.
     #

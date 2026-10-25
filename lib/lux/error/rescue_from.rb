@@ -1,6 +1,5 @@
 module Lux
-  # The one `rescue_from` class macro, shared by Lux::Application, Lux::Controller
-  # and Lux::Api:
+  # The one `rescue_from` class macro, shared by Lux::Router and Lux::Api:
   #
   #   rescue_from { |err| ... }                  # any error (key :all)
   #   rescue_from ArgumentError do |err| ... end # that class and its subclasses

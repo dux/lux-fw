@@ -1,7 +1,7 @@
 # authcog - central-auth sign-in, on its own so an app can take auth without
 # the rest of the web layer.
 #
-#   load/authcog_controller.rb - callback landing, exchanges a hash for a session
+#   load/authcog_router.rb - callback landing, exchanges a hash for a session
 #   load/user_session.rb       - session identity, sso_action links, sudo overlay
 #
 # web_common depends on this plugin, so apps that list web_common keep both

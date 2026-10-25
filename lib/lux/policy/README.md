@@ -1,7 +1,7 @@
 # Lux::Policy
 
 Framework- and ORM-agnostic access policy. Subclass `Lux::Policy`, define
-question-mark methods, use everywhere - on models, in controllers, in
+question-mark methods, use everywhere - on models, in routers, in
 APIs. Same shape in all three.
 
 Subclass per resource; `model.can.action?` is the canonical call.
@@ -42,9 +42,9 @@ end
 @blog.can.write!                      # returns @blog, raises Lux::Policy::Error on fail
 @blog.can.write! { |msg| flash.error msg }   # block runs on fail, no raise
 
-# --- 3. Use in a controller --------------------------------------------
+# --- 3. Use in a router ------------------------------------------------
 
-class BlogsController < ApplicationController
+class BlogsRouter < ApplicationRouter
   before { @blog = Blog.find(nav.ref) }
 
   def show
@@ -98,9 +98,9 @@ resolver.
 | `proxy.read?` w/ block | `true` / `false`     | calls block with error message |
 | `proxy.read!` w/ block | `true` / `false`     | calls block, no raise |
 
-## Controller mixin
+## Router mixin
 
-`Lux::Policy::Controller` is auto-mixed into `Lux::Controller`:
+`Lux::Policy::Authorize` is auto-mixed into `Lux::Router`:
 
 ```ruby
 authorize @blog.can.read?       # truthy → authorized; falsy → 403

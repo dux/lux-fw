@@ -3,7 +3,7 @@
 # from the console via `reload!`.
 # Installed gems are skipped via @gem_paths; user dev gems (outside Gem.path)
 # still reload. Plain `load` reopens classes in place so cached class refs
-# (e.g. Routes::CONTROLLER_CLASS_CACHE) stay valid; the trade-off is that
+# (e.g. Routes::ROUTER_CLASS_CACHE) stay valid; the trade-off is that
 # methods deleted from source linger until process restart.
 module Lux
   module Reloader

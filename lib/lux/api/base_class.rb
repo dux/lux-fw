@@ -307,7 +307,7 @@ module Lux
         set :opts, :detail, data
       end
 
-      # HTTP verbs the next define accepts. Same contract as Lux::Controller
+      # HTTP verbs the next define accepts. Same contract as Lux::Router
       # (Lux::Utils::HttpVerbs): the list REPLACES the POST default.
       # allow :get            # GET (+ HEAD, OPTIONS) only
       # allow :get, :post     # both

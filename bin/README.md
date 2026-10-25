@@ -12,7 +12,7 @@ You can run command `lux` in your app home folder.
 $ lux
   lux agents      # Write or refresh the lux-fw docs pointer in ./AGENTS.md
   lux console     # Start console                                       (alias: c)
-  lux evaluate    # Eval ruby string in context of Lux::Application     (alias: e, eval)
+  lux evaluate    # Eval ruby string in context of Lux::Router     (alias: e, eval)
   lux generate    # Generate models, cells, ...
   lux hi          # Print hello world
   lux memory      # Show memory usage
@@ -29,7 +29,7 @@ $ lux
 Run tests with `lux test` or `bundle exec hammer test`.
 
 `lux render /path -i` runs one request through the full stack and prints
-status, headers, session and `dispatch` - the controller, action, template
+status, headers, session and `dispatch` - the router, action, template
 and layout that served it. Pass `-t <email>` to render as that user.
 
 ### Port

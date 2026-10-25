@@ -171,16 +171,18 @@ Two pieces work together:
   `Lux.current[:locale_localized]` and `Lux.current[:locale_force]`.
 
 ```ruby
-Lux.app do
+Lux.router do
   before { Lux.locale.detect }
 
-  map 'admin' do                 # /en/admin -> /admin
-    localized(false) { call 'admin#call' }
-  end
+  route do
+    map 'admin' do                 # /en/admin -> /admin
+      localized(false) { map 'admin#call' }
+    end
 
-  localized force: true do       # / and /users -> /<current>, /<current>/...
-    root 'main'
-    map 'users', 'users'
+    localized force: true do       # / and /users -> /<current>, /<current>/...
+      root 'main#index'
+      map 'users', 'users'
+    end
   end
 end
 ```
@@ -212,11 +214,13 @@ never fights a visitor's own choice. `geo:` defaults to `true`; pass
 `geo: false` to keep a scope localized without the redirect.
 
 ```ruby
-Lux.app do
+Lux.router do
   before { Lux.locale.detect }
 
-  localized true do     # a German visitor to / -> 302 /de
-    call 'promo#auto'
+  route do
+    localized true do     # a German visitor to / -> 302 /de
+      map 'promo#auto'
+    end
   end
 end
 ```
@@ -331,5 +335,5 @@ See [`../../lib/lux/type/README.md`](../../lib/lux/type/README.md).
 ## See also
 
 * [`../../lib/lux/current/README.md`](../../lib/lux/current/README.md) - `Lux.current.locale`
-* [`../../lib/lux/application/README.md`](../../lib/lux/application/README.md) - `Nav#locale` (URL prefix)
+* [`../../lib/lux/router/README.md`](../../lib/lux/router/README.md) - `Nav#locale` (URL prefix)
 * [`../../lib/lux/type/README.md`](../../lib/lux/type/README.md) - `Lux::Type::LocaleType`, `Lux::Type::TranslatedType`

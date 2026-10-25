@@ -4,8 +4,8 @@ require 'json'
 # Framework-agnostic AuthCog client: builds the central-auth URL for a relying
 # host and exchanges a single-use callback hash for the released identity.
 #
-# AuthcogController (a Lux app) and any standalone Rack/Sinatra server that
-# needs the same handoff without a Lux::Controller both use this, so the URL
+# AuthcogRouter (a Lux app) and any standalone Rack/Sinatra server that
+# needs the same handoff without a Lux::Router both use this, so the URL
 # shape and the exchange error mapping live in one place.
 module Authcog
   class Error < StandardError; end

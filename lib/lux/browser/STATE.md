@@ -66,7 +66,7 @@ the trail is empty.
 ## Usage
 
 ```ruby
-# server (controller / before-filter)
+# server (router / before hook)
 lux.browser.window[:app] = {
   cfg:     { host: Lux.config.host, deploy_id: Lux::DEPLOY_ID },
   current: { user: lux.user&.to_h },

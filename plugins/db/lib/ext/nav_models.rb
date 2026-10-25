@@ -2,7 +2,7 @@
 # Nav has no model knowledge.
 #
 # The ref *format* is core (named by Lux.config.ref_format, resolved through
-# Lux::Application::Nav::Base). What lives here is the mapping from a ref in the
+# Lux::Router::Nav::Base). What lives here is the mapping from a ref in the
 # URL to a record: the dispatch-key registry, and Nav#load_models.
 
 module Lux
@@ -50,7 +50,7 @@ end
 end
 end
 
-class Lux::Application::Nav
+class Lux::Router::Nav
   # Resolve the URL's refs to records and export them as @object + @<model>
   # ivars on the running app.
   #
@@ -80,13 +80,13 @@ class Lux::Application::Nav
     # idempotent - a router that already declared the format keeps its result
     map_path
 
-    app     = Lux.current.var[:lux_app] if ivars
+    app     = Lux.current.var[:lux_router] if ivars
     lookup  = load_models_index models
     found   = {}   # ivar name => record, in resolution order
     deepest = nil
 
     # the segment in front of a ref names its model
-    path.grep(Lux::Application::Nav::Base).each do |segment|
+    path.grep(Lux::Router::Nav::Base).each do |segment|
       klass, name = lookup[load_models_key(segment.path_before)]
       next unless klass
 

@@ -1,12 +1,12 @@
 # Lux::Response
 
-HTTP response builder. Use as `response` inside a controller, or
+HTTP response builder. Use as `response` inside a router, or
 `current.response` anywhere.
 
 ## Full example
 
 ```ruby
-class FilesController < ApplicationController
+class FilesRouter < ApplicationRouter
   def show
     # --- status / headers ----------------------------------------------
     response.status 200                           # also: response.status = 200

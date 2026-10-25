@@ -8,7 +8,7 @@
 #   lux.csrf              # lazy generate+persist; safe to call from anywhere
 #   lux.csrf_valid?       # check incoming request submitted the right token
 #
-# Auto-checked by Application#render_base for non-GET requests that aren't
+# Auto-checked by Router#render_base for non-GET requests that aren't
 # Bearer-authenticated. Use lux.csrf in templates to render the hidden field:
 #
 #   <input type="hidden" name="_csrf" value="<%= lux.csrf %>">

@@ -102,7 +102,7 @@ base class, so sequences and fetch cache start clean per test.
 
 ## HTTP requests
 
-Use `Lux.render.<verb>` directly. It returns a `Lux::Application::Page`.
+Use `Lux.render.<verb>` directly. It returns a `Lux::Router::Page`.
 
 ```ruby
 resp = Lux.render.get('/users', params: { q: 'x' }, session: { user_id: 1 })
@@ -152,12 +152,12 @@ truncate :users, :orgs   # use when transaction wrapping won't work
 
 ## Pattern catalogue
 
-### Controller / route test
+### Router / route test
 
 ```ruby
 require 'test_helper'
 
-describe Lux::Controller do
+describe Lux::Router do
   it 'renders 200 for the index action' do
     resp = Lux.render.get('/users', session: { user_id: factory.create(:user).id })
     assert_status 200, resp
@@ -222,7 +222,7 @@ end
 1. Only assertions from the list above. No invented matchers.
 2. No RSpec syntax anywhere. No `let`, no `expect`, no `double`.
 3. Factories live in `spec/factories.rb`. One blueprint per concept.
-4. Use `Lux.render.get/post/...` for HTTP-level tests. No raw `Lux.app.new`.
+4. Use `Lux.render.get/post/...` for HTTP-level tests. No raw `Lux.router.new`.
 5. `capture_*` for IO, `with_transaction` for DB. Stub `Time.now` by hand
    when needed - there is no `freeze_time` helper.
 6. Memoize via `def foo; @foo ||= ...; end`. Not `let`.
