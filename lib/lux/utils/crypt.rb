@@ -14,10 +14,10 @@ module Utils
 module Crypt
   extend self
 
-  ALGORITHM = 'HS512'
+  ALGORITHM ||= 'HS512'
 
   # sealed token layout: 12 byte iv + 16 byte GCM tag + ciphertext
-  SEAL_HEAD = 28
+  SEAL_HEAD ||= 28
 
   def secret
     ENV.fetch('SECRET') { Lux.config.secret } || die('Lux.config.secret not set')

@@ -1,7 +1,7 @@
 # https://sequel.jeremyevans.net/rdoc/files/doc/model_hooks_rdoc.html
 
 module Sequel::Plugins::LuxHooks
-  HOOK_METHODS = {}
+  HOOK_METHODS ||= {}
 
   module InstanceMethods
     def save(opts = Sequel::OPTS)

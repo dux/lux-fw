@@ -131,5 +131,5 @@ module Lux
 
   # Back-compat: the class used to be Lux::Mailer. Existing app mailers
   # (`class Mailer < Lux::Mailer`) keep working through this alias.
-  Mailer = Mail::Sender
+  Mailer ||= Mail::Sender
 end

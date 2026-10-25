@@ -13,7 +13,7 @@ require 'time'
 module Lux
   class Api
     class FileResponse
-      OPTS = Struct.new(:name, :file, :content_type, :inline, :download, :disposition, :content, :ext, :path)
+      FILE_OPTS ||= Struct.new(:name, :file, :content_type, :inline, :download, :disposition, :content, :ext, :path)
 
       # @param api  Lux::Api#@api struct
       # @param opts Hash:
@@ -30,7 +30,7 @@ module Lux
       #   :disposition  - 'attachment' (force download) or 'inline' (view)
       def initialize api, opts = {}
         @api = api
-        @opt = OPTS.new
+        @opt = FILE_OPTS.new
 
         opts.each { |k, v| @opt[k] = v }
 

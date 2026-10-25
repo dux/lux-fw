@@ -19,7 +19,7 @@ module Lux
       define_callback :on_receive
 
       # Normalized inbound message. `source` is :post or :mailbox.
-      Message = Struct.new(
+      Message ||= Struct.new(
         :to, :from, :from_name, :subject, :text, :html,
         :message_id, :in_reply_to, :spf, :dkim, :dmarc,
         :headers, :raw, :source,

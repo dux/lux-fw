@@ -248,7 +248,7 @@ module Lux
       end
 
       # Known two-part TLDs where the domain is the third-from-last segment
-      TWO_PART_TLDS = %w[
+      TWO_PART_TLDS ||= %w[
         co.uk co.nz co.in co.za co.jp co.kr co.il co.th
         com.au com.br com.sg com.hk com.mx com.ar com.tw
         org.uk org.au org.nz
