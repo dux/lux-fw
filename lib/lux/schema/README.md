@@ -20,7 +20,7 @@ schema = Lux.schema do
 end
 
 errors = schema.validate({ 'name' => 'Dux', 'email' => 'foo@bar.baz' })
-# errors == {} ; hash is now coerced + filtered in place
+# errors == {} ; hash is coerced in place (pass strict: true to also drop undeclared keys)
 
 # --- named (stored under SCHEMA_STORE; lookup with Lux.schema(:user)) -
 
@@ -50,6 +50,10 @@ end
 name String, max: 30                  # method-missing -> set
 set :name, type: String, max: 30      # explicit
 name? String, max: 30                 # optional
+
+# Field names that collide with Kernel/Object or DSL methods (`format`,
+# `select`, `test`, `hash`, `display`, `set`, `db`, `schema`) must be
+# declared with the explicit form: set :format, String
 
 # above a router / API def:
 opt :name, String, max: 30            # same parser, method-level form
@@ -88,12 +92,12 @@ Lux.schema(:user).except(:age, :country)     # new Schema without those
 
 data = { 'name' => 'Dux', 'email' => 'd@x.com', 'role' => 'admin', 'age' => '42' }
 errors = Lux.schema(:user).validate(data)
-# errors == {} ; data is now { 'name' => 'Dux', email: ..., role: 'admin', age: 42 (coerced), ... }
+# data is now { name: 'Dux', email: 'd@x.com', role: 'admin', age: 42, ... }
 
 # Strict mode (default for routers/APIs): also DROPS undeclared keys
 Lux.schema(:user).validate(data, strict: true)
 
-# Block form yields (field, message) for each error and returns nil
+# Block form yields (field, message) for each error and still returns the errors hash
 Lux.schema(:user).validate(data) do |field, msg|
   puts "#{field}: #{msg}"
 end
@@ -114,6 +118,9 @@ Lux.schema(:user).valid?(data)        # true / false
 | `min_count`    | Min array length |
 | `delimiter`    | Array string split regex/string |
 | `duplicates`   | Allow duplicates in array |
+| `virtual`      | Model setter: validated in hashes, never written to models or db |
+| `name`         | Label used in error prefixes |
+| `model` / `schema` | Nested schema |
 | `index`        | DB column index hint |
 | `desc` / `description` | Human description (used by API explorer) |
 | `meta`         | free-form metadata bag - per-locale error overrides, plus `unique`/`protected`/`was`/`as`/... consumed by the db plugin |
@@ -127,9 +134,36 @@ on a custom type via `Lux::Type.opts :key, 'desc'`.
   replace raw input, blank empty strings become `nil`.
 * Pass `strict: true` to also drop undeclared keys (routers and APIs
   do this by default when any opts are declared).
-* Block form yields `(field, message)` for each error; otherwise returns
+* Block form yields `(field, message)` for each error and still returns
   the errors hash.
 * `schema.valid?(hash)` returns `true`/`false`.
+* `validate` runs on a copy of the schema per call, so shared (stored, API,
+  model) schemas are thread-safe.
+* Allowed-values (`values:` / `allowed:` / `allow:`) are checked per value,
+  also per array element.
+
+## Accessor (`model.schema`)
+
+With the db plugin, `model.schema` returns a `Lux::Schema::Accessor`:
+
+```ruby
+mp.schema[:email].get        # coerced value
+mp.schema[:email].db_value   # value as stored
+mp.schema[:email].to_s       # display string
+mp.schema.set(:email, 'X@Y.com')
+mp.schema.validate(:email)
+mp.schema(:email)            # rule hash { type: :email, ... }
+```
+
+## Sequel plugin (`plugin :lux_schema`)
+
+* `Model.schema { ... }` registers the schema under the model name
+  (`Lux.schema?(Model)`); `Model#validate` runs it on save.
+* `Model.api_schema` is the schema without audit columns
+  (`created_at updated_at creator_ref updater_ref`); override to exclude more.
+* `meta: { unique: true }` rejects a value already used by another row
+  (case-insensitive); `meta: { protected: true }` rejects changing a value
+  on an existing record. Pass a String instead of `true` for a custom message.
 
 ## See also
 

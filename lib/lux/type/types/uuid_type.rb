@@ -4,7 +4,7 @@ class Lux::Type::UuidType < Lux::Type
   def coerce
     value { |data| data.to_s.strip.downcase }
 
-    error_for(:invalid_uuid) unless value =~ /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    error_for(:invalid_uuid) unless value =~ /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/
   end
 
   def db_schema

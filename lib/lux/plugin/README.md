@@ -12,7 +12,7 @@ Plugin loader. Looks under `Lux.root/plugins/<name>/` first, then
 # --- loading ---------------------------------------------------------
 
 Lux.plugin :db                      # load one
-Lux.plugin :db, :authcog, :html     # several
+Lux.plugin :db, :authcog, :web_common  # several
 
 # --- introspection ---------------------------------------------------
 
@@ -58,8 +58,8 @@ registered and does nothing else on `Lux.plugin :x`.
 2. `config.yaml` if present - merged into `Lux.config`; a top-level
    `plugins:` list appends to the configured plugin list
 3. `loader.rb` if present (use for hooks, config registration, ordering)
-4. `load/**/*.rb` via `Dir.require_all` - depth-first, alphabetical; files
-   matching `*_spec.rb` and anything under `/app/views/` are skipped
+4. `load/**/*.rb` via `Dir.require_all` - shallowest-first, then alphabetical;
+   `*_spec.rb`, `/app/views/` and `/app/assets/` are skipped
 
 Before any plugin loads, boot registers native Ruby autoloads for the app's
 `app/**/*.rb` (by basename: `app/models/user.rb` -> `User`), so `loader.rb` and
@@ -71,6 +71,9 @@ reopens them afterwards.
 `Hammerfile` and `hammer/` are NOT loaded at runtime - the `lux` CLI
 discovers them at startup so commands are visible without loading the
 plugin.
+
+Plugin config fills keys the app did not declare; a dependent plugin overrides its dependency.
+Inside a plugin `config.yaml`, an env section replaces `default` arrays and an explicit `nil` clears a default, as in app config.
 
 ## Authoring a plugin
 
@@ -95,7 +98,7 @@ class Foo
 end
 
 # plugins/foo/routes.rb -- evaluated when host app calls plugin_route :foo
-map 'foo', 'foo#root'
+map 'foo', 'foo#index'
 
 # plugins/foo/Hammerfile -- CLI tasks
 task :foo do
@@ -107,7 +110,8 @@ end
 In the host:
 
 ```ruby
-Lux do
+# app/routes.rb
+Lux.router do
   route do
     plugin_route :web_common           # explicit, at root
     map 'admin' do

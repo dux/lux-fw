@@ -4,6 +4,7 @@ module Lux
   # Lux.type(:label, 'Foo bar') -> "foo-bar"
   def type klass_name, value = UNSET, opts = {}, &block
     klass = Lux::Type.load(klass_name)
+    opts.each_key { |key| klass.allowed_opt?(key) }   # schema fields check once in Define#validate_opts
 
     if value.equal?(UNSET)
       klass

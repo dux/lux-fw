@@ -1,7 +1,6 @@
 module Lux
   class JsonExporter
     EXPORTERS ||= {}
-    FILTERS   ||= { before: {}, after: {} }
 
     class << self
       def define name = nil, &block
@@ -11,8 +10,9 @@ module Lux
         EXPORTERS[name] = block
       end
 
-      def export name, opts = nil
-        new(name, opts || {}).render
+      def export model, opts = nil
+        return model.map { |el| new(el, opts).render } if model.is_a?(Array)
+        new(model, opts).render
       end
 
       def before &block
@@ -27,7 +27,7 @@ module Lux
 
       def __define_filter name, &block
         define_method name do
-          super() if self.class != Lux::JsonExporter
+          super() if defined?(super)
           instance_exec opts, &block
         end
       end
@@ -42,12 +42,12 @@ module Lux
         raise ArgumentError, 'model argument is not model instance (it is a %s)' % model.class
       end
 
-      opts[:export_depth]  ||= 2 # default depth; nested recursive exports cap here
-      opts[:current_depth] ||= 0
-      opts[:current_depth] += 1
+      opts = (opts || {}).to_lux_hash      # copy; never mutate the caller's hash
+      opts[:export_depth]  ||= 2           # default depth; nested recursive exports cap here
+      opts[:current_depth]  = opts[:current_depth].to_i + 1
 
       @model = model
-      @opts  = opts.to_lux_hash
+      @opts  = opts
       @block = __find_exporter
       @json  = {}
     end
@@ -80,29 +80,24 @@ module Lux
 
     private
 
-    # export object
+    # export object; key: renames the json key
     # export :org_users, key: :users
     def export name, local_opts = {}
       return if @opts[:current_depth] > @opts[:export_depth]
+      local_opts = local_opts.dup
+      key = local_opts.delete(:key)
 
       if name.is_a?(Symbol)
-        name, cmodel = name, @model.send(name)
+        cmodel = @model.send(name)
+      else
+        cmodel, name = name, name.class.to_s.underscore.to_sym
+      end
 
-        if cmodel.class.to_s.include?('Array')
-          cmodel = cmodel.map { |el| self.class.export(el, __opts) }
+      @json[key || name] =
+        if cmodel.nil? then nil
+        elsif cmodel.is_a?(Array) then cmodel.map { |el| self.class.new(el, __opts(local_opts)).render }
+        else self.class.new(cmodel, __opts(local_opts)).render
         end
-      else
-        underscored = name.class.to_s.underscore.to_sym
-        name, cmodel = underscored, name
-      end
-
-      @json[name] = if [Array].include?(cmodel.class)
-        cmodel
-      elsif cmodel.nil?
-        nil
-      else
-        self.class.new(cmodel, __opts(local_opts)).render
-      end
     end
 
     # add property to exporter
@@ -120,19 +115,28 @@ module Lux
     alias :prop :property
 
     def __find_exporter
-      base  = (@opts[:exporter] || model.class).to_s.classify
-      shape = @opts[:shape]
+      base   = (@opts[:exporter] || model.class).to_s.classify
+      shape  = @opts[:shape]
+      nested = @opts[:current_depth] > 1
 
       self.class.ancestors.map(&:to_s).each do |klass|
         if shape
           block = EXPORTERS["#{shape.to_s.classify}#{klass}"]
           return block if block
         end
-        block = EXPORTERS[[base, klass].join] || EXPORTERS[klass]
+        block = EXPORTERS[[base, klass].join]
+        return block if block
+
+        # a nested export must not fall into another model's default block
+        # (OrgExporter's default rendering a User); only the model's own exporter's default matches
+        next if nested && klass != "#{base}Exporter"
+        block = EXPORTERS[klass]
         return block if block
       end
 
-      raise %[Exporter for class "#{base}" not found.]
+      raise ArgumentError, nested ?
+        %[Exporter for nested "#{base}" not found in #{self.class} (add `define #{base} do ... end`)] :
+        %[Exporter for class "#{base}" not found.]
     end
 
     def __opts start = {}

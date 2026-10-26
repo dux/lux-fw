@@ -23,7 +23,7 @@ module Lux
           'error'   => {
             'type'       => 'object',
             'properties' => {
-              'code'     => { 'type' => 'string' },
+              'code'     => {},
               'messages' => { 'type' => 'array', 'items' => { 'type' => 'string' } },
               'details'  => { 'type' => 'object' }
             }
@@ -187,7 +187,7 @@ module Lux
       end
 
       def request
-        @api[:api_host].request
+        @api[:api_host]&.request or raise Lux::Api::Error, 'needs an HTTP request (call via the mounted API)'
       end
     end
   end

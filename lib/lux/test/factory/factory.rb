@@ -106,11 +106,12 @@ module Lux
         @@sequence[name] += 1
       end
 
-      # link a created sibling model: `create :org` -> @model.org_id = factory.create(:org).id
+      # link a created sibling model: `create :org` -> @model.org_ref = factory.create(:org).ref (org_id/.id for non-ref models)
       def create name, field = nil
-        field ||= name.to_s.singularize + '_id'
         new_model = Factory.create(name)
-        @model.send('%s=' % field, new_model.id)
+        key   = new_model.respond_to?(:ref) ? :ref : :id
+        field ||= '%s_%s' % [name.to_s.singularize, key]
+        @model.send('%s=' % field, new_model.send(key))
         new_model
       end
 

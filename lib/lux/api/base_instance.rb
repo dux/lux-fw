@@ -8,6 +8,7 @@ module Lux
 
     ANNOTATIONS   ||= {}
     OPTS          ||= { api: {} }
+    OPTS_GEN      ||= [0]   # bumped on every OPTS write; invalidates the per-class opts memo
     PLUGINS       ||= {}
     MODELS        ||= {}
     DOCUMENTED    ||= []
@@ -17,17 +18,16 @@ module Lux
       :development,
       :id,
       :method_opts,
-      :opts,
       :params,
       :raw,
       :api_host,
+      :mount_path,
       :request,
-      :response,
-      :uid
+      :response
 
     attr_reader :api
 
-    def initialize action, params: {}, opts: {}, development: false, id: nil, bearer: nil, api_host: nil
+    def initialize action, params: {}, development: false, id: nil, bearer: nil, api_host: nil, mount_path: nil
       @api = INSTANCE.new
 
       if action.is_a?(Array)
@@ -44,8 +44,8 @@ module Lux
       @api.method_opts   = self.class.opts.dig(@api.id ? :member : :collection, @api.action) || {}
       @api.development   = !!development
       @api.params        = Lux::Hash.new params
-      @api.opts          = Lux::Hash.new opts
       @api.api_host      = api_host
+      @api.mount_path    = mount_path
       @api.response      = ::Lux::Api::Response.new @api
 
       # convenience mirrors of @api.id / @api.bearer, available to before-callbacks
@@ -68,7 +68,7 @@ module Lux
           response.error error.message, status: 404
         rescue Lux::Api::Error => error
           # controlled error raised via error "message", ignore
-          response.error error.message
+          response.error error.message unless response.error?
         rescue => error
           # any other error -> render its message as json; the class is kept in
           # meta for diagnostics. Class only matters for logging: real server
@@ -90,7 +90,9 @@ module Lux
         # we execute generic after block in case of error or no
         execute_callback :after_all
       else
-        response.error '%s request is not allowed' % request_type
+        verbs = Lux::Utils::HttpVerbs.expand(@api.method_opts[:allow] || [:post])
+        response.header 'Allow', verbs.to_a.map { _1.to_s.upcase }.join(', ')
+        response.error '%s request is not allowed' % request_type, status: 405
       end
 
       @api.raw || response.render
@@ -112,7 +114,8 @@ module Lux
 
       if params && schema
         # add validation errors
-        schema.validate @api.params do |name, error|
+        # strict: undeclared keys are dropped, so @api.params is safe to mass-assign
+        schema.validate @api.params, strict: true do |name, error|
           response.error_detail name, error
         end
       end
@@ -192,10 +195,8 @@ module Lux
     def response content_type=nil
       if block_given?
         @api.raw = yield
-
-        api_host do
-          response.header['Content-Type'] = content_type || (@api.raw[0] == '{' ? 'application/json' : 'text/plain')
-        end
+        type = content_type || (@api.raw.to_s.start_with?('{', '[') ? 'application/json' : 'text/plain')
+        api_host { response.header['Content-Type'] = type }
       elsif content_type
         # content_type without a block is almost always a mistake - the arg only
         # labels a raw body. The old behavior silently shipped the string AS the
@@ -251,18 +252,21 @@ module Lux
         puts 'Lux::Api Error: %s (%s)' % [text, caller[0]]
       end
 
-      if err = self.class.rescue_handler_for(text)
-        if err.is_a?(Proc)
-          err.call
-          return
-        else
-          response.error err, args
-        end
+      handler = self.class.rescue_handler_for(text)
+      message = text
+
+      if handler.is_a?(Proc)
+        instance_exec text, &handler
       else
-        response.error text, args
+        opts = args.dup
+        if handler
+          message = handler
+          opts[:code] ||= text
+        end
+        response.error message, opts
       end
 
-      raise Lux::Api::Error, text
+      raise Lux::Api::Error, message.to_s
     end
 
     def message data
@@ -284,8 +288,21 @@ module Lux
         name = label.start_with?('<') ? @api.action.to_s : label.sub(/_ref$/, '')
       end
 
-      method_name = @ref ? "#{name}_ref" : name.to_s
-      self.class.superclass.instance_method(method_name).bind(self).call
+      method_name = (@ref ? "#{name}_ref" : name.to_s).to_sym
+      # walk ancestors from the method's real owner, tracking depth per instance,
+      # so chained super! calls across 3+ levels move up instead of looping
+      chain  = (@_super_from ||= {})
+      prev   = chain[method_name]
+      from   = prev || self.class.instance_method(method_name).owner
+      ancs   = self.class.ancestors
+      parent = ancs[(ancs.index(from) + 1)..].find do |m|
+        m.method_defined?(method_name, false) || m.private_method_defined?(method_name, false)
+      end
+      raise NoMethodError, "super!: no #{method_name} above #{from}" unless parent
+      chain[method_name] = parent
+      parent.instance_method(method_name).bind_call(self)
+    ensure
+      chain[method_name] = prev if chain
     end
 
     # execute actions on api host

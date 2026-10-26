@@ -13,9 +13,8 @@
 #                                                    else parent_type.
 #
 # All public operations (detect / resolve / assign / scope) work on the
-# shapes above. The tree-array shape (`parent_refs text[]`) is handled by
-# `model_tree.rb`, which delegates here for its `parent` / `children` /
-# `children_refs` accessors.
+# shapes above. The tree-array shape (`parent_refs text[]`) lives in
+# `model_tree.rb`, independent of this plugin.
 #
 # Usage
 # -----
@@ -216,11 +215,11 @@ module Sequel::Plugins::RefLinker
           end
 
           def #{name}= object
-            self[:#{field}] = object.ref
+            self[:#{field}] = object&.ref
           end
         STR
       else
-        field = "#{name.singularize}_refs".to_sym
+        field = (opts[:field] || "#{name.singularize}_refs").to_sym
 
         if db_schema[field.to_sym]
           # plural with <name>_refs[] column: load each ref through find().
@@ -302,18 +301,13 @@ module Sequel::Plugins::RefLinker
       end
 
       @parent ||=
-      if key = self[:parent_key]
-        klass, ref = key.split('/', 2)
-        klass.constantize.find(ref)
-      elsif cols = Sequel::Plugins::RefLinker.poly_pair_columns(self.class)
-        if type = self[cols[0]]
-          type.constantize.find(self[cols[1]])
+        if db_schema[:parent_key]
+          (key = self[:parent_key]).present? ? (klass, ref = key.split('/', 2); klass.constantize.find(ref)) : nil
+        elsif cols = Sequel::Plugins::RefLinker.poly_pair_columns(self.class)
+          (type = self[cols[0]]) ? type.constantize.find(self[cols[1]]) : nil
         else
-          raise ArgumentError, '%s parent not set.' % self.class
+          Sequel::Plugins::RefLinker.die_missing_poly_columns self.class
         end
-      else
-        Sequel::Plugins::RefLinker.die_missing_poly_columns self.class
-      end
     end
 
     # True if the host model declares any polymorphic-parent columns.

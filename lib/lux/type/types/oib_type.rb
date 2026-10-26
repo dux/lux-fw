@@ -19,7 +19,7 @@ class Lux::Type::OibType < Lux::Type
   def check? oib
     oib = oib.to_s
 
-    return false unless oib.match(/^[0-9]{11}$/)
+    return false unless oib.match(/\A[0-9]{11}\z/)
 
     control_sum = (0..9).inject(10) do |middle, position|
       middle += oib[position].to_i

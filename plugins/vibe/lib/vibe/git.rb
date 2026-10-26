@@ -55,10 +55,6 @@ module Vibe
       git 'rev-parse', '--abbrev-ref', 'HEAD'
     end
 
-    def on_branch?
-      current_branch == Vibe.branch
-    end
-
     def branch_exists? name
       git?('rev-parse', '--verify', '--quiet', "refs/heads/#{name}").first
     end
@@ -91,12 +87,7 @@ module Vibe
         if remote_branch_exists?(Vibe.branch)
           git 'checkout', '--track', "origin/#{Vibe.branch}"
         else
-          # the local main is what the developer is looking at (it may be ahead of
-          # origin with unpushed work); origin/main only when there is no local one
-          base = if branch_exists?(Vibe.main) then Vibe.main
-                 elsif remote_branch_exists?(Vibe.main) then "origin/#{Vibe.main}"
-                 else raise Error, 'No %s branch to create %s from' % [Vibe.main, Vibe.branch]
-                 end
+          base = main_source or raise Error, 'No %s branch to create %s from' % [Vibe.main, Vibe.branch]
           # --no-track: the upstream of vibe is origin/vibe (set by the first push),
           # never main - otherwise ahead/behind would be measured against main
           git 'checkout', '--no-track', '-b', Vibe.branch, base
@@ -186,7 +177,7 @@ module Vibe
     def diff path = nil
       if path
         repo_path! path
-        tracked = git?('ls-files', '--error-unmatch', '--', path).first
+        tracked = in_head?(path) || git?('ls-files', '--error-unmatch', '--', path).first
         return git('diff', 'HEAD', '--', path) if tracked
 
         # exit code 1 = files differ, the expected outcome here
@@ -225,7 +216,7 @@ module Vibe
       return { pushed: true, incoming: [], sha: head } if ok
 
       fok, fout = git? 'fetch', 'origin', Vibe.branch
-      raise Error, 'Push rejected and origin unreachable: %s' % Vibe.first_line(fout) unless fok
+      raise Error, 'Push failed: %s' % Vibe.first_line(out) unless fok
 
       incoming = lines(git('log', '--format=%h %s', 'HEAD..FETCH_HEAD'))
 
@@ -266,9 +257,8 @@ module Vibe
       dirty = changes
       raise Error, 'Commit or discard %d local change(s) before merging %s' % [dirty.length, Vibe.main] if dirty.any?
 
-      fok, _ = git? 'fetch', 'origin', Vibe.main
-      source = fok ? "origin/#{Vibe.main}" : Vibe.main
-      raise Error, 'No %s branch to merge from' % Vibe.main unless fok || branch_exists?(Vibe.main)
+      git? 'fetch', '--quiet', 'origin', Vibe.main, timeout: 20
+      source = main_source or raise Error, 'No %s branch to merge from' % Vibe.main
 
       before = head
       ok, out = git? 'merge', '--no-edit', source
@@ -279,6 +269,15 @@ module Vibe
       end
 
       { sha: head, source: source, changed: before != head, incoming: lines(git('log', '--format=%h %s', "#{before}..HEAD")) }
+    end
+
+    # The one base for both creating vibe and merging into it: origin/main after a
+    # fetch, so unpushed local main commits never leak into vibe; local main only
+    # when there is no remote (offline or a repo without origin).
+    def main_source
+      if remote_branch_exists?(Vibe.main) then "origin/#{Vibe.main}"
+      elsif branch_exists?(Vibe.main) then Vibe.main
+      end
     end
 
     # throw away every uncommitted change; ignored paths (tmp, node_modules) stay
@@ -293,13 +292,20 @@ module Vibe
       { discarded: discarded.map { |c| c[:path] }, sha: head }
     end
 
+    # HEAD, not the index, decides: after `add -A` (Auto message) a new file is
+    # in the index and a deleted one is not
+    def in_head? path
+      !git('ls-tree', '--name-only', 'HEAD', '--', path).empty?
+    end
+
     def discard_file path
       ensure_branch!
       path = repo_path!(path)
 
-      if git?('ls-files', '--error-unmatch', '--', path).first
+      if in_head?(path)
         git 'checkout', 'HEAD', '--', path
       else
+        git 'rm', '--cached', '-q', '--ignore-unmatch', '--', path
         git 'clean', '-f', '-q', '--', path
       end
 

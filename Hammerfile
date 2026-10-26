@@ -1,18 +1,6 @@
 # Hammerfile for lux-fw - run via `hammer <task>` (see lux-hammer gem).
 # Replaces the legacy Rakefile.
 
-SPEC_DIRS ||= %w[
-  hash_tests
-  lib_tests
-  test_tests
-  lux_tests
-  json_exporter_tests
-  view_cell_tests
-  policy_tests
-  schema_tests
-  api_tests
-].freeze
-
 task :test do
   desc 'Run the Minitest suite (one ruby process per spec folder, plugin specs included)'
   alt :t
@@ -21,7 +9,7 @@ task :test do
 
   proc do |o|
     # each plugin ships its own spec/ folder next to the code it tests
-    folders = SPEC_DIRS.map { "spec/#{_1}" } + Dir.glob('plugins/*/spec').sort
+    folders = Dir.glob('spec/*_tests').sort + Dir.glob('plugins/*/spec').sort
     run_folder = ->(dir) { system %(bundle exec ruby -Ilib -Ispec -e "Dir.glob('#{dir}/**/*_spec.rb').sort.each { |f| require_relative f }") }
 
     # one-folder mode
@@ -68,8 +56,10 @@ task :deploy do
   proc do
     hammer :test
     sh 'vstamp count --release'
-    gem_file = "lux-fw-#{`vstamp`.strip}.gem"
-    sh 'gem build lux-fw.gemspec'
+    # ask a fresh ruby: the gemspec honours LUX_VERSION and the stamp vstamp just wrote
+    version  = `ruby -e "print Gem::Specification.load('lux-fw.gemspec').version"`.strip
+    gem_file = "lux-fw-#{version}.gem"
+    sh "gem build lux-fw.gemspec -o #{gem_file}"
     sh "gem push #{gem_file}"
     File.delete(gem_file)
   end

@@ -6,10 +6,10 @@ generated or typed message, push, pull, merge main in, discard). Plus a restart 
 and per-message revert. Everything runs in docker compose next to the app itself.
 
 ```
-browser :4000 ──► vibe container ──┬── Sinatra harness (lux docker:vibe:server)  page + /api + /oc proxy
-                                  └── opencode serve :4096 (agent, OpenRouter model)
-                        │ same ./ checkout, same ./local/bundle, docker socket for hard restart
-browser :3000 ──► app container (your lux app, puma + rollup watch)  ◄── preview iframe
+browser :4000 --> vibe container --+-- Sinatra harness (lux docker:vibe:server)  page + /api + /oc proxy
+                                   +-- opencode serve :4096 (agent, OpenRouter model)
+                       |  same ./ checkout, same ./local/bundle, docker socket for hard restart
+browser :3000 --> app container (your lux app, puma + rollup watch)  <-- preview iframe
 ```
 
 * The agent is `opencode serve` (headless) talking to OpenRouter with `OPENROUTER_API_KEY`
@@ -39,8 +39,9 @@ plugins:
 
 ```
 lux docker:vibe:init   # writes config/docker/{docker-compose.vibe.yml,Dockerfile.vibe,entrypoint.vibe.sh}
-                       # and config/docker/vibe/{opencode.json,instructions.md}; adds OPENROUTER_API_KEY,
-                       # VIBE_MODEL, VIBE_GIT_NAME/EMAIL to .env; ignores local/opencode
+                       # and config/docker/vibe/{opencode.json,instructions.md}; adds the selected provider's key
+                       # (OPENROUTER_API_KEY, or DEEPSEEK_API_KEY when a deepseek key is configured), VIBE_MODEL,
+                       # VIBE_GIT_NAME/EMAIL to .env; ignores local/opencode
 # put your OpenRouter key into .env
 lux docker:vibe:run    # docker compose --project-directory . --profile vibe -f config/docker/docker-compose.yml \
                        #   -f config/docker/docker-compose.vibe.yml [-f config/docker/docker-compose.override.yml] up
@@ -69,32 +70,37 @@ lux docker:vibe:init [--force]        generate the harness files into this app
 lux docker:vibe:run [--build] [-d]    start app + db + vibe;  --stop = compose down
 lux docker:vibe:server                run the harness web app (the vibe container command)
 lux docker:vibe:oc [--port 4096]      run opencode serve for this checkout (host debugging)
+lux docker:vibe:env                   print export lines for provider keys + resolved VIBE_MODEL (the entrypoint evals them)
 lux docker:vibe:status                branch, changes, ahead/behind, recent log
 lux docker:vibe:commit [-m msg] [-p]  stage all + commit (message generated when omitted), -p pushes
 lux docker:vibe:push / :pull          push (rebase on rejection) / pull --rebase origin/vibe
-lux docker:vibe:merge                 merge main into vibe
+lux docker:vibe:merge                 merge origin/main (local main when there is no remote) into vibe
 lux docker:vibe:reset [-y]            discard all uncommitted changes
 lux docker:vibe:restart [--hard]      soft (tmp/restart.txt) or hard (container restart)
 lux docker:vibe:logs                  compose logs -f vibe app
 ```
 
 The git tasks run on the host checkout with the same `Vibe::Git` code the UI uses.
+A new `vibe` branch and the merge button share one base: `origin/main` after a fetch, or the local `main` only when there is no remote, so unpushed local `main` commits never reach `vibe`.
 
 ## Environment (all optional except one key)
 
 | var | default | meaning |
 | --- | --- | --- |
 | `OPENROUTER_API_KEY` | - | model access for the agent (default provider) and the commit-message helper |
-| `DEEPSEEK_API_KEY` | - | when set and `VIBE_MODEL` is not, the agent runs `deepseek/deepseek-flash`; the entrypoint also reads `deepseek_api_key` from `config/config.yaml` |
+| `DEEPSEEK_API_KEY` | - | when set and `VIBE_MODEL` is not, the agent runs `deepseek/deepseek-flash`; `deepseek_api_key` / `openrouter_api_key` in `Lux.config` fill the matching env var when it is empty (the entrypoint evals `lux docker:vibe:env`, so `Vibe.model` is the one model rule) |
 | `VIBE_MODEL` | `openrouter/anthropic/claude-sonnet-4.5` | opencode model id; its provider picks the key (`<PROVIDER>_API_KEY`) |
 | `VIBE_COMMIT_MODEL` | `anthropic/claude-haiku-4.5` | OpenRouter model for "auto message" |
 | `VIBE_BRANCH` / `VIBE_MAIN` | `vibe` / `main` | harness branch, merge source |
 | `VIBE_ROOT` | cwd | checkout (`/app` in the container) |
 | `VIBE_PORT` | `4000` | harness port |
+| `VIBE_BIND` | `127.0.0.1` on the host, `0.0.0.0` in docker | harness listen address |
+| `VIBE_HOSTS` | `localhost,127.0.0.1,[::1]` | Host headers the harness answers (DNS-rebinding guard) |
 | `VIBE_APP_URL` | `http://localhost:3000` | what the preview iframes |
 | `VIBE_APP_HEALTH_URL` | `VIBE_APP_URL` | what the harness pings (`http://app:3000` in compose) |
 | `VIBE_OC_URL` | `http://127.0.0.1:4096` | opencode server |
 | `VIBE_APP_SERVICE` | `app` | compose service to hard-restart |
+| `COMPOSE_PROJECT_NAME` | compose `name:` or root folder, normalized | project label used to find the app container |
 | `VIBE_GIT_NAME` / `VIBE_GIT_EMAIL` | host git config | commit identity inside the container |
 | `OPENCODE_CONFIG` | - | set to `/app/config/docker/vibe/opencode.json` by the compose file |
 
@@ -114,7 +120,7 @@ plugins/vibe/
   lib/vibe.rb                config from ENV, run()
   lib/vibe/git.rb            branch guard + git ops
   lib/vibe/restart.rb        soft / hard restart, container logs
-  lib/vibe/opencode.rb       opencode http client
+  lib/vibe/opencode.rb       opencode health probe
   lib/vibe/commit_message.rb OpenRouter commit message
   lib/vibe/server.rb         Sinatra: page, /api/*, /oc/* proxy (SSE-safe)
   app/                       index.html.erb, style.css, vendor/{vibe.js,marked.min.js}, fez/vibe-*.fez
@@ -129,6 +135,8 @@ bundler step; edit a `.fez` and reload.
 
 The agent runs shell in the vibe container with `permission: allow`, and that container
 holds the docker socket for the restart button. Whoever reaches :4000 can drive both. It
-is a local dev tool: compose publishes the port on `127.0.0.1` only, and the server
-rejects cross-origin writes (Rack::Protection http_origin). Do not publish it wider
+is a local dev tool: compose publishes the port on `127.0.0.1` only, the server binds
+loopback when run outside docker, answers only `VIBE_HOSTS` Host headers (DNS rebinding),
+rejects cross-origin writes (Rack::Protection http_origin), and renders agent markdown
+with raw HTML escaped. Do not publish it wider
 without an identity gate in front.

@@ -8,6 +8,12 @@ module LuxDb
     URI.parse(url).path.sub('/', '')
   end
 
+  # same server and credentials, `postgres` database: the connection
+  # dropdb/createdb need while the target database does not exist
+  def maintenance_url(url)
+    URI.parse(url).tap { _1.path = '/postgres' }.to_s
+  end
+
   def db_backup_file_location(name)
     folder = './tmp/db_dump'
     Dir.mkdir(folder) unless Dir.exist?(folder)
@@ -15,8 +21,8 @@ module LuxDb
   end
 
   # Use psql -tAc with a quoted SELECT so we don't depend on shell-piped
-  # output parsing and never interpolate name into the SQL text. Casting
-  # the bound parameter keeps libpq happy when datname is unset.
+  # output parsing. The name is single-quote escaped and interpolated;
+  # psql -c cannot bind parameters.
   def db_exists? name
     Lux.shell.exec('psql', '-d', 'postgres', '-tAc',
       "SELECT 1 FROM pg_database WHERE datname = '#{name.to_s.gsub("'", "''")}'") == '1'
@@ -136,8 +142,8 @@ namespace :db do
         db_name = LuxDb.db_name_from_url(Lux::Db.url_for(name))
 
         if LuxDb.db_exists?(db_name)
-          puts "Database '#{db_name}' already exists, exiting".colorize(:yellow)
-          exit 0
+          puts "Database '#{db_name}' already exists, skipping".colorize(:yellow)
+          next
         end
 
         Lux.shell 'createdb', db_name
@@ -269,10 +275,12 @@ namespace :db do
           next
         end
 
-        Lux.shell 'dropdb', '--if-exists', db_name
-        Lux.shell 'createdb', db_name
+        # target the configured server (like db:backup), not the local default
+        admin = "--maintenance-db=#{LuxDb.maintenance_url(url)}"
+        Lux.shell 'dropdb', admin, '--if-exists', db_name
+        Lux.shell 'createdb', admin, db_name
         # shell mode for stdin redirect (<); both values are shellescaped.
-        Lux.shell 'psql -q %s < %s' % [db_name.shellescape, sql_file.shellescape], shell: true
+        Lux.shell 'psql -q %s < %s' % [url.shellescape, sql_file.shellescape], shell: true
         puts "Database '#{db_name}' restored from #{sql_file}".colorize(:green)
       end
     end
@@ -327,7 +335,7 @@ namespace :db do
         end
 
         # Plugin-shipped seeds (plugin/seeds/*.rb only, not demo/).
-        # Demo fixtures (e.g. fake lux_exceptions) live under plugin/demo/
+        # Demo seeds (demo fixtures) live under plugin/demo/
         # and must be loaded explicitly.
         Lux::Plugin::PLUGIN.each_value do |plugin|
           files = Dir[::File.join(plugin.folder, 'seeds/*.rb')].sort
@@ -347,18 +355,13 @@ namespace :db do
     opt :ask, type: :boolean, desc: 'Prompt before dropping columns (default: drop without asking)'
     proc do |opts|
       ENV['DB_MIGRATE'] = 'true' unless ENV['DB_MIGRATE'] == 'true'
-      require File.expand_path('../lib/migrate/auto_create_tables', __dir__)
 
       # AutoMigrate is auto-loaded by `Lux.plugin :db` (see plugins/db/lib/migrate/auto_migrate.rb).
       # Column drops apply automatically; --ask restores the interactive y/N confirmation.
       AutoMigrate.auto_confirm = !opts[:ask]
 
-      DB.run %[DROP TABLE IF EXISTS lux_tests;]
-      DB.run %[CREATE TABLE lux_tests (int_array integer[] default '{}');]
-      DB.run %[INSERT INTO lux_tests DEFAULT VALUES;]
-      row = DB[:lux_tests].first
-      Lux.shell.die('"DB.extension :pg_array" not loaded') unless row[:int_array].is_a?(Sequel::Postgres::PGArray)
-      DB.run %[DROP TABLE IF EXISTS lux_tests;]
+      probe = DB.get(Sequel.cast('{1}', 'integer[]'))
+      Lux.shell.die('"DB.extension :pg_array" not loaded') unless probe.is_a?(Sequel::Postgres::PGArray)
 
       LuxDb.load_migrate_file './db/before.rb'
       LuxDb.load_migrate_file './db/auto_migrate.rb'

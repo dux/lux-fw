@@ -19,7 +19,7 @@ describe 'error handling with status codes' do
       response = GenericApi.render :get_money
       _(response[:success]).must_equal false
       _(response[:error][:messages]).must_include '$ not found'
-      _(response[:error][:messages]).must_include '405'
+      _(response[:error][:code]).must_equal 405
     end
 
     it 'does not log controlled API errors' do

@@ -17,8 +17,8 @@ class PolMocvaraPolicy < Lux::Policy
 end
 
 describe Lux::Policy do
-  def controller
-    @controller ||= PolFakeAuthorize.new
+  def router
+    @router ||= PolFakeAuthorize.new
   end
 
   def post
@@ -37,26 +37,26 @@ describe Lux::Policy do
 
   describe 'authorize checks if' do
     it 'is_authorized? is false' do
-      _(controller.is_authorized?).must_equal false
+      _(router.is_authorized?).must_equal false
     end
 
     it 'accepts block as an argument' do
       Thread.current[:current_user] = admin_user
-      controller.authorize { true }
-      _(controller.is_authorized?).must_equal true
+      router.authorize { true }
+      _(router.is_authorized?).must_equal true
     end
 
     it 'accepts only true as an argument' do
-      controller.authorize(true)
-      _(controller.is_authorized?).must_equal true
+      router.authorize(true)
+      _(router.is_authorized?).must_equal true
     end
 
     it 'fails on is_authorized! bang check' do
-      _{ controller.is_authorized! }.must_raise Lux::Policy::Error
+      _{ router.is_authorized! }.must_raise Lux::Policy::Error
     end
 
     it 'fails on false pass' do
-      _{ controller.authorize(false) }.must_raise Lux::Policy::Error
+      _{ router.authorize(false) }.must_raise Lux::Policy::Error
     end
   end
 

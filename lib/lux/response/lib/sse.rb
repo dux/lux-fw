@@ -5,7 +5,7 @@ module Lux
     # Server-Sent Events writer. Subscribes to one or more Lux::Browser::Channel
     # names and streams messages to the client until disconnect.
     #
-    #   response.sse :notifications, "user:#{u.id}"
+    #   response.sse "user:#{user.ref}"
     #
     # Every frame is {channel, data} as JSON on the default message event, so
     # one connection carries any number of channels and the client routes on
@@ -26,7 +26,7 @@ module Lux
       #
       #   Lux::Response::Sse.frame({ token: 'Hi' }, event: :token)
       def self.frame data, event: nil
-        lines = data.is_a?(String) ? data.split("\n", -1) : [JSON.generate(data)]
+        lines = data.is_a?(String) ? data.split(/\r\n|\r|\n/, -1) : [JSON.generate(data)]
         out   = event ? "event: #{event}\n" : +''
         lines.each { out << "data: #{_1}\n" }
         out << "\n"
@@ -41,7 +41,7 @@ module Lux
         h['connection']        = 'keep-alive'
         h['x-accel-buffering'] = 'no'   # nginx: do not buffer
 
-        response.stream StreamBody.new(channels.map(&:to_s))
+        response.stream StreamBody.new(channels.map { Lux::Browser::Channel.channel_name(_1) })
       end
 
       # Iterable body that subscribes to channels in #each and yields formatted
@@ -67,7 +67,7 @@ module Lux
           yield "retry: #{rand(RETRY_MS)}\n: connected\n\n"
 
           loop do
-            msg = pop_with_timeout(queue, HEARTBEAT_INTERVAL)
+            msg = queue.pop(timeout: HEARTBEAT_INTERVAL)
 
             if msg.nil?
               yield ": ping\n\n"
@@ -83,26 +83,6 @@ module Lux
           # client disconnect - normal exit
         ensure
           subs&.each(&:close)
-        end
-
-        private
-
-        # Queue#pop(timeout:) landed in Ruby 3.2. Fall back to a poll loop
-        # otherwise so we don't hard-depend on 3.2.
-        def pop_with_timeout queue, seconds
-          if queue.method(:pop).parameters.any? { |_, name| name == :timeout }
-            queue.pop(timeout: seconds)
-          else
-            deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + seconds
-            until Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
-              begin
-                return queue.pop(true)
-              rescue ThreadError
-                sleep 0.05
-              end
-            end
-            nil
-          end
         end
       end
     end

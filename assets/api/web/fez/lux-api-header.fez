@@ -105,7 +105,7 @@
 
     <div class="flex items-center gap-2">
       <button class="btn btn-outline" onclick="fez.toggle()">
-        bearer <span>{state.bearer ? '✓' : '·'}</span>
+        bearer <span>{state.bearer ? '\u2713' : '\u00B7'}</span>
       </button>
     </div>
   </div>

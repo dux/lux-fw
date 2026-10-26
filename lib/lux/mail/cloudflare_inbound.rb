@@ -59,9 +59,9 @@ module Lux
         def address(val)
           case val
           when nil    then nil
-          when String then val
+          when String then val[/<([^>]+)>/, 1] || val.strip
           when Array  then address(val.first)
-          when Hash
+          when ::Hash
             h = val.to_lux_hash
             h[:address] || h[:email] || h[:value]
           else val.to_s
@@ -69,7 +69,7 @@ module Lux
         end
 
         def display_name(val)
-          return unless val.is_a?(Hash)
+          return unless val.is_a?(::Hash)
           h = val.to_lux_hash
           h[:name] || h[:display_name]
         end

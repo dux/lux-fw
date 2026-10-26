@@ -42,10 +42,9 @@ module Lux
         origin_value = resolve_origin(request, origins)
         h            = response.headers
 
-        if origin_value
-          h['access-control-allow-origin'] = origin_value
-          h['vary'] = vary_with(h['vary'], 'Origin') if origin_value != '*'
-        end
+        h['access-control-allow-origin'] = origin_value if origin_value
+        # a listed-origin answer varies by Origin even when this one did not match
+        h['vary'] = vary_with(h['vary'], 'Origin') if origins && origins != '*'
 
         h['access-control-allow-methods']     = format_list(methods) if methods
         h['access-control-allow-headers']     = format_list(headers) if headers
@@ -89,7 +88,7 @@ module Lux
         items.join(', ')
       end
 
-      private_class_method :preflight?, :resolve_origin, :format_list, :vary_with
+      private_class_method :preflight?, :resolve_origin, :format_list
     end
   end
 end

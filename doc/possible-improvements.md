@@ -11,13 +11,13 @@ Differentiators. The places lux is ahead of Sinatra/Roda/Hanami, not just at par
 * **Tree routing** with `map` / `call` / `match` and `route.with_scope` (Roda-style cursor, no nav mutation).
 * **Plugin system** with canonical layout (`loader.rb`, `load/`, `hammer/`, `mount/`) - better discoverability than
   Roda's flat plugin list.
-* **Unified schema / type system** (`lib/lux/schema`, `lib/lux/type`) - covers controller params, model columns, API
+* **Unified schema / type system** (`lib/lux/schema`, `lib/lux/type`) - covers router params, model columns, API
   contracts, and enum DSL from one source. Hanami needs dry-validation + dry-types + dry-schema.
 * **API introspect + OpenAPI 3 + Postman + AGENTS.md emit** (`lib/lux/api/doc/*`, served via `/<mount>/sys/*`). The
   unified `Lux::Schema` DSL pays off: API contract is generated, not maintained. No other Ruby framework ships the
   LLM-targeted AGENTS endpoint.
 * **`bin/lux routes`** shadow-replays route callbacks against a recording instance; `-v` adds source locations
-  (`lib/lux/application/lib/routes_dumper.rb`).
+  (`lib/lux/router/lib/routes_dumper.rb`).
 * **SSE streaming + cross-worker pub/sub.** `response.sse(:channel, ...)` + `Lux::Browser::Channel`, with the delivery
   backend chosen by a single `channel_url` config key (in-process, or PG LISTEN/NOTIFY for fan-out across workers -
   a new backend is one file and a scheme). ~150 LOC end-to-end (`lib/lux/response/lib/sse.rb`,
@@ -32,8 +32,7 @@ Differentiators. The places lux is ahead of Sinatra/Roda/Hanami, not just at par
   preflight handled at the application level (`lib/lux/response/lib/cors.rb`, `lib/lux/current/lib/csrf.rb`).
 * **Job runner with PG LISTEN/NOTIFY trigger + advisory lock + exponential backoff.** Single-DB, no Redis required, no
   Sidekiq tax (`plugins/job_runner/lib/lux_job.rb`). Admin dashboard views ship in the job_runner plugin mount.
-* **`rescue_from` at app and controller level** (`Lux::Application.rescue_from`, `Lux::Controller.rescue_from`) with a
-  documented resolution order (app > controller :error > framework default).
+* **`rescue_from`** - one `Lux::RescueFrom` macro on `Lux::Router` and `Lux::Api` (`lib/lux/error/rescue_from.rb`).
 * **Pagination** end-to-end: `Lux::Utils::PaginatedArray`, Sequel `paginate` ext (`plugins/db/lib/ext/paginate.rb`), and
   `HtmlHelper.paginate` view helper (`plugins/web_common/load/html/html_paginate.rb`).
 * **Enum DSL** in schema blocks (`enum :status do |f| ... end`) - emits Sequel column + helpers + validation +

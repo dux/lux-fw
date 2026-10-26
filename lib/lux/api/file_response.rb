@@ -13,7 +13,7 @@ require 'time'
 module Lux
   class Api
     class FileResponse
-      FILE_OPTS ||= Struct.new(:name, :file, :content_type, :inline, :download, :disposition, :content, :ext, :path)
+      FILE_OPTS ||= Struct.new(:name, :file, :content_type, :inline, :download, :disposition, :content, :path)
 
       # @param api  Lux::Api#@api struct
       # @param opts Hash:
@@ -47,7 +47,6 @@ module Lux
         if @opt.file
           @opt.file = Pathname.new(@opt.file) unless @opt.file.is_a?(Pathname)
           @opt.path = @opt.file.to_s
-          @opt.ext  = @opt.path.include?('.') ? @opt.path.split('.').last.downcase.to_sym : nil
           @opt.name ||= @opt.file.basename.to_s
         end
       end
@@ -55,11 +54,10 @@ module Lux
       def deliver
         content = resolve_content
 
-        headers['Content-Type'] = @opt.content_type ||
-          ::Rack::Mime.mime_type(".#{@opt.ext}", 'application/octet-stream')
+        headers['Content-Type'] = @opt.content_type || Lux::Response::File.mime_for(@opt.name || @opt.path)
 
         if @opt.name
-          headers['Content-Disposition'] = '%s; filename="%s"' % [@opt.disposition, @opt.name]
+          headers['Content-Disposition'] = Lux::Response::File.content_disposition(@opt.disposition, @opt.name)
         end
 
         headers['Content-Length'] = content.bytesize.to_s

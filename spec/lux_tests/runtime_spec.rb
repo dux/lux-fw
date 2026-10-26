@@ -28,10 +28,10 @@ describe Lux::Runtime do
     end
   end
 
-  describe '#rake?' do
-    it 'returns false when not running under rake' do
-      # this spec suite runs under minitest, not rake
-      _(Lux::Runtime.new.rake?).must_equal false
+  describe '#task_runner?' do
+    it 'returns false when not running under the lux binary' do
+      # this spec suite runs under minitest, not the lux CLI
+      _(Lux::Runtime.new.task_runner?).must_equal false
     end
   end
 end

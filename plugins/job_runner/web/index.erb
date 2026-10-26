@@ -36,7 +36,7 @@
             -
           <% end %>
         </td>
-        <td><%= (row[:db]&.response.to_s[0, 20]).presence || '-' %></td>
+        <td><%= h(row[:db]&.response.to_s[0, 20].presence || '-') %></td>
       </tr>
     <% end %>
   </table>

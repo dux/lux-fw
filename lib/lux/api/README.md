@@ -18,7 +18,6 @@ class BoardsApi < ApplicationApi
   icon File.read('./app/assets/icons/board.svg')
   mount_on '/api'                                       # optional; default '/api'
   documented                                            # show in /sys/openapi
-  unsafe                                                # endpoints callable without bearer
 
   auth do |bearer|                                      # return value becomes `user`; skipped for `unsafe`
     User.find_by_token(bearer) or response.error('auth required', status: 401)
@@ -30,18 +29,20 @@ class BoardsApi < ApplicationApi
 
   # --- collection actions (define, at class root) ----------------------
 
+  unsafe                                                # next endpoint skips auth (callable without bearer)
   define :list do
     desc 'List boards'                                  # desc is optional metadata
     proc { user.boards.all }
   end
 
+  schema_ref :board                                     # docs point at a named schema (doc-only; validation comes from params)
   define :create do
     desc 'Create a board'
     params do
       name   String, max: 30
       tags?  [String]
     end
-    proc { user.boards.create!(@api.params.to_h) }
+    proc { user.boards.create!(@api.params.to_h) }      # @api.params is strict: undeclared keys are dropped
   end
 
   # --- member actions (define inside ref do; @board loaded once) -------
@@ -67,7 +68,7 @@ class BoardsApi < ApplicationApi
 
     define :destroy do
       desc 'Delete a board'
-      allow :delete                                       # additional verb (default POST)
+      allow :delete                                       # DELETE only (replaces the POST default)
       proc do
         @board.destroy
         message 'deleted'                                 # plain message body
@@ -76,8 +77,6 @@ class BoardsApi < ApplicationApi
   end
 
   # --- references / utilities ------------------------------------------
-
-  schema_ref :user                                       # reuse a Lux.schema instead of inline params
 
   annotation :flag do |args|                             # custom marker, used like `unsafe`
     # ...
@@ -142,7 +141,9 @@ endpoint. Private and protected methods are never endpoints.
 | `icon File.read(...)`   | SVG icon for the explorer |
 | `class_desc` / `class_detail` | apply to whole class |
 | `params do ... end`     | param schema for the next endpoint |
-| `schema_ref :name`      | reference a top-level model schema instead of inline params |
+| `schema_ref :name`      | point generated docs at a named schema (doc-only; runtime validation still comes from `params do`) |
+| `schema :name, schema` / `schema Model` | register a named schema (referenced as `schema(:name)` inside `params`) and document it centrally |
+| `model :name do ... end` | define a named `Lux.schema` |
 | `allow :get, :put`      | exact HTTP verbs, replacing the POST default (same contract as routers; HEAD/OPTIONS ride with GET, `:any` disables the check) |
 | `unsafe`                | endpoint skips the class `auth` hook (callable anonymously) |
 | `undocumented`          | endpoint stays callable but is hidden from OpenAPI/Postman/introspect output |
@@ -155,13 +156,14 @@ endpoint. Private and protected methods are never endpoints.
 | `rescue_from Error do ... end` | per-exception handling |
 | `auth do \|bearer\| ... end` | class auth hook; runs before every non-`unsafe` endpoint. Its return value becomes `user` (reject via `response.error`). Inherited; no hook -> endpoints stay open |
 | `mount_on '/api'`       | API root path |
+| `after_auto_mount { \|parts, opts\| ... }` | rewrite the URL path parts / dispatch opts before the class is resolved; per class: the mounted class's hook (or its nearest ancestor's) runs |
 | `documented`            | mark this API public in generated docs |
 
 ## Instance helpers (inside endpoints)
 
 | Method | Notes |
 |--------|-------|
-| `@api.params`           | validated + coerced params |
+| `@api.params`           | validated + coerced params; with `params do` it is strict (undeclared keys are dropped) |
 | `@api.bearer`           | Bearer token if present |
 | `user`                  | current user - whatever the `auth` hook returned (nil on `unsafe` / no hook) |
 | `@ref`                  | resource id for `ref do` endpoints |
@@ -182,6 +184,10 @@ member endpoints.
 
 * root `/<mount_on>` GET - human API guide generated from introspection; HTML
   for browsers, raw markdown otherwise (see `Lux::Api::Guide`)
+* `/<mount_on>/sys`           - plain-text index of the system endpoints
+* `/<mount_on>/sys/schema`    - canonical introspection JSON (source for every export)
+* `/<mount_on>/sys/hammer`    - generated lux-hammer CLI client
+* `/<mount_on>/sys/health`    - liveness probe
 * `/<mount_on>/sys/guide`      - the same guide as a sys action
 * `/<mount_on>/sys/md`         - raw markdown of the guide, always `text/markdown`
 * `/<mount_on>/sys/web`        - interactive HTML explorer (Lux::Api::Web)

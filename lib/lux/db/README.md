@@ -1,8 +1,8 @@
 # Lux::Db
 
-Sequel multi-DB connection management. Connections are lazy; on
-`Lux.plugin :db` boot, every configured database is connected eagerly so
-errors surface at startup.
+Sequel multi-DB connection management.
+Connections are lazy: `Lux.db(name)` connects on first use.
+`Lux::Db.boot!` connects every configured database eagerly, for apps that want errors at startup.
 
 `Lux.db(name)` returns the `Sequel::Database` for that name (default
 `:main`). `DB` is a lazy proxy to `Lux.db(:main)`.
@@ -56,11 +56,11 @@ Lux::Db.disconnect_all              # tear down all pools
 # lux db:drop        # drop all (blocked in production)
 # lux db:reset       # drop, create, auto migrate
 # lux db:am         # auto-migrate schema (drops removed cols; --ask to confirm); in dev also rebuilds <db>_test
-# lux db:seed        # reset + load seeds from ./db/seeds/
+# lux db:seed        # load ./db/seeds and plugins/*/seeds
 # lux db:backup      # SQL dump to ./tmp/db_dump/
 # lux db:restore     # restore from SQL dump
 # lux db:psql        # psql console
-# lux db:psql        # psql console alias
+# lux db:unescape    # report / --apply stored &LT; markers
 # lux db:check       # database size/table/version info
 # lux db:exec --sql  # execute SQL against configured databases
 # lux db:test:am     # force-rebuild test DBs (<db>_test) from the model schema

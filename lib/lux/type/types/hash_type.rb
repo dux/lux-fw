@@ -17,10 +17,19 @@ class Lux::Type::HashType < Lux::Type
     # drop blank strings only - keep empty arrays/hashes that the caller put there on purpose
     @value.delete_if { |_, v| v.is_a?(String) && v.strip.empty? }
 
-    if opts[:allow]
-      @value.delete_if { |k, _| !opts[:allow].include?(k) }
+    if (keys = opts[:allow])
+      keys = keys.map(&:to_s)
+      @value.select! { |k, _| keys.include?(k.to_s) }
     end
   end
+
+  private
+
+  # allow: is a key whitelist here (applied in coerce), not an allowed-values list
+  def check_allowed
+  end
+
+  public
 
   def default
     {}

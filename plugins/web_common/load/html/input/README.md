@@ -11,7 +11,7 @@ input.render :name, as: :string              # explicit type
 input.render :bio, as: :textarea             # textarea
 input.render :role, collection: Role.all     # select dropdown
 input.render :active, as: :checkbox          # checkbox
-input.hidden :user_id                        # hidden field
+input.hidden :user_ref                       # hidden field
 ```
 
 #### Standalone (no model)
@@ -64,5 +64,5 @@ input[:class] = 'x'  # shortcut for input.opts[:class] = 'x'
 When a model object is provided, the input type is auto-detected from:
 1. Database column type (`timestamp` -> `:datetime`, `boolean` -> `:checkbox`, etc.)
 2. Lux::Schema rules and metadata
-3. Presence of `_id`/`_sid` suffix (auto-resolves collection)
+3. `_sid` (enum) suffix (auto-resolves collection)
 4. Fallback to `:string`

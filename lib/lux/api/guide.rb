@@ -28,16 +28,15 @@ module Lux
 
         # Action headings link to the explorer's method anchors; open those in
         # a new tab (commonmarker cannot carry target= from markdown).
-        content = content.gsub(
-          %r{<a href="(/[^"]*/sys/web\#method-[^"]*)"},
-          '<a href="\1" target="_blank" rel="noopener"'
-        )
+        content = content.gsub(%r{<a href="(/[^"]*/sys/web\#method-[^"]*)"}) do
+          %(<a href="#{$1}" target="_blank" rel="noopener")
+        end
 
         File.read(HTML_SHELL)
-            .gsub('{{title}}', "#{host} API")
-            .gsub('{{raw}}', "#{mount}/sys/md")
-            .gsub('{{explorer}}', "#{mount}/sys/web")
-            .sub('{{content}}', content)
+            .gsub('{{title}}') { "#{host} API" }
+            .gsub('{{raw}}') { "#{mount}/sys/md" }
+            .gsub('{{explorer}}') { "#{mount}/sys/web" }
+            .sub('{{content}}') { content }
       end
     end
   end

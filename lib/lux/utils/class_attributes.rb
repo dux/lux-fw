@@ -42,7 +42,7 @@ module Lux
             for el in @host.ancestors
               if el.respond_to?(:superclass) && el != ::Object && el.instance_variable_defined?(name)
                 local = el.instance_variable_get name
-                local = @host.instance_exec(&local) if local === ::Proc
+                local = @host.instance_exec(&local) if local.is_a?(::Proc)
                 return local
               end
             end

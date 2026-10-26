@@ -8,6 +8,7 @@
 require 'fileutils'
 require 'json'
 require 'open3'
+require 'net/http'
 require 'timeout'
 
 module Vibe
@@ -16,6 +17,9 @@ module Vibe
   DEFAULT_MODEL  ||= 'openrouter/anthropic/claude-sonnet-4.5'
   DEEPSEEK_MODEL ||= 'deepseek/deepseek-flash'
   DEFAULT_BRANCH ||= 'vibe'
+
+  # network failures that mean "opencode is not there", not a bug
+  NET_ERRORS ||= [Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ECONNRESET, EOFError, Net::OpenTimeout, Net::ReadTimeout, SocketError].freeze
 
   module_function
 
@@ -73,12 +77,6 @@ module Vibe
     model.to_s.split('/').first.to_s
   end
 
-  # {providerID, modelID} for the configured model, as opencode prompt overrides want
-  def model_ref
-    provider_id, model_id = model.to_s.split('/', 2)
-    { providerID: provider_id, modelID: model_id }
-  end
-
   # env var opencode reads for the selected provider's key
   def provider_key_env
     provider == 'openrouter' ? 'OPENROUTER_API_KEY' : "#{provider.upcase}_API_KEY"
@@ -101,16 +99,13 @@ module Vibe
   end
 
   # compose project the app container belongs to; docker-compose.yml `name:` wins
-  # over the folder name, same as compose itself
+  # over the folder name, normalized the way compose does (lowercase, [a-z0-9_-])
   def compose_project
     return ENV['COMPOSE_PROJECT_NAME'] if ENV['COMPOSE_PROJECT_NAME']
 
     file = compose_file
-    if file && (m = File.read(file).match(/^name:\s*['"]?([\w.-]+)/))
-      m[1]
-    else
-      File.basename(root)
-    end
+    name = file && File.read(file)[/^name:\s*['"]?([\w.-]+)/, 1]
+    (name || File.basename(root)).downcase.gsub(/[^a-z0-9_-]/, '')
   end
 
   def app_service
@@ -120,12 +115,11 @@ module Vibe
   # Run a command, return [ok, output]. stdout and stderr are merged because the
   # interesting line of a failed git push/rebase lands on stderr. A timeout kills
   # the child instead of pinning a web thread on a hung network call.
-  def run *argv, chdir: root, env: {}, timeout: 120, stdin: nil
+  def run *argv, chdir: root, env: {}, timeout: 120
     out = +''
     ok  = false
 
     Open3.popen2e(env, *argv, chdir: chdir) do |i, oe, thr|
-      i.write(stdin) if stdin
       i.close
       begin
         Timeout.timeout(timeout) do

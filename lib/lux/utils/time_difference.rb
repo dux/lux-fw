@@ -10,26 +10,11 @@ class TimeDifference
   ]
 
   LOCALE ||= {
-    today: {
-      en: 'today',
-      hr: 'danas'
-    },
-    in: {
-      en: 'in',
-      hr: 'za'
-    },
-    before: {
-      en: 'before',
-      hr: 'prije'
-    },
-    in_few_seconds: {
-      en: 'in few seconds',
-      hr: 'za par sekundi'
-    },
-    just_happened: {
-      en: 'just happened',
-      hr: 'upravo sada'
-    }
+    today:          { en: 'today' },
+    in:             { en: 'in' },
+    before:         { en: 'before' },
+    in_few_seconds: { en: 'in few seconds' },
+    just_happened:  { en: 'just happened' }
   }
 
   def initialize start_date, end_date = nil, klass = nil
@@ -45,11 +30,12 @@ class TimeDifference
   end
 
   def humanize
+    @future = @start_date.to_i < @end_date.to_i
     diff = (@start_date.to_i - @end_date.to_i).abs
 
     if @klass == Date && diff < TIMES[2][1]
       return locale(:today)
-      # @start_date < @end_date ? locale(:in_few_seconds) : locale(:just_happened)
+      # @future ? locale(:in_few_seconds) : locale(:just_happened)
     end
 
     TIMES.each do |(key, ref)|
@@ -57,19 +43,13 @@ class TimeDifference
       return part(key, value) if value > 0
     end
 
-    @start_date < @end_date ? locale(:in_few_seconds) : locale(:just_happened)
+    @future ? locale(:in_few_seconds) : locale(:just_happened)
   end
-
-  # def set_locale key, value
-  #   raise ArgumentError.new('Key not found') unless locale(key)
-
-  #   LOCALE[key] = value
-  # end
 
   private
 
   def part key, value
-    kind = @start_date < @end_date ? locale(:in) : locale(:before)
+    kind = @future ? locale(:in) : locale(:before)
     text = [value, value > 1 ? '%ss' % key : key].join(' ')
     [kind, text].join(' ')
   end

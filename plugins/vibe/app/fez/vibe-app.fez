@@ -60,7 +60,7 @@
           this.addToast({ text: 'App is back up', kind: 'ok' })
         }
       } catch (e) {
-        this.state.health = { ...this.state.health, harness: false }
+        this.state.health = { ...this.state.health, app: false, opencode: false }
       }
     }
 
@@ -273,10 +273,10 @@
       {#if state.restarting}
         <span class="spin"></span> restarting {state.restarting}
       {:else}
-        ↻ Restart app
+        &#x21bb; Restart app
       {/if}
     </button>
-    <button class="btn more" onclick="fez.toggleRestartMenu()" title="more restart options">▾</button>
+    <button class="btn more" onclick="fez.toggleRestartMenu()" title="more restart options">&#x25be;</button>
     {#if state.restartMenu}
       <div class="menu">
         <button onclick="fez.restart('soft')">Soft restart<small>touch tmp/restart.txt - ruby/haml/routes, about a second</small></button>
@@ -297,8 +297,8 @@
         <button class={state.tab === t.id ? 'tab active' : 'tab'} onclick="fez.setTab('{t.id}')">
           {t.label}
           {#if t.id === 'files' && state.files}<span class="n">{state.files}</span>{/if}
-          {#if t.id === 'git' && (state.ahead || state.behind)}<span class="n" title="ahead / behind origin">{state.ahead}↑ {state.behind}↓</span>{/if}
-          <kbd>⌘{i + 1}</kbd>
+          {#if t.id === 'git' && (state.ahead || state.behind)}<span class="n" title="ahead / behind origin">{state.ahead}&#x2191; {state.behind}&#x2193;</span>{/if}
+          <kbd>&#x2318;{i + 1}</kbd>
         </button>
       {/each}
     </div>

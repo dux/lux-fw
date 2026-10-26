@@ -31,7 +31,7 @@
           required:   !!spec.required,
           default:    spec.default,
           values:     spec.values,
-          desc:       spec.desc,
+          desc:       spec.description || spec.desc,
           ref_target: ref ? ref.api_anchor : null,
           ref_schema: ref ? ref.schema     : null
         }

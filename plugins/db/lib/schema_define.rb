@@ -54,7 +54,7 @@ module Lux
           if block
             {}.tap { |h| block.call(h) }
           elsif opts[:values].is_a?(Array)
-            opts[:values].inject({}) { |h, k| h[k] = nil; h }
+            opts[:values].to_h { [_1, _1.to_s] }
           elsif opts[:values].is_a?(Hash)
             opts[:values]
           end

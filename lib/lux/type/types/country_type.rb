@@ -1,13 +1,10 @@
 class Lux::Type::CountryType < Lux::Type
+  error :en, :country_length_error, 'must be exactly 2 characters'
+
   def coerce
     @value = @value.to_s.upcase
-    validate
-  end
-
-  def validate
-    raise TypeError.new('Country sid must be exactly 2 characters') unless @value.length == 2
-    raise TypeError.new(error_for(:unallowed_characters_error)) unless @value =~ /^[A-Z]{2}$/
-    raise TypeError.new('Country sid is not supported') if defined?(Country) && !Country[@value]
+    error_for(:country_length_error) unless @value.length == 2
+    error_for(:unallowed_characters_error) unless @value.match?(/\A[A-Z]{2}\z/)
   end
 
   def db_schema

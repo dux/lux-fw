@@ -59,47 +59,10 @@ module Lux
     end
 
     # validates any instance object with hash variable interface
-    # it also coerces values
-    def validate object, options = nil
-      @object = object
-      @errors = {}
-      options ||= {}
-
-      # input validation (API params, nested model fields) coerces types and
-      # filters keys but does not enforce presence - mandatory columns are the
-      # model/DB's job on save. Pass required: false to skip required errors.
-      @skip_required = options[:required] == false
-
-      strip_undefined_keys! if options[:strict] && object.is_hash?
-
-      @schema.rules.each do |field, raw_opts|
-        field = field.to_sym
-        opts = resolve_opts(raw_opts)
-
-        # a virtual field is a model setter, not a column: validate it in input
-        # hashes, but never write it into a model (save would INSERT it)
-        next if opts[:virtual] && !object.is_hash?
-
-        read_value field            # normalize string keys to symbol before defaulting
-        apply_default field, opts
-        value = read_value field
-
-        value =
-          if opts[:array]
-            validate_array field, value, opts
-          else
-            validate_scalar field, value, opts
-          end
-
-        # present empty string values as nil
-        @object[field] = blank?(value) ? nil : value
-      end
-
-      if @errors.any? && block_given?
-        @errors.each { |k, v| yield(k, v) }
-      end
-
-      @errors
+    # it also coerces values. Runs on a shallow copy so shared (stored, API,
+    # model) schemas stay thread-safe and re-entrant (@schema is read-only).
+    def validate object, options = nil, &block
+      dup.send(:run_validate, object, options || {}, &block)
     end
 
     def valid? object
@@ -130,17 +93,62 @@ module Lux
     # iterate through all the rules via block interface
     # schema.rules do |field, opts|
     # schema.rules(:url) do |field, opts|
-    def rules filter = nil, &block
-      return @schema.rules unless filter
+    def rules filter = nil
       out = @schema.rules
-      out = out.select { |k, v| v[:type].to_s == filter.to_s || v[:array_type].to_s == filter.to_s } if filter
+      out = out.select { |_, v| v[:type].to_s == filter.to_s } if filter
       return out unless block_given?
-
       out.each { |k, v| yield k, v }
     end
     alias :to_h :rules
 
+    # store key for a schema name: :user/'user'/User -> "User", Address -> "Address".
+    # Idempotent and never singularizes.
+    def self.key name
+      name.to_s.underscore.camelize
+    end
+
     private
+
+    def run_validate object, options
+      @object = object
+      @errors = {}
+
+      # input validation (API params, nested model fields) coerces types and
+      # filters keys but does not enforce presence - mandatory columns are the
+      # model/DB's job on save. Pass required: false to skip required errors.
+      @skip_required = options[:required] == false
+
+      strip_undefined_keys! if options[:strict] && object.is_a?(::Hash)
+
+      @schema.rules.each do |field, raw_opts|
+        field = field.to_sym
+        opts = resolve_opts(raw_opts)
+
+        # a virtual field is a model setter, not a column: validate it in input
+        # hashes, but never write it into a model (save would INSERT it)
+        next if opts[:virtual] && !object.is_a?(::Hash)
+
+        read_value field            # normalize string keys to symbol before defaulting
+        apply_default field, opts
+        value = read_value field
+
+        value =
+          if opts[:array]
+            validate_array field, value, opts
+          else
+            validate_scalar field, value, opts
+          end
+
+        # present empty string values as nil
+        @object[field] = blank?(value) ? nil : value
+      end
+
+      if @errors.any? && block_given?
+        @errors.each { |k, v| yield(k, v) }
+      end
+
+      @errors
+    end
 
     # remove keys not defined in schema
     def strip_undefined_keys!
@@ -177,6 +185,8 @@ module Lux
     end
 
     def validate_array field, value, opts
+      value = value.values if value.is_a?(::Hash)
+
       unless value.respond_to?(:each)
         delimiter = opts[:delimiter] || /\s*[,\n]\s*/
         value = value.to_s.split(delimiter)
@@ -199,11 +209,6 @@ module Lux
 
     def validate_scalar field, value, opts
       value = nil if value.to_s == ''
-
-      allowed = opts[:allow] || opts[:allowed] || opts[:values]
-      if value && allowed && !allowed.map(&:to_s).include?(value.to_s)
-        add_error field, 'Value "%s" is not allowed' % value, opts
-      end
 
       value = coerce_value field, value, opts
       add_required_error field, value, opts

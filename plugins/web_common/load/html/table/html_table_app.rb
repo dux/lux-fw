@@ -3,8 +3,8 @@ class AppTable < HtmlTable
     scope.respond_to?(:page) ? scope.page(size: @opts[:size] || 20) : scope
   end
 
-  def id
-    col(width: 60, align: :right, title: 'ID') { |o| o.id }
+  def ref
+    col(width: 60, align: :right, title: 'Ref') { |o| o.ref }
   end
 
   def callback *fields
@@ -13,16 +13,7 @@ class AppTable < HtmlTable
   end
 
   def href &block
-    block ||= proc do |o|
-      case Lux.current.request.path.split('/')[1].to_sym
-      when :dboard
-        o.dboard_path
-      when :admin
-        o.admin_path
-      else
-        o.path
-      end
-    end
+    block ||= proc { |o| o.respond_to?(:path) ? o.path : nil }
     onclick do |o|
       path = block.call(o)
       path.present? ? "Fez.load('%s');" % path : nil
@@ -106,8 +97,7 @@ class AppTable < HtmlTable
 
   def as_scope_link opts
     proc do |o|
-      el = o.send(opts[:field])
-      { class: 'btn', href: el.scope_path }.tag(:a, el.name)
+      scope_link o.send(opts[:field])
     end
   end
 
@@ -132,14 +122,14 @@ class AppTable < HtmlTable
   def as_object opts
     proc do |o|
       value = o.send(opts[:field])
-      value.as_scope_link
+      scope_link value
     end
   end
 
   def as_sentence opts
     proc do |o|
       values = o.send(opts[:field])
-      values = values.map(&:as_scope_link) if values.first && values.first.is_a?(ApplicationModel)
+      values = values.map { scope_link _1 } if values.first && values.first.is_a?(ApplicationModel)
       Lux::SafeString.new values.map { _1.to_s.html_safe? ? _1.to_s : _1.to_s.html_escape }.to_sentence
     end
   end
@@ -156,10 +146,11 @@ class AppTable < HtmlTable
 
   def as_user opts
     opts[:title] ||= 'User'
-    opts[:sort]  ||= :created_by
+    opts[:sort]  ||= :creator_ref
 
     proc do |o|
       user = o.creator
+      next '-' unless user
       name = user.name.to_s.html_escape
       name += Lux::SafeString.new(' &sdot; ') + user.email.to_s if opts[:email]
       name
@@ -192,7 +183,7 @@ class AppTable < HtmlTable
     opts[:width] ||= 160
 
     proc do |o|
-      o[opts[:field]].long
+      o[opts[:field]]&.long
     end
   end
 
@@ -207,6 +198,12 @@ class AppTable < HtmlTable
       tags = o.send(opts[:field] || :tags)
       Lux::SafeString.join(tags, ' &sdot; ')
     end
+  end
+
+  private
+
+  def scope_link el
+    { class: 'btn', href: el.scope_path }.tag(:a, el.name)
   end
 end
 
@@ -227,7 +224,8 @@ module HtmlHelper
         data = data.tag(:div, class: 'box')
       end
 
-      data += paginate(list).to_s if list.respond_to?(:paginate_page)
+      scope = table.scope
+      data += paginate(scope).to_s if scope.respond_to?(:paginate_page)
       data
     else
       unless opts[:not_found] == false

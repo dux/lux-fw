@@ -1,5 +1,6 @@
 !!!
-%html{ lang: 'hr' }
+- labels = PdfRouter::PDF_LABELS.merge(@pdf_labels || {})
+%html{ lang: @pdf_lang || PdfRouter::PDF_LANG }
   %head
     %meta{ charset: 'UTF-8' }
     %title= @pdf_title || 'PDF Document'
@@ -43,7 +44,7 @@
           size: A4;
           margin: 18mm 15mm;
           @top-left     { content: string(doc-title); font-size: 8pt; color: #999; }
-          @bottom-right { content: "Stranica " counter(page) " / " counter(pages); font-size: 8pt; color: #999; }
+          @bottom-right { content: #{labels[:page].to_json} " " counter(page) " / " counter(pages); font-size: 8pt; color: #999; }
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10pt; line-height: 1.4; color: #222; }
@@ -127,7 +128,7 @@
     / button must not wait on (or be lost to) a Paged.js run that stalls.
     %a#pdf-dl{ href: @pdf_url, download: true }
       %span.pdf-dl-spinner{ 'aria-hidden': 'true' }
-      %span.pdf-dl-label Preuzmi PDF
+      %span.pdf-dl-label= labels[:download]
     = yield
     :javascript
       // Serve the PDF through fetch instead of native link navigation: a link
@@ -161,7 +162,7 @@
             link.remove()
             setTimeout(() => URL.revokeObjectURL(url), 1000)
           })
-          .catch(() => alert('PDF nije generiran. Pokušaj ponovno.'))
+          .catch(() => alert(#{labels[:error].to_json}))
           .finally(() => {
             // Hold the lock a beat past completion so a fast double click cannot
             // start a second render, then release.

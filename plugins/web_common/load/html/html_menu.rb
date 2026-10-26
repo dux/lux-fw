@@ -3,11 +3,11 @@
 # menu.add 'People', '/people', lambda { |path| path.index('peor') }
 # menu.add 'Jobs', '/jobs', { icon: true }
 #
-# match exact path, defaults to path.start_with?
-#  menu.add 'Jobs', '/jobs', :path
-#  menu.add 'Jobs', '/jobs', { icon: true, active: :path }
-# same as
-#  menu.add 'Jobs', '/jobs', lambda { request.path == '/jobs '}
+# active test (3rd arg or active:) - default: exact match; Symbol: path ends
+# with it; String: path includes it; Regexp/Proc: custom
+#  menu.add 'Jobs', '/jobs', :jobs
+#  menu.add 'Jobs', '/jobs', { icon: true, active: '/jobs' }
+#  menu.add 'Jobs', '/jobs', lambda { |path| path.start_with?('/jobs') }
 #
 # menu.to_a
 # ---
@@ -56,7 +56,7 @@ class HtmlMenu
       when FalseClass
         false
       else
-        raise ArgumentError.new("Unhandled class #{data.class} for #{data}")
+        raise ArgumentError.new("Unhandled class #{test.class} for #{test}")
     end
   end
 

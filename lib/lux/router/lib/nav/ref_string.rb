@@ -22,6 +22,12 @@ module Lux
         UPPER  ||= 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
         LENGTH ||= 16
 
+        # Nav lowercases URL segments, so an upcase family normalises its input
+        def initialize value = nil, path_before: nil, **attrs
+          value = value.upcase if attrs[:upcase] && value.is_a?(::String)
+          super
+        end
+
         def length
           attrs[:length] || LENGTH
         end

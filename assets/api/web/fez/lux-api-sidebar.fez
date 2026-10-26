@@ -159,7 +159,7 @@
         <nav-block title={group.name} href={'#api-' + group.name} data-search={group.name}>
           {#each group.actions as entry}
             <li>
-              <a href={'#method-' + group.name + '-' + entry.a}
+              <a href={'#method-' + group.name + '-' + (entry.kind === 'member' ? 'ref-' : '') + entry.a}
                  data-search={group.name + ' ' + entry.a}
                  class="nav-item">
                 {#if entry.kind === 'member'}

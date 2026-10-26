@@ -7,19 +7,13 @@ module Lux
     # capture_stderr { ... } returns whatever was written to $stderr.
     module Capture
       def capture_log
-        buf = StringIO.new
-        prev_logger = Lux.logger if Lux.respond_to?(:logger)
-
-        if Lux.respond_to?(:logger=)
-          Lux.logger = Logger.new(buf)
-          yield
-          Lux.logger = prev_logger
-        else
-          capture_stdout { yield }
-          return buf.string
-        end
-
+        buf  = StringIO.new
+        prev = Lux.instance_variable_get(:@default_logger)
+        Lux.instance_variable_set(:@default_logger, ::Logger.new(buf))
+        yield
         buf.string
+      ensure
+        Lux.instance_variable_set(:@default_logger, prev)
       end
 
       def capture_stdout

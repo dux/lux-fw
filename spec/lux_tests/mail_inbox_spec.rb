@@ -1,4 +1,5 @@
 require 'test_helper'
+require 'mail'   # the app's Gemfile provides the gem; lux does not require it
 
 describe Lux::Mail::Inbox do
   def payload
@@ -40,6 +41,45 @@ describe Lux::Mail::Inbox do
       out = Lux::Mail::Inbox.receive(msg, :mailbox)
       assert out.equal?(msg)
       _(out.source).must_equal :mailbox
+    end
+  end
+
+  describe '.parse Authentication-Results' do
+    def raw_mail
+      <<~MAIL.gsub("\n", "\r\n")
+        Authentication-Results: evil.example; dmarc=pass
+        Authentication-Results: mx.trusted.example 1; spf=pass; dmarc=fail
+        From: user@gmail.com
+        To: a@b.com
+        Subject: hi
+
+        body
+      MAIL
+    end
+
+    def with_trusted ids
+      mail = Lux.config[:mail]
+      Lux.config[:mail] = (mail || {}).to_h.merge(trusted_authserv_ids: ids)
+      yield
+    ensure
+      Lux.config[:mail] = mail
+    end
+
+    it 'reads verdicts only from a trusted authserv-id' do
+      with_trusted(['mx.trusted.example']) do
+        msg = Lux::Mail::Inbox.parse(raw_mail)
+        _(msg.dmarc).must_equal    'fail'
+        _(msg.spf).must_equal      'pass'
+        _(msg.verified).must_equal false
+      end
+    end
+
+    it 'is never verified without configured authserv-ids' do
+      with_trusted(nil) do
+        msg = Lux::Mail::Inbox.parse(raw_mail)
+        _(msg.dmarc).must_be_nil
+        _(msg.verified).must_equal false
+      end
     end
   end
 end

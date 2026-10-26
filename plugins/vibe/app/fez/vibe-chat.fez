@@ -28,7 +28,7 @@
     }
   }
 
-  const TOOL_ICON = { edit: '✎', write: '＋', read: '☰', bash: '$', grep: '⌕', glob: '⌕', list: '▤', webfetch: '⇩', task: '⚑', todowrite: '☑', skill: '✦' }
+  const TOOL_ICON = { edit: '\u270e', write: '\uff0b', read: '\u2630', bash: '$', grep: '\u2315', glob: '\u2315', list: '\u25a4', webfetch: '\u21e9', task: '\u2691', todowrite: '\u2611', skill: '\u2726' }
 
   class {
     init(props) {
@@ -64,7 +64,7 @@
         if (h.key_env !== undefined) this.state.keyEnv = h.key_env
         if (h.model) this.state.model = h.model
         // agent came (back) up -> (re)connect
-        if (h.opencode && !was) this.boot()
+        if (h.opencode && was === false) this.boot()
         if (!h.opencode && this.state.es) { this.state.es.close(); this.state.es = null }
       })
       this.boot()
@@ -230,7 +230,7 @@
             const name = p.tool || 'tool'
             blocks.push({
               kind: 'tool', id: p.id, name,
-              icon: TOOL_ICON[name] || '⚙',
+              icon: TOOL_ICON[name] || '\u2699',
               summary: Vibe.trunc(toolSummary(name, st.input, st.title), 140),
               status: st.status || 'pending',
               open: !!this.state.openTools[p.id],
@@ -729,12 +729,12 @@
   <select onchange="fez.onSessionPick(this.value)" title="session">
     <option value="__new" selected={!state.sessionId}>+ New chat</option>
     {#each state.sessions as s}
-      <option value={s.id} selected={s.id === state.sessionId}>{s.title} · {s.ago}</option>
+      <option value={s.id} selected={s.id === state.sessionId}>{s.title} &middot; {s.ago}</option>
     {/each}
   </select>
   <button class="btn sm" onclick="fez.newSession()" title="start a new chat">New</button>
   {#if state.busy}
-    <span class="st busy">working…</span>
+    <span class="st busy">working...</span>
   {:else if state.online === false}
     <span class="st">agent offline</span>
   {/if}
@@ -758,7 +758,7 @@
         <span>{m.ago}</span>
         {#if m.cost}<span class="cost">{m.cost}</span>{/if}
         {#if m.isUser && !state.busy}
-          <button class="btn sm ghost act" onclick="fez.revertTo('{m.id}')" title="undo this message and everything after it - files are restored to before it">↶ revert to here</button>
+          <button class="btn sm ghost act" onclick="fez.revertTo('{m.id}')" title="undo this message and everything after it - files are restored to before it">&#x21b6; revert to here</button>
         {/if}
       </div>
       {#each m.blocks as b}
@@ -768,7 +768,7 @@
           <div class="atext md">{@html b.html}</div>
         {:else if b.kind === 'reasoning'}
           <details class="reason">
-            <summary>thinking…</summary>
+            <summary>thinking...</summary>
             <pre>{b.text}</pre>
           </details>
         {:else if b.kind === 'tool'}
@@ -795,7 +795,7 @@
             {/if}
           </div>
         {:else if b.kind === 'file'}
-          <div class="tool"><div class="th"><span class="ic">▣</span><span class="sm">{b.name}</span></div></div>
+          <div class="tool"><div class="th"><span class="ic">&#x25a3;</span><span class="sm">{b.name}</span></div></div>
         {/if}
       {/each}
       {#if m.error}
@@ -855,7 +855,7 @@
 </div>
 
 <div class="composer">
-  <textarea fez:this="inputEl" placeholder={state.online === false ? 'agent is offline' : 'Ask for a change…  (Enter to send, Shift+Enter for a new line)'} onkeydown="fez.onKey(event)" oninput="fez.autogrow()" disabled={state.online === false}></textarea>
+  <textarea fez:this="inputEl" placeholder={state.online === false ? 'agent is offline' : 'Ask for a change...  (Enter to send, Shift+Enter for a new line)'} onkeydown="fez.onKey(event)" oninput="fez.autogrow()" disabled={state.online === false}></textarea>
   {#if state.busy}
     <button class="btn send stop" onclick="fez.abort()" title="stop the agent (Esc)">Stop</button>
   {:else}

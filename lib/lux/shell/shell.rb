@@ -73,9 +73,15 @@ module Lux
       spawn_opts[:chdir] = chdir if chdir
       collected = String.new
       Open3.popen2e(env, *spawn_argv, spawn_opts) do |stdin, io, wait_thr|
-        stdin.write(stdin_data) if stdin_data
-        stdin.close
+        writer = Thread.new do
+          stdin.write(stdin_data) if stdin_data
+        rescue Errno::EPIPE
+          nil
+        ensure
+          stdin.close
+        end
         io.each { |chunk| collected << chunk }
+        writer.join
         wait_thr.value
       end
       collected
@@ -104,6 +110,9 @@ module Lux
         wait_thr.value
       end
       collected
+    rescue Errno::ENOENT => e
+      block.call(e.message)
+      e.message
     end
 
     # Absolute path to an executable on PATH, or nil.
@@ -167,7 +176,10 @@ module Lux
     # shell:true wants a single string for /bin/sh -c. Reject multi-arg to
     # avoid silent surprise quoting.
     def normalize_argv argv, shell:
-      return argv unless shell
+      unless shell
+        # [cmd, argv0] form: spawn never routes a lone string through /bin/sh
+        return [[argv.first, argv.first], *argv[1..]]
+      end
       ::Kernel.raise ArgumentError, 'shell:true takes one string argv' if argv.length != 1
       [argv.first]
     end
@@ -187,9 +199,15 @@ module Lux
       status = nil
       timed_out = false
 
-      Open3.popen3(env, *argv, spawn_opts) do |stdin, stdout, stderr, wait_thr|
-        stdin.write(stdin_data) if stdin_data
-        stdin.close
+      # own process group, so a timeout can kill the whole tree
+      Open3.popen3(env, *argv, spawn_opts.merge(pgroup: true)) do |stdin, stdout, stderr, wait_thr|
+        writer = Thread.new do
+          stdin.write(stdin_data) if stdin_data
+        rescue Errno::EPIPE
+          nil
+        ensure
+          stdin.close
+        end
 
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
         streams = [stdout, stderr]
@@ -215,8 +233,11 @@ module Lux
         end
 
         if timed_out
-          begin Process.kill('KILL', wait_thr.pid); rescue Errno::ESRCH; end
+          # negative pid = the child's process group, so `sh -c 'a | b'` grandchildren die too
+          begin Process.kill('KILL', -wait_thr.pid); rescue Errno::ESRCH; end
+          writer.kill
         end
+        writer.join
         status = wait_thr.value
       end
 

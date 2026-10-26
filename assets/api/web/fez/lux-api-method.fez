@@ -8,7 +8,7 @@
     }
 
     anchor() {
-      return 'method-' + this.state.api_name + '-' + this.state.entry.action
+      return 'method-' + this.state.api_name + '-' + (this.state.entry.kind === 'member' ? 'ref-' : '') + this.state.entry.action
     }
 
     hasParams() {
@@ -82,7 +82,7 @@
   <h3>
     {state.entry.action}
     <button type="button" class={'permalink' + (state.copied ? ' copied' : '')} onclick="fez.copyLink()" title="copy link to this method">
-      {state.copied ? '✓' : '#'}
+      {state.copied ? '\u2713' : '#'}
     </button>
   </h3>
 

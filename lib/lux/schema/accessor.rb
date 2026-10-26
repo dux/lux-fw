@@ -73,19 +73,15 @@ module Lux
 
       private
 
+      # same rules as Schema#validate (required, default, allowed, coercion),
+      # run on a copy so the model is not mutated
       def validate_field field, &block
-        opts = @schema.rules[field]
-        raise ArgumentError, "Field :#{field} not in schema" unless opts
+        raise ArgumentError, "Field :#{field} not in schema" unless @schema.rules[field]
 
-        value = @object[field]
-        type = Lux::Type.load(opts[:type]).new(value, opts)
+        errors = @schema.only(field).validate({ field => @object[field] })
+        msg = errors[field] or return nil
 
-        begin
-          type.get
-          nil
-        rescue TypeError => e
-          block ? yield(e.message) : raise
-        end
+        block ? yield(msg) : raise(TypeError, msg)
       end
 
       def validate_all &block

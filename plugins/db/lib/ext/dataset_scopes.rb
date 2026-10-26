@@ -44,12 +44,11 @@ Sequel::Model.dataset_module do
   end
 
   def desc field = nil
-    field ||= :created_at
-    xorder('%s.%s desc' % [model.to_s.tableize, field])
+    order(Sequel.desc(Sequel[model.table_name][(field || :created_at).to_sym]))
   end
 
   def asc
-    xorder('%s.created_at asc' % model.to_s.tableize)
+    order(Sequel.asc(Sequel[model.table_name][:created_at]))
   end
 
   def latest
@@ -78,15 +77,16 @@ Sequel::Model.dataset_module do
 
   # -- array / tag search --------------------------------------------------
 
-  # Bucket.can.all_tags -> all_tags mora biti zadnji
+  # Bucket.can.all_tags -> all_tags has to be last in the chain
   def all_tags opts = {}
-    opts = {tags: opts} if opts.class == Symbol
-    limit = opts[:limit] || 20
-    field = opts[:tags] || :tags
-    sqlq = sql.split(' FROM ')[1]
-    sqlq = "select lower(unnest(#{field})) as tag FROM " + sqlq
-    sqlq = "select tag as name, count(tag) as cnt from (#{sqlq}) as tags group by tag order by cnt desc limit #{limit}"
-    DB.fetch(sqlq).map(&:to_lux_hash).or([])
+    opts  = { tags: opts } if opts.is_a?(Symbol)
+    limit = (opts[:limit] || 20).to_i
+    field = Sequel.identifier(opts[:tags] || :tags)
+    tags  = unordered.select(Sequel.function(:lower, Sequel.function(:unnest, field)).as(:tag))
+    db.from(tags.as(:tags))
+      .select(Sequel[:tag].as(:name), Sequel.function(:count, :tag).as(:cnt))
+      .group(:tag).order(Sequel.desc(:cnt)).limit(limit)
+      .map(&:to_lux_hash)
   end
 
   # Example: Job.where_any(@location.id, :location_ids).count
@@ -108,7 +108,7 @@ Sequel::Model.dataset_module do
   def where_all data, field = :tags
     if data.present?
       data = [data] unless data.is_a?(Array)
-      where(Sequel.lit("#{field} @> ?", Sequel.pg_array(data)))
+      where(Sequel.lit("#{field}::text[] @> ?::text[]", Sequel.pg_array(data.map(&:to_s))))
     else
       self
     end
@@ -117,18 +117,18 @@ Sequel::Model.dataset_module do
   # -- soft-delete / active state -----------------------------------------
 
   def not_deleted
-    model.db_schema[:is_deleted] ? xwhere("#{model.to_s.tableize}.is_deleted = false") : self
+    model.db_schema[:is_deleted] ? where(Sequel[model.table_name][:is_deleted] => false) : self
   end
 
   def deleted
-    model.db_schema[:is_deleted] ? xwhere("#{model.to_s.tableize}.is_deleted = true") : self
+    model.db_schema[:is_deleted] ? where(Sequel[model.table_name][:is_deleted] => true) : self
   end
 
   def activated
-    model.db_schema[:is_active] ? xwhere("#{model.to_s.tableize}.is_active = true") : self
+    model.db_schema[:is_active] ? where(Sequel[model.table_name][:is_active] => true) : self
   end
 
   def deactivated
-    model.db_schema[:is_active] ? xwhere("#{model.to_s.tableize}.is_active = false") : self
+    model.db_schema[:is_active] ? where(Sequel[model.table_name][:is_active] => false) : self
   end
 end

@@ -23,7 +23,7 @@ module Lux
       end
 
       def clear
-        to_h.tap { @msg = {} }
+        to_h.tap { @msg = {}.to_lux_hash }
       end
 
       def present?

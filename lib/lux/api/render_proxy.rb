@@ -13,8 +13,11 @@ module Lux
         @api = api
       end
 
+      # endpoints only: member actions are stored as <name>_ref, and helpers
+      # like params/user are methods but not endpoints
       def respond_to_missing? method_name, include_private = false
-        @api.method_defined?(method_name) || super
+        o = @api.opts
+        (o[:collection]&.key?(method_name) || o[:member]&.key?(method_name)) || super
       end
 
       def method_missing method_name, *args

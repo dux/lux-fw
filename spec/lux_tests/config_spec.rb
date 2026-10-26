@@ -44,6 +44,39 @@ describe Lux::Boot::Config do
     end
   end
 
+  it 'replaces default arrays with the env array instead of a union' do
+    with_config_file <<~YAML do
+      default:
+        list: [a, b]
+        nested:
+          keep: 1
+          list: [x]
+      test:
+        list: [c]
+        nested:
+          list: []
+    YAML
+      config = Lux::Boot::Config.load
+
+      _(config['list']).must_equal ['c']
+      _(config['nested']).must_equal({ 'keep' => 1, 'list' => [] })
+    end
+  end
+
+  it 'lets an explicit env nil clear a default' do
+    with_config_file <<~YAML do
+      default:
+        host: http://default
+      test:
+        host: ~
+    YAML
+      config = Lux::Boot::Config.load
+
+      assert config.key?('host')
+      _(config['host']).must_be_nil
+    end
+  end
+
   it 'raises when config yaml is empty' do
     with_config_file '' do
       err = _{ Lux::Boot::Config.load }.must_raise RuntimeError
@@ -97,10 +130,10 @@ describe Lux::Boot::Config do
     end
   end
 
-  # set_defaults is private (internal to boot!), hence send. It runs after the
-  # config.yaml load, so it must not overwrite what
-  # the host declared. `=` used to clobber every key here; `||=` would still flip
-  # an explicit false back on for a true-default.
+  # set_defaults is private (Lux.config runs it via apply_defaults), hence
+  # send. It must not overwrite what the host declared. `=` used to clobber
+  # every key here; `||=` would still flip an explicit false back on for a
+  # true-default.
   describe '.set_defaults' do
     def with_config keys
       was = keys.keys.each_with_object({}) { |k, h| h[k] = Lux.config.key?(k) ? Lux.config[k] : :_absent }
@@ -112,37 +145,51 @@ describe Lux::Boot::Config do
 
     it 'does not overwrite a value the host declared' do
       with_config(logger_files_to_keep: 99) do
-        Lux::Boot.send(:set_defaults)
+        Lux::Boot.send(:set_defaults, Lux.config)
         _(Lux.config[:logger_files_to_keep]).must_equal 99
       end
     end
 
     it 'keeps an explicit false against a true default' do
       with_config(serve_static_files: false) do
-        Lux::Boot.send(:set_defaults)
+        Lux::Boot.send(:set_defaults, Lux.config)
         _(Lux.config[:serve_static_files]).must_equal false
       end
     end
 
     it 'keeps an explicit true against a false default' do
       with_config(asset_root: true) do
-        Lux::Boot.send(:set_defaults)
+        Lux::Boot.send(:set_defaults, Lux.config)
         _(Lux.config[:asset_root]).must_equal true
       end
     end
 
     it 'keeps an explicit nil rather than re-defaulting it' do
       with_config(ref_format: nil) do
-        Lux::Boot.send(:set_defaults)
+        Lux::Boot.send(:set_defaults, Lux.config)
         _(Lux.config[:ref_format]).must_be_nil
       end
     end
 
     it 'fills in a key the host left out' do
       with_config(serve_static_files: :_absent) do
-        Lux::Boot.send(:set_defaults)
+        Lux::Boot.send(:set_defaults, Lux.config)
         _(Lux.config[:serve_static_files]).must_equal true
       end
+    end
+
+    it 'fills the logger and defer keys when config loads, before boot' do
+      declared = Lux::Boot.instance_variable_get(:@declared_keys)
+      config   = Lux::Boot.apply_defaults({ 'delay_timeout' => 5 }.to_lux_hash)
+
+      _(config.delay_timeout).must_equal 5
+      _(config.defer_pool_size).must_equal 3
+      _(config.logger_path_mask).must_equal './log/%s.log'
+      _(config.logger_files_to_keep).must_equal 3
+      refute config.key?(:log_level)
+      refute config.key?(:channel_url)
+    ensure
+      Lux::Boot.instance_variable_set(:@declared_keys, declared)
     end
   end
 

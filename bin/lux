@@ -6,7 +6,7 @@ Signal.trap('PIPE', 'EXIT')
 
 if File.exist?('lux-fw.gemspec')
   puts "Can't run in lux folder"
-  exit
+  exit 1
 end
 
 # `new` runs before any app boot - it needs no config/env.rb and must not load
@@ -17,7 +17,6 @@ if ARGV.first == 'new'
   exit
 end
 
-require_relative '../lib/overload/thread_simple'
 require_relative '../lib/lux/loader'
 
 # realpath: apps link lux-fw under ./.libs, and hammer treats task files under
@@ -51,10 +50,10 @@ Hammer.run ARGV do
   end
 
   app_tasks = File.join(Dir.pwd, 'lib/tasks')
-  load app_tasks if File.directory?(app_tasks) && Dir.pwd != LUX_ROOT
+  load app_tasks if File.directory?(app_tasks)
 
   app_hf = File.join(Dir.pwd, 'Hammerfile')
-  load app_hf if File.file?(app_hf) && Dir.pwd != LUX_ROOT
+  load app_hf if File.file?(app_hf)
 
   # Load the app's own config so its Lux.boot! block (pre-plugin config
   # overrides) runs - a bare Lux.boot! first would make that call a no-op.

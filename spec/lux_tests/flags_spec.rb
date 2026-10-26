@@ -177,6 +177,30 @@ describe Lux::Environment::Flags do
       _{ m.silent { raise 'boom' } }.must_raise RuntimeError
       _(m.silent).must_equal false
     end
+
+    it 'scopes the block form to the calling thread' do
+      m = Lux::Environment::Flags.new('production')
+      other = nil
+      m.silent { other = Thread.new { m.silent }.value }
+      _(other).must_equal false
+    end
+
+    it 'cannot leave the flag stuck when blocks overlap across threads' do
+      m = Lux::Environment::Flags.new('production')
+      a_in, a_out, b_in, b_out = Array.new(4) { Queue.new }
+
+      a = Thread.new { m.silent { a_in << true; a_out.pop } }
+      a_in.pop
+      b = Thread.new { m.silent { b_in << true; b_out.pop } }
+      b_in.pop
+
+      a_out << true
+      a.join
+      b_out << true
+      b.join
+
+      _(m.silent).must_equal false
+    end
   end
 
   # Call sites use the flat form; Lux.flags is the object behind it.

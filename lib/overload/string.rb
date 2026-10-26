@@ -1,14 +1,17 @@
 require 'erb'
+require 'cgi/escape'
+require 'digest'
 
 class String
-  def constantize
-    Object.const_get('::' + self)
-  end
+  CONST_NAME ||= /\A(?:::)?[A-Z]\w*(?:::[A-Z]\w*)*\z/
 
   # 'User'.constantize? # User
   # 'UserFoo'.constantize? # nil
+  # constantize itself comes from Sequel's inflector, loaded after this file
   def constantize?
-    Object.const_defined?('::' + self) ? constantize : nil
+    return unless CONST_NAME.match?(self)
+    name = delete_prefix('::')
+    Object.const_defined?(name) ? Object.const_get(name) : nil
   end
 
   # Output escaping. Haml runs with escape_html + use_html_safe, so `=` escapes
@@ -17,8 +20,9 @@ class String
     false
   end
 
-  # Mark as markup that templates print as is. <script> and <style> are
-  # neutralized unless allowed, so stored HTML cannot run code by default.
+  # Mark *trusted* markup as safe; templates print it as is. Not a sanitizer:
+  # only <script>/<style> are disabled, event-handler attributes, javascript:
+  # URLs and other tags pass through. Never call it on user-supplied HTML.
   #   = @post.body.html_unsafe
   #   = @page.head.html_unsafe(script: true, style: true)
   def html_unsafe script: false, style: false
@@ -37,14 +41,12 @@ class String
   def as_html
     html_escape
       .gsub($/, '<br />')
-      .gsub(/(https?:\/\/[^\s<]+)/) { %[<a href="#{$1}">#{$1.trim(40)}</a>] }
+      .gsub(%r{https?://[^\s<]+?(?=(?:&quot;|&#39;|&gt;|[.,;:!?)])*(?:\s|<|\z))}) { %[<a href="#{$&}">#{$&.trim(40)}</a>] }
       .html_unsafe
   end
 
   def trim len
-    return self if self.length<len
-    data = self.dup[0,len]+'...'
-    data
+    length <= len ? self : self[0, len] + '...'
   end
 
   def first limit = 1
@@ -68,37 +70,25 @@ class String
     inbound.render
   end
 
-  def fix_ut8
-    self.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '?')
-  end
-
   def parse_erb scope = nil
     ERB.new(self).result(scope || binding)
   end
 
-  def parameterize
-    str_from = 'šđčćžŠĐČĆŽäÄéeöÖüüÜß'
-    str_to   = 'sdcczSDCCZaAeeoOuuUs'
-
-    self
-      .tr(str_from, str_to)
-      .sub(/^[^\w+]/, '')
-      .sub(/[^\w+]$/, '')
+  def parameterize len = 50
+    unicode_normalize(:nfkd)
+      .gsub(/\p{Mn}/, '')
+      .tr("\u0111\u0110\u0142\u0141\u00f8\u00d8", 'dDlLoO')
+      .gsub("\u00df", 'ss')
       .downcase
-      .gsub(/[^\w+]+/,'-')[0, 50]
+      .gsub(/[^a-z0-9_+]+/, '-')[0, len]
+      .gsub(/\A-+|-+\z/, '')
   end
-  alias :to_url :parameterize
 
   def qs_to_hash
-    self.split('&').inject({}) do |h,line|
-      el = line.split('=', 2)
-      h[el[0]] = el[1]
-      h
+    split('&').each_with_object({}) do |line, h|
+      k, v = line.split('=', 2)
+      h[CGI.unescape(k)] = CGI.unescape(v.to_s)
     end
-  end
-
-  def attribute_safe
-    self.gsub('"', '').gsub("'", '')
   end
 
   def db_safe
@@ -106,14 +96,6 @@ class String
   end
 
   # starts_with? removed - use Ruby's built-in start_with? instead.
-
-  def span_green
-    tag(:span, style: 'color: #080;')
-  end
-
-  def span_red
-    tag(:span, style: 'color: #800;')
-  end
 
   ANSI_COLORS ||= {
     black: 30, red: 31, green: 32, yellow: 33, blue: 34,
@@ -129,12 +111,15 @@ class String
     gsub(/\e\[\d+m/, '')
   end
 
+  # percent-encoding valid in a path and a query (space -> %20); the one
+  # convention Lux::Utils::Url.escape shares
   def escape
-    CGI::escape(self).gsub('+', '%20')
+    CGI.escapeURIComponent(self)
   end
 
+  # decodes both %20 and the form-style + as a space
   def unescape
-    CGI::unescape self
+    CGI.unescape self
   end
 
   def sha1
@@ -145,15 +130,7 @@ class String
     Digest::MD5.hexdigest self
   end
 
-  def extract_scripts! list: false
-    scripts = []
-    self.gsub!(/<script\b[^>]*>(.*?)<\/script>/im) { scripts.push $1; '' }
-    list ? scripts : scripts.map{ "<script>#{_1}</script>"}.join($/)
-  end
-
-  def to_slug len = 80
-    self.downcase.gsub(/[^\w]+/, '_').gsub(/_+/, '-').sub(/\-$/, '')[0, len]
-  end
+  def to_slug(len = 80) = parameterize(len).tr('_', '-')
 
   def remove_tags
     self.gsub(/<[^>]+>/, '')
@@ -167,62 +144,5 @@ class String
   def indent amount = 2, char = ' '
     prefix = char * amount
     gsub(/^/, prefix)
-  end
-end
-
-module Lux
-  # Markup a template prints as is (html_safe? is true). Appending plain text
-  # escapes it first, so `safe + user_text` stays safe. Any other String method
-  # (gsub, strip, interpolation) returns a plain String - treated as text again.
-  class SafeString < ::String
-    # join parts into one safe string, escaping the parts that are plain text
-    def self.join parts, separator = ''
-      new parts.map { _1.to_s.html_safe? ? _1.to_s : ERB::Util.html_escape(_1.to_s) }.join(separator)
-    end
-
-    def html_safe?
-      true
-    end
-
-    # String#to_s on a subclass returns a plain String copy
-    def to_s
-      self
-    end
-
-    def html_unsafe(**)
-      self
-    end
-
-    def + other
-      SafeString.new(super(safe(other)))
-    end
-
-    def concat *others
-      super(*others.map { safe(_1) })
-    end
-
-    def << other
-      concat other
-    end
-
-    private
-
-    def safe other
-      other = other.to_s
-      other.html_safe? ? other : ERB::Util.html_escape(other)
-    end
-
-    # Haml's output buffer (see Lux::Template::HamlBuffer). Haml escapes before
-    # it appends, so << is raw here; the buffer, and so any template block
-    # that hands it back, is markup.
-    class Buffer < SafeString
-      def concat *parts
-        ::String.instance_method(:concat).bind_call(self, *parts)
-      end
-
-      def << part
-        concat part
-      end
-    end
   end
 end

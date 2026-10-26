@@ -25,9 +25,7 @@ Lux.template.render(self, './layout.haml') { 'content to yield' }
 
 # define your helper module
 module MainHelper
-  def link_to(text, url)
-    %[<a href="#{url}">#{text}</a>]
-  end
+  def link_to(text, url) = text.tag(:a, href: url)
 end
 
 helper = Lux.template.helper(

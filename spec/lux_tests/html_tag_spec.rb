@@ -43,6 +43,21 @@ describe 'Lux::Utils::HtmlTag' do
     _(klass.new.render).must_equal '<div class="card"><b>x</b></div>'
   end
 
+  # ViewCell subclasses in apps `delegate :tag` to the parent helper, then call
+  # mixin - the builder must be scoped to the class, so block calls reach it
+  it 'HtmlTag.mixin overrides a tag the class already defines' do
+    klass = Class.new do
+      def tag(*) = raise('delegated tag used')
+      HtmlTag.mixin(self)
+      def own_text = 'own'
+      def render
+        tag.div { b own_text }
+      end
+    end
+
+    _(klass.new.render).must_equal '<div><b>own</b></div>'
+  end
+
   it 'supports include HtmlTag' do
     klass = Class.new do
       include HtmlTag
@@ -76,6 +91,12 @@ describe 'Lux::Utils::HtmlTag' do
   it 'treats a second-positional Hash as attrs, not inner content' do
     out = HtmlTag.call('ui-favorite', { key: 'User/abc', exists: false })
     _(out).must_equal '<ui-favorite key="User/abc" exists="false"></ui-favorite>'
+  end
+
+  it 'omits nil-valued attributes, nested data ones too, and keeps false' do
+    out = { class: nil, id: 'x', hidden: false, data: { a: nil, b: 1 } }.tag(:i)
+    _(out).must_equal '<i id="x" hidden="false" data-b="1"></i>'
+    _({ class: nil }.tag(:b)).must_equal '<b></b>'
   end
 
   it 'escapes & so entity-like values survive one browser decode' do

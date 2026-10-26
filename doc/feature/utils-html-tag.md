@@ -1,4 +1,5 @@
-> STATUS: DONE / shipped. Lux::Utils::HtmlTag is vendored and in use; this note is kept for history.
+> STATUS: SUPERSEDED - see [lib/lux/utils/README.md#htmltag](../../lib/lux/utils/README.md#htmltag).
+> `HtmlTag self`, the bare `HtmlTag(...)` function and `html_filter.rb` below no longer exist; this note is kept for history.
 
 ## utils-html-tag
 

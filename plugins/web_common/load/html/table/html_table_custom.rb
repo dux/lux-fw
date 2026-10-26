@@ -9,7 +9,7 @@ class HtmlTable
     @scope_filter = block
   end
 
-  # t.onclick { |object| "window.open('%s')" % object.dboard_path }
+  # t.onclick { |object| "window.open('%s')" % object.path }
   def onclick &block
     @onclick = block
   end

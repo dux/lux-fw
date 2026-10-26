@@ -3,8 +3,8 @@
 #
 # Started by `lux job_runner:web` (see the plugin Hammerfile); never loaded by an
 # app boot, so sinatra/puma stay optional for the plugin. The process is expected
-# to be the only runner - LuxJob.run dies loudly if another already holds the
-# advisory lock, so don't run `job_runner:start` beside it.
+# to be the only runner - LuxJob.run waits up to 120s for the advisory lock
+# (rolling restarts), then exits, so don't run `job_runner:start` beside it.
 #
 # Config (app config.yaml):
 #   secret         - required, signs the session cookie
@@ -20,7 +20,6 @@ require_relative '../../authcog/lib/authcog'
 class LuxJob
   class Server < Sinatra::Base
     SESSION_STATE   ||= :lux_job_state
-    CHALLENGE_LIMIT ||= 4
 
     # Fez (pjax + components) is served from the app when installed, otherwise
     # from the published build. LUX_JOB_FEZ overrides either.
@@ -86,41 +85,20 @@ class LuxJob
         end
       end
 
-      # AuthCog endpoint for the host this request arrived on, trusted only
-      # inside the configured domain; any other Host header falls back to
-      # config.host so a forged header cannot pick the exchange domain.
-      def auth_base
-        home = Lux::Utils::Url.new(Lux.config.host.to_s)
-        here = Lux::Utils::Url.new(request.base_url)
-        here = home unless here.domain == home.domain
+      # The host this request arrived on, trusted only inside the configured
+      # domain; any other Host header falls back to config.host so a forged
+      # header cannot pick the exchange domain (both legs use it).
+      def here
+        Authcog.relying_url(request.base_url)
+      end
 
+      def auth_base
         Authcog.auth_url(here.host, here.port)
       end
 
-      def here
-        Lux::Utils::Url.new(request.base_url)
-      end
-
       def start_login
-        state = SecureRandom.urlsafe_base64(24)
-        held  = Array(session[SESSION_STATE])
-        session[SESSION_STATE] = (held + [state]).last(CHALLENGE_LIMIT)
-
+        state = Authcog.mint_challenge(session, SESSION_STATE)
         redirect "#{auth_base}?state=#{Rack::Utils.escape(state)}"
-      end
-
-      # Only a challenge this browser is holding is accepted: a login someone
-      # else started cannot be landed in this session.
-      def claim_challenge given
-        given = given.to_s
-        return false if given.empty?
-
-        held = Array(session[SESSION_STATE])
-        hit  = held.find { |s| Rack::Utils.secure_compare(s.to_s, given) }
-        return false unless hit
-
-        session[SESSION_STATE] = held - [hit]
-        true
       end
 
       def complete_login callback_hash
@@ -161,7 +139,7 @@ class LuxJob
       if params[:callback]
         callback_hash = params[:callback].to_s
         halt 400, 'Missing callback' unless callback_hash =~ /\A[A-Za-z0-9]{40}\z/
-        halt 400, 'Unsolicited login' unless claim_challenge(params[:state])
+        halt 400, 'Unsolicited login' unless Authcog.claim_challenge(session, SESSION_STATE, params[:state])
 
         complete_login(callback_hash)
       else
@@ -262,7 +240,12 @@ class LuxJob
       end
 
       LuxJob.init!
-      runner = Thread.new { LuxJob.run }.tap { |t| t.name = 'lux_job_runner' }
+      runner = Thread.new do
+        LuxJob.run
+      rescue Exception => e
+        Lux.shell.error "LuxJob runner died: #{e.class}: #{e.message}"
+        Process.kill('TERM', Process.pid)   # puma drains and exits; supervisor restarts
+      end.tap { |t| t.name = 'lux_job_runner' }
 
       # Puma prints its own banner during run!; on_booted is the first point
       # after it (and the only one where the server is actually up), so the

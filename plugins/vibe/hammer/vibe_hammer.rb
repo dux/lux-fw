@@ -10,6 +10,7 @@
 # app's own `lux docker:run`.
 
 require 'erb'
+require 'shellwords'
 require_relative '../lib/vibe'
 
 module VibeHammer
@@ -40,9 +41,9 @@ module VibeHammer
     }
   end
 
-  # The harness container reads provider keys from the app config (see
-  # entrypoint.vibe.sh); mirror them on the host so model auto-detection and the
-  # run/init warnings see the same keys without a copy in .env.
+  # Provider keys live in the app config; copy them into empty env vars so
+  # Vibe.model, the run/init warnings and the container (via docker:vibe:env)
+  # all see the same keys without a copy in .env.
   def load_provider_keys
     return unless defined?(Lux) && Lux.respond_to?(:config)
 
@@ -129,7 +130,15 @@ module VibeHammer
       raise Vibe::Error, "no #{DOCKER}/docker-compose.vibe.yml here - run `lux docker:vibe:init` first"
     end
 
-    "docker compose --project-directory #{Vibe.root} --profile vibe " + files.map { |f| "-f #{f}" }.join(' ')
+    ['docker', 'compose', '--project-directory', Vibe.root, '--profile', 'vibe', *files.flat_map { |f| ['-f', f] }]
+  end
+
+  # Vibe::Error is an expected outcome (dirty tree, nothing to commit): show the
+  # message, not a backtrace
+  def guard
+    yield
+  rescue Vibe::Error => e
+    raise Hammer::Error, e.message
   end
 
   # an override that remounts gems for `app` only leaves the vibe container with
@@ -160,18 +169,20 @@ namespace :docker do
       example 'docker:vibe:init --force'
       opt :force, type: :boolean, alias: :f, desc: 'overwrite generated files'
       proc do |opts|
-        VibeHammer.load_provider_keys
-        vars = VibeHammer.template_vars
-        say.cyan "generating vibe files in #{Vibe.root}"
-        VibeHammer::FILES.each do |rel, tpl|
-          VibeHammer.write_file rel, VibeHammer.render(tpl, vars), force: opts[:force]
+        VibeHammer.guard do
+          VibeHammer.load_provider_keys
+          vars = VibeHammer.template_vars
+          say.cyan "generating vibe files in #{Vibe.root}"
+          VibeHammer::FILES.each do |rel, tpl|
+            VibeHammer.write_file rel, VibeHammer.render(tpl, vars), force: opts[:force]
+          end
+          added = VibeHammer.ensure_env_keys
+          say.green "  .env    added #{added.join(', ')}" if added.any?
+          say.green '  .gitignore  added local/opencode' if VibeHammer.ensure_gitignore
+          say ''
+          say.yellow "Set #{Vibe.provider_key_env} in .env, then: lux docker:vibe:run" if Vibe.provider_key.empty?
+          say.gray  "model: #{vars[:model]}  (VIBE_MODEL in .env, opencode id: provider/model)"
         end
-        added = VibeHammer.ensure_env_keys
-        say.green "  .env    added #{added.join(', ')}" if added.any?
-        say.green '  .gitignore  added local/opencode' if VibeHammer.ensure_gitignore
-        say ''
-        say.yellow "Set #{Vibe.provider_key_env} in .env, then: lux docker:vibe:run" if Vibe.provider_key.empty?
-        say.gray  "model: #{vars[:model]}  (VIBE_MODEL in .env, opencode id: provider/model)"
       end
     end
 
@@ -189,20 +200,21 @@ namespace :docker do
       opt :detach, type: :boolean, alias: :d, desc: 'run in the background'
       opt :stop,   type: :boolean, desc: 'docker compose down'
       proc do |opts|
-        cmd = VibeHammer.compose_cmd
-        exec "#{cmd} down" if opts[:stop]
+        VibeHammer.guard do
+          cmd = VibeHammer.compose_cmd
+          exec(*cmd, 'down') if opts[:stop]
 
-        VibeHammer.load_provider_keys
-        branch = Vibe::Git.ensure_branch!
-        say.green "on branch #{branch}"
-        say.yellow "#{Vibe.provider_key_env} is empty - the agent will not be able to call a model (set it in .env)" if Vibe.provider_key.empty?
-        if (warning = VibeHammer.override_warning)
-          say.yellow warning
+          VibeHammer.load_provider_keys
+          branch = Vibe::Git.ensure_branch!
+          say.green "on branch #{branch}"
+          say.yellow "#{Vibe.provider_key_env} is empty - the agent will not be able to call a model (set it in .env)" if Vibe.provider_key.empty?
+          if (warning = VibeHammer.override_warning)
+            say.yellow warning
+          end
+          say.gray  "harness  http://localhost:#{Vibe.port}"
+          say.gray  "app      #{Vibe.app_url}"
+          exec(*cmd, 'up', *[opts[:build] && '--build', opts[:detach] && '-d'].compact)
         end
-        say.gray  "harness  http://localhost:#{Vibe.port}"
-        say.gray  "app      #{Vibe.app_url}"
-        flags = [opts[:build] ? '--build' : nil, opts[:detach] ? '-d' : nil].compact.join(' ')
-        exec "#{cmd} up #{flags}".strip
       end
     end
 
@@ -211,8 +223,26 @@ namespace :docker do
       example 'docker:vibe:server'
       example 'VIBE_OC_URL=http://127.0.0.1:4097 VIBE_PORT=4001 lux docker:vibe:server   # host debugging'
       proc do |_opts|
-        require_relative '../lib/vibe/server'
-        Vibe::Server.start!
+        VibeHammer.guard do
+          VibeHammer.load_provider_keys
+          ENV['VIBE_MODEL'] = Vibe.model if ENV['VIBE_MODEL'].to_s.strip.empty?
+          require_relative '../lib/vibe/server'
+          Vibe::Server.start!
+        end
+      end
+    end
+
+    task :env do
+      desc 'Print `export` lines for the provider keys (from Lux.config) and the resolved VIBE_MODEL; the entrypoint evals them so Vibe.model is the one model rule.'
+      example 'eval "$(lux docker:vibe:env | grep ^export)"'
+      proc do |_opts|
+        VibeHammer.guard do
+          VibeHammer.load_provider_keys
+          ENV['VIBE_MODEL'] = Vibe.model if ENV['VIBE_MODEL'].to_s.strip.empty?
+          %w[DEEPSEEK_API_KEY OPENROUTER_API_KEY VIBE_MODEL].each do |name|
+            puts "export #{name}=#{Shellwords.escape(ENV[name])}" unless ENV[name].to_s.empty?
+          end
+        end
       end
     end
 
@@ -221,26 +251,32 @@ namespace :docker do
       example 'docker:vibe:oc'
       opt :port, type: :integer, default: 4096
       proc do |opts|
-        cfg = File.join(Vibe.root, VibeHammer::DOCKER, 'vibe/opencode.json')
-        ENV['OPENCODE_CONFIG'] ||= cfg if File.file?(cfg)
-        say.gray "opencode serve on 127.0.0.1:#{opts[:port]} (config: #{ENV['OPENCODE_CONFIG'] || 'default'})"
-        exec 'opencode', 'serve', '--hostname', '127.0.0.1', '--port', opts[:port].to_s, '--print-logs'
+        VibeHammer.guard do
+          VibeHammer.load_provider_keys
+          ENV['VIBE_MODEL'] = Vibe.model if ENV['VIBE_MODEL'].to_s.strip.empty?
+          cfg = File.join(Vibe.root, VibeHammer::DOCKER, 'vibe/opencode.json')
+          ENV['OPENCODE_CONFIG'] ||= cfg if File.file?(cfg)
+          say.gray "opencode serve on 127.0.0.1:#{opts[:port]} (config: #{ENV['OPENCODE_CONFIG'] || 'default'})"
+          exec 'opencode', 'serve', '--hostname', '127.0.0.1', '--port', opts[:port].to_s, '--print-logs'
+        end
       end
     end
 
     task :status do
       desc 'Branch, dirty files, ahead/behind and recent commits of this checkout'
       proc do |_opts|
-        s = Vibe::Git.status
-        say.cyan "branch #{s[:branch]}#{s[:on_vibe] ? '' : "  (harness branch is #{s[:target]})"}  ahead #{s[:ahead]} behind #{s[:behind]}"
-        if s[:dirty].any?
-          say 'changes:'
-          s[:dirty].each { |c| say "  #{c[:status][0].upcase}  #{c[:path]}  +#{c[:add]} -#{c[:del]}" }
-        else
-          say.gray 'working tree clean'
+        VibeHammer.guard do
+          s = Vibe::Git.status
+          say.cyan "branch #{s[:branch]}#{s[:on_vibe] ? '' : "  (harness branch is #{s[:target]})"}  ahead #{s[:ahead]} behind #{s[:behind]}"
+          if s[:dirty].any?
+            say 'changes:'
+            s[:dirty].each { |c| say "  #{c[:status][0].upcase}  #{c[:path]}  +#{c[:add]} -#{c[:del]}" }
+          else
+            say.gray 'working tree clean'
+          end
+          say 'log:'
+          s[:log].first(8).each { |l| say.gray "  #{l[:sha]} #{l[:subject]} (#{l[:ago]})" }
         end
-        say 'log:'
-        s[:log].first(8).each { |l| say.gray "  #{l[:sha]} #{l[:subject]} (#{l[:ago]})" }
       end
     end
 
@@ -251,17 +287,19 @@ namespace :docker do
       opt :message, alias: :m, type: :string, desc: 'commit message (default: generated)'
       opt :push, type: :boolean, alias: :p, desc: 'push after committing'
       proc do |opts|
-        msg = opts[:message].to_s.strip
-        if msg.empty?
-          say.gray 'generating commit message...'
-          msg = Vibe::CommitMessage.generate
-          say.cyan msg
-        end
-        r = Vibe::Git.commit(msg)
-        say.green "committed #{r[:sha]} (#{r[:files].length} files)"
-        if opts[:push]
-          p = Vibe::Git.push
-          say.green "pushed to origin/#{Vibe.branch}#{p[:incoming].any? ? " (rebased onto #{p[:incoming].length} incoming)" : ''}"
+        VibeHammer.guard do
+          msg = opts[:message].to_s.strip
+          if msg.empty?
+            say.gray 'generating commit message...'
+            msg = Vibe::CommitMessage.generate
+            say.cyan msg
+          end
+          r = Vibe::Git.commit(msg)
+          say.green "committed #{r[:sha]} (#{r[:files].length} files)"
+          if opts[:push]
+            p = Vibe::Git.push
+            say.green "pushed to origin/#{Vibe.branch}#{p[:incoming].any? ? " (rebased onto #{p[:incoming].length} incoming)" : ''}"
+          end
         end
       end
     end
@@ -269,25 +307,31 @@ namespace :docker do
     task :push do
       desc "Push the vibe branch to origin (rebases onto origin/#{Vibe.branch} if it moved)"
       proc do |_opts|
-        r = Vibe::Git.push
-        say.green "pushed #{r[:sha]} to origin/#{Vibe.branch}"
-        say.gray "  rebased onto: #{r[:incoming].join(', ')}" if r[:incoming].any?
+        VibeHammer.guard do
+          r = Vibe::Git.push
+          say.green "pushed #{r[:sha]} to origin/#{Vibe.branch}"
+          say.gray "  rebased onto: #{r[:incoming].join(', ')}" if r[:incoming].any?
+        end
       end
     end
 
     task :pull do
       desc "Pull origin/#{Vibe.branch} (rebase); refuses with uncommitted changes"
       proc do |_opts|
-        r = Vibe::Git.pull
-        say.green(r[:changed] ? "pulled #{r[:incoming].length} commit(s), now at #{r[:sha]}" : 'already up to date')
+        VibeHammer.guard do
+          r = Vibe::Git.pull
+          say.green(r[:changed] ? "pulled #{r[:incoming].length} commit(s), now at #{r[:sha]}" : 'already up to date')
+        end
       end
     end
 
     task :merge do
       desc "Merge #{Vibe.main} into #{Vibe.branch} (never the other way round - that is a review)"
       proc do |_opts|
-        r = Vibe::Git.merge_main
-        say.green(r[:changed] ? "merged #{r[:source]}: #{r[:incoming].length} commit(s), now at #{r[:sha]}" : "#{r[:source]} already merged")
+        VibeHammer.guard do
+          r = Vibe::Git.merge_main
+          say.green(r[:changed] ? "merged #{r[:source]}: #{r[:incoming].length} commit(s), now at #{r[:sha]}" : "#{r[:source]} already merged")
+        end
       end
     end
 
@@ -295,12 +339,14 @@ namespace :docker do
       desc 'Discard every uncommitted change (git reset --hard + clean -fd; ignored paths stay)'
       opt :yes, type: :boolean, alias: :y, desc: 'do not ask'
       proc do |opts|
-        dirty = Vibe::Git.changes
-        error 'working tree is clean' if dirty.empty?
-        dirty.each { |c| say.gray "  #{c[:path]}" }
-        next say.gray('cancelled') unless opts[:yes] || yes?("discard #{dirty.length} change(s)?")
-        r = Vibe::Git.reset!
-        say.green "discarded #{r[:discarded].length} change(s), at #{r[:sha]}"
+        VibeHammer.guard do
+          dirty = Vibe::Git.changes
+          error 'working tree is clean' if dirty.empty?
+          dirty.each { |c| say.gray "  #{c[:path]}" }
+          next say.gray('cancelled') unless opts[:yes] || yes?("discard #{dirty.length} change(s)?")
+          r = Vibe::Git.reset!
+          say.green "discarded #{r[:discarded].length} change(s), at #{r[:sha]}"
+        end
       end
     end
 
@@ -308,15 +354,19 @@ namespace :docker do
       desc 'Restart the app: soft = touch tmp/restart.txt (puma reload), --hard = restart the app container'
       opt :hard, type: :boolean, desc: 'docker restart of the app container'
       proc do |opts|
-        r = opts[:hard] ? Vibe::Restart.hard : Vibe::Restart.soft
-        say.green "restart #{r[:mode]} ok"
+        VibeHammer.guard do
+          r = opts[:hard] ? Vibe::Restart.hard : Vibe::Restart.soft
+          say.green "restart #{r[:mode]} ok"
+        end
       end
     end
 
     task :logs do
       desc 'Follow the compose logs of the vibe and app services'
       proc do |_opts|
-        exec "#{VibeHammer.compose_cmd} logs -f vibe #{Vibe.app_service}"
+        VibeHammer.guard do
+          exec(*VibeHammer.compose_cmd, 'logs', '-f', 'vibe', Vibe.app_service)
+        end
       end
     end
   end

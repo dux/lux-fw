@@ -27,10 +27,9 @@ module Lux
         @max_age   = 0
       end
 
+      # Public cache stays opt-in; Response#max_age= keeps the old implicit-public shortcut.
       def max_age= age
         @max_age = age.to_i
-        # positive max_age implies public cache (back-compat with response.max_age=)
-        @public  = true if @max_age > 0
       end
 
       def public= value

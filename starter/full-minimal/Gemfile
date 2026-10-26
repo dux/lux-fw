@@ -1,17 +1,15 @@
 # lgem -> local gem. Resolved from ./.libs/<name> when present (dev: symlinks
-# to the gem checkouts), else from github dux/<name>, so a fresh clone with no
-# ./.libs still resolves. Anchored to __dir__, never the cwd: anything that
-# sets BUNDLE_GEMFILE and runs from elsewhere would otherwise miss ./.libs.
-#
-# NOTE: pick exactly ONE source. Passing both `path:` and `github:` to a single
-# `gem` call makes Bundler treat it as a git source and silently ignore `path:`.
-def lgem name
+# to the gem checkouts), else from RubyGems, pinned to the version that ran
+# `lux new` (no pin for a dev build). Anchored to __dir__, never the cwd:
+# anything that sets BUNDLE_GEMFILE and runs from elsewhere would otherwise
+# miss ./.libs.
+def lgem name, *requirements
   local = File.join(__dir__, '.libs', name)
 
   if File.directory?(local)
     gem name, path: local
   else
-    gem name, github: "dux/#{name}"
+    gem name, *requirements
   end
 end
 
@@ -19,7 +17,7 @@ end
 
 source 'https://rubygems.org'
 
-lgem 'lux-fw'
-lgem 'lux-hammer'
+lgem 'lux-fw'{{lux_fw_pin}}
+lgem 'lux-hammer'{{lux_hammer_pin}}
 
 gem 'puma'

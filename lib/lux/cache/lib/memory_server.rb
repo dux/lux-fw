@@ -73,9 +73,18 @@ module Lux
         end
       end
 
-      def get_multi(*args)
+      def get_multi *keys
         @lock.synchronize do
-          @ram_cache.select{ |k,v| args.index(k) }
+          now = Time.now.to_i
+          keys.each_with_object({}) do |k, out|
+            next unless @ram_cache.key?(k)
+            if (exp = @ttl_cache[k]) && exp < now
+              @ram_cache.delete k
+              @ttl_cache.delete k
+            else
+              out[k] = @ram_cache[k]
+            end
+          end
         end
       end
 

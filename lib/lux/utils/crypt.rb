@@ -20,7 +20,7 @@ module Crypt
   SEAL_HEAD ||= 28
 
   def secret
-    ENV.fetch('SECRET') { Lux.config.secret } || die('Lux.config.secret not set')
+    ENV.fetch('SECRET') { Lux.config.secret } || raise('Lux.config.secret not set')
   end
 
   def base64 str
@@ -29,11 +29,13 @@ module Crypt
 
   def uid size = nil
     # there is also StringBase.uid
-    SecureRandom.alphanumeric(size || 32).downcase
+    SecureRandom.alphanumeric(size || 32, chars: [*'a'..'z', *'0'..'9'])
   end
 
+  # keyed digests: HMAC with the secret. A plain H(msg + secret) is no MAC, and
+  # echoed anywhere (an ETag) it is an offline brute-force oracle for the secret.
   def sha1 str
-    Digest::SHA1.hexdigest(str.to_s + secret)
+    OpenSSL::HMAC.hexdigest('SHA1', secret, str.to_s)
   end
 
   # sha1 shorter string
@@ -42,21 +44,19 @@ module Crypt
   end
 
   def md5 str
-    Digest::MD5.hexdigest(str.to_s + secret)
+    OpenSSL::HMAC.hexdigest('MD5', secret, str.to_s)
   end
 
+  RANDOM_CHARS ||= 'abcdefghjkmnpqrstuvwxyz0123456789'
   def random length = 32
-    chars = 'abcdefghjkmnpqrstuvwxyz0123456789'
-    bytes = SecureRandom.random_bytes(length)
-    bytes.each_byte.map { |b| chars[b % chars.size] }.join
+    Lux::Utils::StringBase.new(keys: RANDOM_CHARS).rand(length)
   end
 
   def bcrypt plain, check = nil
-    if check
-      BCrypt::Password.new(check) == [plain, secret].join('')
-    else
-      BCrypt::Password.create(plain + secret)
-    end
+    require 'bcrypt'
+    check ? BCrypt::Password.new(check) == plain.to_s + secret : BCrypt::Password.create(plain.to_s + secret)
+  rescue LoadError
+    raise LoadError, 'Lux.crypt.bcrypt needs the bcrypt gem in your Gemfile'
   end
 
   # Crypt.encrypt('secret')
@@ -64,26 +64,19 @@ module Crypt
   def encrypt data, opts = {}
     opts          = opts.to_lux_hash :ttl, :password
     payload       = { data:data }
-    payload[:ttl] = Time.now.to_i + opts.ttl.to_i if opts.ttl
+    payload[:exp] = Time.now.to_i + opts.ttl.to_i if opts.ttl
 
     JWT.encode payload, secret+opts.password.to_s, ALGORITHM
   end
 
   # Crypt.decrypt('secret')
   # Crypt.decrypt('secret', password:'pa$$w0rd', unsafe: true)
+  # An expired token raises JWT::ExpiredSignature (JWT.decode checks `exp`).
   def decrypt token, opts={}
-    opts = opts.to_lux_hash :password, :ttl, :unsafe
+    opts = opts.to_lux_hash :password, :unsafe
 
     token_data = JWT.decode token, secret+opts.password.to_s, true, { algorithm: ALGORITHM }
-    data = token_data[0]
-
-    if data['ttl'] && data['ttl'] < Time.now.to_i
-      seconds = Time.now.to_i - data['ttl']
-      before  = Time.respond_to?(:ago) ? Time.ago(Time.now - seconds) : "#{seconds} seconds"
-      raise JWT::VerificationError, "Crypted data expired before #{before}. Please get a fresh token."
-    end
-
-    data['data']
+    token_data[0]['data']
   rescue => err
     raise err unless opts[:unsafe]
   end
@@ -125,23 +118,16 @@ module Crypt
   # encrypts data, with unsafe base64 + basic check
   # not for sensitive data
   def short_encrypt data, ttl = nil
-    # expires in one day by deafult
-    ttl ||= 1.day
-    ttl   = ttl.to_i + Time.now.to_i
-
-    data  = [data, ttl].to_json
-    sha1(data + Lux.config.secret)[0,8] + base64(data).sub(/=+$/, '')
+    payload = base64([data, Time.now.to_i + (ttl || 1.day).to_i].to_json).delete('=')
+    short_mac(payload) + payload
   end
 
-  def short_decrypt data
-    check   = nil
-    data    = data.sub(/^(.{8})/) { check = $1; ''}
-    decoded = Base64.urlsafe_decode64(data)
-    out     = JSON.parse decoded
-
-    raise ArgumentError.new('Invalid check') unless sha1(decoded + Lux.config.secret)[0,8] == check
+  def short_decrypt token
+    token = token.to_s
+    check, payload = token[0, 16], token[16..].to_s
+    raise ArgumentError.new('Invalid check') unless Rack::Utils.secure_compare(short_mac(payload), check)
+    out = JSON.parse Base64.urlsafe_decode64(payload)
     raise ArgumentError.new('Short code expired') if out[1] < Time.now.to_i
-
     out[0]
   end
 
@@ -151,13 +137,17 @@ module Crypt
   end
 
   def simple_encode str
-    Base64.encode64(str).gsub('_', '/').tr('A-Za-z', 'N-ZA-Mn-za-m').gsub(/=+$/, '').gsub(/\s/, '')
+    Base64.strict_encode64(str).tr('/', '_').delete('=').tr('A-Za-z', 'N-ZA-Mn-za-m')
   end
 
   private
 
   def seal_key purpose
     OpenSSL::KDF.hkdf(secret, salt: 'lux-seal', info: purpose.to_s, length: 32, hash: 'SHA256')
+  end
+
+  def short_mac payload
+    OpenSSL::HMAC.hexdigest('SHA256', seal_key('short'), payload)[0, 16]
   end
 end
 end

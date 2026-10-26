@@ -20,9 +20,9 @@ const persist = node => {
   if (list.some(ref => !ref)) return console.warn('ui-sortable: every child needs a data-ref', node)
   if (typeof path == 'function') return path(list)
   if (path[0] == '(') return eval(`(${path})`)(list)
-  $.api(path, { refs: list }).topInfo().done((r, n) => {
-    $.pub('drag-end', r, n)
-    node.sortableDone?.(r, n)
+  $.api(path, { refs: list }).topInfo().done(r => {
+    $.pub('drag-end', r)
+    node.sortableDone?.(r)
   })
 }
 
@@ -43,7 +43,7 @@ $.sortable = (selection, opts = {}) => {
 
   const nodes = $(selection)
   nodes.each((_, el) => {
-    el.sortableTarget = opts.target || nodes.attr('data-api-path')
+    el.sortableTarget = opts.target || el.dataset.apiPath
     el.sortableDone = done
     new Sortable(el, opts)
   })

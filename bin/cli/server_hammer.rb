@@ -53,7 +53,7 @@ task :server do
     base = "#{envs} bundle exec puma #{puma_cfg}".squeeze(' ')
 
     if opts[:rerun]
-      sh "find #{LUX_ROOT} . -name *.rb | entr -r #{base} -p #{port}"
+      sh "find #{LUX_ROOT} . -name '*.rb' | entr -r #{base} -p #{port}"
     else
       # replace the launcher with puma so no idle ruby process lingers
       exec "#{base} -p #{port}"

@@ -5,7 +5,8 @@ class Lux::Type::UrlType < Lux::Type
   error :en, :url_invalid_error, 'URL is not valid'
 
   def coerce
-    error_for(:url_not_starting_error) unless value =~ /^https?:\/\//
+    value(&:to_s)
+    error_for(:url_not_starting_error) unless value =~ /\Ahttps?:\/\//
 
     # protocol-only strings like "https://" should not pass
     begin

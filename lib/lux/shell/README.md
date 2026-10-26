@@ -43,7 +43,7 @@ Lux.shell.exists?('git')                                 # true / false
 # --- status output (STDERR; STDOUT stays clean for piping)
 Lux.shell.info  'deploy starting'                        # magenta
 Lux.shell.error 'deploy failed'                          # red
-Lux.shell.die   'config missing'                         # logger.fatal + exit 1
+Lux.shell.die   'config missing'                         # red to STDERR + exit 1 (raises Lux::Shell::Die in test/web)
 ```
 
 ## Security model
@@ -67,7 +67,7 @@ Lux.shell.die   'config missing'                         # logger.fatal + exit 1
 | `Lux.shell.exists?(name)` | Boolean | |
 | `Lux.shell.info(text)` | nil | magenta status to STDERR; accepts Array |
 | `Lux.shell.error(text)` | nil | red status to STDERR; accepts Array |
-| `Lux.shell.die(text)` | (no return) | `logger.fatal` + `exit 1` |
+| `Lux.shell.die(text)` | (no return) | prints red to STDERR and exit 1; logs logger.fatal when Lux.debug?; raises Lux::Shell::Die in test env and inside a web server |
 
 ### Options accepted by exec / capture / stream
 

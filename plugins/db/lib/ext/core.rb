@@ -70,12 +70,12 @@ class Sequel::Model
 
     def creator
       v = self[:creator_ref]
-      v && defined?(User) ? User.find(v) : nil
+      v && defined?(User) ? User.take(v) : nil
     end
 
     def updater
       v = self[:updater_ref]
-      v && defined?(User) ? User.find(v) : nil
+      v && defined?(User) ? User.take(v) : nil
     end
 
     # has?(:name, "Name is not defined") -> errors.add("Name is not defined")
@@ -104,16 +104,6 @@ class Sequel::Model
 
     def slice *args
       args.inject({}) { |t, el| t[el] = self.send(el); t }
-    end
-
-    # Build a new record of `name` already linked back to self via the
-    # caller's *_ref column (whichever shape RefLinker detects).
-    #   @deal.init(:task) -> Task.new(deal_ref: @deal.ref)
-    def init name, fields = {}
-      target = name.to_s.classify.constantize
-      shape  = Sequel::Plugins::RefLinker.detect(target, self.class)
-      fields[shape[:columns][0]] = self[:ref] if shape && shape[:kind] == :scalar
-      target.new(fields)
     end
 
     def merge hash

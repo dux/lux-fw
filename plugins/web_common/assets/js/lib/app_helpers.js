@@ -7,8 +7,8 @@
 const $ = window.$
 const Z = window.Z
 
-// --- debounce: superset of the core (fn, wait) form plus the legacy keyed
-//     (uid, delay?, cb) trailing form still used by save_sortable etc. ---
+// --- debounce: superset of the core (fn, wait) form plus the
+//     (uid, delay?, cb) keyed trailing form for legacy app callers ---
 const _coreDebounce = $.debounce
 const _keyedTimers = {}
 $.debounce = (a, b, c) => {
@@ -26,32 +26,36 @@ $.debounce = (a, b, c) => {
 //     after the resource(s) load (after the `check` global appears, if given). ---
 const _coreGetScript = $.getScript
 // resolves on the node's load event - or immediately when already present or
-// when the descriptor names nothing loadable
-const _loadResource = src => new Promise(resolve => {
+// when the descriptor names nothing loadable. One promise per id, so a second
+// request while the first is still loading waits for the same load.
+const _resources = {}
+const _loadResource = src => {
   let type
   if (typeof src === 'string') type = src.includes('.css') ? 'css' : 'js'
   else if (src.css) { src = src.css; type = 'css' }
   else if (src.js) { src = src.js; type = 'js' }
   else if (src.img) { src = src.img; type = 'img' }
   else if (src.module) { src = src.module; type = 'module' }
-  else return resolve()
+  else return Promise.resolve()
 
   const id = 'res-' + src.replace(/^https?/, '').replace(/[^\w]+/g, '')
-  if (document.getElementById(id)) return resolve()
+  if (!_resources[id] && document.getElementById(id)) return Promise.resolve()
 
-  let node
-  if (type === 'css') {
-    node = Object.assign(document.createElement('link'), { id, rel: 'stylesheet', type: 'text/css', href: src })
-    document.head.appendChild(node)
-  } else if (type === 'js' || type === 'module') {
-    node = Object.assign(document.createElement('script'), { id, async: true, crossOrigin: 'anonymous', src })
-    if (type === 'module') node.type = 'module'
-    document.head.appendChild(node)
-  } else {
-    node = Object.assign(document.createElement('img'), { id, src })
-  }
-  node.onload = node.onerror = resolve
-})
+  return _resources[id] ||= new Promise(resolve => {
+    let node
+    if (type === 'css') {
+      node = Object.assign(document.createElement('link'), { id, rel: 'stylesheet', type: 'text/css', href: src })
+      document.head.appendChild(node)
+    } else if (type === 'js' || type === 'module') {
+      node = Object.assign(document.createElement('script'), { id, async: true, crossOrigin: 'anonymous', src })
+      if (type === 'module') node.type = 'module'
+      document.head.appendChild(node)
+    } else {
+      node = Object.assign(document.createElement('img'), { id, src })
+    }
+    node.onload = node.onerror = resolve
+  })
+}
 $.getScript = (src, check, func) => {
   // plain url, no legacy args -> keep the core promise-returning behavior
   if (typeof src === 'string' && check === undefined && func === undefined) return _coreGetScript(src)
@@ -83,11 +87,12 @@ $.compact = (data, opts = {}) => {
   return out
 }
 
-// object <-> inline css string
+// object <-> inline css string; numbers get px unless the property is unitless
+const _unitless = ['opacity', 'zIndex', 'z-index', 'fontWeight', 'font-weight', 'lineHeight', 'line-height', 'flex', 'flexGrow', 'flex-grow', 'flexShrink', 'flex-shrink', 'order', 'zoom']
 $.css = data => {
   if (typeof data === 'object') {
     return Object.entries(data)
-      .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : Math.round(v) + 'px'};`)
+      .map(([k, v]) => `${k}: ${typeof v === 'number' && !_unitless.includes(k) ? v + 'px' : v};`)
       .join(' ')
   }
   return data.split(';').reduce((o, line) => {
@@ -98,16 +103,7 @@ $.css = data => {
 }
 
 // object <-> query string
-$.qs = data => {
-  if (typeof data === 'object') {
-    return Object.entries(data).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')
-  }
-  return data.split('&').reduce((o, line) => {
-    const [k, v] = line.trim().split('=')
-    if (v) o[k.trim()] = decodeURIComponent(v.trim())
-    return o
-  }, {})
-}
+$.qs = data => typeof data === 'object' ? $.param(data) : Object.fromEntries(new URLSearchParams(data))
 
 $.JSON = data => data ? (typeof data === 'string' ? JSON.parse(data) : data) : data
 
@@ -156,12 +152,12 @@ $.untilTrueWhileExists = (node, func, timeout) => {
   }, timeout)
 }
 
-// memoize on an fnv1 hash of the stringified args
+// memoize on the JSON-serialized args
 $.memoize = fn => {
   const cache = {}
   return (...args) => {
-    const id = $.fnv1(String(args))
-    return cache[id] ||= fn(...args)
+    const id = JSON.stringify(args)
+    return id in cache ? cache[id] : (cache[id] = fn(...args))
   }
 }
 
@@ -193,31 +189,20 @@ $.resizeIframe = obj => {
   obj.style.height = obj.contentWindow.document.documentElement.scrollHeight + 'px'
 }
 
-// top-of-page loader bar (used by the api layer); self-removes after 500ms
-$.saveInfo = () => {
-  const data = `<div id="loader-bar"><style>
-    .loader-bar { position: fixed; top: 0; left: 0; width: 0; height: 3px;
-      background-color: #8198cd; animation: loader-bar-fill 0.5s cubic-bezier(0.23,1,0.32,1) forwards; }
-    @keyframes loader-bar-fill { 0% { width: 0 } 60% { width: 50% } 100% { width: 100% } }
-  </style><div class="loader-bar"></div></div>`
-  $(document.body).append(data)
-  setTimeout(() => $('#loader-bar').remove(), 500)
-}
-
 $.cookies = {
   get(name) {
     const list = {}
-    for (const line of document.cookie.split('; ')) {
-      const [key, value] = line.split('=', 2)
+    for (const line of document.cookie ? document.cookie.split('; ') : []) {
+      const i = line.indexOf('='), key = line.slice(0, i), value = decodeURIComponent(line.slice(i + 1))
       if (key === name) return value
       list[key] = value
     }
-    return list
+    return name ? undefined : list
   },
   set(name, value, days) {
     const date = new Date()
     date.setTime(date.getTime() + ((days || 7) * 864e5))
-    document.cookie = `${name}=${value}; expires=${date.toGMTString()}; path=/`
+    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${date.toUTCString()}; path=/`
   },
   delete(name) { $.cookies.set(name, '', -1) },
 }
@@ -225,7 +210,7 @@ $.cookies = {
 // copy a string (or a node's innerText, or read the clipboard via callback)
 $.copyText = str => {
   if (typeof str === 'function') {
-    if (window.navigator) navigator.clipboard.readText().then(str)
+    if (navigator.clipboard) navigator.clipboard.readText().then(str)
     else console.error('You are not on localhost or HTTPS')
     return
   }
@@ -252,20 +237,6 @@ const _namedIntervals = {}
 $.setInterval = (name, func, every) => {
   clearInterval(_namedIntervals[name])
   _namedIntervals[name] = setInterval(func, every)
-}
-
-// fire a handler on a keypress unless focus is inside a form/input ('ctrl+s' style supported)
-$.keyPress = (key, func) => {
-  $(document).keydown(e => {
-    if (e.target.nodeName === 'INPUT') return
-    if ($(e.target).parents('form')[0]) return
-    let part = key
-    if (key.includes('+')) {
-      if (!(e.ctrlKey || e.metaKey)) return
-      part = key.split('+', 2)[1]
-    }
-    if (e.key === part) { e.preventDefault(); e.stopPropagation(); func(e) }
-  })
 }
 
 // child nodes of a root (html string or node) as a list (or grouped hash) of attr maps
@@ -309,6 +280,7 @@ $.fn.serializeHash = function () {
   const hash = {}
   $(this).find('input, textarea, select').each(function () {
     if (this.name && !this.disabled) {
+      if (this.type === 'radio' && !this.checked) return
       let val = $(this).val()
       if (this.type === 'checkbox' && !this.checked) val = 0
       hash[this.name] = val
@@ -327,31 +299,10 @@ $.fn.ajaxSubmit = function (callback) {
     headers: window.Intl ? { 'x-tz-name': Intl.DateTimeFormat().resolvedOptions().timeZone } : {},
     complete: r => {
       let data = r.responseText
-      if (r.getResponseHeader('content-type').toLowerCase().includes('json')) data = JSON.parse(data)
+      if ((r.getResponseHeader('content-type') || '').toLowerCase().includes('json')) data = JSON.parse(data)
       if (callback) callback(data, r)
     },
   })
-  return this
-}
-
-// reload the nearest .ajax container (or the matched node) from a path
-$.fn.ajax = function (path, pathState) {
-  const node = this.hasClass('ajax') ? this : this.parents('.ajax')
-  const id = this.attr('id')
-  if (id && node[0]) {
-    path ||= this.attr('path') || this.attr('data-path') || location.pathname + String(location.search)
-    if (path) node.attr('data-path', path)
-    $.get(path, data => {
-      const html = id ? $(`<div>${data}</div>`).find(`#${id}`).html() : null
-      node.html(html || data)
-    })
-  } else {
-    $.get(path, data => this.html(data))
-  }
-  if (pathState) {
-    if (pathState[0] === '?') pathState = location.pathname + pathState
-    window.history.pushState({ title: document.title }, document.title, pathState)
-  }
   return this
 }
 
@@ -392,13 +343,8 @@ $.fn.animateInsert = function (html) {
   return this
 }
 
-// stop propagation on the node's current event
-$.fn.cancel = function () {
-  const e = this[0]
-  if (e.preventDefault) { e.preventDefault(); e.stopPropagation() }
-  else if (window.event) window.event.cancelBubble = true
-  return this
-}
+// stop propagation on the wrapped event: $(event).cancel()
+$.fn.cancel = function () { const e = this[0]; e?.preventDefault?.(); e?.stopPropagation?.(); return this }
 
 $.fn.isVisible = function () { return this[0] && this[0].checkVisibility() }
 
@@ -473,8 +419,8 @@ window.xalert = message => {
   catch (e) { alert(`${e.stack.split('\n')[2].trim()}\n\n${message}`) }
 }
 
-window.escapeHTML = text => text
-  .replace(/</g, '&lt;').replace(/>/g, '&gt;')
+window.escapeHTML = text => String(text)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 
 Z.isTrue = v => v && String(v) !== 'false'

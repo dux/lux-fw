@@ -9,14 +9,14 @@ extensions (hooks, links, parent_model, enums, paginate, ...).
 Lux.plugin :db
 ```
 
-`loader.rb` requires the plugin in an explicit order (`lib/`, `ext/`,
-`plugins/`, `migrate/`) and sets `Sequel::Model.require_valid_table = false`
-under rake tasks. It opens no connection: `Lux::Db.connection` connects on
+`loader.rb` requires the plugin in an explicit order (`lib/schema_define.rb`,
+`lib/ext/`, `lib/sequel/`, `lib/migrate/`) and sets
+`Sequel::Model.require_valid_table = false` under CLI task runners
+(`Lux.runtime.task_runner?`). It opens no connection: `Lux::Db.connection` connects on
 first use (`Lux::Db.boot!` connects everything eagerly, if an app wants that).
 
-`lux db:am` installs a hook that gives a model whose table is missing a bare
-`ref` table on class load, so AutoMigrate can add the columns. No other
-command does - a missing table there is an error, not a new table.
+A missing table is created (bare `ref` PK) by `AutoMigrate#table` during
+`db:am`.
 
 ## CLI
 
@@ -62,25 +62,23 @@ suffix on the name, nothing else. When `Lux.env.test?`, the connection loader
 the test suite and any test-env request hit `<db>_test`, never the dev/prod DB.
 
 This switch is skipped for CLI task runners (`Lux.runtime.task_runner?` - the
-`lux`/`rake` binaries), because those tasks *manage* the `_test` database and
+`lux` binary), because those tasks *manage* the `_test` database and
 must operate on the literal DB without holding a connection into the sibling
 they drop and recreate.
 
 ```
-lux db:am          # migrate main; in dev, then rebuild every <db>_test from schema
-lux db:test:am     # force-rebuild <db>_test from the model schema only (drop, create, db:am)
+lux db:am          # migrate the configured databases
+lux db:test:am     # drop, create and db:am every <db>_test (spawned with DB_<NAME>=<test url>)
 lux db:test:drop   # drop the <db>_test databases
-lux test           # rebuild <db>_test, then run rspec/minitest (auto-detected)
+lux test           # rebuild <db>_test, then run rspec, spec/ or test/ (auto-detected)
 ```
 
 Test DBs are built straight from the model definitions (`lux_schema`) via
-`db:am`, so they always match the code - there is no clone-from-main step. The
-spawned inner `db:am` carries `LUX_SKIP_TEST_DB=true` so it migrates the `_test`
-DB without recursing back into the rebuild.
+`db:am`, so they always match the code - there is no clone-from-main step.
 
 ## Ref linking
 
-`Sequel::Plugins::RefLinker` (see `plugins/_ref_linker.rb`) is the single
+`Sequel::Plugins::RefLinker` (see `lib/sequel/_ref_linker.rb`) is the single
 owner of `*_ref` column conventions. It recognises four field shapes:
 
 | Shape       | Columns                       | Direction                    |
@@ -153,6 +151,43 @@ so unknown values are rejected at schema-validate time, before the save-time
 enum check. Errors at declaration time (missing values, default not in
 keys, mixed key types, duplicate column) raise via `Lux.shell.die`.
 
+## Hooks
+
+```ruby
+class Task < ApplicationModel
+  plugin :lux_hooks
+  before(:cud) { ... }     # c=create, u=update, d=destroy
+  after(:c)    { ... }
+  before(:v)   { ... }     # validation (same as `validate { ... }`)
+end
+```
+
+Errors added in a `before` hook abort the write with `Sequel::ValidationFailed`.
+Hooks declared on a parent class (`ApplicationModel`) fire for every subclass.
+`save!` (`validate: false`) skips hooks and validation.
+With `lux_before_save` plugged after `lux_hooks` (the usual order), the record's `find`/`take` cache entry is dropped before the `after(:c)` / `after(:u)` hooks run, so a hook that reloads it through `find` sees the saved row.
+
+## Named caches
+
+```ruby
+class Space < ApplicationModel
+  named_caches :docs
+end
+
+space.cache_for(:docs, :home)   # versioned key, bumped when a Doc of this space is written
+space.cache_clear(:docs)
+```
+
+The child model (`Doc`, linked via `space_ref`) gets `plugin :lux_hooks` and an `after :cud` hook as soon as both models are defined.
+Any process that loads both models (web, job runner, API worker) bumps the group on write, even if it never reads the cache.
+
+## Paginate
+
+```ruby
+list = Task.order(:name).page(size: 20)          # reads ?page=N unless page: is given
+list.paginate_page; list.paginate_next          # Lux::Utils::PaginatedArray
+```
+
 ## Layout
 
 ```
@@ -163,6 +198,7 @@ plugins/db/
     ext/                       # Sequel-aware extensions
       core.rb
       nav_models.rb            # Nav#load_models + the ref->model registry
+      cache.rb                 # named_caches: per-group versioned cache keys (cache_for / cache_clear)
       dataset_methods.rb       # x* query-builder primitives
       dataset_scopes.rb        # convenience scopes layered on dataset_methods
       find_precache.rb         # Model.find(ref) request-cached, 404 on miss; Model.take(ref) nil on miss
@@ -175,9 +211,8 @@ plugins/db/
       hooks.rb
       before_save_filters.rb
       create_limit.rb
-      composite_primary_keys.rb
+      composite_primary_keys.rb  # primary_keys :a, :b -> unique index (db:am); dup raises PrimaryKeys::DuplicateRecord
     migrate/                   # schema migration runtime (used by `lux db:am`)
-      auto_create_tables.rb
       auto_migrate.rb
   hammer/
     db_hammer.rb               # `lux db:*` CLI tasks

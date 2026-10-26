@@ -51,7 +51,8 @@ module Lux
         def pull
           cfg     = Lux.config[:mail]
           inboxes = cfg && cfg[:inboxes]
-          Array(inboxes).each { |inbox| pull_one(inbox) }
+          inboxes = [inboxes] if inboxes.is_hash?
+          Array(inboxes).each { |inbox| pull_one(inbox.to_lux_hash) }
           nil
         end
 
@@ -101,7 +102,10 @@ module Lux
             end
           end
         ensure
-          (imap.logout rescue nil) && (imap.disconnect rescue nil) if imap
+          if imap
+            imap.logout rescue nil
+            imap.disconnect rescue nil
+          end
         end
 
         # Parse a raw RFC822 string (via the `mail` gem) into a Message.
@@ -123,11 +127,22 @@ module Lux
           )
         end
 
-        # Pull a single mechanism verdict out of the Authentication-Results
-        # header ("...; dmarc=pass ..." -> "pass"), nil if absent.
+        # Pull a single mechanism verdict ("...; dmarc=pass ..." -> "pass") out of
+        # an Authentication-Results header whose authserv-id (the token before the
+        # first ";") is in config `mail.trusted_authserv_ids`. Senders can add their
+        # own A-R headers, so untrusted ones are ignored; with no ids configured the
+        # verdict is nil (and `verified` false).
         def auth_result(mail, method)
-          line = mail['Authentication-Results']&.to_s or return nil
-          line[/\b#{method}=(\w+)/i, 1]
+          trusted = Array(Lux.config.dig(:mail, :trusted_authserv_ids)).map { |id| id.to_s.downcase }
+          return nil if trusted.empty?
+
+          mail.header.fields.each do |field|
+            next unless field.name.to_s.casecmp?('Authentication-Results')
+            value = field.value.to_s
+            next unless trusted.include?(value.split(';', 2).first.to_s.strip.split(/\s+/).first.to_s.downcase)
+            verdict = value[/\b#{method}=(\w+)/i, 1] and return verdict
+          end
+          nil
         end
       end
     end

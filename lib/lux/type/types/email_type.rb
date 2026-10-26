@@ -5,9 +5,7 @@ class Lux::Type::EmailType < Lux::Type
   error :en, :missing_monkey_error, 'is missing @'
 
   def coerce
-    value do |email|
-      email.downcase.gsub(/\s+/, '')
-    end
+    value { |e| e.to_s.downcase.gsub(/\s+/, '') }
 
     check_min_max_length 120, 5
 

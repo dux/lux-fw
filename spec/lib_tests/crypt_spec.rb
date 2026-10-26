@@ -33,6 +33,15 @@ describe Lux::Utils::Crypt do
       expired = Lux::Utils::Crypt.encrypt('foo', ttl: -10)
       _(Lux::Utils::Crypt.decrypt(expired, unsafe: true)).must_be_nil
     end
+
+    it 'puts the ttl in the standard exp claim, which JWT.decode enforces' do
+      token = Lux::Utils::Crypt.encrypt('foo', ttl: 60)
+      claims = JWT.decode(token, nil, false)[0]
+      assert_in_delta Time.now.to_i + 60, claims['exp'], 2
+      refute claims.key?('ttl')
+
+      _{ Lux::Utils::Crypt.decrypt(Lux::Utils::Crypt.encrypt('foo', ttl: -10)) }.must_raise JWT::ExpiredSignature
+    end
   end
 
   describe '.seal / .unseal' do
@@ -68,6 +77,10 @@ describe Lux::Utils::Crypt do
     it 'returns different digests for different inputs' do
       _(Lux::Utils::Crypt.sha1('a')).wont_equal Lux::Utils::Crypt.sha1('b')
     end
+
+    it 'is an HMAC keyed with the secret' do
+      _(Lux::Utils::Crypt.sha1('test')).must_equal OpenSSL::HMAC.hexdigest('SHA1', ENV['SECRET'], 'test')
+    end
   end
 
   describe '.sha1s' do
@@ -88,6 +101,10 @@ describe Lux::Utils::Crypt do
 
     it 'returns different digests for different inputs' do
       _(Lux::Utils::Crypt.md5('a')).wont_equal Lux::Utils::Crypt.md5('b')
+    end
+
+    it 'is an HMAC keyed with the secret' do
+      _(Lux::Utils::Crypt.md5('test')).must_equal OpenSSL::HMAC.hexdigest('MD5', ENV['SECRET'], 'test')
     end
   end
 
@@ -157,6 +174,17 @@ describe Lux::Utils::Crypt do
       encoded = Lux::Utils::Crypt.simple_encode(original)
       _(encoded).wont_equal original
       _(Lux::Utils::Crypt.simple_decode(encoded)).must_equal original
+    end
+
+    it 'matches the browser $.simpleEncode output' do
+      _(Lux::Utils::Crypt.simple_encode('???')).must_equal 'Cm8_'
+      _(Lux::Utils::Crypt.simple_decode('Cm8_')).must_equal '???'
+    end
+  end
+
+  describe '.uid' do
+    it 'returns lowercase alphanumerics of the requested size' do
+      _(Lux::Utils::Crypt.uid(40)).must_match(/\A[a-z0-9]{40}\z/)
     end
   end
 end

@@ -134,14 +134,15 @@
 
       // read the fields before before() disables the button: a disabled submitter is left out
       const formData = new FormData(this.root, e.submitter)
-      this.before()
+      this.before(e.submitter)
       this.props.upload_url ? this.uploadThenPost(formData) : this.post(formData)
     }
 
-    // disable the submit button while the request runs
-    before() {
-      const button = this.find('button[type=submit]')
+    // disable the clicked submit button while the request runs
+    before(submitter) {
+      const button = submitter || this.find('button[type=submit], button:not([type])')
       if (!button) return
+      this.state.button = button
       const html = button.innerHTML
       button.innerHTML = html + '&hellip;'
       button.disabled = true
@@ -171,7 +172,7 @@
           return
         }
 
-        const button = this.find('button[type=submit]')
+        const button = this.state.button
         if (button && percent < 100) button.innerHTML = `${percent}%&hellip;`
       }
     }
@@ -257,6 +258,7 @@
 
       if (done[0] == '/') {
         const ref = response.meta?.ref || response.data?.ref
+        if (!ref && done.includes('REF')) return Toast.error('No ref in API response')
         return Fez.load(done.replaceAll('REF', ref))
       }
 

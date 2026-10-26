@@ -3,7 +3,7 @@
 //
 //   Vibe.api(path, body)   json call to the harness api, throws Error(server message)
 //   Vibe.oc(path, opts)    call to opencode through the /oc proxy (directory pin is server side)
-//   Vibe.md(text)          markdown -> html (marked), <script> stripped
+//   Vibe.md(text)          markdown -> html (marked), raw html escaped
 //   Vibe.esc(text)         html escape
 //   Vibe.toast(msg, kind)  broadcast a toast (vibe-app renders them)
 //   Fez.publish / this.subscribe are the cross-component bus (global channels):
@@ -54,16 +54,22 @@ window.Vibe = (() => {
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
   }
 
+  // agent output can echo prompt-injected text: raw html is escaped and
+  // script-scheme links lose their href (marked v15 passes both through)
+  if (window.marked) marked.use({
+    renderer: {
+      html(token) { return esc(token.text) },
+      link(token) { return /^\s*(javascript|vbscript|data):/i.test(token.href || '') ? esc(token.text) : false }
+    }
+  })
+
   function md(text) {
     if (!text) return ''
-    let html
     try {
-      html = window.marked ? marked.parse(text, { gfm: true, breaks: true }) : `<p>${esc(text)}</p>`
+      return window.marked ? marked.parse(text, { gfm: true, breaks: true }) : `<p>${esc(text)}</p>`
     } catch (e) {
-      html = `<p>${esc(text)}</p>`
+      return `<p>${esc(text)}</p>`
     }
-    // the agent's own output, but a stray <script> must not run in the harness page
-    return html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/ on\w+="[^"]*"/gi, '')
   }
 
   function toast(text, kind = 'info') {

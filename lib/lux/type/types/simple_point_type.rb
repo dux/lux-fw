@@ -7,6 +7,7 @@ class Lux::Type::SimplePointType < Lux::Type
     return if value.nil?
 
     coords = normalize_pair(value)
+    coords = nil unless coords&.all? { |c| c.is_a?(::Numeric) || c.to_s.strip.match?(GeoExtract::NUM) }
 
     if coords
       value { coords.map { |c| c.to_f } }
@@ -42,10 +43,10 @@ class Lux::Type::SimplePointType < Lux::Type
 
   # Accepts:
   #   [lat, lon] / ["lat","lon"]
-  #   { "0" => lat, "1" => lon }  (form/JSON object indices — common from JS)
+  #   { "0" => lat, "1" => lon }  (form/JSON object indices - common from JS)
   #   { lat:, lon: } / { latitude:, longitude: }
   #   "lat,lon" / map URLs via GeoExtract
-  #   Sequel pg_array (to_a → floats)
+  #   Sequel pg_array (to_a -> floats)
   def normalize_pair(v)
     case v
     when String

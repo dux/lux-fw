@@ -22,8 +22,10 @@ rescue LoadError => e
 end
 
 describe Vibe::Server do
+  # MockRequest sends Host: example.org, which the Host allow-list refuses;
+  # 'spec.host' lets a test pick another Host header
   def req
-    Rack::MockRequest.new(Vibe::Server)
+    Rack::MockRequest.new(->(env) { env['HTTP_HOST'] = env['spec.host'] || 'localhost'; Vibe::Server.call(env) })
   end
 
   def json_post path, body, env = {}
@@ -61,7 +63,7 @@ describe Vibe::Server do
     @work = File.join(@tmp, 'work')
     FileUtils.mkdir_p @work
 
-    # ensure_branch! writes safe.directory to the global config; keep that off ~/.gitconfig
+    # isolate the global git config from ~/.gitconfig
     @env = ENV.to_h.slice('VIBE_ROOT', 'GIT_CONFIG_GLOBAL')
     ENV['GIT_CONFIG_GLOBAL'] = File.join(@tmp, 'gitconfig')
     File.write ENV['GIT_CONFIG_GLOBAL'], ''
@@ -146,11 +148,16 @@ describe Vibe::Server do
     end
 
     it 'accepts a write from the same origin' do
-      # Rack::MockRequest serves from http://example.org
-      res = json_post('/api/git/commit', { message: 'add a' }, 'HTTP_ORIGIN' => 'http://example.org')
+      res = json_post('/api/git/commit', { message: 'add a' }, 'HTTP_ORIGIN' => 'http://localhost')
       assert_equal 200, res.status, res.body
       assert_equal ['a.txt'], JSON.parse(res.body)['files']
     end
+  end
+
+  it 'refuses a foreign Host header (DNS rebinding)' do
+    res = req.get('/api/health', 'spec.host' => 'evil.example')
+    assert_equal 403, res.status
+    assert_equal 'host not allowed', JSON.parse(res.body)['error']
   end
 
   it 'proxies /oc/* to opencode with the directory pin' do

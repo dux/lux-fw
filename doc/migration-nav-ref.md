@@ -17,8 +17,7 @@ nav.refs      # ['abc123']       - derived from the path, not stored
 `nav.ref`, `nav.refs` and router captures still hand back plain values, so most
 app code is untouched. What changes is code that inspects `nav.path` itself.
 
-Canonical docs: [`../lib/lux/application/README.md`](../lib/lux/application/README.md)
-and [`../lib/lux/controller/README.md`](../lib/lux/controller/README.md).
+Canonical docs: [`../lib/lux/router/README.md`](../lib/lux/router/README.md).
 
 ## Why
 
@@ -45,8 +44,8 @@ i = nav.path.index(:ref)
 nav.path.each { |s| next if s == :ref }
 
 # after
-i = nav.path.index { _1.is_a?(Lux::Application::Nav::Base) }
-nav.path.each { |s| next if s.is_a?(Lux::Application::Nav::Base) }
+i = nav.path.index { _1.is_a?(Lux::Router::Nav::Base) }
+nav.path.each { |s| next if s.is_a?(Lux::Router::Nav::Base) }
 ```
 
 ### `nav.pathname` and `nav.to_s` render real ids
@@ -85,7 +84,7 @@ nav.pathname(ends: 'ref')
 nav.normalized_path.last == 'ref'
 
 # after - by type, which also excludes a literal /ref segment
-nav.path.last.is_a?(Lux::Application::Nav::Base)
+nav.path.last.is_a?(Lux::Router::Nav::Base)
 ```
 
 ### `:ref` matches by type, not by spelling
@@ -204,31 +203,31 @@ default:
 Or register a named variant of your own once, at boot:
 
 ```ruby
-Lux::Application::Nav::Base.register :app_ref, Lux::Application::Nav::RefString,
+Lux::Router::Nav::Base.register :app_ref, Lux::Router::Nav::RefString,
   length: 26, upcase: true
 Lux.config.ref_format = :app_ref
 ```
 
 ### Ref formats are classes
 
-`Lux::Application::Nav::Base` is the contract: instance `generate`, `valid?` and
+`Lux::Router::Nav::Base` is the contract: instance `generate`, `valid?` and
 `db_limit`. Subclass it for an id shape the built-ins do not cover, register it,
 and name it in config.
 
 ```ruby
-class Lux::Application::Nav::RefNumeric < Lux::Application::Nav::Base
+class Lux::Router::Nav::RefNumeric < Lux::Router::Nav::Base
   def generate;  with(SecureRandom.random_number(10**12).to_s); end
   def valid?;    @value.to_s.match?(/\A\d+\z/);                 end
   def db_limit;  20;                                            end
 end
 
-Lux::Application::Nav::Base.register :numeric, Lux::Application::Nav::RefNumeric
+Lux::Router::Nav::Base.register :numeric, Lux::Router::Nav::RefNumeric
 ```
 
 A one-off override at the call site still works, without registering:
 
 ```ruby
-nav.map_path Lux::Application::Nav::RefUuid7
+nav.map_path Lux::Router::Nav::RefUuid7
 nav.map_path :string, upcase: true
 ```
 

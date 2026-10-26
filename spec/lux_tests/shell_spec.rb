@@ -20,6 +20,14 @@ describe Lux::Shell do
       _{ Lux.shell.exec('this-binary-does-not-exist-xyz') }.must_raise Lux::Shell::Error
     end
 
+    it 'never routes a one-string command through /bin/sh' do
+      refute_equal "a\nb", Lux.shell.exec('echo a; echo b') {}
+    end
+
+    it 'does not deadlock on large stdin_data with a timeout' do
+      _(Lux.shell.exec('cat', stdin_data: 'y' * 200_000, timeout: 5).size).must_equal 200_000
+    end
+
     it 'calls block(err, out) on failure and returns nil' do
       seen_err = seen_out = nil
       result = Lux.shell.exec('sh', '-c', 'echo to-out; echo to-err 1>&2; exit 4') do |err, out|
@@ -65,6 +73,15 @@ describe Lux::Shell do
       seen_err = nil
       Lux.shell.exec('sleep', '5', timeout: 0.1) { |err, _out| seen_err = err }
       _(seen_err).must_match(/timed out/)
+    end
+
+    it 'timeout kills grandchildren of a shell:true command' do
+      marker = "./tmp/shell_pgroup_#{Process.pid}"
+      File.delete(marker) if File.exist?(marker)
+      # inner sh is a grandchild that touches the marker itself; `; :` stops the outer sh from exec-ing it
+      Lux.shell.exec("sh -c 'sleep 1; touch #{marker}'; :", shell: true, timeout: 0.1) { }
+      sleep 1.5
+      _(File.exist?(marker)).must_equal false
     end
 
     it 'argv mode treats metachars as literal (no injection)' do

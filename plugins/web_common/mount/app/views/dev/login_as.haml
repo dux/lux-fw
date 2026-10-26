@@ -1,7 +1,7 @@
 :ruby
-  raise 'Nope' unless UserSession.impersonate?
+  raise Lux.error.not_found unless UserSession.impersonate?
 
-= center 800 do
+.mx-auto{ style: 'max-width: 800px' }
   .mt-5
     %h1.mb-1
       Login as
@@ -20,7 +20,7 @@
 
     .mb-5
 
-    = table (@users = User.desc(:updated_at).search.page) do |t|
+    = table User.desc(:updated_at).xlike(params[:q], :name, :email) do |t|
       - t.href {|user| UserSession.login_link(user, path: request.path) }
       - t.col as: :avatar
       - t.col :full_name

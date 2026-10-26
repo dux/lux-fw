@@ -7,14 +7,13 @@ class Class
   end
 
   # OrgsRouter.source_location -> ./app/routers/orgs_router.rb
-  def source_location as_folder=false
-    for name in instance_methods(false)
-      src = Lux.root.pretty(instance_method(name).source_location.first)
-      next unless src.start_with?('.')
-      return as_folder ? File.dirname(src) : src
-    end
-
-    nil
+  def source_location as_folder = false
+    file   = name && Object.const_source_location(name)&.first
+    file ||= instance_methods(false).filter_map { instance_method(_1).source_location&.first }.first
+    return unless file
+    src = Lux.root.pretty(file)
+    return unless src.start_with?('.')
+    as_folder ? File.dirname(src) : src
   end
 
 end

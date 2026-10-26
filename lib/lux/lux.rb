@@ -12,7 +12,7 @@ module ::Lux
   end.freeze
 
   def root
-    @lux_app_root ||= Root.new(ENV.fetch('APP_ROOT') { Dir.pwd }).freeze
+    @lux_app_root ||= Root.new(Dir.pwd).freeze
   end
 
   def fw_root
@@ -31,7 +31,7 @@ module ::Lux
     if (explicit = ENV['DEPLOY_ID']) && !explicit.empty?
       explicit
     else
-      git = `git rev-parse --short=8 HEAD 2>/dev/null`.chomp
+      git = (IO.popen(['git', '-C', root.to_s, 'rev-parse', '--short=8', 'HEAD'], err: File::NULL, &:read).to_s.chomp rescue '')
       raw =
         (git.empty? ? nil : git) ||
         root.files('app/**/*').map { |f| File.mtime(f).to_i rescue 0 }.max&.to_s ||

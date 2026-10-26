@@ -32,7 +32,7 @@ module Lux
       end
 
       def mount_on
-        @mount_on.to_s.sub(/\/$/, '').then { |s| s.empty? ? '' : s }
+        @mount_on.to_s.chomp('/')
       end
 
       def base_url

@@ -5,7 +5,7 @@ module Lux
   #   Lux.schema(:blog)                    - lookup, raises if missing
   #   Lux.schema(type: :model)             - find all schemas matching opt
   def schema name = nil, opts = nil, &block
-    klass = name.to_s.classify if name && !name.is_hash?
+    klass = Lux::Schema.key(name) if name && !name.is_hash?
 
     if block_given?
       Lux::Schema.new(klass, opts, &block)
@@ -26,7 +26,7 @@ module Lux
 
   # same as schema but returns nil if not found
   def schema? name
-    klass = name.to_s.classify if name
+    klass = Lux::Schema.key(name) if name
     Lux::Schema::SCHEMA_STORE[klass] if klass
   end
 

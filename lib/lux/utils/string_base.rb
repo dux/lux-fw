@@ -43,27 +43,26 @@ class StringBase
   def initialize keys: nil, multiplier: 1
     @keys = keys
     @multiplier = multiplier
+    @enc = @keys.chars
+    @dec = @enc.each_with_index.to_h
   end
 
   def encode value
-    value = value * @multiplier
-    ring = ::Hash[@keys.chars.map.with_index.to_a.map(&:reverse)]
-    base = @keys.length
-    result = []
-    until value == 0
-      result << ring[ value % base ]
-      value /= base
+    raise ArgumentError, 'StringBase encodes non-negative integers only' if value.negative?
+    value *= @multiplier
+    return @enc[0] if value.zero?
+    out = +''
+    while value > 0
+      value, rem = value.divmod(@enc.length)
+      out.prepend @enc[rem]
     end
-    result.reverse.join
+    out
   end
 
   def decode string
-    ring = ::Hash[@keys.chars.map.with_index.to_a]
-    base = @keys.length
-    ret = string.reverse.chars.map.with_index.inject(0) do |sum, (char, i)|
-      sum + ring[char] * (base**i)
-    end
-    raise 'Invalid decode base' if ret % @multiplier > 0
+    base = @enc.length
+    ret = string.each_char.inject(0) { |sum, c| sum * base + (@dec[c] || raise(ArgumentError, 'Invalid decode char %p' % c)) }
+    raise ArgumentError, 'Invalid decode base' if ret % @multiplier > 0
     ret / @multiplier
   end
 
@@ -71,7 +70,7 @@ class StringBase
   def extract url_part
     id_str = url_part.split('-').last
     return nil unless id_str
-    StringBase.decode(id_str) rescue nil
+    decode(id_str) rescue nil
   end
 
   # StringBase.medium.rand(16) -> ref 16 chars
@@ -82,8 +81,7 @@ class StringBase
   # time, in an order seeded RNG could reproduce. Callers use this for refs and
   # credentials, where both of those are wrong.
   def rand num
-    chars = @keys.chars
-    Array.new(num.to_i) { chars[SecureRandom.random_number(chars.length)] }.join
+    Array.new(num.to_i) { @enc[SecureRandom.random_number(@enc.length)] }.join
   end
 end
 end

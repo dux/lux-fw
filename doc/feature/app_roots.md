@@ -2,6 +2,8 @@
 > ordered overlay of app roots that the framework resolves against directly.
 > `Object.const_missing` is gone: boot registers native Ruby autoloads for
 > every `app/**/*.rb` across roots (see "App autoload" below).
+> Paths and class names in the body (`lib/lux/application/`, `lib/lux/controller/`, `Lux::Controller`) predate the
+> controller -> router cutover; the code now lives in [`lib/lux/router/`](../../lib/lux/router/README.md).
 
 ## app_roots
 
@@ -120,7 +122,7 @@ Each app owns its `rollup.config.js` and aliases plugin sources by path
 Boot registers a native `Object.autoload` for every `app/**/*.rb` across all
 roots, named by basename (`Lux::Root.autoload!`), before any plugin loads.
 It matters because plugins reference app base classes at load time:
-`web_common` defines `class LuxException < ApplicationModel`, and that runs
+a plugin's `load/` file defining `class Foo < ApplicationModel` runs
 before `config/app.rb` eager-loads `./app`.
 
 The old loader was a mess:

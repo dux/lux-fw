@@ -1,9 +1,8 @@
-# Database-backed store for Lux::Locale. Wired in by plugins/locale/loader.rb
-# when ApplicationModel is available.
+# Database-backed store for Lux::Locale. Opt-in: an app requires this file
+# after its models load and sets `Lux.locale.store = LuxTranslation`.
 #
-# Each row is one translation, keyed by (namespace, key, locale). The plugin
-# sets `Lux::Locale.store = LuxTranslation`, so `Lux.locale.t` reads through
-# `.get` and `Lux.locale.set` writes through `.set`.
+# Each row is one translation, keyed by (namespace, key, locale), so
+# `Lux.locale.t` reads through `.get` and `Lux.locale.set` writes through `.set`.
 
 class LuxTranslation < ApplicationModel
   schema do
@@ -13,6 +12,8 @@ class LuxTranslation < ApplicationModel
     translation :text
     created_at Time
     updated_at Time
+
+    db :add_index, [:locale, :namespace, :key], unique: true
   end
 
   class << self
@@ -27,6 +28,12 @@ class LuxTranslation < ApplicationModel
       raise ArgumentError, "key must be namespaced (e.g. 'users.welcome')" if subkey.nil? || subkey.empty?
 
       first(locale: locale.to_s, namespace: ns.to_s, key: subkey.to_s)&.translation
+    end
+
+    # Whole { key => translation } table for one (locale, namespace). Lux::Locale
+    # prefers this over .get and caches it per request.
+    def table locale, ns
+      where(locale: locale.to_s, namespace: ns.to_s).select_hash(:key, :translation)
     end
 
     # Upsert by (locale, namespace, key). All 4 args required.

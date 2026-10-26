@@ -78,20 +78,19 @@
   }
 
   function _openIfNeeded() {
-    if (!_hasHandlers()) {
-      if (_es) { _es.close(); _es = null; _setState('closed'); }
-      return;
-    }
+    if (_es || !_hasHandlers()) return;   // already connected - subscriptions are local only
 
-    if (_es) return;   // already connected - subscriptions are local only
-
-    _es = new EventSource(STREAM_URL);
-    _es.onmessage = _onMessage;
+    var es = _es = new EventSource(STREAM_URL);
+    es.onmessage = _onMessage;
 
     // EventSource retries by itself; onerror fires on every drop, so this
     // reports the gap rather than driving reconnection.
-    _es.onopen  = function () { _setState('open') };
-    _es.onerror = function () { _setState('closed') };
+    es.onopen  = function () { _setState('open') };
+    es.onerror = function () {
+      // non-200 (403 guest / 501) is final - EventSource won't retry; let the next subscribe() reopen
+      if (es.readyState === 2 && _es === es) _es = null;
+      _setState('closed');
+    };
   }
 
   // Coalesce N subscribe() calls in a row into one open.
@@ -124,7 +123,7 @@
     }
 
     delete _handlers[name];
-    _scheduleOpen();
+    if (!_hasHandlers()) Lux.disconnect();   // only ever closes; never reopens a disconnect()ed stream
     return Lux;
   };
 

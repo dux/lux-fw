@@ -6,7 +6,7 @@ class {{klasses}}Api < ModelApi
   generate :update
   generate :destroy
 
-  member do
+  ref do
     # define :add_part do
     #   desc '...'
     #   params do

@@ -53,45 +53,45 @@
   class {
     onMount() {
       TIP = this
-      this.box = this.root.querySelector('.tip')
-      this.txt = this.root.querySelector('.txt')
-      this.arr = this.root.querySelector('.arr')
+      this.state.box = this.root.querySelector('.tip')
+      this.state.txt = this.root.querySelector('.txt')
+      this.state.arr = this.root.querySelector('.arr')
     }
 
-    onDestroy() { clearTimeout(this._t); TIP = null }
+    onDestroy() { TIP = null }
 
     show(t) {
-      if (t === this.target) return
-      this.target = t
-      this.txt.textContent = text(t)
+      if (t === this.state.target) return
+      this.state.target = t
+      this.state.txt.textContent = text(t)
       this.place()
       this.watch()
     }
 
     hide(t) {
-      if (t && t !== this.target) return
-      clearTimeout(this._t)
-      this.box.style.display = 'none'
-      this.target = null
+      if (t && t !== this.state.target) return
+      clearTimeout(this.state.timer)
+      this.state.box.style.display = 'none'
+      this.state.target = null
     }
 
     // poll while a target is live; a DOM swap can drop the element without firing
     // mouseout, which would otherwise leave the bubble orphaned. self-cancels once gone.
     watch() {
-      clearTimeout(this._t)
-      if (!this.target) return
-      this._t = setTimeout(() => {
-        if (!this.target) return
-        if (!this.target.isConnected) return this.hide()
+      clearTimeout(this.state.timer)
+      if (!this.state.target) return
+      this.state.timer = this.setTimeout(() => {
+        if (!this.state.target) return
+        if (!this.state.target.isConnected) return this.hide()
         this.watch()
       }, 200)
     }
 
     // measure target, prefer top, flip when it won't fit, keep arrow on target center
     place() {
-      const t = this.target
+      const t = this.state.target
       if (!t || !t.isConnected || !text(t)) return this.hide()
-      const box = this.box
+      const box = this.state.box
       box.style.display = 'block'
       const r = t.getBoundingClientRect()
       const bw = box.offsetWidth, bh = box.offsetHeight
@@ -111,7 +111,7 @@
       }
 
       // reset all edges; placement classes can't be styled (fez scope drops them), so drive the arrow inline
-      const a = this.arr.style
+      const a = this.state.arr.style
       a.top = a.bottom = a.left = a.right = ''
       let x, y
       if (p == 'top' || p == 'bottom') {

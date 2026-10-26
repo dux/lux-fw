@@ -1,6 +1,10 @@
 module Lux
   class Cache
     class SqliteServer
+      # Sweep expired rows every N writes so keys that are never read again
+      # do not grow the table without bound.
+      SWEEP_EVERY ||= 256
+
       def initialize path = nil
         file = Pathname.new(path || './tmp/lux_cache.sqlite')
         FileUtils.mkdir_p(file.dirname)
@@ -19,6 +23,7 @@ module Lux
         end
 
         @cache = @db[:cache]
+        @writes_since_sweep = 0
       end
 
       def set key, data, ttl = nil
@@ -26,6 +31,13 @@ module Lux
         value = Base64.encode64 Marshal.dump(data)
         valid_to = Time.now + ttl.seconds
         @cache.insert_conflict(:replace).insert(key: key, value: value, valid_to: valid_to)
+
+        @writes_since_sweep += 1
+        if @writes_since_sweep >= SWEEP_EVERY
+          @writes_since_sweep = 0
+          @cache.where(Sequel.lit('valid_to < ?', Time.now)).delete
+        end
+
         data
       end
 

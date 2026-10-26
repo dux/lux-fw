@@ -134,17 +134,22 @@ module Lux
         end
 
         def _open_tag(name, attrs)
-          head = "#{_newline}#{_indent}<#{name}"
+          head  = "#{_newline}#{_indent}<#{name}"
           return head if attrs.empty?
 
-          head + ' ' + attrs.flat_map { |k, v| _attr_pair(k, v) }.join(' ')
+          pairs = attrs.flat_map { |k, v| _attr_pair(k, v) }
+          pairs.empty? ? head : head + ' ' + pairs.join(' ')
         end
 
+        # nil omits the attribute (so `class: (x if y)` needs no compact);
+        # false still renders "false", which custom elements read
         def _attr_pair(key, value)
           case value
+          when nil
+            []
           when ::Hash
             # data: { foo: 'x' } -> data-foo="x"
-            value.map { |k, v| %(#{key}-#{k}=#{_escape(v)}) }
+            value.filter_map { |k, v| %(#{key}-#{k}=#{_escape(v)}) unless v.nil? }
           when ::Array
             %(#{_dasherize(key)}=#{_escape(value.join(' '))})
           else
@@ -154,8 +159,7 @@ module Lux
 
         # inner content: markup (html_safe?) as is, anything else as escaped text
         def _text(value)
-          value = value.to_s
-          value.html_safe? ? value : ERB::Util.html_escape(value)
+          Lux::SafeString.escape(value)
         end
 
         def _dasherize(key)

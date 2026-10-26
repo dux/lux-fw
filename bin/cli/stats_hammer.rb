@@ -1,6 +1,4 @@
 class LuxStat
-  attr_accessor :dir
-
   def call name, title=nil
     puts (title || name.to_s.capitalize).colorize(:yellow)
     send name
@@ -16,23 +14,13 @@ class LuxStat
   end
 
   def models
-    list = ObjectSpace
-      .each_object(Class)
-      .select { |it| it.ancestors.include?(ApplicationModel) }
-      .map(&:to_s)
-      .sort
-      .drop(1)
-      .map(&:constantize)
-
-    desc = list.length.pluralize(:models)
-    mcnt = list.inject(0) { |t, m| t + m.instance_methods(false).length }
-
-    list = list.map(&:to_s)
-
-    while data = get_line(list, 100)
+    list = ApplicationModel.descendants.select(&:name).sort_by(&:name)
+    desc = list.length.pluralize(:model)
+    mcnt = list.sum { _1.instance_methods(false).length }
+    names = list.map(&:name)
+    while data = get_line(names, 100)
       puts ' ' + data
     end
-
     puts " #{desc} and #{mcnt.pluralize(:method)}".colorize(:blue)
   end
 
@@ -128,13 +116,8 @@ task :stats do
     stat = LuxStat.new
     stat.call :routers
     stat.call :cells if defined?(Lux::ViewCell)
-    stat.call :models
+    stat.call :models if defined?(ApplicationModel)
     stat.call :views
-
-    for dir in %w[./]
-      next unless Dir.exist?(dir)
-      stat.dir = dir
-      stat.call :total_ext, 'Totals per file type in %s' % dir
-    end
+    stat.call :total_ext, 'Totals per file type'
   end
 end

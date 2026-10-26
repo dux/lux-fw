@@ -32,7 +32,11 @@ module LuxPack
   # the remote, or the box has nothing to reset to.
   def build dest: DEFAULT_DEST, includes: [], dry: false, only_gems: false
     raise Hammer::Error, 'not a git repo (no ./.git)' unless Dir.exist?('.git')
-    raise Hammer::Error, 'refusing unsafe --dest' if dest.to_s.strip.empty? || %w[. /].include?(dest)
+    abs = File.expand_path(dest.to_s.strip)
+    cwd = File.expand_path(Dir.pwd)
+    if dest.to_s.strip.empty? || abs == '/' || abs == Dir.home || cwd == abs || cwd.start_with?("#{abs}/")
+      raise Hammer::Error, "refusing unsafe --dest #{dest}"
+    end
 
     files   = []
     missing = []
@@ -75,7 +79,9 @@ module LuxPack
 
       # -R preserves each include's relative path (public/assets -> dest/public/assets)
       excludes = INCLUDE_EXCLUDES.flat_map { |p| ['--exclude', p] }
-      includes.each { |path| system 'rsync', '-aLR', *excludes, path, dest + '/' }
+      includes.each do |path|
+        system('rsync', '-aLR', *excludes, path, dest + '/') or raise Hammer::Error, "rsync failed for #{path}"
+      end
 
       FileUtils.rm_f File.join(dest, '.gitignore')
 

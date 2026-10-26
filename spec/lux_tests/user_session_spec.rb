@@ -2,14 +2,14 @@ require 'test_helper'
 require_relative '../../plugins/authcog/load/user_session'
 
 describe UserSession do
-  def with_user_lookup result, find: nil
+  def with_user_lookup result, take: nil
     had_user = Object.const_defined?(:User)
     original_user = User if had_user
     Object.send(:remove_const, :User) if had_user
 
     user_class = Class.new
     user_class.define_singleton_method(:find_by) { |**_opts| result }
-    user_class.define_singleton_method(:find) { |_ref| find }
+    user_class.define_singleton_method(:take) { |_ref| take }
     Object.const_set(:User, user_class)
     yield
   ensure
@@ -37,7 +37,7 @@ describe UserSession do
   it 'does not delay a valid API key' do
     user = Struct.new(:ref, :api_key).new('usr-1', 'valid-key')
 
-    with_user_lookup user, find: user do
+    with_user_lookup user, take: user do
       without_real_sleep do |delays|
         assert_equal user, UserSession.api_key_load('valid-key')
         assert_empty delays
@@ -52,11 +52,11 @@ describe UserSession do
     end
   end
 
-  it 'caches api key -> ref and reloads via User.find on the next call' do
+  it 'caches api key -> ref and reloads via User.take on the next call' do
     user = Struct.new(:ref, :api_key).new('usr-1', 'valid-key')
     Lux.cache.delete UserSession.send(:api_key_cache_key, 'valid-key')
 
-    with_user_lookup user, find: user do
+    with_user_lookup user, take: user do
       without_real_sleep do |delays|
         assert_equal user, UserSession.api_key_load('valid-key')
         assert_empty delays
@@ -75,7 +75,7 @@ describe UserSession do
     cache_key = UserSession.send(:api_key_cache_key, 'old-key')
     Lux.cache.set cache_key, user.ref, 60
 
-    with_user_lookup nil, find: user do
+    with_user_lookup nil, take: user do
       without_real_sleep do |delays|
         assert_nil UserSession.api_key_load('old-key')
         assert_equal [0.2], delays

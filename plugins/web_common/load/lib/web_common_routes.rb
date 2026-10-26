@@ -4,9 +4,10 @@
 module WebCommonRoutes
   # /lux - server diagnostics (ServerInfo), dev or global admin only
   def server_info
-    return unless nav.root == 'lux' && (Lux.env.dev? || user&.can&.admin?)
-
-    render text: ServerInfo.report, content_type: :txt
+    map 'lux' do
+      raise Lux.error.not_found unless Lux.env.dev? || user&.can&.admin?
+      render text: ServerInfo.report, content_type: :txt
+    end
   end
 end
 

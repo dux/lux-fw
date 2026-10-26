@@ -105,7 +105,7 @@ base class, so sequences and fetch cache start clean per test.
 Use `Lux.render.<verb>` directly. It returns a `Lux::Router::Page`.
 
 ```ruby
-resp = Lux.render.get('/users', params: { q: 'x' }, session: { user_id: 1 })
+resp = Lux.render.get('/users', params: { q: 'x' }, session: { user_ref: factory.create(:user).ref })
 resp = Lux.render.post('/users', params: { name: 'Dux' })
 resp = Lux.render.post('/users', body: '{"name":"Dux"}', headers: { 'Content-Type' => 'application/json' })
 
@@ -159,7 +159,7 @@ require 'test_helper'
 
 describe Lux::Router do
   it 'renders 200 for the index action' do
-    resp = Lux.render.get('/users', session: { user_id: factory.create(:user).id })
+    resp = Lux.render.get('/users', session: { user_ref: factory.create(:user).ref })
     assert_status 200, resp
     assert_body_includes 'Users', resp
   end

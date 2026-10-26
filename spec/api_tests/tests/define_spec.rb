@@ -27,7 +27,7 @@ describe 'define block syntax' do
 
         define :with_annotations do
           unsafe
-          proc { @api.opts.unsafe }
+          proc { @api.method_opts[:unsafe] }
         end
 
         ref do

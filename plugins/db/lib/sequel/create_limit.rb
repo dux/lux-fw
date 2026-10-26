@@ -11,11 +11,11 @@
 # create_limit 30, :org_ref
 
 module Sequel::Plugins::LuxCreateLimit
+  def self.apply(model)
+    model.cattr :create_limit_data
+  end
+
   module ClassMethods
-    def include _
-      self.cattr :create_limit_data
-      super
-    end
 
     def create_limit number, in_time, name=nil
       cattr.create_limit_data = [number, in_time, name]

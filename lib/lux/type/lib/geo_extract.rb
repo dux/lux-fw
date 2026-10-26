@@ -4,13 +4,16 @@
 module Lux
   class Type
     module GeoExtract
+      NUM ||= /\A-?\d+(?:\.\d+)?\z/
+
       def extract_coords data
         data = data.to_s.strip
 
         coords = extract_from_url(data) || extract_from_string(data)
         return nil unless coords
 
-        coords.map { |c| c.to_s.strip }
+        coords = coords.map { |c| c.to_s.strip }
+        coords.all? { |c| c.match?(NUM) } ? coords : nil
       end
 
       private

@@ -1,6 +1,6 @@
 class Hash
   def to_css
-    self.keys.sort.map{ |k| '%s: %s;' % [k, self[k].to_s.gsub('"', '&quot;')]}.join(' ')
+    sort_by { |k, _| k.to_s }.map { |k, v| "#{k}: #{v};" }.join(' ')
   end
 
   # Recursively remove the named keys from this hash and every nested hash
@@ -42,7 +42,7 @@ class Hash
     end
   end
 
-  # Hash#slice, #slice!, #except, #except!, #transform_keys - built-in since Ruby 2.5–3.0.
+  # Hash#slice, #slice!, #except, #except!, #transform_keys - built-in since Ruby 2.5-3.0.
   # Shallow stringify_keys / symbolize_keys: use transform_keys(&:to_s) / transform_keys(&:to_sym).
 
   def remove_empty covert_to_s = false

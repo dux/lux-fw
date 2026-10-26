@@ -9,9 +9,7 @@ module Sequel::Plugins::LuxSchema
 
   module ClassMethods
     def schema name = nil, &block
-      name ||= self
-      name = name.to_s.underscore.singularize
-      value = Lux.schema name, type: :model, &block
+      value = Lux.schema(name || self, type: :model, &block)
 
       # let nested model validation resolve back to this model (-> api_schema)
       value.model_klass = self
@@ -91,7 +89,7 @@ module Sequel::Plugins::LuxSchema
           end
 
           # check protected fields
-          if (prot = rule.dig(:meta, :protected)) && pk_val
+          if (prot = rule.dig(:meta, :protected)) && !new?
             if column_changed?(field)
               error = prot.class == TrueClass ? "value once defined can't be overwritten." : prot
               errors.add(field, error) unless (errors.on(field) || []).include?(error)

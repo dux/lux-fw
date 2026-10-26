@@ -99,4 +99,9 @@ describe 'Lux::ViewCell common' do
     data = VcUserCell.new(user).uemail
     _(data).must_equal 'dux@net.net'
   end
+
+  it 'renders a collection held in an Array subclass' do
+    list = Class.new(Array).new([user])
+    _(Lux::ViewCell.cell(nil, list)).must_equal '&gt;Dux&lt;'
+  end
 end

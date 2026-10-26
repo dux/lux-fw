@@ -38,6 +38,8 @@ class Sequel::Model
       # below treats all-digit keys as integers to keep Integer-keyed enums on
       # their _id column; the caster re-keys values by the real column type.
       raw_values = opts[:values] || {}.to_lux_hash.tap { |h| block.call(h) }
+      # array shorthand: the label is the key
+      raw_values = raw_values.to_h { [_1, _1.to_s] } if raw_values.is_a?(Array)
 
       opts[:method]  ||= name.to_s
       opts[:helpers]   = :both unless opts.key?(:helpers)
@@ -67,7 +69,7 @@ class Sequel::Model
       if opts.key?(:default)
         opts[:default] = caster.call(opts[:default]) if opts[:default]
       else
-        opts[:default] = values.keys.first
+        opts[:default] = caster.call(values.keys.first)
       end
 
       values.define_singleton_method(:for_select) do
@@ -96,12 +98,12 @@ class Sequel::Model
         define_method(opts[:method]) do
           value = send(field_sym)
           return unless value.present?
-          out = values[caster.call(value)]
-          if !out && opts[:validate] != false
+          key = caster.call(value)
+          if !values.key?(key) && opts[:validate] != false
             raise 'enum %s.%s: key %s not found in %s (declared at %s)' %
               [klass_name, name, value.inspect, values.keys.inspect, decl_at]
           end
-          out || value
+          values[key] || value
         end
       elsif do_instance
         Lux.shell.info 'enum: field "%s" not found for "%s" on %s, skipping instance helpers' % [opts[:field], name, self.name]
@@ -119,10 +121,12 @@ class Sequel::Model
 
         unless instance_variable_get(:@_enums_validation_installed)
           instance_variable_set(:@_enums_validation_installed, true)
+          # closure over the declaring class, so STI subclasses validate too
+          owner = self
           prepend(Module.new do
             define_method(:validate) do
               super()
-              self.class.instance_variable_get(:@_enums)&.each do |e|
+              owner.instance_variable_get(:@_enums)&.each do |e|
                 val = self[e[:field]]
                 next if val.nil?
                 unless e[:values].key?(e[:caster].call(val))

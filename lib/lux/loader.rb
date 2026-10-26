@@ -29,6 +29,7 @@ Rack::Mime::MIME_TYPES['.webmanifest'] ||= 'application/manifest+json'
 # before lux/lux.rb runs.
 require_relative '../overload/object'
 require_relative '../overload/string'
+require_relative './utils/safe_string' # Lux::SafeString, which String#html_unsafe / #html_escape return
 require_relative '../overload/dir'
 
 # Defines Lux module (root, fw_root, VERSION, UNSET, speed, app_caller).
@@ -79,7 +80,7 @@ if Lux.root != Lux.fw_root
   ['./log', './tmp'].each { |d| Dir.mkdir(d) unless Dir.exist?(d) }
 end
 
-# load all lux libs (lib/lux/test/ stays out — test scaffolding is opt-in
+# load all lux libs (lib/lux/test/ stays out - test scaffolding is opt-in
 # via spec/test_helper.rb so production apps don't pull in minitest)
 [:overload, :lux].each do |f|
   opts = f == :lux ? { skip: '/lux/test/' } : {}

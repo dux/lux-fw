@@ -1,4 +1,4 @@
-class {{klass}}Cell < ViewCell
+class {{klass}}Cell < Lux::ViewCell
   before do
   end
 

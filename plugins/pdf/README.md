@@ -38,9 +38,21 @@ formatter, reopen `PdfHelper` in `app/helpers/pdf_helper.rb`.
 ## Access
 
 The preview and the `.pdf` download both need a signed-in user.
-The download works by pointing headless Chrome at the HTML page, and that browser has no session, so the router builds a signed URL for it: HMAC-SHA256 of the page path and an expiry (`?s=<sig>&e=<unix time>`), valid for `PdfRouter::SIGNATURE_TTL` seconds (120).
+The download works by pointing headless Chrome at the HTML page, and that browser has no session, so the router builds a signed URL for it: HMAC-SHA256 of the page path, its sorted query string and an expiry (`?s=<sig>&e=<unix time>`), valid for `PdfRouter::SIGNATURE_TTL` seconds (120).
+The page's own params (`/pdf/report.pdf?month=5`) are forwarded and signed, so the PDF prints what the preview shows.
 A signature opens only the HTML page, never the `.pdf`, so a leaked link cannot keep a server Chrome busy.
 Chrome fetches the page from `Lux.config.host`, never from the request's Host header.
+
+Layout UI text defaults to English: `PdfRouter::PDF_LANG` (`'en'`) and `PdfRouter::PDF_LABELS` (`page`, `download`, `error`).
+A page view is rendered before the layout, with the same helper, so ivars it sets reach the layout.
+Override per page in the view (or in the router action), merged over the defaults:
+
+```haml
+- @pdf_lang   = 'hr'
+- @pdf_labels = { page: 'Stranica', download: 'Preuzmi PDF', error: "PDF nije generiran. Poku\u0161aj ponovno." }
+```
+
+For an app-wide default, define `PdfRouter::PDF_LANG` / `PdfRouter::PDF_LABELS` before the plugin loads (the constants use `||=`).
 
 ## Requirements
 

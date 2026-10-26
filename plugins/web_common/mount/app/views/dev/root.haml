@@ -1,0 +1,14 @@
+-# Default /dev landing page; an app's own app/views/dev/root.haml shadows it.
+:ruby
+  pages = Lux.root.files('app/views/dev/*.*').map { _1.basename.to_s.split('.').first }.reject { _1.start_with?('_') }.uniq - %w[layout root]
+
+%h1.mb-1 Dev
+%p.gray.mb-5
+  = user ? user.email : 'not logged in'
+  %span &sdot;
+  %a{ href: '/admin' } admin
+
+%ul
+  - for page in pages
+    %li
+      %a{ href: "/dev/#{page}" }= "/dev/#{page}"

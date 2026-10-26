@@ -56,16 +56,15 @@ module Lux
         # Uses a pooled connection and returns immediately. Every process
         # LISTENing on the same DB re-publishes it locally.
         def publish name, data
-          payload = '%s%s%s' % [name, SEP, data.is_a?(String) ? data : JSON.generate(data)]
+          # Always JSON, so a String arrives as a String (as with Memory).
+          payload = '%s%s%s' % [name, SEP, JSON.generate(data)]
 
           if payload.bytesize > MAX_PAYLOAD
             raise ArgumentError,
               "channel payload too large for #{self.class} (#{payload.bytesize} > #{MAX_PAYLOAD} bytes) - push a pointer, not a page"
           end
 
-          Lux.db(@db_name).synchronize do |conn|
-            conn.async_exec('NOTIFY %s, %s' % [PG_CHANNEL, conn.escape_literal(payload)])
-          end
+          Lux.db(@db_name).notify(PG_CHANNEL, payload: payload)
 
           true
         end
@@ -136,14 +135,17 @@ module Lux
 
         private
 
+        # `conn` is local: an old thread's ensure must never close the
+        # connection a newer listen! published to @conn.
         def run_loop
           backoff   = BACKOFF_MIN
           connected = false
+          conn      = nil
 
           until @stop
             begin
-              @conn = open_conn
-              @conn.async_exec('LISTEN %s' % PG_CHANNEL)
+              conn = @conn = open_conn
+              conn.async_exec('LISTEN %s' % PG_CHANNEL)
               backoff = BACKOFF_MIN
 
               # NOTIFYs sent while we were down are gone; let open streams know
@@ -151,22 +153,23 @@ module Lux
               connected = true
 
               until @stop
-                @conn.wait_for_notify(5) do |_chan, _pid, payload|
+                conn.wait_for_notify(5) do |_chan, _pid, payload|
                   dispatch payload
                 end
               end
             rescue => e
               Lux.shell.info "Channel broker: #{e.class} #{e.message} - reconnecting in #{backoff}s" rescue nil
-              begin @conn&.close rescue nil end
-              @conn = nil
+              begin conn&.close rescue nil end
+              @conn = nil if @conn.equal?(conn)
+              conn  = nil
               sleep backoff unless @stop
               backoff = [backoff * 2, BACKOFF_MAX].min
             end
           end
         ensure
-          begin @conn&.async_exec('UNLISTEN *') rescue nil end
-          begin @conn&.close                    rescue nil end
-          @conn = nil
+          begin conn&.async_exec('UNLISTEN *') rescue nil end
+          begin conn&.close                    rescue nil end
+          @conn = nil if @conn.equal?(conn)
         end
 
         def dispatch payload

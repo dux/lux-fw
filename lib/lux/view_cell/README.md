@@ -9,7 +9,7 @@ Subclass per component; instantiate directly or via `Lux.render.cell(:name)`.
 ## Full example
 
 ```ruby
-# app/cells/user_cell.rb
+# app/cells/user/user_cell.rb  (templates resolve next to the class file)
 class UserCell < ApplicationCell
   delegate :request, :params      # forward these calls to the parent scope
 
@@ -62,9 +62,23 @@ Each cell instance exposes three building blocks:
 * `parent`         - the scope the cell was created with (`parent { @user }`
   reads an ivar from it); `delegate :foo` forwards `foo` to it
 
+Class-level API:
+
+* `delegate :a, :b` - define instance methods that forward to `parent`.
+* `before { ... }` - runs once from `initialize`; chains with the superclass `before`.
+* `css 'card.scss'` or `css '.card { ... }'` - inline SCSS or a file next to the cell;
+  `Lux::ViewCell.css` returns every registered block, compiled.
+* `template_root './app/cells/%s'` - template directory; `%s` is the cell name
+  (`user_card` for `UserCardCell`). Without it, templates resolve from the
+  directory of the file that calls `template`.
+
+Collection form: `cell @users` (any Array, including `PaginatedArray`) renders
+`<Class>Cell#render(object)` for every item and joins the results.
+
 ## Layout
 
 ```
+app/cells/<name>/<name>_cell.rb     # the cell class
 app/cells/<name>/<method>.haml      # one template per cell method
 app/cells/<name>/_partial.haml      # private partial (underscore-prefixed)
 ```

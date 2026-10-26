@@ -241,19 +241,19 @@ describe 'Lux::Api::SysApi endpoints' do
   it 'guide links each action to its explorer anchor' do
     host = SysMockApiHost.new(path: '/api/sys/guide', method: 'GET')
     md   = Lux::Api::SysApi.render(:guide, api_host: host)
-    _(md).must_include '](/api/sys/web#method-company-show)'
+    _(md).must_include '](/api/sys/web#method-company-ref-show)'
   end
 
   it 'guide action links open the explorer in a new tab (HTML)' do
     host = SysMockApiHost.new(path: '/api/sys/guide', method: 'GET', accept: 'text/html')
     html = Lux::Api::SysApi.render(:guide, api_host: host)
-    _(html).must_match(%r{<a href="/api/sys/web#method-company-show" target="_blank" rel="noopener">})
+    _(html).must_match(%r{<a href="/api/sys/web#method-company-ref-show" target="_blank" rel="noopener">})
   end
 
-  it 'guide links honour a custom mount' do
+  it 'guide links honour a custom mount (auto_mount passes mount_path)' do
     host = SysMockApiHost.new(path: '/kapi/sys/guide', method: 'GET')
-    md   = Lux::Api::SysApi.render(:guide, api_host: host)
-    _(md).must_include '](/kapi/sys/web#method-company-show)'
+    md   = Lux::Api::SysApi.render(:guide, api_host: host, mount_path: '/kapi')
+    _(md).must_include '](/kapi/sys/web#method-company-ref-show)'
     _(md).must_include 'http://example.com/kapi/<api>/<action>'
   end
 end

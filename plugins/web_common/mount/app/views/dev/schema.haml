@@ -1,6 +1,4 @@
 :ruby
-  raise 'Not available' unless Lux.env.dev?
-
   models = SchemaMap.export
   edges  = models.flat_map do |m|
     m[:relations].map { |r| { from: m[:model], to: r[:to], field: r[:field], kind: r[:kind] } }

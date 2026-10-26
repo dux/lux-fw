@@ -15,7 +15,6 @@
 # registered and does nothing else on Lux.plugin :name.
 
 require 'yaml'
-require 'deep_merge/core'
 require_relative '../root'
 
 module Lux
@@ -121,7 +120,7 @@ module Lux
     end
 
     def get name
-      PLUGIN[name.to_s] || die('Plugin "%s" not loaded' % name)
+      PLUGIN[name.to_s] || Lux.shell.die('Plugin "%s" not loaded' % name)
     end
 
     def loaded
@@ -143,7 +142,7 @@ module Lux
     # Forget a loaded plugin (or all of them when name is nil). Boot never
     # unloads; specs use this to load a throwaway plugin and stay isolated.
     def unload name = nil
-      return PLUGIN.clear if name.nil?
+      return (@host_keys = nil; PLUGIN.clear) if name.nil?
 
       PLUGIN.delete(name.to_s)
     end
@@ -158,7 +157,7 @@ module Lux
     def activate root, config = nil
       root = Pathname.new(root)
       name = root.basename.to_s
-      die(%{Plugin "#{name}" not found in "#{root}"}) unless root.directory?
+      Lux.shell.die(%{Plugin "#{name}" not found in "#{root}"}) unless root.directory?
 
       if existing = PLUGIN[name]
         return existing if existing.folder == root.to_s
@@ -191,7 +190,7 @@ module Lux
       return nil unless source.exist?
 
       data = YAML.safe_load(source.read, aliases: true) || {}
-      die(%{Plugin config "#{source}" must be a hash}) unless data.is_a?(::Hash)
+      Lux.shell.die(%{Plugin config "#{source}" must be a hash}) unless data.is_a?(::Hash)
 
       config_for_env data
     end
@@ -201,29 +200,41 @@ module Lux
       base = data[base_key]
       return data unless base
 
-      base = base.dup
-      DeepMerge.deep_merge!(data[Lux.env.to_s] || {}, base, preserve_unmergeables: false)
+      base = Lux::Boot::Config.merge_env! data[Lux.env.to_s], base.dup
       base['production'] = data['production'] if data.key?('production')
       base['plugins'] = normalize_names(base['plugins'], data['plugins']) if data.key?('plugins')
       base
     end
 
+    # Plugin config fills keys the app did not declare; a dependent plugin
+    # (loaded first) still overrides its dependency.
     def merge_config data
+      # host view before any plugin touched it
+      @host_keys ||= key_tree(Lux.config)
       has_plugins = data.key?('plugins')
       plugin_names = data.delete('plugins')
 
-      merge_hash! Lux.config, data
+      merge_hash! Lux.config, data, @host_keys
 
       if has_plugins
         Lux.config[:plugins] = normalize_names(Lux.config[:plugins], plugin_names)
       end
     end
 
-    def merge_hash! target, source
+    # string-keyed tree of the declared keys (values are not needed, and may
+    # hold procs that cannot be deep-copied)
+    def key_tree hash
+      hash.each_with_object({}) do |(key, value), out|
+        out[key.to_s] = value.is_a?(::Hash) ? key_tree(value) : true
+      end
+    end
+
+    def merge_hash! target, source, host
       source.each do |key, value|
+        host_value = host.is_a?(::Hash) ? host[key.to_s] : nil
         if value.is_a?(::Hash) && target[key].is_a?(::Hash)
-          merge_hash! target[key], value
-        else
+          merge_hash! target[key], value, host_value
+        elsif !(host.is_a?(::Hash) && host.key?(key.to_s))
           target[key] = value
         end
       end

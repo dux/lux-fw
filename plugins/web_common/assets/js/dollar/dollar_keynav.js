@@ -11,6 +11,8 @@ const items = () => [...document.querySelectorAll('[data-keynav]')].filter(n => 
 
 $(document).on('keydown', e => {
   if (!['ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) return
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+  if (e.target.closest?.('textarea, select') || e.target.isContentEditable) return
 
   const nodes = items()
   if (!nodes.length) return
@@ -30,7 +32,7 @@ $(document).on('keydown', e => {
   let i = nodes.indexOf(current)
   i = e.key == 'ArrowDown' ? (i + 1) % nodes.length : (i - 1 + nodes.length) % nodes.length
 
-  $('.selected').removeClass('selected')
+  current?.classList.remove('selected')
   $(nodes[i]).addClass('selected')
   nodes[i].scrollIntoView({ block: 'nearest' })
 })

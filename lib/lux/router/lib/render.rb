@@ -5,10 +5,8 @@ module Lux
     module Render
       extend self
 
-      # Alternative was to call render action
-      # `Lux.router.new(path, full_opts).render.headers`
-      # `Lux.render.post(path, params, rest_of_opts).headers`
-      # `Lux.render.get('/search', params: { q: 'london' }, session: {user_id: 1} }).body`
+      # Lux.render.get('/search', params: { q: 'london' }, session: { user_id: 1 }).body
+      # Lux.render.post('/users', params: { name: 'x' }).headers
       VERBS ||= %i(get post delete patch put head)
 
       VERBS.each do |req_method|

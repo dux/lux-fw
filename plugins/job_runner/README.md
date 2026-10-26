@@ -22,6 +22,8 @@ part of the host app's routes.
 
 ### Define Jobs
 
+Put definitions in `./lib/jobs.rb`; `job_runner:start` and `job_runner:web` load it.
+
 ```ruby
 LuxJob.class_eval do
   # Recurring job - runs every hour
@@ -32,7 +34,7 @@ LuxJob.class_eval do
 
   # One-off job - triggered manually
   define :send_email do |opts|
-    Mailer.send(opts[:to], opts[:subject], opts[:body])
+    Mailer.deliver(:notice, opts[:to], opts[:subject], opts[:body])  # app-defined Mailer#notice
     "sent to #{opts[:to]}"
   end
 
@@ -121,7 +123,7 @@ host: http://lvh.me:3000          # bounds which hosts a callback may use
 ```
 
 The process runs the worker too, so don't run `lux job_runner:start` beside it -
-`LuxJob.run` dies loudly when another runner already holds the advisory lock.
+`LuxJob.run` waits up to 120s for the advisory lock (rolling restarts), then exits.
 
 ## Schema
 
@@ -138,11 +140,14 @@ The process runs the worker too, so don't run `lux job_runner:start` beside it -
 
 | Constant | Default | Description |
 |----------|---------|-------------|
-| MAX_RETRIES | 7 | Max retry attempts before permanent failure |
+| MAX_RETRIES | 7 | Failed attempts before permanent failure |
 | RETRY_BASE_WAIT | 60 | Base retry delay in seconds, grows by 60% each attempt |
 | DEFAULT_TIMEOUT | 60 | Default per-job timeout in seconds |
 | NOTIFY_CHANNEL | 'lux_jobs' | PG NOTIFY channel the runner listens on |
 | MIN_WAKE_SECS / MAX_WAKE_SECS | 1 / 300 | Bounds for the dynamic LISTEN timeout |
+| RELOCK_WAIT_SECS | 5 | Wait between advisory-lock attempts |
+| INITIAL_LOCK_WAIT_SECS | 120 | How long a starting runner waits for the lock before exiting |
+| LuxJobLock::LIVENESS_INTERVAL | 180 | Seconds between lock liveness checks |
 
 ## Error Handling
 
@@ -150,8 +155,8 @@ Failed jobs are automatically rescheduled with 60% exponential backoff:
 - 1st retry: 60s
 - 2nd retry: 96s
 - 3rd retry: ~154s
-- ...up to 7 retries (~43 min total), then marked as permanently failed.
-  `define :name, retries: N` sets a different limit for one job.
+- ...up to 7 attempts (6 retries, ~26 min of backoff), then marked as permanently failed.
+  `define :name, retries: N` allows N attempts.
 
 Jobs that exceed their timeout are treated as failures and follow the same retry logic.
 

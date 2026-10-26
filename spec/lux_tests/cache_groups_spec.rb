@@ -35,7 +35,7 @@ class CgSpace < Sequel::Model(:cg_spaces)
 end
 
 # no cache wiring here - CgSpace `named_caches :cg_docs` auto-binds this child
-# via the cg_space_ref foreign key on first cache access.
+# via the cg_space_ref foreign key as soon as this class is defined.
 class CgDoc < Sequel::Model(:cg_docs)
   set_primary_key :ref
   unrestrict_primary_key
@@ -113,7 +113,7 @@ describe 'named cache groups' do
 
   describe 'auto-wired invalidation' do
     it 'bumps the parent group when a child is written (no declaration)' do
-      before = @space.cache_for(:cg_docs)        # first access installs the hook
+      before = @space.cache_for(:cg_docs)
       CgDoc.create(ref: 'd1', cg_space_ref: 's1')
       _(@space.cache_for(:cg_docs)).wont_equal before
     end
@@ -124,6 +124,11 @@ describe 'named cache groups' do
       before_other = other.cache_for(:cg_docs)
       CgDoc.create(ref: 'd2', cg_space_ref: 's1')   # belongs to s1
       _(other.cache_for(:cg_docs)).must_equal before_other
+    end
+
+    it 'bumps the group from a write that precedes any cache read' do
+      CgDoc.create(ref: 'd3', cg_space_ref: 's1')   # e.g. a job process that never reads
+      _(Lux.cache.get('CgSpace/s1/cv/cg_docs')).wont_be_nil
     end
   end
 end

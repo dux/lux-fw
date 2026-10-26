@@ -12,7 +12,9 @@ module Lux
     if block_given?
       raise ArgumentError.new('Cache key not given') unless key
       # presence check, not ||=, so a block returning nil/false is memoized once
-      VARS.key?(key) ? VARS[key] : (VARS[key] = yield)
+      # read back after the write: Lux::Hash#[]= stores a converted copy of a ::Hash
+      VARS[key] = yield unless VARS.key?(key)
+      VARS[key]
     else
       CACHE_SERVER
     end

@@ -2,7 +2,7 @@
 # Lux.debug?   - behavior toggles, see environment/flags.rb
 # Lux.reload?
 # Lux.silent
-# Lux.runtime  - runtime kind (web/cli/rake)
+# Lux.runtime  - runtime kind (web/cli/task_runner)
 #
 # Env name resolution: ENV['LUX_ENV'] || 'development'.
 # See Lux::Environment.resolve_name.

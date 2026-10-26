@@ -23,8 +23,8 @@ All `lux` commands use Hammer; run `lux --help` to see the available tasks.
 ## Local gem and library checkouts
 
 The Gemfile resolves each `lgem` from `./.libs/<name>` when that directory
-exists, and from `github dux/<name>` when it does not, so a fresh clone with no
-`.libs` still installs.
+exists, and from RubyGems when it does not, pinned to the version that ran
+`lux new`, so a fresh clone with no `.libs` still installs.
 Generating from a local Lux checkout links every one of them that is present
 next to it.
 The `.libs` directory is ignored by Git.

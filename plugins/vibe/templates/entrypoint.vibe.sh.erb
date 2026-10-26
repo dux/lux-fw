@@ -30,23 +30,10 @@ for _ in $(seq 1 120); do
 done
 bundle check >/dev/null 2>&1 || bundle install
 
-# The agent's provider key lives in the app config (Lux.config.deepseek_api_key);
-# opencode reads DEEPSEEK_API_KEY. One source of truth, no copy in .env.
-if [ -z "${DEEPSEEK_API_KEY:-}" ] && [ -f config/config.yaml ]; then
-  DEEPSEEK_API_KEY="$(bundle exec ruby -ryaml -e 'print YAML.load_file("config/config.yaml").dig("default", "deepseek_api_key").to_s' 2>/dev/null || true)"
-  export DEEPSEEK_API_KEY
-fi
-
-# Explicit VIBE_MODEL wins; otherwise the provider we have a key for decides.
-# ids mirror Vibe::DEFAULT_MODEL / Vibe::DEEPSEEK_MODEL in the plugin.
-if [ -z "${VIBE_MODEL:-}" ]; then
-  if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
-    VIBE_MODEL=deepseek/deepseek-flash
-  else
-    VIBE_MODEL=openrouter/anthropic/claude-sonnet-4.5
-  fi
-  export VIBE_MODEL
-fi
+# Provider keys come from the app config (Lux.config.<provider>_api_key) and the
+# model from Vibe.model - Ruby is the one source of truth; env values set
+# explicitly (VIBE_MODEL, *_API_KEY) win. grep drops any boot noise on stdout.
+eval "$(bundle exec lux docker:vibe:env 2>/dev/null | grep '^export ' || true)"
 
 # opencode is the sidecar: backgrounded with a log prefix, and kept alive on its
 # own so a crash (or an `opencode upgrade`) does not take the harness down - the
@@ -61,8 +48,6 @@ say 'starting opencode on 127.0.0.1:4096'
     sleep 2
   done
 ) | sed -u 's/^/[oc]   /' &
-OC=$!
-trap 'kill "$OC" 2>/dev/null || true' EXIT TERM INT
 
 say 'starting vibe harness on http://localhost:4000'
 # process substitution (not a pipe): puma stays the foreground process, so exec

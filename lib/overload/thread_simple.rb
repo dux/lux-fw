@@ -59,7 +59,11 @@ class Thread::Simple
     @size.times do
       @threads << Thread.new do
         while (task = @queue.pop) != STOP
-          task.call
+          begin
+            task.call
+          rescue Exception => e
+            @mutex.synchronize { (@errors ||= []) << e }
+          end
         end
       end
     end
@@ -68,12 +72,14 @@ class Thread::Simple
       # signal each worker to stop, then wait
       @size.times { @queue << STOP }
       @threads.each(&:join)
+      raise @errors.first if @errors&.any?
     end
   end
 
   def stop
     @size.times { @queue << STOP }
     @threads.each(&:join)
+    raise @errors.first if @errors&.any?
   end
 
   def [](name)

@@ -23,18 +23,10 @@ module Lux
     # pass block if you want to handle errors yourself
     # returns true / false if block is passed
     def can? action, *args, &block
-      @action = action
-        .to_s
-        .gsub(/[^\w+]/, '')
-        .concat('?')
-        .to_sym
+      @action = action.to_s.gsub(/\W/, '').concat('?').to_sym
 
-      # pre check
-      if %i(can).index(@action)
-        raise RuntimeError.new('Method name not allowed')
-      end
-
-      unless respond_to?(@action)
+      # only predicates a subclass declares; Object/Lux::Policy methods (can?, present?, ...) are not actions
+      if Lux::Policy.method_defined?(@action) || !respond_to?(@action)
         raise NoMethodError.new(%[Policy check "#{@action}" not found in #{self.class}])
       end
 

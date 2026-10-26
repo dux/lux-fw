@@ -11,6 +11,9 @@ class Lux::Type::CurrencyCodeType < Lux::Type
     VES VND VUV WST XAF XCD XOF XPF YER ZAR ZMW ZWL
   ].freeze
 
+  error :en, :currency_length_error, 'must be exactly 3 characters'
+  error :en, :currency_invalid_error, 'code "%s" is not valid'
+
   def coerce
     @value = @value.to_s.upcase.strip
     validate
@@ -23,8 +26,8 @@ class Lux::Type::CurrencyCodeType < Lux::Type
   private
 
   def validate
-    raise TypeError.new('Currency code must be exactly 3 characters') unless @value.length == 3
-    raise TypeError.new(error_for(:unallowed_characters_error)) unless @value =~ /^[A-Z]{3}$/
-    raise TypeError.new('Currency code "%s" is not valid' % @value) unless CURRENCIES.include?(@value)
+    error_for(:currency_length_error) unless @value.length == 3
+    error_for(:unallowed_characters_error) unless @value.match?(/\A[A-Z]{3}\z/)
+    error_for(:currency_invalid_error, @value) unless CURRENCIES.include?(@value)
   end
 end

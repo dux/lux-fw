@@ -48,7 +48,7 @@
     if (isFn(sel)) return (onReady(sel), [])
     if (sel.nodeType || sel === win) return [sel]
     if (isStr(sel)) return HTML.test(sel) ? frag(sel) : arr((ctx ? $(ctx)[0] : doc).querySelectorAll(sel))
-    return arr(sel)
+    return typeof sel.length == 'number' ? arr(sel) : [sel]
   }
 
   class D extends Array {}
@@ -102,7 +102,9 @@
         type.split(/\s+/).forEach(tok => {
           const [ev, ns] = evkey(tok)
           const key = ns || $.fnv1((dele ? sel + '\x00' : '') + String(cb))   // explicit .name, else source hash
-          if (reg.some(e => e.ev == ev && e.key == key)) return                // one handler per node + event + key
+          const i = reg.findIndex(e => e.ev == ev && e.key == key)
+          if (i >= 0) { this.removeEventListener(ev, reg[i].h); reg.splice(i, 1) }   // last registration wins
+          // one handler per node + event + key; re-registering replaces it
           reg.push({ ev, key, h })
           this.addEventListener(ev, h)
         })
@@ -128,7 +130,7 @@
     one(type, sel, fn) {
       const dele = isStr(sel), cb = dele ? fn : sel, self = this
       const h = function (ev) { const t = dele ? ev.target.closest(sel) : this; if (dele && !(t && this.contains(t))) return; self.off(type, h); cb.call(t, ev) }
-      return this.each(function () { type.split(/\s+/).forEach(t => this.addEventListener(t, h)) })
+      return this.each(function () { type.split(/\s+/).forEach(t => this.addEventListener(evkey(t)[0], h)) })
     },
     ready(fn) { onReady(fn); return this },
     trigger(type, detail) { return this.each(function () { this.dispatchEvent(new CustomEvent(type, { bubbles: true, cancelable: true, detail })) }) },
@@ -220,10 +222,11 @@
 
   // form-urlencoded with Rails/Zepto nested-bracket serialization
   $.param = (obj, scope) => {
-    const out = []
+    const out = [], isArr = Array.isArray(obj)
     for (const k in obj) {
-      const key = scope ? `${scope}[${k}]` : k, v = obj[k]
-      out.push(v != null && typeof v == 'object' ? $.param(v, key) : `${encodeURIComponent(key)}=${encodeURIComponent(v == null ? '' : v)}`)
+      const v = obj[k], nested = v != null && typeof v == 'object'
+      const key = scope ? `${scope}[${isArr && !nested ? '' : k}]` : k
+      out.push(nested ? $.param(v, key) : `${encodeURIComponent(key)}=${encodeURIComponent(v == null ? '' : v)}`)
     }
     return out.join('&')
   }
@@ -249,8 +252,13 @@
     xhr.open(type, url, true)
     for (const k in headers) xhr.setRequestHeader(k, headers[k])
     xhr.onload = () => {
-      const txt = xhr.responseText
-      if (o.success) o.success((xhr.getResponseHeader('content-type') || '').includes('json') ? JSON.parse(txt || 'null') : txt, xhr)
+      const ok = (xhr.status >= 200 && xhr.status < 300) || xhr.status == 304
+      if (!ok) o.error?.(xhr)
+      else if (o.success) {
+        let data = xhr.responseText
+        if ((xhr.getResponseHeader('content-type') || '').includes('json')) { try { data = JSON.parse(data || 'null') } catch (_) {} }
+        o.success(data, xhr)
+      }
       o.complete?.(xhr)
     }
     xhr.onerror = () => { o.error?.(xhr); o.complete?.(xhr) }

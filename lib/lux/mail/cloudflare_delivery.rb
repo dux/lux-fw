@@ -34,7 +34,7 @@ module Lux
         req['Content-Type']  = 'application/json'
         req.body = build_body(mail).to_json
 
-        res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |http| http.request(req) }
+        res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == 'https') { |http| http.request(req) }
         raise "CloudflareDelivery: send failed (#{res.code}) #{res.body}" unless res.is_a?(Net::HTTPSuccess)
 
         mail

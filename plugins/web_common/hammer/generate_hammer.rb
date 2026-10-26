@@ -23,11 +23,7 @@ module LuxGenerate
     raise Hammer::Error, "Lux::Template dir #{template_dir} is not accessible" unless Dir.exist?(template_dir)
 
     tpl_desc = {
-      p: 'api',
-      m: 'model',
-      a: 'admin',
-      c: 'router',
-      v: 'view'
+      m: 'model'
     }
 
     objects ||= object.pluralize

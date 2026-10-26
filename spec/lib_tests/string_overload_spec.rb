@@ -35,6 +35,13 @@ describe 'String overloads' do
     end
   end
 
+  describe '#escape / #unescape' do
+    it 'percent-encodes a space as %20 and reads + back as a space' do
+      _('a b+c/d'.escape).must_equal 'a%20b%2Bc%2Fd'
+      _('a%20b+c'.unescape).must_equal 'a b c'
+    end
+  end
+
   describe '#first' do
     it 'takes a limit like ActiveSupport' do
       _('abc'.first).must_equal 'a'

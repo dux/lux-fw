@@ -6,7 +6,7 @@ module Lux
       attr_reader :errors
 
       def self.auto_format error
-        Lux.error.log error unless error.is_a?(Lux::Api::Error)
+        Lux.error.log error unless client_error?(error)
 
         code     = error_status error
         response = new nil
@@ -47,7 +47,8 @@ module Lux
 
       # forward header to the host router's rack response
       def header *args
-        rack = @api.api_host&.response
+        host = @api.api_host
+        rack = host.response if host.respond_to?(:response)
         if args.first
           rack.header[args.first] = args[1] if rack
         else
@@ -67,8 +68,8 @@ module Lux
       end
 
       # api meta response, any data is allowed
-      def meta key, value = nil
-        if value
+      def meta key, value = :_get
+        if value != :_get
           @meta[key] = value
         else
           @meta[key]

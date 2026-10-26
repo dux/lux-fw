@@ -22,7 +22,8 @@ describe 'lux new' do
       gem_home = File.join(@workspace, 'gem-home')
       framework = File.join(gem_home, 'gems/lux-fw')
       FileUtils.mkdir_p File.join(framework, 'bin/cli/lib')
-      %w[bin/lux bin/cli/new_hammer.rb bin/cli/lib/agents_md.rb AGENTS.md].each do |file|
+      FileUtils.mkdir_p File.join(framework, 'lib/lux')
+      %w[bin/lux bin/cli/new_hammer.rb bin/cli/lib/agents_md.rb lib/lux/version.rb AGENTS.md].each do |file|
         FileUtils.cp Lux.fw_root.join(file), File.join(framework, file)
       end
       File.symlink Lux.fw_root.join('starter'), File.join(framework, 'starter')
@@ -35,7 +36,7 @@ describe 'lux new' do
       end
       module Hammer::Shell
         def sh(command)
-          if command == 'bundle install' && File.read('Gemfile').include?("path: '.libs/lux-fw'")
+          if command == 'bundle install' && !ENV['LUX_NEW_GEM_HOME']
             raise 'local Lux is missing before bundle install' unless File.directory?('.libs/lux-fw')
           end
           puts "SETUP #{JSON.generate([Dir.pwd, command, ENV.values_at('BUNDLE_GEMFILE', 'LUX_ENV', 'DB_MAIN')])}"
@@ -64,9 +65,7 @@ describe 'lux new' do
       Sequel::Model.require_valid_table = false
       require './config/app'
       require './db/auto_migrate'
-      # LuxException/LuxExceptionLog only exist when the starter loads web_common
       models = [User]
-      models += [LuxException, LuxExceptionLog] if defined?(LuxException)
       models.each do |klass|
         fields = Lux.schema(klass).db_schema
         Lux.db.create_table klass.table_name do
@@ -126,7 +125,7 @@ describe 'lux new' do
     assert_includes File.read(File.join(path, '.gitignore')), '/.libs/'
     assert File.symlink?(File.join(path, '.libs/lux-fw'))
     assert_equal Lux.fw_root.realpath.to_s, File.realpath(File.join(path, '.libs/lux-fw'))
-    assert_includes File.read(File.join(path, 'Gemfile')), "gem 'lux-fw', path: '.libs/lux-fw'"
+    assert_includes File.read(File.join(path, 'Gemfile')), "lgem 'lux-fw'"
     # agents get pointed at the framework docs through the linked checkout
     assert_includes File.read(File.join(path, 'AGENTS.md')), '`.libs/lux-fw/AGENTS.md`'
 
@@ -143,9 +142,9 @@ describe 'lux new' do
     refute File.exist?(File.join(path, '.libs'))
     assert_includes File.read(File.join(path, 'AGENTS.md')), File.join(@workspace, 'gem-home/gems/lux-fw/AGENTS.md')
     gemfile = File.read(File.join(path, 'Gemfile'))
-    assert_includes gemfile, "gem 'lux-fw'\n"
-    refute_includes gemfile, 'path:'
-    refute_includes gemfile, '{{lux_source}}'
+    # the fake installed gem has no .version, so it is a dev build: unpinned
+    assert_includes gemfile, "lgem 'lux-fw'\n"
+    refute_includes gemfile, '{{'
   end
 
   it 'cancels without creating the target or loading app config' do
@@ -201,7 +200,7 @@ describe 'lux new' do
     FileUtils.touch File.join(checkout, 'lux-fw.gemspec')
 
     output, errors, status = scaffold chdir: checkout
-    assert status.success?, output + errors
+    refute status.success?, output + errors
     assert_includes output, "Can't run in lux folder"
     refute_includes output, 'Choose a starter'
     assert_equal ['lux-fw.gemspec'], Dir.children(checkout)
@@ -258,7 +257,7 @@ describe 'lux new' do
       assert_includes about.body, 'simple Lux demo starter app'
 
       # no web_common: its constants and mounted admin area must be absent
-      refute defined?(LuxException), 'web_common should not load in hello-world'
+      refute defined?(ExceptionWriter), 'web_common should not load in hello-world'
       assert defined?(UserSession), 'authcog plugin should load standalone'
 
       # requests below hit the starter's own host; test_helper points config.host

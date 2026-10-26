@@ -1,11 +1,10 @@
-# Runtime kind: web server vs CLI vs rake task.
+# Runtime kind: web server vs CLI vs the lux task runner.
 # Pure derivation from $PROGRAM_NAME / ObjectSpace, with LUX_WEB override.
 # No env coupling.
 #
 #   Lux.runtime.web?         # running under puma/rackup/falcon/...
 #   Lux.runtime.cli?         # !web?
-#   Lux.runtime.rake?        # invoked via the rake binary
-#   Lux.runtime.task_runner? # rake binary or the lux CLI (db:am, console, ...)
+#   Lux.runtime.task_runner? # the lux CLI (db:am, console, ...)
 
 module Lux
   class Runtime
@@ -32,17 +31,13 @@ module Lux
       !web?
     end
 
-    def rake?
-      File.basename($PROGRAM_NAME) == 'rake'
-    end
-
-    # CLI task context: the rake binary or the lux CLI task runner (lux-hammer).
+    # CLI task context: the lux CLI task runner (lux-hammer).
     # Excludes `lux s`, which boots a web server (web? catches it). The DB layer
     # uses this so db-admin tasks (db:am, db:test:am) act on the literal
     # configured database rather than connecting into its _test sibling.
     def task_runner?
       return false if web?
-      %w(rake lux).include?(File.basename($PROGRAM_NAME))
+      File.basename($PROGRAM_NAME) == 'lux'
     end
 
     private

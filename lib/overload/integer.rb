@@ -13,18 +13,14 @@ class Integer
     self.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1.').reverse
   end
 
-  def to_filesize
-    base = 1024
-    out = lambda do
-      {
-        'B'  => base,
-        'KB' => base * base,
-        'MB' => base * base * base,
-        'GB' => base * base * base * base,
-        'TB' => base * base * base * base * base
-      }.each_pair { |e, s| return "#{(self.to_f / (s / base)).round(1)} #{e}" if self < s }
-    end.call
+  FILESIZE_UNITS ||= %w[B KB MB GB TB PB EB]
 
-    out.sub('.0 B', ' B')
+  def to_filesize
+    size, exp = to_f, 0
+    while size.abs >= 1024 && exp < FILESIZE_UNITS.size - 1
+      size /= 1024
+      exp += 1
+    end
+    exp.zero? ? "#{self} B" : "#{size.round(1)} #{FILESIZE_UNITS[exp]}"
   end
 end

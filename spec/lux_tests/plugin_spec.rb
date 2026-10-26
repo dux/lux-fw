@@ -2,12 +2,16 @@ require 'test_helper'
 require 'fileutils'
 
 describe Lux::Plugin do
+  # host_keys is the app-config snapshot taken at the first plugin merge;
+  # reset it so each example's own Lux.config counts as the host config
   def with_config_snapshot
     snapshot = Lux.config.dup
+    Lux::Plugin.instance_variable_set(:@host_keys, nil)
     yield
   ensure
     Lux.config.clear
     snapshot.each { |key, value| Lux.config[key] = value }
+    Lux::Plugin.instance_variable_set(:@host_keys, nil)
   end
 
   def tmp_plugin(name)
@@ -75,6 +79,31 @@ describe Lux::Plugin do
       ensure
         Lux::Plugin.unload(plugin_name) if plugin_name
         Object.send(:remove_const, :PluginConfigSpecRuntimeValue) if defined?(PluginConfigSpecRuntimeValue)
+      end
+    end
+  end
+
+  it 'keeps the app config value over a conflicting plugin default' do
+    with_config_snapshot do
+      tmp_plugin('plugin-config-precedence-spec') do |root|
+        plugin_name = root.basename.to_s
+        Lux::Plugin.unload(plugin_name)
+
+        Lux.config[:precedence_spec] = { 'enabled' => false }
+
+        File.write root.join('config.yaml'), <<~YAML
+          default:
+            precedence_spec:
+              enabled: true
+              extra: 1
+        YAML
+
+        Lux::Plugin.load(root)
+
+        _(Lux.config[:precedence_spec][:enabled]).must_equal false
+        _(Lux.config[:precedence_spec][:extra]).must_equal 1
+      ensure
+        Lux::Plugin.unload(plugin_name) if plugin_name
       end
     end
   end
@@ -147,6 +176,39 @@ describe Lux::Plugin do
         _(Lux.config[:plugin_defaults][:enabled]).must_equal true
         _(Lux.config[:production][:plugin_defaults][:cdn_root]).must_equal 'https://cdn.example.test'
         _(Lux.config[:plugins]).must_equal ['host_plugin', 'plugin_dependency']
+      ensure
+        Lux::Plugin.unload(plugin_name) if plugin_name
+      end
+    end
+  end
+
+  it 'lets a plugin env section replace a default array and clear a value' do
+    config = Lux::Plugin.send(:config_for_env, {
+      'default' => { 'hosts' => ['a', 'b'], 'token' => 'x' },
+      'test'    => { 'hosts' => ['c'], 'token' => nil }
+    })
+
+    _(config['hosts']).must_equal ['c']
+    assert config.key?('token')
+    _(config['token']).must_be_nil
+  end
+
+  it 'keeps an app array whole over a plugin default array' do
+    with_config_snapshot do
+      tmp_plugin('plugin-config-array-spec') do |root|
+        plugin_name = root.basename.to_s
+        Lux::Plugin.unload(plugin_name)
+
+        Lux.config[:array_spec] = { 'hosts' => ['app'] }
+
+        File.write root.join('config.yaml'), <<~YAML
+          array_spec:
+            hosts: [plugin]
+        YAML
+
+        Lux::Plugin.load(root)
+
+        _(Lux.config[:array_spec][:hosts]).must_equal ['app']
       ensure
         Lux::Plugin.unload(plugin_name) if plugin_name
       end

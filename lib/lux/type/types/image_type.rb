@@ -7,7 +7,8 @@ class Lux::Type::ImageType < Lux::Type
   opts :strict, 'Force image to have known extension (%s)' % FORMATS.join(', ')
 
   def coerce
-    error_for(:image_not_starting_error) unless value =~ /^https?:\/\/./
+    value(&:to_s)
+    error_for(:image_not_starting_error) unless value =~ /\Ahttps?:\/\/./
 
     if opts[:strict]
       # strip query string and fragment before checking extension

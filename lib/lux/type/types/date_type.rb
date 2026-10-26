@@ -15,7 +15,7 @@ class Lux::Type::DateType < Lux::Type
       end
     end
 
-    value { |data| DateTime.new(data.year, data.month, data.day) }
+    value { |data| Date.new(data.year, data.month, data.day) }
 
     check_date_min_max
   end
@@ -27,16 +27,17 @@ class Lux::Type::DateType < Lux::Type
   private
 
   def check_date_min_max
-    if min = opts[:min]
-      min = DateTime.parse(min)
-      error_for(:min_date, min) if min > value
+    current = value.to_datetime
+    if (min = opts[:min]) && (min = as_datetime(min)) > current
+      error_for(:min_date, min.strftime('%Y-%m-%d'))
     end
-
-    if max = opts[:max]
-      max = DateTime.parse(max)
-      error_for(:max_date, max) if value > max
+    if (max = opts[:max]) && current > (max = as_datetime(max))
+      error_for(:max_date, max.strftime('%Y-%m-%d'))
     end
-
     value
+  end
+
+  def as_datetime v
+    v.is_a?(::Date) || v.is_a?(::Time) ? v.to_datetime : DateTime.parse(v.to_s)
   end
 end

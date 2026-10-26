@@ -7,40 +7,41 @@
 //   Api(path, opts).topInfo().done(fn) top bar + custom callback
 //   Api(path, opts).info().done(fn)    info + custom callback
 //   Api(path, opts).info().follow(p)   info and redirect on success
+//   Api(path, opts).error(fn)          replace the default error toast; fn(response)
+//   Api(path, opts).refresh('#id')     refresh the page, or one node
+//   Api(path, opts).reload()           refresh the page and scroll to top
+//   Api(path, opts).close()            close the open Dialog
 // path may also be a <form>; action becomes the path, fields the payload.
 
 const $ = window.$
 
 class ApiResponse {
-  constructor(api_response) {
+  constructor() {
     // bind every prototype method (incl. app-defined ones) so a method detached
     // from its receiver, e.g. `execHash.error || this.error`, keeps its `this`.
     for (const m of Object.getOwnPropertyNames(ApiResponse.prototype))
       if (m != 'constructor' && typeof this[m] == 'function') this[m] = this[m].bind(this)
-
-    // silent unless the caller opts into notifications
-    this.is_silent = true
-
-    if (api_response)
-      window.requestAnimationFrame(() => this.onRequestDone(api_response))
   }
 
   onRequestDone(api_response, execHash = {}) {
     this.api_response ||= api_response
-    this.response ||= JSON.parse(this.api_response.responseText)
+    if (!this.response) {
+      try { this.response = JSON.parse(this.api_response.responseText) }
+      catch (_) {
+        const s = this.api_response.status
+        this.response = { error: { messages: [s ? `Server error (${s})` : 'Network error - request not sent'] } }
+      }
+    }
     this.data = this.response.data
-    this.meta = this.response.meta
-
-    // .info() opts back into notifications, including on the error path
-    if ('info' in execHash) this.is_silent = false
+    this.meta = this.response.meta || {}
 
     if (this.response.error) {
-      (execHash.error || this.error)()
-    } else if (this.api_response.status == 200) {
+      (execHash.error || this.error)(this.response)
+    } else if (this.api_response.status >= 200 && this.api_response.status < 300) {
       document.dispatchEvent(new CustomEvent('api:response', {
         detail: { path: this.path, response: this.response }
       }))
-      for (const m of Object.keys(execHash)) this[m](execHash[m])
+      for (const m of Object.keys(execHash)) if (m != 'error') this[m](execHash[m])
     } else {
       alert('API strange error')
     }
@@ -50,7 +51,7 @@ class ApiResponse {
 $.apiResponse = ApiResponse
 
 // apps override or add chainable response methods to match their own stack
-// (Dialog / Fez.load / Info, etc.); methods should return `this` to stay chainable.
+// (Dialog / Fez.load / Toast, etc.); methods should return `this` to stay chainable.
 //   $.apiResponse.define({ close() { MyDialog.close(); return this } })
 ApiResponse.define = methods => (Object.assign(ApiResponse.prototype, methods), ApiResponse)
 
@@ -62,7 +63,7 @@ const apiMethods = () => Object.getOwnPropertyNames(ApiResponse.prototype)
 ApiResponse.define({
   // what to close
   close() {
-    Dialog.close()
+    if (window.Dialog?.isOpen()) Dialog.close()
     return this
   },
 
@@ -70,7 +71,7 @@ ApiResponse.define({
   refresh(what) {
     if (what != false) {
       if (what == true) what = undefined
-      Fez.refresh(what) // page, dialog, smart, all
+      Fez.refresh(what) // undefined = whole page; '#id' or element = that node
     }
     return this
   },
@@ -93,8 +94,8 @@ ApiResponse.define({
     } else if (location.pathname.includes('/admin/')) {
       const base = location.pathname.split('/')[2]
       Fez.load(`/admin/${base}/${this.data.ref}`)
-    } else if (this.response.meta.path) {
-      Fez.load(this.response.meta.path)
+    } else if (this.meta.path) {
+      Fez.load(this.meta.path)
     } else {
       alert('Nothing to follow')
     }
@@ -114,14 +115,12 @@ ApiResponse.define({
   // execute on error; a server error response always surfaces, even when silent.
   // callers that want to handle errors themselves pass a custom .error(fn).
   error(err) {
-    Info.api(this.response)
+    Toast.api(this.response)
     return this
   },
 
-  // force silence (default): suppresses success info, but not server errors
+  // documented no-op kept so app chains stay valid: success is already silent
   silent() {
-    this.is_silent = true
-    return this
   },
 
   // save silently and flash the top progress bar (see dollar_top_bar_info.js)
@@ -133,8 +132,7 @@ ApiResponse.define({
 
   // show notification and un-silence the error path
   info() {
-    this.is_silent = false
-    if (!this.info_done) Info.api(this.response)
+    if (!this.info_done) Toast.api(this.response)
     this.info_done = true
   }
 })

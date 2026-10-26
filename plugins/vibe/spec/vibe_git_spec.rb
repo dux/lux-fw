@@ -45,7 +45,7 @@ describe Vibe::Git do
     @work   = File.join(@tmp, 'work')
     @other  = File.join(@tmp, 'other')
 
-    # ensure_branch! writes safe.directory to the global config; keep that off ~/.gitconfig
+    # isolate the global git config from ~/.gitconfig
     @env = ENV.to_h.slice('VIBE_ROOT', 'VIBE_BRANCH', 'VIBE_MAIN', 'GIT_CONFIG_GLOBAL')
     ENV['GIT_CONFIG_GLOBAL'] = File.join(@tmp, 'gitconfig')
     File.write ENV['GIT_CONFIG_GLOBAL'], ''
@@ -77,13 +77,13 @@ describe Vibe::Git do
       assert_equal git('rev-parse', 'main').strip, git('rev-parse', 'vibe').strip
     end
 
-    it 'branches from the local main even when it is ahead of origin' do
+    it 'branches from origin/main, not unpushed local main work' do
       write 'local.txt', "l\n"
       commit_all 'local only work'
       Vibe::Git.ensure_branch!
       assert_equal 'vibe', Vibe::Git.current_branch
-      assert_equal git('rev-parse', 'main').strip, git('rev-parse', 'vibe').strip
-      assert exist?('local.txt')
+      assert_equal git('rev-parse', 'origin/main').strip, git('rev-parse', 'vibe').strip
+      refute exist?('local.txt')
     end
 
     it 'refuses to switch with a dirty tree' do
@@ -275,6 +275,17 @@ describe Vibe::Git do
       Vibe::Git.discard_file('junk.txt')
       refute exist?('junk.txt')
       Vibe::Git.discard_file('README.md')
+      assert_empty Vibe::Git.changes
+    end
+
+    it 'discards a new and a deleted file after they were staged' do
+      write 'new.txt', "n\n"
+      File.delete File.join(@work, 'README.md')
+      git 'add', '-A'
+      Vibe::Git.discard_file('new.txt')
+      Vibe::Git.discard_file('README.md')
+      refute exist?('new.txt')
+      assert_equal "hello\n", File.read(File.join(@work, 'README.md'))
       assert_empty Vibe::Git.changes
     end
 

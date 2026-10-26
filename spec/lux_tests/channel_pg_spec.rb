@@ -115,6 +115,14 @@ describe Lux::Browser::Channel::PgBroker do
     _(take(queue)[:data]).must_equal 'hello'
   end
 
+  it 'keeps a numeric-looking String a String over the wire' do
+    queue = subscribe 'test:pg'
+
+    @broker.publish 'test:pg', '123'
+
+    _(take(queue)[:data]).must_equal '123'
+  end
+
   it 'delivers only to the channel it was published on' do
     mine  = subscribe 'test:pg'
     other = subscribe 'test:pg-other'

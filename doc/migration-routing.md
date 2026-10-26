@@ -1,11 +1,14 @@
 # Routing cleanup - what app authors need to change
 
+> STATUS: HISTORICAL - pre-router cleanup.
+> Written before the Controller -> Router merge; `Lux.app`, `routes do`, `call`, controllers and `filter` are the old spellings.
+> See [migration-router.md](./migration-router.md) for the current forms.
+
 The router lost the parts no app was using and gained one cursor instead of
 three. Most apps need no changes at all; this lists the ones that do, in
 descending order of how likely you are to hit them.
 
-Canonical docs: [`../lib/lux/application/README.md`](../lib/lux/application/README.md)
-and [`../lib/lux/controller/README.md`](../lib/lux/controller/README.md).
+Canonical docs: [`../lib/lux/router/README.md`](../lib/lux/router/README.md).
 
 ## Removed
 
@@ -74,8 +77,8 @@ Lux.app do
 end
 ```
 
-The `map` / `root` / `match` / `subdomain` / `get?` / `plugin_route` top-level
-forms still work. `favicon` is gone - list the `favicon` plugin instead.
+The `map` / `root` / `subdomain` / `get?` / `plugin_route` forms work inside
+`route do ... end`. `favicon` is gone - list the `favicon` plugin instead.
 
 ### `Lux::Application::Shared`
 
@@ -136,13 +139,12 @@ which prefixes the view dir for you and raises a proper 404 on a miss.
 ### `:done` is caught in exactly one place
 
 A dispatch that writes the response body throws `:done`, caught only in
-`Application#resolve_routes`. Previously `map` caught it locally and the rest
+`Router#resolve_routes`. Previously `map` caught it locally and the rest
 of the route block kept running as no-ops, so work after a match (extra DB
 queries, model loading) still executed. Now the first match ends routing.
 
 Practical effect: guards like `unless response.body?` are no longer needed.
-`map` / `call` / `root` throw after a dispatch, the router `body` helper throws
-when it sets the body, and `map` / `call` throw before dispatching if a raw
+`map` / `call` / `root` throw after a dispatch, and `map` / `call` throw before dispatching if a raw
 `response.body` / `response.send_file` already answered.
 
 ### `root?` in the router reads the cursor
@@ -233,11 +235,11 @@ extension and `key:value` segments already stripped, but before `nav.map_path`,
 `nav.locale { }` or any app rewrite touches it.
 
 ```ruby
-GET /Boards/AB/edit.json
+GET /Boards/k3p9x2mq7wd1nb84/edit.json
 
-nav.source_path   # ['boards', 'ab', 'edit']   frozen, never changes
-nav.path          # ['boards', :ref, 'edit']   after classification
-request.path      # "/Boards/AB/edit.json"     raw Rack string
+nav.source_path   # ['boards', 'k3p9x2mq7wd1nb84', 'edit']   frozen, never changes
+nav.path          # ['boards', #<RefString "k3p9x2mq7wd1nb84">, 'edit']   after nav.map_path
+request.path      # "/Boards/k3p9x2mq7wd1nb84/edit.json"     raw Rack string
 ```
 
 Use it when you need the path a second time and something in between may have
@@ -279,7 +281,7 @@ Nothing to change on your side, but if any of those keys are sitting in a
 
 It gated an implicit "a template exists at `views/<controller>/<name>`, so
 define that action" fallback inside `Controller#action_missing`. It defaulted
-to `false`, no app enabled it, and `Lux::Controller::Auto` (`auto` /
+to `false`, no app enabled it, and `Lux::Router::Auto` (`auto` /
 `auto_render`) is the supported way to route by template - explicitly, from the
 route path. Both the flag and the fallback are gone; an unknown action is a
 plain 404.

@@ -1,7 +1,7 @@
 <user_edit>
 # Nav refactor plan
 
-> STATUS: proposal, nothing implemented. Facts and open decisions only.
+> STATUS: IMPLEMENTED as `Lux::Router::Nav::Base` / `nav.map_path`; see [migration-nav-ref.md](./migration-nav-ref.md).
 
 Goal: replace the `:ref` placeholder symbol with a typed path segment that carries its own value,
 under

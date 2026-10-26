@@ -27,11 +27,19 @@ module Vibe
     set :static, false
     set :views, APP_DIR
     set :server, :puma
-    set :bind, ENV['VIBE_BIND'] || '0.0.0.0'
+    set :bind, ENV['VIBE_BIND'] || (File.exist?('/.dockerenv') ? '0.0.0.0' : '127.0.0.1')
     set :port, Vibe.port
     # http_origin stays on: it is what stops other sites posting here. :deny,
     # because Sinatra's default reaction drops a session this server never has.
     set :protection, except: [:json_csrf], reaction: :deny
+
+    # Host allow-list: forced :production skips Sinatra's host authorization,
+    # and http_origin alone passes a DNS-rebound Host/Origin pair
+    ALLOWED_HOSTS ||= (ENV['VIBE_HOSTS'] || 'localhost,127.0.0.1,[::1]').split(',').map(&:strip).freeze
+
+    before do
+      halt 403, { 'content-type' => 'application/json' }, JSON.generate(error: 'host not allowed') unless ALLOWED_HOSTS.include?(request.host)
+    end
 
     helpers do
       def h text
@@ -72,7 +80,7 @@ module Vibe
 
       def app_up?
         uri = URI(Vibe.app_health_url)
-        Net::HTTP.start(uri.host, uri.port, open_timeout: 1.5, read_timeout: 2) { |h| h.head(uri.path.empty? ? '/' : uri.path) }
+        Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https', open_timeout: 1.5, read_timeout: 2) { |h| h.head(uri.path.empty? ? '/' : uri.path) }
         true
       rescue StandardError
         false
@@ -189,7 +197,11 @@ module Vibe
       result  = Git.commit(message)
       result[:pushed] = false
       if arg(:push)
-        result.merge!(Git.push)
+        begin
+          result.merge!(Git.push)
+        rescue Vibe::Error => e
+          result[:push_error] = e.message
+        end
       end
       json result
     end
@@ -222,7 +234,7 @@ module Vibe
     end
 
     get '/api/logs' do
-      n = [(params[:tail] || 200).to_i, 2000].min
+      n = (params[:tail] || 200).to_i.clamp(1, 2000)
       text = if params[:source] == 'container'
                Restart.container_logs(tail: n)
              else
@@ -244,7 +256,7 @@ module Vibe
     def proxy_opencode
       path  = '/' + params['splat'].first.to_s
       query = Rack::Utils.parse_query(request.query_string)
-      query['directory'] ||= Vibe.root
+      query['directory'] = Vibe.root
       uri = URI(Vibe.oc_url + path)
       uri.query = Rack::Utils.build_query(query)
 
@@ -284,7 +296,7 @@ module Vibe
         end
         body res.body.to_s
       end
-    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Net::OpenTimeout, SocketError => e
+    rescue *Vibe::NET_ERRORS => e
       json({ error: 'opencode not reachable at %s (%s)' % [Vibe.oc_url, e.class] }, 502)
     end
 

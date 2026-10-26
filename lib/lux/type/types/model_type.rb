@@ -1,5 +1,8 @@
 class Lux::Type::ModelType < Lux::Type
+  error :en, :not_model_error, 'value is not an object'
+
   def coerce
+    error_for(:not_model_error) unless @value.is_a?(::Hash) || (@value.respond_to?(:to_h) && !@value.is_a?(::Array) && !@value.is_a?(::String))
     value(&:to_h)
 
     # remember what the client actually sent: schema params are partial input,

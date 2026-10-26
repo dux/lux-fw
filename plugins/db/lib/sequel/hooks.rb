@@ -11,16 +11,14 @@ module Sequel::Plugins::LuxHooks
       @_lux_skip_filters = false
     end
 
+    # hooks declared on any ancestor (ApplicationModel.before ...) fire too,
+    # parents first. A :v error is left to Sequel so valid? returns false.
     def before_update_exec k, m
       return if @_lux_skip_filters
-      hooks = HOOK_METHODS.dig(self.class, k, m)
-      return unless hooks
-
-      hooks.each_value do |proc|
-        instance_exec m, k, &proc
+      self.class.ancestors.reverse_each do |klass|
+        HOOK_METHODS.dig(klass, k, m)&.each_value { |pr| instance_exec m, k, &pr }
       end
-
-      raise Sequel::ValidationFailed.new(errors) if k == :b && errors.any?
+      raise Sequel::ValidationFailed.new(errors) if k == :b && m != :v && errors.any?
     end
 
     def validate
@@ -29,8 +27,7 @@ module Sequel::Plugins::LuxHooks
     end
 
     def before_create
-      before_update_exec :b, :c unless @is_new
-      @is_new = true
+      before_update_exec :b, :c
       super
     end
 
@@ -40,7 +37,6 @@ module Sequel::Plugins::LuxHooks
     end
 
     def before_update
-      # rr HOOK_METHODS[self.class]
       before_update_exec :b, :u
       super
     end
@@ -62,49 +58,28 @@ module Sequel::Plugins::LuxHooks
   end
 
   module ClassMethods
-    [
-      :validate,
-      :before_create,
-      :after_create,
-      :before_update,
-      :after_update,
-      :before_destroy,
-      :after_destroy
-    ].each do |hook_name|
-      define_method(hook_name) do |&block|
-        define_method(hook_name) do
-          if hook_name != :validate && caller_locations(1, 1)[0]&.path.to_s.include?('gems/sequel')
-            raise "#{hook_name} called directly, you need to call via proxy. Example: before(:cu) { ... }"
-          end
-
-          instance_exec(&block)
-          super()
-        end
-      end
+    # Sequel's own hook macros would silently be replaced; fail at declaration
+    [:before_create, :after_create, :before_update, :after_update, :before_destroy, :after_destroy].each do |hook_name|
+      define_method(hook_name) { |&| raise ArgumentError, "#{hook_name} { } is not supported, use before/after(:cud) { ... }" }
     end
 
-    def before_and_after_define kind, what, &block
-      loc = caller_locations(2, 1)[0]
-      src = loc ? "#{File.basename(loc.path)}:#{loc.lineno}" : 'unknown'
+    def validate(&block) = before(:v, &block)
+
+    # key: identifies the hook (re-declaring a key replaces it); defaults to
+    # the block's source location
+    def before_and_after_define kind, what, key: nil, &block
+      key ||= block.source_location&.join(':') || 'unknown'
       HOOK_METHODS[self] ||= {}
       HOOK_METHODS[self][kind] ||= {}
-      what.to_s.split('').each do |m|
-        pointer = HOOK_METHODS[self][kind][m.to_sym] ||= {}
-        pointer[src] = block
-      end
+      what.to_s.each_char { |m| (HOOK_METHODS[self][kind][m.to_sym] ||= {})[key] = block }
     end
 
     # before create, update and destroy
     # before :cud do
     #   ...
     # end
-    def before what, &block
-      before_and_after_define :b, what, &block
-    end
-
-    def after what, &block
-      before_and_after_define :a, what, &block
-    end
+    def before(what, key: nil, &block) = before_and_after_define(:b, what, key: key, &block)
+    def after(what, key: nil, &block)  = before_and_after_define(:a, what, key: key, &block)
   end
 end
 

@@ -1,3 +1,4 @@
+require 'uri'
 require 'monitor'
 require 'sequel/connection_pool/threaded'
 
@@ -57,11 +58,7 @@ module Lux
         begin
           connect(url)
         rescue Sequel::DatabaseConnectionError => e
-          if Lux.runtime.rake?
-            connect(url.sub(/\/[^\/]+$/, '/postgres'))
-          else
-            die_connect_error(name, url, e)
-          end
+          die_connect_error(name, url, e)
         end
       end
     end
@@ -99,18 +96,9 @@ module Lux
 
     def boot!
       configured_names.each do |name|
-        url = url_for(name)
-        next unless url
-
-        url = resolve_test_url(name, url)
-
-        begin
-          CONNECTIONS[name] = connect(url)
-          Lux.shell.info "DB :#{name} connected (#{CONNECTIONS[name].opts[:database]})"
-        rescue Sequel::DatabaseConnectionError => e
-          next if Lux.runtime.rake?
-          die_connect_error(name, url, e)
-        end
+        next unless url_for(name)
+        db = connection(name)
+        Lux.shell.info "DB :#{name} connected (#{db.opts[:database]})"
       end
     end
 
@@ -139,6 +127,8 @@ module Lux
 
     def connect(url)
       config = DEFAULT_CONFIG.dup
+      # an explicit ?sslmode= in the URL wins over the default
+      config.delete(:sslmode) if URI.parse(url).query.to_s.match?(/(?:\A|&)sslmode=/)
 
       if Lux.env.fibers?
         # key connections by fiber, or every fiber on the reactor thread
@@ -161,7 +151,7 @@ module Lux
     end
 
     def test_db_url(url)
-      url.sub(/\/([^\/]+)$/) { "/#{$1}_test" }
+      url.sub(%r{/([^/?]+)(?=\?|\z)}) { "/#{$1}_test" }
     end
 
     # In test env, point a connection at its <db>_test sibling and ensure that
@@ -170,7 +160,7 @@ module Lux
     # lazily (e.g. a factory insert before the first request) binds to the
     # non-test DB while boot! would have used <db>_test.
     #
-    # CLI/rake tasks are excluded: db:test:am and friends manage the _test
+    # CLI tasks are excluded: db:test:am and friends manage the _test
     # database itself (drop/create/migrate), so they must operate on the literal
     # configured DB and never hold an open connection into _test.
     def resolve_test_url(name, url)
@@ -179,27 +169,27 @@ module Lux
       return url unless url.to_s.start_with?('postgres')
 
       test_url = test_db_url(url)
-      ensure_test_db(name, test_url)
+      ensure_test_db(test_url)
       test_url
     end
 
     def db_name_from_url(url)
-      require 'uri'
       URI.parse(url).path.sub('/', '')
     end
 
-    def ensure_test_db(name, test_url)
-      test_db = db_name_from_url(test_url)
-      source_db = test_db.sub(/_test$/, '')
+    def ensure_test_db(test_url)
+      test_db    = db_name_from_url(test_url)
+      source_url = test_url.sub(%r{_test(?=\?|\z)}, '')
+      admin_url  = test_url.sub(%r{/[^/?]+(?=\?|\z)}, '/postgres')
 
-      return if Lux.shell.exec('psql', '-tAc',
+      return if Lux.shell.exec('psql', admin_url, '-tAc',
         "SELECT 1 FROM pg_database WHERE datname = '#{test_db.gsub("'", "''")}'") == '1'
 
-      Lux.shell.info "DB create: %s (schema from %s)" % [test_db, source_db]
-      Lux.shell 'createdb', test_db
+      Lux.shell.info 'DB create: %s (schema from %s)' % [test_db, db_name_from_url(source_url)]
+      Lux.shell 'psql', admin_url, '-c', %[CREATE DATABASE "#{test_db.gsub('"', '""')}"]
       # shell mode for pipe + redirect; values are shellescaped.
       Lux.shell 'pg_dump --schema-only --no-owner --no-privileges %s | psql -q %s > /dev/null 2>&1' %
-        [source_db.shellescape, test_db.shellescape], shell: true
+        [source_url.shellescape, test_url.shellescape], shell: true
     end
   end
 end

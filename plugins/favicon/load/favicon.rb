@@ -14,6 +14,7 @@ module Favicon
 
   # Dev only: seed a missing icon, rebuild outputs older than the svg. Rollup
   # empties public/assets on start, so this also restores the touch icon.
+  # A failed build (e.g. no rsvg-convert) warns once and keeps serving the svg link.
   def refresh!
     unless File.exist?(SOURCE)
       FileUtils.mkdir_p File.dirname(SOURCE)
@@ -21,7 +22,10 @@ module Favicon
       Lux.shell.info "favicon: seeded #{SOURCE} with the Lux icon - replace it with your own"
     end
 
-    build! if stale?
+    build! if stale? && !@build_failed
+  rescue RuntimeError => e
+    @build_failed = true
+    Lux.shell.error e.message
   end
 
   def build!

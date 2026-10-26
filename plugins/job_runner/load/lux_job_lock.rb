@@ -10,7 +10,9 @@
 #
 # Usage (see LuxJob.run):
 #   DB.synchronize do |conn|
-#     LuxJobLock.acquire!(conn)
+#     until LuxJobLock.try_acquire(conn)
+#       sleep LuxJob::RELOCK_WAIT_SECS
+#     end
 #     # ... LISTEN + work loop on `conn` ...
 #     LuxJobLock.release(conn)
 #   end
@@ -26,18 +28,8 @@ class LuxJobLock
   LIVENESS_INTERVAL ||= 180
 
   class << self
-    def acquire!(conn)
-      unless try_acquire(conn)
-        Lux.shell.die [
-          'Job runner already running',
-          "pid: #{holder_pid.inspect}"
-        ]
-      end
-    end
-
-    # Non-dying variant: returns true on success, false if another backend
-    # holds the lock. Used by the re-acquire loop in LuxJob.run after a
-    # transient lock loss, so a brief overlap with a competing instance
+    # Returns true on success, false if another backend holds the lock.
+    # LuxJob.run polls it, so a brief overlap with a competing instance
     # doesn't kill the process.
     def try_acquire(conn)
       got = conn.exec("SELECT pg_try_advisory_lock(#{LOCK_CLASSID}, #{LOCK_OBJID})").getvalue(0, 0)
@@ -61,16 +53,15 @@ class LuxJobLock
     # Queried via the pool (not the pinned connection), so it's safe to
     # call from the liveness-check thread without contending with LISTEN.
     #
-    # objsubid = 2 is the (int4, int4) advisory-lock form (what we use);
-    # the single-bigint form would be objsubid = 1. The pg_locks docs page
-    # has these swapped - source of truth is SET_LOCKTAG_INT32 in
-    # src/backend/utils/adt/lockfuncs.c.
+    # objsubid = 2 is the (int4, int4) form; the single-bigint form is 1 (pg_locks docs).
+    # Advisory locks are per database, so match ours only.
     def holder_pid
       row = DB.fetch(
         "SELECT pid FROM pg_locks
          WHERE locktype = 'advisory'
            AND classid = ? AND objid = ? AND objsubid = 2
-           AND granted = true",
+           AND granted = true
+           AND database = (SELECT oid FROM pg_database WHERE datname = current_database())",
         LOCK_CLASSID, LOCK_OBJID
       ).first
       row && row[:pid]

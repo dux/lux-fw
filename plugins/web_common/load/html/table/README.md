@@ -43,8 +43,9 @@ t.render
 | `:list`     | Join array with `, `                     |
 
 The types above belong to the base `HtmlTable`. The app-facing `table`
-helper (`ApplicationHelper#table`) builds an `AppTable` instead, which
-defines its own `as:` set tuned for application models:
+helper (`HtmlHelper#table`) builds an `AppTable` instead, which
+defines its own `as:` set tuned for application models.
+Its `t.ref` column shows the record `ref` (models key on `ref`, not `id`):
 
 | Type           | Description                                          |
 |----------------|------------------------------------------------------|

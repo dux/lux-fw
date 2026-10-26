@@ -20,6 +20,7 @@ module Vibe
     # Stages everything first so the diff describes exactly what `commit` will
     # record; returns the message text.
     def generate
+      Git.ensure_branch!
       Git.git 'add', '-A'
       stat  = Git.git('diff', '--cached', '--stat')
       files = Git.lines(Git.git('diff', '--cached', '--name-only'))

@@ -1,4 +1,4 @@
 class DevRouter < FrontendRouter
   layout :dev
-  helper :html
+  before { raise Lux.error.not_found unless Lux.env.dev? }
 end

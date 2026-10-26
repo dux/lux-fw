@@ -21,7 +21,7 @@ factory :user do |user, opts|
   end
 
   trait :with_org do
-    create :org  # sets user.org_id = factory.create(:org).id
+    create :org  # sets user.org_ref = factory.create(:org).ref (or org_id/.id for non-ref models)
   end
 
   after_save do
@@ -41,10 +41,12 @@ factory.attributes_for(:user)           # filtered .attributes hash
 ## Differences from upstream clean-mock
 
 * Renamed: top-level `CleanMock` -> `Lux::Test::Factory`.
-* No `Object#mock` injection. `factory` is provided only inside
-  Minitest::Spec via `Lux::Test::Case`.
-* No ActiveSupport dependency. Lux already defines
-  `String#classify/constantize/singularize` (see `lib/overload/string.rb`).
+* No `Object#mock` injection. `factory` is provided inside Minitest::Spec via
+  `Lux::Test::Case`; `spec/test_helper.rb` adds a singleton `factory` on the
+  top-level `main` only, for blueprint files.
+* No ActiveSupport dependency. Sequel's inflector extension (loaded in
+  `lib/lux/loader.rb`) provides `String#classify/constantize/singularize`;
+  `lib/overload/string.rb` adds `constantize?`.
 * `attributes_for` filter uses `!v.nil? && v != ''` (no ActiveSupport
   `present?`).
 * `Factory.reset` clears sequences + fetch cache between tests (called

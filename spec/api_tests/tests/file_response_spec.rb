@@ -54,7 +54,7 @@ describe Lux::Api::FileResponse do
     headers = host.response.header
     _(host.response.status).must_equal 200
     _(headers['Content-Type']).must_equal 'text/x-ruby'
-    _(headers['Content-Disposition']).must_equal %(attachment; filename="spec.rb")
+    _(headers['Content-Disposition']).must_equal %(attachment; filename="spec.rb"; filename*=UTF-8''spec.rb)
     _(headers['Content-Length']).must_equal body.bytesize.to_s
     _(headers['Last-Modified']).must_match(/GMT$/)
     _(headers['ETag']).must_match(/^"[a-f0-9]{40}"$/)
@@ -79,7 +79,7 @@ describe Lux::Api::FileResponse do
 
     _(body).must_equal 'hello,world'
     _(host.response.header['Content-Type']).must_equal 'text/csv'
-    _(host.response.header['Content-Disposition']).must_equal %(attachment; filename="hi.csv")
+    _(host.response.header['Content-Disposition']).must_equal %(attachment; filename="hi.csv"; filename*=UTF-8''hi.csv)
     _(host.response.header['Last-Modified']).must_be_nil
     _(host.response.header['ETag']).must_match(/^"[a-f0-9]{40}"$/)
   end

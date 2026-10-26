@@ -74,11 +74,4 @@ describe 'dev' do
     token = Lux::Api.send(:extract_bearer_token, nil)
     _(token).must_be_nil
   end
-
-  it 'accepts Symbol in content_type' do
-    class TestContentTypeApi < Lux::Api
-      content_type :json
-    end
-    refute_nil TestContentTypeApi
-  end
 end

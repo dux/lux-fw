@@ -7,10 +7,10 @@ module Lux
       def current_user
         if Thread.current.key?(:current_user)
           Thread.current[:current_user]
-        elsif defined?(User) && User.respond_to?(:current)
-          User.current
-        elsif defined?(Current) && Current.respond_to?(:user)
-          Current.user
+        elsif defined?(::User) && ::User.respond_to?(:current)
+          ::User.current
+        elsif defined?(::Current) && ::Current.respond_to?(:user)
+          ::Current.user
         else
           raise RuntimeError.new('Current user not found in Lux::Policy#current_user')
         end
@@ -33,37 +33,29 @@ module Lux
       end
     end
 
-    class Proxy
+    # BasicObject, so actions named like Object predicates (present?, frozen?, ...)
+    # still reach the policy
+    class Proxy < ::BasicObject
       def initialize policy
         @policy = policy
       end
 
       # can.read? / can.read! - every predicate and bang form is answered
-      def respond_to_missing? name, include_private = false
-        name.to_s.end_with?('?', '!') || super
+      def respond_to? name, include_private = false
+        name.to_s.end_with?('?', '!')
       end
 
       def method_missing name, *args, &block
-        name   = name.to_s.sub(/(.)$/, '')
-        action = $1
+        name   = name.to_s
+        action = name[-1]
+        ::Kernel.raise ::NoMethodError, "undefined policy proxy method #{name}" unless action == '?' || action == '!'
 
-        @policy.can?(name, *args)
-
-        if action == '!'
-          @policy.model || true
-        else
-          true
-        end
-      rescue Lux::Policy::Error => error
-        msg = yield error if block_given?
-
-        if action == '!'
-          raise msg ? Lux::Policy::Error.new(msg) : error
-        elsif action == '?'
-          false
-        else
-          raise ArgumentError.new('Bad policy method %s' % name)
-        end
+        @policy.can?(name[0..-2], *args)
+        action == '!' ? (@policy.model || true) : true
+      rescue ::Lux::Policy::Error => error
+        msg = block.call(error) if block
+        ::Kernel.raise(msg ? ::Lux::Policy::Error.new(msg) : error) if action == '!'
+        false
       end
     end
   end

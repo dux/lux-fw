@@ -162,7 +162,7 @@
     <b>Changed files</b>
     <span>{state.files.length}</span>
     <span class="sp"></span>
-    <button class="btn sm ghost" onclick="fez.refresh()" title={'last check ' + state.stamp}>↻</button>
+    <button class="btn sm ghost" onclick="fez.refresh()" title={'last check ' + state.stamp}>&#x21bb;</button>
   </div>
   <div class="items">
     {#each state.files as f}
@@ -177,7 +177,7 @@
           <span class="st">{f.status[0].toUpperCase()}</span>
           <span class="p" title={f.path}>{f.path}</span>
           <span class="n"><span class="a">+{f.add}</span> <span class="d">-{f.del}</span></span>
-          <button class="x" onclick!="fez.askDiscard('{f.path}')" title="discard changes in this file">✕</button>
+          <button class="x" onclick!="fez.askDiscard('{f.path}')" title="discard changes in this file">&#x2715;</button>
         </div>
       {/if}
     {/each}
@@ -190,7 +190,7 @@
   </div>
   {#if state.files.length}
     <div class="foot">
-      <button class="btn sm primary" onclick="fez.openGit()">Commit in Git tab →</button>
+      <button class="btn sm primary" onclick="fez.openGit()">Commit in Git tab &#x2192;</button>
     </div>
   {/if}
 </div>
@@ -200,11 +200,11 @@
     <div class="vh">
       <span class="f">{state.current}</span>
       <span class="n"><span class="a">+{state.add}</span> <span class="d">-{state.del}</span></span>
-      <button class="btn sm ghost" onclick="fez.close()">✕</button>
+      <button class="btn sm ghost" onclick="fez.close()">&#x2715;</button>
     </div>
     <div class="vb">
       {#if state.loading}
-        <div class="vempty">loading…</div>
+        <div class="vempty">loading...</div>
       {:else}
         <div class="dlines">
           {#each state.lines as ln}

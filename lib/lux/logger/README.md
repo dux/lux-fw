@@ -17,7 +17,9 @@ Lux.logger.error 'broken'
 Lux.logger.debug 'details'
 
 # Default destination: dev = STDERR @ :info, test = IO::NULL, prod = ./log/error.log @ :error.
-# Set log level via Lux.config.log_level (:info / :error).
+# Set log level via Lux.config.log_level (info, warn, error, ...; YAML strings work).
+# The logger_* keys are framework defaults filled in on the first Lux.config
+# read, so Lux.logger(:name) and Lux.log work before Lux.boot!.
 
 # --- casual logging ---------------------------------------------------
 

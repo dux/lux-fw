@@ -128,7 +128,10 @@ request = Net::HTTP::Post.new(url)
 request['Accept'] = 'application/json'
 request['Authorization'] = "Bearer #{BEARER}" if BEARER
 
-request.set_form_data(params) unless params.empty?
+unless params.empty?
+  request['Content-Type'] = 'application/json'
+  request.body = params.to_json
+end
 
 begin
   response = http.request(request)

@@ -1,12 +1,11 @@
 > STATUS: HISTORICAL. Kept for the reasoning, not as a description of the code.
 > Do not use this file to learn how routing works - read
-> [`../lib/lux/application/README.md`](../lib/lux/application/README.md) and
-> [`../lib/lux/controller/README.md`](../lib/lux/controller/README.md).
+> [`../lib/lux/router/README.md`](../lib/lux/router/README.md).
 >
 > Known to be wrong about current code:
 >
 > * `nav.shift` / `nav.unshift` do not exist and never shipped; scoping is the
->   offset stack on `Lux::Application::Route`.
+>   offset stack on `Lux::Router::Route`.
 > * `root` reads `lux.route.root` (the cursor), not `nav.root`.
 > * Resourceful dispatch resolves to the last non-`:ref` segment; there is no
 >   `:index` default and no `_ref` action suffix.

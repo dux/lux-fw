@@ -22,7 +22,7 @@ truth; this page is the human view of it.
 
 ## Calling the API
 
-Every action accepts POST. Send params as form keys, a JSON object, or the
+Actions accept POST unless they declare `allow` (then exactly the listed verbs, shown in each action heading). Send params as form keys, a JSON object, or the
 JSON-RPC envelope; all three reach the same action.
 
 ```sh
@@ -94,7 +94,7 @@ Model schema: `<%= api[:schema_ref] %>`
 #### <%= title %>
 <%   actions.each do |action_name, entry| -%>
 
-##### [<%= http_verbs(entry).join(' / ') %> <%= entry[:path] %>](<%= mount_on %>/sys/web#method-<%= api_name %>-<%= action_name %>)
+##### [<%= http_verbs(entry).join(' / ') %> <%= entry[:path] %>](<%= mount_on %>/sys/web#method-<%= api_name %>-<%= type == :member ? 'ref-' : '' %><%= action_name %>)
 <% if entry[:desc] && !entry[:desc].to_s.empty? -%>
 
 <%= entry[:desc] %>

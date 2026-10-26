@@ -79,9 +79,9 @@ module Lux
 
       def parse_args args
         if args.first.is_hash?
-          opts = args.first || {}
+          opts = (args.first || {}).dup
         else
-          opts = args[1] || {}
+          opts = (args[1] || {}).dup
           opts[:type] ||= args[0]
         end
 
@@ -129,6 +129,13 @@ module Lux
         if opts[:type].is_a?(Set)
           opts[:type]  = opts[:type].to_a.first
           opts[:array] = true
+        end
+
+        # class constants (String, Integer, Boolean, DateTime, Lux::Hash) and strings -> type symbol
+        if opts[:type].is_a?(::Module)
+          opts[:type] = opts[:type].name.split('::').last.downcase.to_sym
+        elsif opts[:type].is_a?(::String)
+          opts[:type] = opts[:type].downcase.to_sym
         end
 
         # block type override (integer! do ... end)

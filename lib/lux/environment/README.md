@@ -4,7 +4,7 @@ Three orthogonal facets of "where am I running?":
 
 * `Lux.env`     - environment name (`development`, `production`, `test`)
 * `Lux.debug?` / `Lux.reload?` / `Lux.silent` - behavior toggles
-* `Lux.runtime` - process kind (`web?`, `cli?`, `rake?`)
+* `Lux.runtime` - process kind (`web?`, `cli?`, `task_runner?`)
 
 The toggles live flat on `Lux` because there are only ever three of them.
 `Lux::Environment::Flags` is the object behind them (`Lux.flags`); it holds
@@ -51,15 +51,15 @@ Lux.reload = false
 # Errors, Lux.shell.die and an app's own puts still print.
 
 Lux.silent               # => current state (bool)
-Lux.silent true          # set persistently (false restores)
-Lux.silent { ... }       # mute for the block, then restore previous
-Lux.silent(false) { }    # un-mute for the block, then restore
+Lux.silent true          # set process-wide (false restores)
+Lux.silent { ... }       # mute this thread for the block, then restore previous
+Lux.silent(false) { }    # un-mute this thread for the block, then restore
 
 # --- Lux.runtime: how the process was started ---------------------------
 
-Lux.runtime.web?         # puma / falcon / rackup
-Lux.runtime.cli?         # otherwise (no Rack::Handler)
-Lux.runtime.rake?        # run via rake
+Lux.runtime.web?          # puma/rackup/falcon/... binary or live server instance; LUX_WEB=true|false overrides
+Lux.runtime.cli?          # !web?
+Lux.runtime.task_runner?  # the lux CLI (db:am, console, ...) - not `lux s`
 ```
 
 ## Notes
@@ -70,6 +70,8 @@ Lux.runtime.rake?        # run via rake
   ever forces a flag *off* - turning one on is left to the per-env default.
 * `Lux.silent` is deliberately not one of the `FLAGS`: it is block-scoped,
   has no per-env default and no env var.
+  The block form is per-thread (`Thread.current[:lux_silent]`, fiber-local, over the process-wide value), so overlapping blocks in two threads cannot leave it stuck.
+  Threads spawned inside the block are not muted.
 * `.env` is loaded during `Lux.boot!`, after anything that logged early may
   already have read the flags, so boot calls `Lux.flags.reload_env!` to
   re-read `LUX_DEBUG` / `LUX_RELOAD`. Runtime overrides survive that.

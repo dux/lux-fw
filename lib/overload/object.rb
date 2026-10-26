@@ -20,11 +20,11 @@ class Object
 
   # this will capture plain Hash and Hash With Indifferent Access
   def is_hash?
-    self.class.to_s.index('Hash') ? true : false
+    is_a?(::Hash) || self.class.name&.end_with?('Hash') || false
   end
 
   def is_array?
-    self.class.to_s.index('Array') ? true : false
+    is_a?(::Array) || self.class.name&.end_with?('Array') || false
   end
 
   def is_true?
@@ -45,47 +45,17 @@ class Object
   # value.is! Float
   def is! value = :_nil
     if value == :_nil
-      if self.present?
-        self
-      else
-        raise ArgumentError.new('Expected not not empty value')
-      end
-    elsif value == self.class
-      self
-    else
-      if self.class == Class && self.superclass != Object
-        if self.ancestors.include?(value)
-          self
-        else
-          raise ArgumentError.new('There is no %s in %s ancestors in %s' % [value, self, caller[0]])
-        end
-      else
-        raise ArgumentError.new('Expected %s but got %s in %s' % [value, self.class, caller[0]])
-      end
+      return self if present?
+      raise ArgumentError, 'Expected a non-empty value'
     end
-  end
 
-  # value can be nil but if defined should be Float
-  # value.is? Float
-  def is? value = nil
-    is! value
-    true
-  rescue ArgumentError
-    false
+    ok = value.is_a?(Module) && (is_a?(value) || (is_a?(Module) && self <= value))
+    return self if ok
+    raise ArgumentError, 'Expected %s but got %s in %s' % [value, is_a?(Module) ? self : self.class, caller[0]]
   end
 
   def in? collection
     collection.include?(self)
-  end
-
-  private
-
-  def die desc=nil, exp_object=nil
-    desc ||= 'died without desc'
-    desc = '%s: %s' % [exp_object.class, desc] if exp_object
-    puts desc.colorize(:red)
-    puts caller.slice(0, 10)
-    raise desc
   end
 end
 

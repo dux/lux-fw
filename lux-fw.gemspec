@@ -17,8 +17,9 @@ Gem::Specification.new 'lux-fw' do |gem|
   gem.author      = 'Dino Reic'
   gem.email       = 'rejotl@gmail.com'
   gem.files       = gem_files
+  gem.required_ruby_version = '>= 3.3'
 
-  gem.executables = ['lux']
+  gem.executables = ['lux', 'lux-api']
 
   # added by analogy
   gem.add_dependency 'rack'

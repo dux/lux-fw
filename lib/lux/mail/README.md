@@ -33,7 +33,7 @@ class Mailer < Lux::Mail::Sender
     mail.body    = body.as_html
   end
 
-  # templated: renders ./app/views/mailer/lost_password.haml inside layout.haml
+  # templated: renders ./app/views/mailer/lost_password.haml inside the mailer layout
   def lost_password user
     mail.subject = "#{App.name} - reset link"
     mail.to      = user.email
@@ -50,13 +50,13 @@ Mailer.lost_password(user).deliver             # method_missing style
 Lux.defer { Mailer.deliver(:welcome, user) }   # background thread
 ```
 
-Templates live in `./app/views/mailer/<name>.haml` + `layout.haml`. A
-class-level `on_deliver` block runs just before send with the built
+Templates live in `./app/views/mailer/<name>.haml`; the layout is `./app/views/layouts/mailer.*` or `./app/views/mailer/layout.*` (`layout` cattr, default `'mailer'`).
+A class-level `on_deliver` block runs just before send with the built
 `Mail::Message` (stackable; e.g. log every outgoing mail).
 
 | call | returns | notes |
 |------|---------|-------|
-| `Sender.deliver(:method, *args)` | `Mail::Message` | render + send |
+| `Sender.deliver(:method, *args)` | `Mail::Message` (nil if `mail.to = false`) | render + send |
 | `Sender.render(:method, *args)` | String | rendered body, no send |
 | `Sender.prepare(:method, *args)` | instance | call `.deliver` or `.body` |
 | `Sender.<method>(*args).deliver` | `Mail::Message` | method_missing style |
@@ -109,7 +109,14 @@ mail:
       folder: INBOX        # optional, default INBOX
       port: 993            # optional, default 993
       ssl: true            # optional, default true
+  trusted_authserv_ids:    # A-R headers trusted for spf/dkim/dmarc
+    - mx.google.com
 ```
+
+Raw MIME verdicts (IMAP pull, `Inbox.parse`) come only from an `Authentication-Results` header whose authserv-id (the token before the first `;`) is listed in `mail.trusted_authserv_ids`.
+A sender can add their own `Authentication-Results: x; dmarc=pass`, so other headers are ignored.
+With no ids configured, `spf` / `dkim` / `dmarc` stay nil and `verified` is false.
+Push payloads that pass verdict fields directly are trusted as given.
 
 ## Cloudflare transports
 

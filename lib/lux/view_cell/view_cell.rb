@@ -4,10 +4,7 @@ module Lux
   class ViewCell
     include HtmlTag
 
-    DATA ||= {
-      template_root: nil,
-      css: {}
-    }
+    DATA ||= { css: {} }
 
     # exports "template_root" class attr
     cattr :template_root, class: true
@@ -25,7 +22,7 @@ module Lux
       # delegate :image_tag, :request, params
       def delegate *list
         list.each do |el|
-          define_method(el) { |*args, &block| parent.send(el, *args, &block) }
+          define_method(el) { |*args, **kwargs, &block| parent.send(el, *args, **kwargs, &block) }
         end
       end
 
@@ -34,26 +31,12 @@ module Lux
       # = cell.user.template @user
       # = cell(:user, user: @user).template
       def cell parent, *args
-        if args.first
-          # covert to list of objects
-          unless [String, Symbol, Array].include?(args[0].class)
-            args[0] = [args.first]
-          end
+        first = args.first
+        return Lux::ViewCell::Proxy.new(parent) unless first
+        return Lux::ViewCell.get(parent, *args) if first.is_a?(::String) || first.is_a?(::Symbol)
 
-          if args.first.class == Array
-            # cell @users
-            Lux::SafeString.join(args.first.map do |object|
-              name = object.class.to_s.underscore.to_sym
-              Lux::ViewCell.get(parent, name).render object
-            end)
-          else
-            # cell(:user, user: @user).profile
-            Lux::ViewCell.get parent, *args
-          end
-        else
-          # cell.user.profile
-          Lux::ViewCell::Proxy.new(parent)
-        end
+        list = first.is_a?(::Array) ? first : [first]
+        Lux::SafeString.join(list.map { |object| Lux::ViewCell.get(parent, object.class.to_s.underscore).render object })
       end
 
       # can be called as a block or a method

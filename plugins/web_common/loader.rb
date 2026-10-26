@@ -1,9 +1,9 @@
 # web_common - the shared web layer, bundled as a single plugin.
 #
-#   load/assets   - CdnAsset + ApplicationHelper template helpers
-#   load/html     - form / input / table / menu / paginate / filter builders
+#   load/assets   - CdnAsset + HtmlHelper template helpers (response)
+#   load/html     - form / input / table / menu / paginate builders
 #   load/lib      - ApplicationApi, ModelApi, router helpers (/lux server_info),
-#                   exception writer, legacy exception logger
+#                   exception writer
 #   assets/js     - browser sources, apps import them as @web-common/js/...
 #   mount/        - /dev router and views
 #
@@ -13,5 +13,8 @@
 # exist before that sweep are wired here.
 
 # Persist framework-internal `Lux.error.log` calls as JSON lines in
-# log/app.exceptions.log (read by dboss).
-Lux.error.on_log { |err| ExceptionWriter.new(err).write }
+# log/app.exceptions.log (read by dboss). Expected HTTP errors are skipped.
+Lux.error.on_log do |err|
+  next if Lux::Api::Response.client_error?(err)   # Lux::Error <500, Api::Error, policy, validation
+  ExceptionWriter.new(err).write
+end

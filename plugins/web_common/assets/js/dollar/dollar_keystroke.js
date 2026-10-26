@@ -12,13 +12,13 @@ const keyCode = e => ((e.metaKey || e.ctrlKey) && `ctrl+${e.key}`) || e.key
 
 // register a handler for one specific combo
 $.onKeyDown = (key, func) => {
-  $(document).on('keydown', e => { if (keyCode(e) == key) func(e) })
+  $(document).on(`keydown.onkey-${key}-${$.fnv1(String(func))}`, e => { if (keyCode(e) == key) func(e) })
 }
 
 // last match wins so a dialog form appended to <body> takes priority over a
 // form higher up the page
 const keyTarget = code => {
-  const all = document.querySelectorAll(`*[data-key='${code}']`)
+  const all = document.querySelectorAll(`[data-key="${CSS.escape(code)}"]`)
   return all[all.length - 1]
 }
 
@@ -33,10 +33,11 @@ $(document).on('keydown', e => {
     return
   }
 
-  if (code == 'Escape' && e.target.nodeName == 'INPUT') $(e.target).blur()
+  const typing = el => !!(el.closest?.('form, input, textarea, select') || el.isContentEditable)
+  if (code == 'Escape' && typing(e.target)) $(e.target).blur()
 
-  // plain-key shortcuts must not hijack typing, so only fire outside a form/input
-  if (!e.target.closest('form') && e.target.nodeName != 'INPUT') {
+  // plain-key shortcuts must not hijack typing, so only fire outside form fields
+  if (!typing(e.target)) {
     if (code == '`' && window.Dialog && window.Dialog.isOpen()) {
       e.preventDefault()
       Dialog.refresh()

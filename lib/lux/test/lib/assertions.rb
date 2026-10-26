@@ -13,7 +13,7 @@ module Lux
       # assert_redirect '/login', response
       def assert_redirect path, resp
         actual = resp.respond_to?(:redirect_to) ? resp.redirect_to : nil
-        assert_equal path, actual
+        path.nil? ? assert_nil(actual) : assert_equal(path, actual)
       end
 
       # assert_body_includes 'Hello', response
@@ -28,8 +28,10 @@ module Lux
       def assert_json_includes subset, resp
         json = resp.respond_to?(:json) ? resp.json : resp
         subset.each do |k, v|
-          actual = json[k] || json[k.to_s]
-          assert_equal v, actual, 'JSON key %p mismatch (full body: %p)' % [k, json]
+          actual = json[k]
+          actual = json[k.to_s] if actual.nil?
+          msg = 'JSON key %p mismatch (full body: %p)' % [k, json]
+          v.nil? ? assert_nil(actual, msg) : assert_equal(v, actual, msg)
         end
       end
 

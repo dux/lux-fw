@@ -8,8 +8,9 @@
 class Lux::Type::RefType < Lux::Type
   def coerce
     value { |data| data.to_s }
-
+    # the format normalises (an upcase family upcases), so store its value
     format = Lux::Router::Nav::Base.build(value)
+    value { format.value } if format.value.is_a?(::String)
 
     error_for(:max_length_error, format.db_limit, value.length) if value.length > format.db_limit
     error_for(:unallowed_characters_error) unless format.valid?

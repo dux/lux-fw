@@ -5,10 +5,7 @@
 # render.bar # 456
 module Lux
   class InlineRenderProxy
-    def initialize context, &block
-      @context = context
-      @block   = block
-    end
+    def initialize(context) = @context = context
 
     def respond_to_missing? name, include_private = false
       name.to_s.end_with?('=') || @context.instance_variable_defined?("@_#{name}") || super

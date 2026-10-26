@@ -28,7 +28,7 @@
     <div class="flex items-center gap-3">
       {#if state.api.icon}
         <span class="inline-flex items-center justify-center mt-1 w-4 h-10 rounded-lg bg-gray-100 text-gray-700 -ml-7.5">
-          <material-icon name={state.api.icon} size="24"></material-icon>
+          {@html state.api.icon.trim().startsWith('<svg') ? state.api.icon : '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">' + state.api.icon + '</svg>'}
         </span>
       {/if}
       <h2 class="mb-0">{state.name}</h2>

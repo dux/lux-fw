@@ -15,12 +15,6 @@ Lux.config.host           = 'http://test'
 Lux.config.compile_assets = false
 Lux.config[:log_level]    = :error unless Lux.config.key?(:log_level)
 
-# Silence Lux.logger during the test suite. Specs that need to capture
-# logger output (see spec/lux_tests/lux_spec.rb) swap @default_logger
-# back to a StringIO inside their own `before`/`after`.
-require 'logger'
-Lux.instance_variable_set(:@default_logger, Logger.new(IO::NULL))
-
 # Load test scaffolding (Minitest + Lux::Test::Factory + helpers).
 # Lives outside boot.rb so production lux never pulls it in.
 require_relative '../lib/lux/test/test'
@@ -28,9 +22,9 @@ require_relative '../lib/lux/test/test'
 # Top-level `factory` shortcut so spec/factories.rb can write
 # `factory :foo do ... end` outside any describe block.
 # Inside a describe/it, the same `factory` method is provided by
-# Lux::Test::Case (mixed into Minitest::Spec) - this top-level def
-# is only for blueprint loading.
-def factory *args, &block
+# Lux::Test::Case (mixed into Minitest::Spec). Defined on `main` only, so it
+# does not become a private Object#factory on every object.
+def self.factory *args, &block
   if args.empty? && !block
     Lux::Test::Factory
   elsif args.empty? && block

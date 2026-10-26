@@ -3,13 +3,13 @@ class Lux::Type::FloatType < Lux::Type
   opts :max, 'Maximum value'
   opts :round, 'Round to (decimal spaces)'
 
-  def coerce
-    if opts[:round]
-      value { |data| data.to_f.round(opts[:round]) }
-    else
-      value { |data| data.to_f }
-    end
+  error :en, :not_number_error, 'is not a number'
 
+  def coerce
+    value do |d|
+      num = d.is_a?(::Numeric) ? d.to_f : (Float(d.to_s) rescue error_for(:not_number_error))
+      opts[:round] ? num.round(opts[:round]) : num
+    end
     check_min_max
   end
 

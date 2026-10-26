@@ -37,6 +37,12 @@ describe 'web_common exception hook' do
     _(rows.first['message']).must_equal 'hooked'
   end
 
+  it 'skips expected HTTP errors' do
+    Lux.error.log(Lux.error.not_found)
+
+    _(@root.join('log/app.exceptions.log').exist?).must_equal false
+  end
+
   it 'does not mask the original error when the writer fails' do
     prev = ExceptionWriter.instance_method(:write)
     ExceptionWriter.define_method(:write) { |**| raise 'writer down' }

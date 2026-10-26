@@ -38,6 +38,7 @@ services:
       VIBE_BRANCH: <%= branch %>
       VIBE_MAIN: <%= main %>
       VIBE_PORT: "4000"
+      VIBE_BIND: 0.0.0.0  # published on 127.0.0.1 only (ports above)
       VIBE_APP_URL: http://localhost:3000          # what the browser iframes (host side)
       VIBE_APP_HEALTH_URL: http://<%= app_service %>:3000   # what the harness pings (compose network)
       VIBE_APP_SERVICE: <%= app_service %>

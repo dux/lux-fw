@@ -54,7 +54,7 @@ The raw schema returns roughly:
           "unsafe": false,
           "desc":   "...",
           "params": {
-            "<name>": { "type": "string|integer|...", "required": true, "default": null, "desc": "..." }
+            "<name>": { "type": "string|integer|...", "required": true, "default": null, "description": "..." }
           }
         }
       },
@@ -191,10 +191,8 @@ argument is the id: `client.example.update(id, params)`.
 
 JSON endpoints return either:
 
-- **Success**: `{ "data": ..., "meta": {...} }` (some actions return a bare
-  value instead of a `data` envelope - inspect the schema's response info
-  or just accept both shapes)
-- **Error**: `{ "error": "message", "status": 4xx|5xx, "details": {...} }`
+- **Success**: `{ "success": true, "status": 200, "meta": {...}, "data": ..., "message"?: "..." }`
+- **Error**: `{ "success": false, "status": 4xx|5xx, "meta": {...}, "error": { "messages": ["..."], "code"?: ..., "details"?: { "<field>": "..." } } }`
 
 Non-JSON endpoints (files, generated docs, this page) return raw bodies
 with the appropriate `Content-Type`.
@@ -202,7 +200,7 @@ with the appropriate `Content-Type`.
 ### Error handling rule
 
 Check for the `error` key first. If present, surface
-`status` + `error` + `details` to the caller. Don't trust HTTP status alone
+`status` + `error.messages` + `error.details` to the caller. Don't trust HTTP status alone
 - some errors come back with 200 + an `error` body.
 
 ## Known error codes
@@ -377,7 +375,7 @@ public class ApiClient {
         if (auth) req.Headers.Authorization = new("Bearer", _token);
         var res = await _http.SendAsync(req);
         var json = await res.Content.ReadFromJsonAsync<JsonElement>();
-        if (json.TryGetProperty("error", out var err)) throw new Exception(err.GetString());
+        if (json.TryGetProperty("error", out var err)) throw new Exception(err.GetProperty("messages")[0].GetString());
         return json.TryGetProperty("data", out var d) ? d : json;
     }
 }

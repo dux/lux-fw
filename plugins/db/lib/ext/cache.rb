@@ -22,11 +22,25 @@
 #
 # Auto-wiring (symbol groups): the child model is derived from the group name
 # (:docs -> Doc) and linked back via the parent foreign key ("#{parent}_ref",
-# e.g. space_ref). The hook is installed lazily on first cache access, which is
-# boot-order safe: all models are loaded by the first request, and a group's
-# cache does not exist until that first access anyway, so nothing is missed.
+# e.g. space_ref). The hook is installed eagerly, as soon as both models exist:
+# at `named_caches` when the child is already defined, else when the child
+# class is defined. Every process that loads both models (web, jobs, API
+# workers) therefore bumps the group on write, even if it never reads it.
 
 class Sequel::Model
+  # child class name => [[parent model, group], ...] waiting for the child
+  NAMED_CACHE_PENDING ||= Hash.new { |h, k| h[k] = [] }
+
+  module NamedCacheBinding
+    def inherited subclass
+      super
+      return unless subclass.name && (pending = NAMED_CACHE_PENDING.delete(subclass.name))
+
+      pending.each { |parent, group| parent.bind_named_cache! group }
+    end
+  end
+  singleton_class.prepend NamedCacheBinding
+
   module ClassMethods
     def named_caches *names
       return (@named_caches ||= {}).keys if names.empty?
@@ -38,6 +52,17 @@ class Sequel::Model
 
         define_method("cache_for_#{group}") { |*scope| cache_for(group, *scope) }
         define_method("clear_#{group}_cache") { cache_clear(group) }
+
+        next unless @named_caches[group]
+
+        # never trigger an autoload from inside this class body; a pending
+        # child binds through `inherited` when its file loads
+        child = named_cache_child_name(group)
+        if Object.const_defined?(child, false) && !Object.autoload?(child)
+          bind_named_cache! group
+        else
+          NAMED_CACHE_PENDING[child] << [self, group]
+        end
       end
       @named_caches.keys
     end
@@ -50,21 +75,26 @@ class Sequel::Model
       (@named_caches || {})[group.to_sym] == true
     end
 
-    # lazily wire the child model to bump this group on write (once per group).
+    def named_cache_child_name group
+      group.to_s.singularize.classify
+    end
+
+    # wire the child model to bump this group on write (once per group).
     # :boards -> Board, linked back via "#{self}_ref" (space_ref). Skips
     # silently when there is no such child/column - use cache_parent or a
     # manual clear for non-convention links.
     def bind_named_cache! group
       @bound_caches ||= {}
       return if @bound_caches[group]
-      @bound_caches[group] = true
 
-      child = group.to_s.singularize.classify.constantize?
+      child = named_cache_child_name(group).constantize?
       fk    = "#{to_s.underscore}_ref".to_sym
       return unless child && child.columns.include?(fk)
 
+      @bound_caches[group] = true
       pname = to_s
-      child.after :cud do
+      child.plugin :lux_hooks
+      child.after :cud, key: "named_cache:#{pname}:#{group}" do
         if pref = self[fk]
           Lux.cache.set "#{pname}/#{pref}/cv/#{group}", Time.now.to_f
         end
@@ -76,7 +106,8 @@ class Sequel::Model
     #   cache_parent :space            # bump space :boards on write
     #   cache_parent :space, :archive
     def cache_parent assoc, group = to_s.tableize.to_sym
-      after :cud do
+      plugin :lux_hooks
+      after :cud, key: "cache_parent:#{assoc}:#{group}" do
         send(assoc)&.cache_clear(group)
       end
     end
@@ -103,8 +134,8 @@ class Sequel::Model
 
     private
 
-    # guard the group, and for symbol groups validate the model + lazily wire
-    # the child invalidation hook on first use.
+    # guard the group, and for symbol groups validate the backing model
+    # (resolving it also loads an autoloaded child, which binds its hook).
     def named_cache! group
       group = group.to_sym
 
@@ -113,11 +144,10 @@ class Sequel::Model
       end
 
       if self.class.named_cache_strict?(group)
-        model = group.to_s.singularize.classify
+        model = self.class.named_cache_child_name(group)
         unless model.constantize?
           raise ArgumentError, "#{self.class}: cache group #{group.inspect} maps to no model #{model} (use string '#{group}' for a model-less group)"
         end
-        self.class.bind_named_cache! group
       end
     end
 

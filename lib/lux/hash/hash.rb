@@ -2,7 +2,7 @@ module Lux
   # Hash with indifferent access.
   #
   # Lux::Hash         - class (subclass of ::Hash) with included Methods
-  # Lux::Hash::Methods - module also extended onto raw Hash values on access
+  # Lux::Hash::Methods - the indifferent-access behaviour, included into Lux::Hash
   # Lux::Hash(...)     - helper for building named-option hashes (see bottom)
   # Hash#to_lux_hash   - convert any Hash to Lux::Hash (or to a dyn Struct)
   class Hash < ::Hash
@@ -63,10 +63,9 @@ module Lux
         self[name.nil? ? :key : name]
       end
 
-      # deep clone with no shared references
-      def clone
-        Marshal.load(Marshal.dump(self))
-      end
+      # deep clone with no shared references (via to_h, so Lux::Hash() enums
+      # with singleton readers clone too)
+      def clone(freeze: nil) = Marshal.load(Marshal.dump(to_h)).to_lux_hash
 
       def merge hash
         dup.tap do |h|

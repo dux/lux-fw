@@ -170,9 +170,9 @@ module Lux
       def errors
         out = {}
 
-        ObjectSpace.each_object(Class).select { _1 <= Lux::Api }.each do |klass|
+        ([Lux::Api] + Lux::Api.documented).each do |klass|
           klass.rescue_handlers.each do |key, desc|
-            next unless key.is_a?(Symbol) && key != :all && desc.is_a?(String)
+            next unless (key.is_a?(Symbol) || key.is_a?(Integer)) && key != :all && desc.is_a?(String)
             out[key] = desc
           end
         end

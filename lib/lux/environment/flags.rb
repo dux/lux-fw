@@ -39,20 +39,23 @@ module Lux
     # still surface. Deliberately not a FLAGS entry - block-scoped, no env
     # default, no ENV var. Forms:
     #   Lux.silent              # => current state (bool)
-    #   Lux.silent true         # set persistently (false restores)
-    #   Lux.silent { ... }      # mute for the block, then restore previous
-    #   Lux.silent(false) { }   # un-mute for the block, then restore
+    #   Lux.silent true         # set process-wide (false restores)
+    #   Lux.silent { ... }      # mute this thread for the block, then restore
+    #   Lux.silent(false) { }   # un-mute this thread for the block, then restore
+    # The block form is per-thread: overlapping blocks in two threads would
+    # otherwise restore each other's saved state and leave the flag stuck.
     def silent value = nil
       if block_given?
-        prev    = @silent
-        @silent = value.nil? ? true : !!value
+        prev = Thread.current[:lux_silent]
+        Thread.current[:lux_silent] = value.nil? ? true : !!value
         begin
           yield
         ensure
-          @silent = prev
+          Thread.current[:lux_silent] = prev
         end
       elsif value.nil?
-        @silent == true
+        local = Thread.current[:lux_silent]
+        local.nil? ? @silent == true : local
       else
         @silent = !!value
       end

@@ -7,8 +7,11 @@ module Lux
   module Version
     Dev ||= 'dev'
 
-    def self.file
-      Pathname.new(__dir__).join('../../.version')
+    # Stamped version of the lux-fw tree at `root`, nil when it has no stamp.
+    # `lux new` reads the framework that runs it, which may not be the loaded one.
+    def self.read root
+      path = File.join(root.to_s, '.version')
+      File.exist?(path) ? File.read(path)[/^version:[ \t]*([^\s#]+)/, 1] : nil
     end
 
     # `X.Y.Z` or `dev`. LUX_VERSION overrides the file, so a build can pin a
@@ -17,10 +20,8 @@ module Lux
       @string ||=
         if (env = ENV['LUX_VERSION']) && !env.empty?
           env
-        elsif file.exist?
-          file.read[/^version:[ \t]*([^\s#]+)/, 1] || Dev
         else
-          Dev
+          read(File.expand_path('../..', __dir__)) || Dev
         end
     end
 

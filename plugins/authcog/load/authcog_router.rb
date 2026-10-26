@@ -19,11 +19,6 @@ class AuthcogRouter < Lux::Router
   # that keeps coming back wrong ends on the error rather than in a loop.
   SESSION_RETRY ||= :authcog_retry
 
-  # How many outstanding challenges a browser may hold. More than one because a
-  # visitor can open the sign-in link in several tabs before finishing in any of
-  # them, and each of those has to stay usable.
-  CHALLENGE_LIMIT ||= 4
-
   # Where a "sign in" link points: this router's own mount path. Deliberately
   # a plain local path with no secret in it, so it can be rendered into a shared
   # or cached page and linked from a view. The challenge is minted when the link
@@ -40,10 +35,8 @@ class AuthcogRouter < Lux::Router
   # would pick the domain a callback hash is exchanged for, and a hash leaked
   # from another site could be spent here.
   def self.exchange_base here = Url.current
-    home = Url.new(Lux.config.host.to_s)
-    here = home unless here.domain == home.domain
-
-    Authcog.auth_url(here.host, here.port)
+    url = Authcog.relying_url(here)
+    Authcog.auth_url(url.host, url.port)
   end
 
   def call
@@ -54,10 +47,7 @@ class AuthcogRouter < Lux::Router
   # rides along to central auth, which echoes it back on the callback; a sign-in
   # this browser never started is then refused (see #callback, RFC 9700).
   def start
-    state = SecureRandom.urlsafe_base64(24)
-    held  = Array(session[SESSION_STATE])
-    session[SESSION_STATE] = (held + [state]).last(CHALLENGE_LIMIT)
-
+    state = Authcog.mint_challenge(session, SESSION_STATE)
     redirect_to "#{self.class.exchange_base}?state=#{Rack::Utils.escape(state)}"
   end
 
@@ -73,7 +63,7 @@ class AuthcogRouter < Lux::Router
     # the visitor back through the front door once instead of leaving them on an
     # error page - the retry mints a fresh challenge, so nothing is signed in
     # that this browser did not ask for.
-    unless claim_challenge(params[:state])
+    unless Authcog.claim_challenge(session, SESSION_STATE, params[:state])
       if session[SESSION_RETRY]
         session.delete SESSION_RETRY
         raise Lux.error.bad_request('Unsolicited or expired login - please sign in again')
@@ -96,8 +86,7 @@ class AuthcogRouter < Lux::Router
       return redirect_to '/', error: 'You are locked and you are not allowed to log in.'
     end
 
-    session[:user_ref] = user.ref
-    lux.rotate_csrf!
+    UserSession.login_user_ref user.ref
 
     user.name ||= data[:name]
     user.is_deleted = false
@@ -116,29 +105,14 @@ class AuthcogRouter < Lux::Router
 
   private
 
-  # True when `given` is one of the challenges this browser is holding, which it
-  # then spends. Only a match is removed: a bogus ?state= must not be able to
-  # clear a real one and lock the visitor out of signing in.
-  def claim_challenge given
-    given = given.to_s
-    return false if given.empty?
-
-    held = Array(session[SESSION_STATE])
-    hit  = held.find { |s| Rack::Utils.secure_compare(s.to_s, given) }
-    return false unless hit
-
-    session[SESSION_STATE] = held - [hit]
-    true
-  end
-
   def user
     User.current
   end
 
   def fetch_identity callback_hash
     # Exchange is scoped to the relying domain: central auth only releases the
-    # hash to the same host it was issued for (this request's own host).
-    here = Url.current
+    # hash to the host it was issued for, guarded the same as #exchange_base.
+    here = Authcog.relying_url(Url.current)
     Authcog.exchange(callback_hash, host: here.host, port: here.port)
   rescue Authcog::Error => e
     raise Lux.error.bad_request(e.message)

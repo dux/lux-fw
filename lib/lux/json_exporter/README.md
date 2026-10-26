@@ -31,6 +31,11 @@ class UserExporter < Lux::JsonExporter
   # filters
   before { json[:exported_at] = Time.now.iso8601 }
   after  { json.compact! }
+
+  # per-model block: how a nested `export` renders Org objects
+  define Org do
+    prop :name
+  end
 end
 
 # --- ways to render ---------------------------------------------------
@@ -38,7 +43,7 @@ end
 UserExporter.export(@user)                      # default shape
 UserExporter.export(@user, admin: true)         # opts visible in block
 UserExporter.export(@user, shape: :card)        # named shape
-UserExporter.export(@users)                     # accepts arrays / enumerables
+UserExporter.export(@users)                     # accepts arrays
 
 # --- shortcut form (Lux.json_exporter) -------------------------------
 
@@ -50,7 +55,7 @@ end
 
 # Render any object that has a registered exporter:
 Lux.json_exporter(Page.first)                   # uses the block registered above
-Lux.json_exporter(Page.first, shape: :card)     # named shape (if registered)
+Lux.json_exporter(Page.first, shape: :card)     # named shapes need a subclass (`define :card`); the shortcut form registers only the default shape
 
 # --- in a typical API endpoint ---------------------------------------
 
@@ -76,6 +81,10 @@ export :org                    # nested export of an associated object/array
 export some_object             # export a passed object (key derived from its class)
 merge other_hash               # shallow-merge a hash into json
 ```
+
+`define OtherModel do ... end` inside an exporter defines how nested `export` renders `OtherModel` objects.
+A nested export never falls back to another model's default block: it needs `define OtherModel` in the exporter (or an ancestor), or the exporter must be `OtherModelExporter` itself; otherwise it raises `ArgumentError`.
+`export :users, key: :people` stores the nested export under another key; other local opts (e.g. `shape:`) pass to the nested exporter.
 
 ## API
 

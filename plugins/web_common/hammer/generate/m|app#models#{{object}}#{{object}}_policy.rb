@@ -1,3 +1,3 @@
-class {{klass}}Policy < ModelPolicy
+class {{klass}}Policy < Lux::Policy
 
 end

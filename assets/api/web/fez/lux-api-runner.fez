@@ -1,10 +1,12 @@
 <script>
   // ---- module-level: snippet generators ---------------------------------
-  // Lux::Api is JSON-RPC style: every call is POST with a JSON body of params.
+  // Snippets use the action's verb (POST unless it declares `allow`); GET
+  // carries params in the query string, every other verb sends a JSON body.
+  // The rpc envelope is always POSTed to the mount root.
   const SNIPPETS = {
     'curl': (c) => {
       const lines = [
-        `curl -X POST '${c.url}' \\`,
+        `curl -X ${c.verb} '${c.url}' \\`,
         `  -H 'Content-Type: application/json'`
       ]
       if (c.bearer) lines[1] += ` \\`, lines.push(`  -H 'Authorization: Bearer ${c.bearer}'`)
@@ -22,7 +24,7 @@
       const body = { class: c.api, action: c.action }
       if (c.kind === 'member') body.ref = c.ref
       if (c.bearer)            body.token = c.bearer
-      body.params = c.params
+      body.params = c.rpc_params
       return `POST ${c.rpc_url}
 Content-Type: application/json
 
@@ -31,15 +33,17 @@ ${JSON.stringify(body, null, 2)}`
 
     'js': (c) => {
       // ky - 3kb fetch wrapper. Auto-parses JSON, throws on non-2xx.
+      const hasBody = Object.keys(c.params).length > 0
       const json = JSON.stringify(c.params, null, 2).replace(/\n/g, '\n    ')
-      let opts = `{\n    json: ${json}`
-      if (c.bearer) opts += `,\n    headers: { Authorization: 'Bearer ${c.bearer}' }`
-      opts += '\n  }'
+      const parts = []
+      if (hasBody)  parts.push(`json: ${json}`)
+      if (c.bearer) parts.push(`headers: { Authorization: 'Bearer ${c.bearer}' }`)
+      const opts = parts.length ? `, {\n    ${parts.join(',\n    ')}\n  }` : ''
       return [
         `import ky from 'ky'`,
         ``,
         `const data = await ky`,
-        `  .post('${c.url}', ${opts})`,
+        `  .${c.verb.toLowerCase()}('${c.url}'${opts})`,
         `  .json()`
       ].join('\n')
     },
@@ -48,7 +52,8 @@ ${JSON.stringify(body, null, 2)}`
       // http.rb (gem 'http') - tiny, chainable, no ceremony.
       let chain = 'HTTP'
       if (c.bearer) chain += `\n  .auth('Bearer ${c.bearer}')`
-      chain += `\n  .post('${c.url}', json: ${JSON.stringify(c.params)})\n  .parse`
+      const body = Object.keys(c.params).length ? `, json: ${JSON.stringify(c.params)}` : ''
+      chain += `\n  .${c.verb.toLowerCase()}('${c.url}'${body})\n  .parse`
       return `require 'http'\n\ndata = ${chain}`
     },
 
@@ -57,23 +62,28 @@ ${JSON.stringify(body, null, 2)}`
       const py = (v) => JSON.stringify(v).replace(/true/g,'True').replace(/false/g,'False').replace(/null/g,'None')
       const headers = {}
       if (c.bearer) headers['Authorization'] = `Bearer ${c.bearer}`
-      let out = `import httpx\n\nr = httpx.post(\n    '${c.url}',`
+      let out = `import httpx\n\nr = httpx.request(\n    '${c.verb}',\n    '${c.url}',`
       if (Object.keys(headers).length) out += `\n    headers=${py(headers)},`
-      out += `\n    json=${py(c.params)},\n)\ndata = r.json()`
+      if (Object.keys(c.params).length) out += `\n    json=${py(c.params)},`
+      out += `\n)\ndata = r.json()`
       return out
     },
 
     'java': (c) => {
       // OkHttp - Square's HTTP client; the de facto Java/Android choice.
-      const body = JSON.stringify(c.params)
-      let out = `import okhttp3.*;\n\nvar client = new OkHttpClient();\nvar body   = RequestBody.create(\n  ${JSON.stringify(body)},\n  MediaType.parse("application/json")\n);\n\nvar req = new Request.Builder()\n  .url("${c.url}")\n  .post(body)`
+      const body = c.verb === 'GET' ? null : JSON.stringify(c.params)
+      let out = 'import okhttp3.*;\n\nvar client = new OkHttpClient();\n'
+      out += body === null
+        ? 'RequestBody body = null;\n'
+        : `var body   = RequestBody.create(\n  ${JSON.stringify(body)},\n  MediaType.parse("application/json")\n);\n`
+      out += `\nvar req = new Request.Builder()\n  .url("${c.url}")\n  .method("${c.verb}", body)`
       if (c.bearer) out += `\n  .header("Authorization", "Bearer ${c.bearer}")`
       out += `\n  .build();\n\nvar data = client.newCall(req).execute().body().string();`
       return out
     }
   }
 
-  // pick the right input widget for a typero param
+  // pick the right input widget for a Lux::Type param
   function widgetFor(spec, name) {
     const t = (spec.type || '').toLowerCase()
     if (t === 'boolean')                    return 'checkbox'
@@ -116,7 +126,7 @@ ${JSON.stringify(body, null, 2)}`
     const open     = true                      // expand all by default; toggle still works per-node
     const opener   = t === 'array' ? '[' : '{'
     const closer   = t === 'array' ? ']' : '}'
-    const toggleCh = open ? '▾' : '▸'
+    const toggleCh = open ? '\u25BE' : '\u25B8'
     const openCls  = open ? ' is-open' : ''
     const countStyle = open ? ' style="display:none"' : ''
 
@@ -271,7 +281,7 @@ ${JSON.stringify(body, null, 2)}`
     verb() {
       const http = this.state.entry.http || ['POST']
       return http.includes('POST') ? 'POST' : http[0]
-    },
+    }
 
     resolvedPath() {
       let p = this.state.entry.path
@@ -290,11 +300,21 @@ ${JSON.stringify(body, null, 2)}`
         ? this.state.entry.path.replace(':ref', this.state.ref || ':ref')
         : this.state.entry.path
       const mount = (window.lux_api.api_schema?.mount_on || '/').replace(/\/+$/, '')
+      const verb  = this.verb()
+      let url     = location.origin + path
+      let params  = filled
+      if (verb === 'GET') {
+        const qs = new URLSearchParams(filled).toString()
+        if (qs) url += '?' + qs
+        params = {}
+      }
       return {
-        url:     location.origin + path,
+        verb,
+        url,
         rpc_url: location.origin + (mount || '/'),
         path,
-        params:  filled,
+        params,
+        rpc_params: filled,
         bearer:  this.state.bearer,
         action:  this.state.entry.action,
         api:     this.state.api_name,
@@ -621,8 +641,8 @@ ${JSON.stringify(body, null, 2)}`
   {#if !state.tab}
     <!-- collapsed: PayPal-style preview bar -->
     <div class="runner-preview">
-      <span class="preview-pill">POST</span>
-      <code class="preview-path">{state.entry.path}<span class="chev">›</span></code>
+      <span class="preview-pill">{fez.verb()}</span>
+      <code class="preview-path">{state.entry.path}<span class="chev">&rsaquo;</span></code>
       <button class="preview-try" onclick="fez.setTab('try')">Try it</button>
     </div>
   {:else}
@@ -637,7 +657,7 @@ ${JSON.stringify(body, null, 2)}`
           <material-icon name={state.copied ? 'check' : 'content_copy'} size="16"></material-icon>
         </button>
       {/if}
-      <button class="tab tab-close" onclick="fez.setTab(null)" title="close">✕</button>
+      <button class="tab tab-close" onclick="fez.setTab(null)" title="close">&times;</button>
     </div>
   {/if}
 
@@ -693,7 +713,7 @@ ${JSON.stringify(body, null, 2)}`
                 <label></label>
                 <button class="send-btn" onclick="fez.send()">
                   <span class="spinner"></span>
-                  <span>Send →</span>
+                  <span>Send &rarr;</span>
                 </button>
                 <code class="send-path">{fez.verb()} {fez.resolvedPath()}</code>
                 <div class="spacer"></div>

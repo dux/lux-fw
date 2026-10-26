@@ -11,9 +11,8 @@ class Lux::Type::SlugType < Lux::Type
         .to_s
         .downcase
         .gsub(/[^\w\-]/, '-')
-        .gsub(/\-+/, '-')
-        .sub(/^\-/, '')
-        .sub(/\-$/, '')[0, max]
+        .gsub(/-+/, '-')[0, max]
+        .gsub(/\A-|-\z/, '')
     end
 
     error_for(:invalid_slug) unless value =~ /^[\w][\w\-]*[\w]$|^[\w]$/

@@ -26,43 +26,29 @@ Sequel::Model.dataset_module do
     return where(Sequel.lit("coalesce(%s,'')!=''" % hash_or_string)) if hash_or_string.is_a?(Symbol)
     return where(Sequel.lit(hash_or_string, *args))                  if hash_or_string.is_a?(String)
 
-    # check if we do where in a array
-    if hash_or_string.is_a?(Hash)
-      key = hash_or_string.keys.first
-
-      if model.db_schema[key]&.dig(:db_type)&.include?('[]')
-        value = hash_or_string.values.first
-
-        if value.is_a?(Array)
-          # { skills: ['ruby', 'perl'] }, 'or'
-          # { skills: ['ruby', 'perl'] }, 'and'
-          join_type = args.first or die('Define join type for xwhere array search ("or" or "and")')
-
-          data = value.map do |v|
-            val =
-            if v.is_a?(Integer)
-              v
-            else
-              v = v.gsub(/['"]/,'')
-              v = "'%s'" % v
-            end
-
-            "%s=any(#{key})" % v
+    if hash_or_string.is_a?(::Hash)
+      ds    = self
+      plain = {}
+      hash_or_string.each do |key, value|
+        next if value.blank? || value == 0
+        if model.db_schema[key.to_sym]&.dig(:db_type).to_s.end_with?('[]')
+          col = Sequel.identifier(key)
+          if value.is_a?(Array)
+            # { skills: ['ruby', 'perl'] }, 'or' | 'and'
+            join = args.first.to_s.downcase
+            raise ArgumentError, 'xwhere array search needs join type "or" or "and"' unless %w[or and].include?(join)
+            conds = value.map { |v| Sequel.lit('? = any(?)', v, col) }
+            ds = ds.where(join == 'or' ? Sequel.|(*conds) : Sequel.&(*conds))
+          else
+            ds = ds.where(Sequel.lit('? = any(?)', value, col))
           end
-            .join(' %s ' % join_type)
-
-          return where(Sequel.lit(data))
         else
-          # skills: 'ruby'
-          if value.present?
-            return where(Sequel.lit("?=any(#{key})", value))
-          end
+          plain[key] = value
         end
       end
+      return plain.empty? ? ds : ds.where(plain)
     end
-
-    q = hash_or_string.select{ |k,v| v.present? && v != 0 }
-    q.keys.blank? ? self : where(q)
+    self
   end
 
   def xlike search, *args
@@ -82,12 +68,13 @@ Sequel::Model.dataset_module do
           raise ArgumentError.new('Database field "%s" not found (xlike)' % el) unless schema
 
           if schema[:db_type] == 'jsonb'
+            cur = Lux.respond_to?(:locale) ? Lux.locale.current.to_s : 'en'
+            dft = Lux.respond_to?(:locale) ? Lux.locale.default.to_s : cur
             like_sql = "lower(CAST(#{el} -> ? as text)) ilike ?"
-            params.push Locale.current.to_s, pattern
-
-            if defined?(Locale::DEFAULT) && Locale::DEFAULT != Locale.current
+            params.push cur, pattern
+            if dft != cur
               and_str << "(#{like_sql}) or lower(CAST(#{el} -> ? as text)) ilike ?"
-              params.push Locale::DEFAULT.to_s, pattern
+              params.push dft, pattern
             else
               and_str << like_sql
             end

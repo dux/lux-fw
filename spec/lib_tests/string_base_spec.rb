@@ -9,9 +9,13 @@ describe Lux::Utils::StringBase do
     end
 
     it 'encodes and decodes zero' do
-      _(Lux::Utils::StringBase.encode(0)).must_equal ''
-      # decode of empty string should return 0
+      _(Lux::Utils::StringBase.encode(0)).must_equal 'b'
+      _(Lux::Utils::StringBase.decode('b')).must_equal 0
       _(Lux::Utils::StringBase.decode('')).must_equal 0
+    end
+
+    it 'rejects negative integers' do
+      _{ (-1).string_id }.must_raise ArgumentError
     end
 
     it 'handles large integers' do
@@ -33,7 +37,7 @@ describe Lux::Utils::StringBase do
 
     it 'rejects invalid base on decode' do
       # 'c' decodes to index 1, which is not divisible by multiplier 99
-      err = _{ encoder.decode('c') }.must_raise RuntimeError
+      err = _{ encoder.decode('c') }.must_raise ArgumentError
       _(err.message).must_match(/Invalid decode base/)
     end
   end

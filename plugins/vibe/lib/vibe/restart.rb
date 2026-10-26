@@ -41,9 +41,8 @@ module Vibe
       File.exist?('/var/run/docker.sock') && docker_cli?
     end
 
-    def docker_cli?
-      Vibe.run('docker', '--version', timeout: 5).first
-    end
+    # memoized: /api/health asks every 5s per tab
+    def docker_cli? = defined?(@docker_cli) ? @docker_cli : (@docker_cli = Vibe.run('docker', '--version', timeout: 5).first)
 
     def app_container_id
       ok, out = Vibe.run('docker', 'ps', '-q',

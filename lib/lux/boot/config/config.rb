@@ -7,6 +7,16 @@ module Lux
     module Config
       extend self
 
+      # An env section deep-merges over `default`: hashes merge key by key,
+      # anything else replaces. Arrays replace rather than union (an env could
+      # otherwise never drop an entry), and an explicit nil clears a default.
+      MERGE_OPTIONS ||= { preserve_unmergeables: false, overwrite_arrays: true, merge_nil_values: true }.freeze
+
+      # Merges env_data into base in place; returns base.
+      def merge_env! env_data, base
+        DeepMerge.deep_merge!(env_data || {}, base, MERGE_OPTIONS)
+      end
+
       # './config/secrets.yaml'
       # default is shared + specific envs
       # default:
@@ -16,7 +26,7 @@ module Lux
       # production:
       #   foo:
       def load
-        Lux.init_env if Lux.respond_to?(:init_env)
+        Lux.init_env
 
         source = Pathname.new './config/config.yaml'
 
@@ -46,26 +56,12 @@ module Lux
             bad.(':production section must be a Hash')
           end
 
-          DeepMerge.deep_merge!(env_data || {}, base, preserve_unmergeables: false)
+          merge_env! env_data, base
           base['production'] = production_data
           base
         else
           Lux.shell.info '%s not found' % source
           {}
-        end
-      end
-
-      private
-
-      def env_value_of key, default = :_undef
-        value = ENV["LUX_#{key.to_s.upcase}"].to_s
-        value = true if ['true', 't', 'yes'].include?(value)
-        value = false if ['false', 'f', 'no'].include?(value)
-
-        if default == :_undef
-          value
-        else
-          value.nil? ? default : value
         end
       end
     end

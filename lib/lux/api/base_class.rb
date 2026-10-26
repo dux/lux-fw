@@ -48,7 +48,6 @@ module Lux
       rescue Lux::Api::NotFound => error
         response_error error.message, status: 404
       rescue => error
-        Lux.error.log error unless error.is_a?(Lux::Api::Error)
         Response.auto_format error
       end
 
@@ -261,14 +260,11 @@ module Lux
         pending_opts[:params]  = pending_opts[:_schema].to_h
       end
 
-      # reference a top-level model schema by its underscored name
-      # generators (postman, openapi, web) resolve it from schemas: in the
-      # introspect output, so the field list is not duplicated per action
-      #
-      # TODO: doc-only. parse_api_params validates against :params / :_schema
-      # only, so schema_ref does NOT enforce validation at runtime. Either wire
-      # it into validation or rename it to make the doc-only nature explicit.
-      # See also api_schema / api_schema_ref in introspect.rb.
+      # Point generators (postman, openapi, web) at a named schema for the
+      # published contract. Runtime validation still comes only from `params do`
+      # (:params / :_schema) - intentional: the documented schema may list
+      # fields the action accepts loosely (or omits from coercion/strip), so we
+      # do not validate-or-drop against the full schema_ref. See introspect.rb.
       def schema_ref name
         pending_opts[:schema_ref] = name.to_s
       end
@@ -314,22 +310,6 @@ module Lux
       # allow :any            # every verb
       def allow *types
         pending_opts[:allow] = Lux::Utils::HttpVerbs.parse(*types)
-      end
-
-      # define response content type (defaults to JSON)
-      def content_type name
-        if name.class == Symbol
-          name = case name
-          when :json
-            'application/json'
-          when :text
-            'text/plain'
-          else
-            raise ArgumentError.new('content-type "%s" is not recognized')
-          end
-        end
-
-        pending_opts[:content_type] = name
       end
 
       # mark the next endpoint as unsafe: it skips the class `auth` hook and is
@@ -388,24 +368,27 @@ module Lux
         opts.dig *args
       end
 
-      # dig all options for a current class
+      # Merged member/collection/class opts down the ancestor tree. Memoised per
+      # class against OPTS_GEN, which every `set` bumps, so a DSL change on a
+      # parent also invalidates its subclasses; recomputed always under reload.
+      # Callback arrays (before_*/after_*) are read straight from OPTS.
       def opts
+        return @opts_cache[1] if @opts_cache && @opts_cache[0] == OPTS_GEN[0] && !Lux.reload?
+
         out = {}
 
-        # dig down the ancestors tree till Object class
         ancestors.each do |klass|
           break if klass == Object
 
-          # copy all member and collection method options
-          keys = (OPTS[klass.to_s] || {}).keys
-          keys.each do |type|
-            for k, v in (OPTS.dig(klass.to_s, type) || {})
-              out[type] ||= {}
-              out[type][k] ||= v
-            end
+          (OPTS[klass.to_s] || {}).each do |type, list|
+            next unless list.is_a?(::Hash)
+
+            out[type] ||= {}
+            list.each { |k, v| out[type][k] = v unless out[type].key?(k) }
           end
         end
 
+        @opts_cache = [OPTS_GEN[0], out]
         out
       end
 
@@ -477,9 +460,8 @@ module Lux
       end
 
       def set_callback name, block
-        name = [name, @method_type || :all].join('_').to_sym
-        set name, []
-        OPTS[to_s][name].push block
+        key = [name, @method_type || :all].join('_').to_sym
+        ((OPTS[to_s] ||= {})[key] ||= []).push block
       end
 
       # generic opts set
@@ -495,6 +477,7 @@ module Lux
         end
 
         pointer[name] = value
+        OPTS_GEN[0] += 1
       end
     end
 

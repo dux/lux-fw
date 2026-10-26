@@ -33,7 +33,7 @@ module Lux
       define :md do
         proc do
           response('text/markdown; charset=utf-8') do
-            Lux::Api::Guide.markdown(@api, mount_on: derive_mount_on)
+            Lux::Api::Guide.markdown(@api, mount_on: mount_path)
           end
         end
       end
@@ -42,7 +42,7 @@ module Lux
       desc 'Human-readable API guide generated from introspection. Rendered to HTML for browsers, raw markdown otherwise (or with ?format=md).'
       define :guide do
         proc do
-          mount = derive_mount_on
+          mount = mount_path
           if @api.params[:format].to_s == 'md' || !browser?
             response('text/markdown; charset=utf-8') do
               Lux::Api::Guide.markdown(@api, mount_on: mount)
@@ -60,7 +60,7 @@ module Lux
       define :schema do
         proc do
           response('application/json') do
-            JSON.pretty_generate(Lux::Api::Introspect.schema(mount_on: derive_mount_on))
+            JSON.pretty_generate(Lux::Api::Introspect.schema(mount_on: mount_path))
           end
         end
       end
@@ -70,7 +70,7 @@ module Lux
       define :postman do
         proc do
           response('application/json') do
-            Lux::Api::PostmanSchema.new(@api, mount_on: derive_mount_on).postman
+            Lux::Api::PostmanSchema.new(@api, mount_on: mount_path).postman
           end
         end
       end
@@ -80,7 +80,7 @@ module Lux
       define :openapi do
         proc do
           response('application/json') do
-            JSON.pretty_generate(Lux::Api::OpenapiSchema.new(@api, mount_on: derive_mount_on).openapi)
+            JSON.pretty_generate(Lux::Api::OpenapiSchema.new(@api, mount_on: mount_path).openapi)
           end
         end
       end
@@ -90,17 +90,17 @@ module Lux
       define :hammer do
         proc do
           response('text/plain; charset=utf-8') do
-            Lux::Api::HammerSchema.new(@api, mount_on: derive_mount_on).hammer
+            Lux::Api::HammerSchema.new(@api, mount_on: mount_path).hammer
           end
         end
       end
 
       allow :get, :post
-      desc 'Interactive API explorer. Default response is index.html; pass ?file=lux-api-nav.fez (or any whitelisted file under lib/lux/api/web/) to fetch a specific asset. Content-Type is inferred from the extension.'
+      desc 'Interactive API explorer. Default response is index.html; pass ?file=fez/nav-block.fez (any whitelisted file under assets/api/web/) to fetch a specific asset. Content-Type is inferred from the extension.'
       define :web do
         proc do
           begin
-            result = Lux::Api::Web.render(file: @api.params[:file], api: @api, mount_on: derive_mount_on)
+            result = Lux::Api::Web.render(file: @api.params[:file], api: @api, mount_on: mount_path)
             response(result[:content_type]) { result[:body] }
           rescue ArgumentError => e
             response.error e.message, status: 400
@@ -113,7 +113,7 @@ module Lux
       define :agents do
         proc do
           response('text/markdown; charset=utf-8') do
-            Lux::Api::ErbView.new(@api, mount_on: derive_mount_on).render(Lux.fw_root.join('assets/api/agents.md.erb').to_s)
+            Lux::Api::ErbView.new(@api, mount_on: mount_path).render(Lux.fw_root.join('assets/api/agents.md.erb').to_s)
           end
         end
       end
@@ -136,7 +136,7 @@ module Lux
       def sys_index
         req   = @api.request
         base  = req ? "#{req.scheme}://#{req.host_with_port}" : ''
-        mount = derive_mount_on
+        mount = mount_path
         name_w = ENDPOINTS.keys.map { |k| k.length }.max
 
         rows = ENDPOINTS.map do |action, desc|
@@ -157,16 +157,10 @@ module Lux
         @api.request && @api.request.env['HTTP_ACCEPT'].to_s.include?('text/html')
       end
 
-      # Recover the actual mount prefix from the live request path. With
-      # per-class mount_on this matches the dispatching class, even when
-      # multiple APIs are mounted at different roots.
-      def derive_mount_on
-        path = @api.request&.path
-        return '/api' unless path
-
-        # "/api/sys/schema" -> "/api"; also the bare index "/api/sys" -> "/api"
-        prefix = path.split(%r{/sys(?:/|\z)}).first.to_s
-        prefix.empty? ? '/api' : prefix
+      # The mount prefix auto_mount resolved for this request ('' at /); an
+      # in-process render has none, so fall back to the declared mount_on.
+      def mount_path
+        @api.mount_path || self.class.mount_on
       end
     end
   end

@@ -1,36 +1,66 @@
 ## Lux command line helper
 
-> The `lux` CLI is built on lux-hammer. Run tasks as `lux <cmd>` (or
-> `bundle exec hammer <cmd>`). Core commands live in `bin/cli/*_hammer.rb`;
-> plugins add theirs from `plugins/<name>/hammer/` (e.g. `db:*`, `assets:*`).
-
-You can run command `lux` in your app home folder.
+> The `lux` CLI is built on lux-hammer.
+> Run tasks as `lux <cmd>` in your app home folder.
+> `bundle exec hammer <cmd>` is only for the lux-fw checkout's own `Hammerfile` (`hammer test`, `hammer deploy`).
+> Core commands live in `bin/cli/*_hammer.rb`; plugins add theirs from `plugins/<name>/hammer/` or `plugins/<name>/Hammerfile` (e.g. `db:*`, `assets:*`).
 
 ### Current commands
 
+Core (`bin/cli/`):
+
 ```bash
-$ lux
-  lux agents      # Write or refresh the lux-fw docs pointer in ./AGENTS.md
-  lux console     # Start console                                       (alias: c)
-  lux evaluate    # Eval ruby string in context of Lux::Router     (alias: e, eval)
-  lux generate    # Generate models, cells, ...
-  lux hi          # Print hello world
-  lux memory      # Show memory usage
-  lux render      # Render page via Lux.render (lux render /login -t TOKEN -s user_id=1 -i)
-  lux routes      # Print mounted route tree (verb, path, target, source)
-  lux secrets     # Edit, show and compile secrets
-  lux server      # Start web server (puma only)
-  lux start       # generate app/assets/*.tmp.* (web_common), then ./Procfile (alias: s)
-  lux procfile    # Run all Procfile services color-prefixed            (alias: pf)
-  lux stats       # Print project stats
-  lux test        # Run tests (auto-detects rspec or minitest)          (alias: t)
+lux agents           # Write or refresh the lux-fw docs pointer in ./AGENTS.md
+lux assets:compile   # Build app/assets into public/assets (app defines it in lib/tasks)
+lux assets:upload    # Upload LOCAL_PATH to REMOTE_PATH on the app CDN (app defines it in lib/tasks)
+lux console          # Start console                                        (alias: c)
+lux evaluate CODE    # Eval Ruby in the app context                         (alias: e, eval)
+lux hi               # Print hello world
+lux mail:pull        # Pull unseen mail from the configured IMAP inbox(es)
+lux memory           # Show memory usage
+lux new NAME         # Create, set up and start a new Lux application
+lux pack             # Build a symlink-flattened, gitignore-clean app copy for rsync deploy
+lux procfile         # Run all Procfile services color-prefixed             (alias: pf)
+lux render /path     # Render page via Lux.render (lux render /login -t TOKEN -s user_id=1 -i)
+lux routes           # Print mounted route tree (verb, path, target, source)
+lux secrets          # Edit, show and compile secrets
+lux server           # Start web server (puma only)
+lux start            # Generate app/assets/*.tmp.* (web_common), then ./Procfile (alias: s)
+lux stats            # Print project stats
+lux test             # Run tests (Minitest specs under spec/, test/, or rspec) (alias: t)
+lux version          # Print the Lux build version
 ```
 
-Run tests with `lux test` or `bundle exec hammer test`.
+Plugins (only when the app lists the plugin):
+
+```bash
+lux db:*             # db: am, create, drop, reset, seed, backup, restore, psql, info, check, exec, unescape, test:am, test:drop
+lux assets:*         # web_common: generate, build, deploy
+lux docker:*         # web_common: build, local, staging, prod; vibe: docker:vibe:*
+lux generate         # web_common: model + cell/policy/api/exporter
+lux favicon          # favicon: build public/favicon.ico + apple-touch-icon
+lux job_runner:*     # job_runner: start, web
+```
+
+`lux test` picks the runner once: rspec when the app has `.rspec` or rspec in its Gemfile, else Minitest specs under `spec/` (`ruby -Ilib -Ispec`) when `spec/` exists, else Minitest under `test/`.
 
 `lux render /path -i` runs one request through the full stack and prints
 status, headers, session and `dispatch` - the router, action, template
-and layout that served it. Pass `-t <email>` to render as that user.
+and layout that served it.
+`-t TOKEN` sends `Authorization: Bearer TOKEN`; with the authcog plugin in dev an email address impersonates that user.
+`-H K=V` adds request headers, `-s` / `-c` set session keys and cookies, `-p` sets params (query for GET, body otherwise).
+
+### lux-api
+
+`lux-api` is installed with the gem, next to `lux`.
+It calls a `Lux::Api` endpoint over HTTP and prints the answer as JSON (`--yaml`, `--text`):
+
+```sh
+LUX_API_HOST=http://lvh.me:3000/api lux-api users/login email=foo@bar.com pass=secret
+```
+
+`LUX_API_HOST` (required) is the API base URL; `LUX_API_BEARER` (optional) is sent as a bearer token.
+Run it with `--help` for the full usage.
 
 ### Port
 
@@ -81,7 +111,8 @@ bundle exec lux s
 Setup uses the generated app's bundle and development database.
 The database step connects before it creates, so setup can be re-run over a database that already exists.
 When invoked from a local Lux checkout, the generator links every checkout the starter declares into `./.libs`: each `lgem 'name'` in the Gemfile and each `"file:.libs/name"` in `package.json`, whichever exist next to the Lux checkout.
-An installed Lux gem links nothing; `lgem` then falls back to `github dux/<name>`.
+An installed Lux gem links nothing; `lgem` then falls back to the RubyGems gem, pinned exactly (`'= X.Y.Z'`) to the version that ran `lux new` (no pin for a `dev` build or an unresolvable version).
+Both starters declare lux-fw with `lgem`.
 It also writes the app's `AGENTS.md` with a marked block that points coding agents at the framework docs: `.libs/lux-fw/AGENTS.md` for a linked checkout, the installed gem's absolute path otherwise.
 `lux agents` rewrites only that block, so run it after upgrading lux-fw; the rest of the file is the app's own.
 A failed step stops setup and leaves the generated files in place.

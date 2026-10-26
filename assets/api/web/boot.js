@@ -13,8 +13,8 @@
 //   <lux-api-apis>    - main content column; renders namespace sections
 //                       after schema-loaded fires
 //
-// Lux::Api is JSON-RPC style: every action is reached via POST. The UI does
-// NOT show REST verb pills - the snippets and try-it always POST.
+// Lux::Api actions are reached via POST unless the action declares other verbs
+// (`http` in the schema); the runner and snippets use that verb.
 
 (function () {
   const sysBase = location.pathname.split('/sys/')[0] + '/sys';
@@ -102,7 +102,7 @@
     const open = !children.classList.contains('is-open');
     children.classList.toggle('is-open', open);
     el.classList.toggle('is-open', open);
-    el.textContent = open ? '▾' : '▸';
+    el.textContent = open ? '\u25BE' : '\u25B8';
     if (count) count.style.display = open ? 'none' : 'inline';
   };
 

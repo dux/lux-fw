@@ -22,10 +22,7 @@ class Lux::Type::DomainType < Lux::Type
 
   # accept a bare host, or peel the host out of a pasted URL / host:port
   def normalize v
-    v = v.to_s.strip.downcase
-    v = v.split('://', 2).last   # drop scheme
-    v = v.split('/', 2).first    # drop path
-    v = v.split(':', 2).first    # drop port
-    v.to_s
+    v = v.to_s.strip.downcase.sub(%r{\A[a-z][a-z0-9+.\-]*://}, '')  # drop scheme
+    v.split(%r{[/:?#]}, 2).first.to_s                               # drop path / port / query
   end
 end

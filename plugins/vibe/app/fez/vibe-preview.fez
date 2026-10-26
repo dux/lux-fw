@@ -89,7 +89,7 @@
 </style>
 
 <div class="bar">
-  <button class="btn sm" onclick="fez.reload()" title="reload the preview">↻</button>
+  <button class="btn sm" onclick="fez.reload()" title="reload the preview">&#x21bb;</button>
   <div class="url">
     <span class="base">{props.app_url}</span>
     <input fez:this="pathEl" value={state.path} onkeydown="fez.onPathKey(event)" placeholder="/" title="path to open, Enter to go">
@@ -99,10 +99,10 @@
     <button class={state.width === '1024' ? 'on' : ''} onclick="fez.setWidth('1024')">1024</button>
     <button class={state.width === '390' ? 'on' : ''} onclick="fez.setWidth('390')">390</button>
   </div>
-  <button class="btn sm" onclick="fez.openTab()" title="open in a new tab">↗</button>
+  <button class="btn sm" onclick="fez.openTab()" title="open in a new tab">&#x2197;</button>
 </div>
 <div class="stage">
-  <iframe fez:this="frameEl" class={'frame w' + state.width} src={props.app_url + (state.path.startsWith('/') ? state.path : '/' + state.path)} allow="clipboard-read; clipboard-write"></iframe>
+  <iframe fez:this="frameEl" class={'frame w' + state.width} src={(props.app_url || '').replace(/\/$/, '') + (state.path.startsWith('/') ? state.path : '/' + state.path)} allow="clipboard-read; clipboard-write"></iframe>
   {#if state.down}
     <div class="down">app is not responding - restarting?</div>
   {/if}

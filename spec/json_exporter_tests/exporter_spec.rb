@@ -183,4 +183,12 @@ describe Lux::JsonExporter do
     _(result[:bhistory].join('-')).must_equal 'first-second-third'
     _(result[:ahistory].join('-')).must_equal 'start-parent-child'
   end
+
+  it 'raises for a nested export with no matching exporter' do
+    klass = Class.new(Lux::JsonExporter) do
+      define { export :company }
+    end
+    err = _ { klass.export JxUser.new('dux', 'dux@net.hr') }.must_raise ArgumentError
+    _(err.message).must_include 'JxCompany'
+  end
 end

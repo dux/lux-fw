@@ -1,6 +1,6 @@
 > STATUS: design proposal - NOT implemented, and partly overtaken by events.
 > Describes a possible future router, not current behavior. For current
-> behavior read [`../lib/lux/application/README.md`](../lib/lux/application/README.md).
+> behavior read [`../lib/lux/router/README.md`](../lib/lux/router/README.md).
 >
 > Several things this proposal wanted to delete are already gone, achieved by
 > trimming the existing router rather than replacing it (see
@@ -12,7 +12,7 @@
 > * The `_ref` action rename and the `ref do` macro - deleted. Resourceful
 >   dispatch resolves to the last non-`:ref` segment and the action reads
 >   `nav.ref`.
-> * Path matching is no longer spread across four matchers; `Lux::Application::Route`
+> * Path matching is no longer spread across four matchers; `Lux::Router::Route`
 >   owns `match?` / `start_with?` / `capture` and the controller `filter` tree
 >   walks the same cursor as `map`.
 >

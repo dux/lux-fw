@@ -66,7 +66,7 @@ module Lux
       # An absolute argument is checked as-is.
       def resolve rel
         rel = Pathname.new(rel)
-        return rel if rel.absolute?
+        return (rel.exist? ? rel : nil) if rel.absolute?
 
         roots.each do |root|
           candidate = root.join(rel)

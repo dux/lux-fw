@@ -72,9 +72,9 @@
     <button class={state.source === 'app' ? 'on' : ''} onclick="fez.setSource('app')" title="log/LOG.log">app log</button>
     <button class={state.source === 'container' ? 'on' : ''} onclick="fez.setSource('container')" title="docker logs of the app container">container</button>
   </div>
-  <input placeholder="filter…" oninput="fez.setFilter(this.value)">
+  <input placeholder="filter..." oninput="fez.setFilter(this.value)">
   <button class={state.follow ? 'btn sm primary' : 'btn sm'} onclick="fez.toggleFollow()" title="scroll to new lines">follow</button>
-  <button class="btn sm ghost" onclick="fez.refresh()">↻</button>
+  <button class="btn sm ghost" onclick="fez.refresh()">&#x21bb;</button>
 </div>
 {#if state.error}
   <div class="err">{state.error}</div>

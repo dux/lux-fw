@@ -1,3 +1,5 @@
+require 'fileutils'
+
 class Dir
   # Get list of folders in a folder
   # `Dir.folders('./app/assets')`
@@ -90,21 +92,5 @@ class Dir
           raise error
         end
       end
-  end
-
-  def self.mkdir? name
-    FileUtils.mkdir_p name
-  end
-end
-
-class Pathname
-  # Lux.fw_root.join('plugins').folders do |folder| ...
-  def folders
-    Dir.folders to_s
-  end
-
-  # Lux.fw_root.join('plugins').folders do |folder| ...
-  def files
-    Dir.files to_s
   end
 end

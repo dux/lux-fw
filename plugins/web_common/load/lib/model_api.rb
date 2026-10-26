@@ -82,12 +82,12 @@ class ModelApi < ApplicationApi
       @object = base.new
     end
 
-    instance_variable_set '@%s' % base.to_s.underscore, @object
+    instance_variable_set '@%s' % base.to_s.underscore.tr('/', '_'), @object
   end
 
   after do
-    if @object.try(:id)
-      response.meta :path, @object.path
+    if @object && !@object.new?
+      response.meta :path, @object.path if @object.respond_to?(:path)
       response.meta :ref, @object.ref
       response.meta :collection, @object.class.name.tableize
       response.meta :class, @object.class.name.tableize.singularize
@@ -112,7 +112,7 @@ class ModelApi < ApplicationApi
     end
   end
 
-  def report_errros_if_any
+  def report_errors_if_any
     return if @object.errors.count == 0
 
     for k, v in @object.errors
@@ -173,27 +173,22 @@ class ModelApi < ApplicationApi
 
     @object.save if @object.valid?
 
-    return if report_errros_if_any
+    return if report_errors_if_any
 
-    if @object.id
-      message '%s created' % display_name
-    else
-      error 'object not created, error unknown'
-    end
+    error 'object not created, error unknown' if @object.new?
+    message '%s created' % display_name
 
     @object.export
   end
 
   def generated_update
-    error "Object not found" unless @object
-
     # Policy runs on the stored record first, so a caller cannot write the
     # fields the policy reads (owner refs) and then pass on their new values.
     # The check after assignment still guards the state being written.
     @object.can.update!
 
     # toggle array or hash field presence
-    # toggle__field__value = 0 | 1
+    # toggle__<field> = value
     for key, value in object_params
       key = key.to_s
       value = value.xuniq if value.is_a?(Array)
@@ -208,7 +203,7 @@ class ModelApi < ApplicationApi
 
         next unless @object.respond_to?("#{field}=")
 
-        if @object[field].class.to_s.include?('Array')
+        if db_type.to_s.end_with?('[]')
           # array field
           @object[field] ||= []
           if @object[field].include?(value)
@@ -249,9 +244,9 @@ class ModelApi < ApplicationApi
     @object.updated_at = Time.now.utc if @object.respond_to?(:updated_at)
     @object.save if @object.valid?
 
-    report_errros_if_any
+    return if report_errors_if_any
 
-    response.message '%s updated' % display_name
+    message '%s updated' % display_name
 
     @object.export(full: true)
   end
@@ -274,15 +269,10 @@ class ModelApi < ApplicationApi
   end
 
   def generated_undelete
-    error "Object not found" unless @object
-    can? :create, @object
-
-    if @object.respond_to?(:is_deleted)
-      @object.update is_deleted: false
-    else
-      error "No is_deleted field, can't undelete"
-    end
-
-    response.message = 'Object raised from the dead.'
+    @object.can.create!
+    error "No is_deleted field, can't undelete" unless @object.respond_to?(:is_deleted)
+    @object.update is_deleted: false
+    message 'Object raised from the dead.'
+    true
   end
 end

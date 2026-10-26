@@ -4,19 +4,16 @@ module LuxTest
   module_function
 
   def detect_framework
-    return :rspec if File.exist?('.rspec') || File.exist?('spec')
-    return :minitest if File.exist?('test')
-
     gemfile = File.exist?('Gemfile') ? File.read('Gemfile') : ''
-    return :rspec if gemfile.match?(/gem\s+['"]rspec['"]/)
-    return :minitest if gemfile.match?(/gem\s+['"]minitest['"]/)
-
+    return :rspec    if File.exist?('.rspec') || gemfile.match?(/gem\s+['"]rspec['"]/)
+    return :spec     if Dir.exist?('spec')   # Minitest::Spec, Lux convention
+    return :minitest if Dir.exist?('test')
     nil
   end
 end
 
 task :test do
-  desc 'Run tests (auto-detects rspec or minitest)'
+  desc 'Run tests (Minitest specs under spec/, test/, or rspec)'
   alt :t
 
   proc do |opts|
@@ -34,6 +31,8 @@ task :test do
       case fw
       when :rspec
         args.empty? ? 'rspec' : "rspec #{args.join(' ')}"
+      when :spec
+        args.empty? ? %(ruby -Ilib -Ispec -e "Dir.glob('spec/**/*_spec.rb').sort.each { |f| require File.expand_path(f) }") : "ruby -Ilib -Ispec #{args.join(' ')}"
       when :minitest
         args.empty? ? 'ruby -Itest -e "Dir.glob(\'test/**/*_test.rb\').each { |f| require(File.expand_path(f)) }"' : "ruby -Itest #{args.join(' ')}"
       end

@@ -5,14 +5,14 @@ module ModelTree
     expected = 'text[]'
 
     unless base.db_schema[:parent_refs]&.dig(:db_type) == expected
-      die %[Expected #{base}.parent_refs field to be of type "#{expected}"]
+      raise %[Expected #{base}.parent_refs field to be of type "#{expected}"]
     end
   end
 
   ###
 
   def parent
-    self.class.find(parent_refs[0])
+    self.class.take(parent_refs[0])
   end
 
   def children
@@ -20,11 +20,12 @@ module ModelTree
   end
 
   def children_refs
-    [self[:ref]] + self.class.xwhere('?=any(parent_refs)', self[:ref]).refs
+    [self[:ref]] + self.class.xwhere('?=any(parent_refs)', self[:ref]).select_map(:ref)
   end
 
   # sets full path
   def parent_ref= val
+    return self[:parent_refs] = [] if val.blank?
     el   = self.class.find(val)
     list = [el[:ref]]
     seen = Set.new(list)

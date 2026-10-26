@@ -32,15 +32,11 @@ class TrueClass
 end
 
 class Array
-  def blank?
-    self.length == 0
-  end
+  def blank? = empty?
 end
 
 class Hash
-  def blank?
-    self.keys.length == 0
-  end
+  def blank? = empty?
 end
 
 class Numeric
@@ -57,9 +53,9 @@ end
 
 class String
   def blank?
-    return true if self.length == 0
-
-    !(self =~ /[^\s]/)
+    empty? || !match?(/[^[:space:]]/)
+  rescue ArgumentError, Encoding::CompatibilityError
+    false # undecodable bytes are content, not blank
   end
 end
 

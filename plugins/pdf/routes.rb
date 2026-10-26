@@ -1,5 +1,5 @@
 # Reserved /pdf/ root - printable pages (mirrors /admin/). Models are loaded
-# here (router scope, like load_objects) so PdfRouter templates receive
+# here with `nav.load_models` (router scope) so PdfRouter templates receive
 # @<model> via the normal dispatch ivar copy. Access is gated inside
 # PdfRouter (logged-in preview, or a signed URL for the headless renderer).
 #

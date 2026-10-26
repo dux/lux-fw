@@ -9,9 +9,3 @@ module MailerHelper
     Lux.config.host
   end
 end
-
-module ApplicationHelper
-end
-
-module HtmlHelper
-end

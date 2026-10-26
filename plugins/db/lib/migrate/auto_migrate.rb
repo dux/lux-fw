@@ -3,7 +3,7 @@
 # Auto-migrates database schema based on Lux::Schema model definitions.
 # Triggered by the lux_schema sequel adapter when ENV['DB_MIGRATE'] == 'true'.
 #
-# Usage: rake db:am (sets DB_MIGRATE=true before loading models)
+# Usage: lux db:am (sets DB_MIGRATE=true before loading models)
 
 class AutoMigrate
   SIMPLE_TYPES  ||= %i[string integer text boolean datetime date geography timestamp bytea].freeze
@@ -71,8 +71,9 @@ class AutoMigrate
       Lux.silent do
         schema = Lux.schema(klass)
 
+        t  = klass.table_name
         am = new(klass.db)
-        am.table klass, schema.rules do |f|
+        am.table t, schema.rules do |f|
           schema.db_schema.each do |field, type, opts|
             f.send type, field, opts
           end
@@ -82,8 +83,8 @@ class AutoMigrate
           end
         end
 
-        klass.db.schema(klass.to_s.tableize, reload: true)
-        klass.set_dataset(klass.to_s.tableize.to_sym)
+        klass.db.schema(t, reload: true)
+        klass.set_dataset(t)
       end
 
       klass
@@ -112,6 +113,9 @@ class AutoMigrate
 
     if block_given?
       @deferred_indexes = []
+      model = table_name.is_a?(Class) ? table_name : @table_name.to_s.classify.constantize?
+      # `primary_keys :a, :b` is enforced by this index, not by a check on save
+      @deferred_indexes << [model._primary_keys, { unique: true }] if model.respond_to?(:_primary_keys)
       yield self
       normalize_fields
       sync_schema
@@ -346,8 +350,8 @@ class AutoMigrate
     alter_column_type field, type, opts, current
     alter_varchar_limit field, type, opts, current
     alter_text_conversion field, type, current
-    alter_null_constraint field, opts, current
     alter_default field, type, opts, current
+    alter_null_constraint field, opts, current
   end
 
   # Convert between scalar <-> array column types
@@ -362,11 +366,11 @@ class AutoMigrate
       puts " Converted #{@table_name}.#{field} to array type".colorize(:green)
     elsif opts[:array] && !current[:default]
       # array column missing default
-      default = type == :string ? "ARRAY[]::character varying[]" : "ARRAY[]::integer[]"
+      default = type == :string ? 'ARRAY[]::character varying[]' : "ARRAY[]::#{pg_type_for(type, opts)}[]"
       transaction_do "alter table #{@table_name} alter #{field} set default #{default};"
     elsif !opts[:array] && current[:db_type].include?('[]')
       # array → scalar
-      cast = current[:type] == :integer ? "#{field}[0]" : "array_to_string(#{field}, ',')"
+      cast = current_base_type(current) == :integer ? "#{field}[1]" : "array_to_string(#{field}, ',')"
       transaction_do %[
         alter table #{@table_name} alter #{field} drop default;
         alter table #{@table_name} alter #{field} type #{current[:db_type].sub('[]', '')} using #{cast};
@@ -401,7 +405,7 @@ class AutoMigrate
   end
 
   def alter_varchar_limit field, type, opts, current
-    return unless type == :string && !opts[:array] && current[:max_length] != opts[:limit]
+    return unless type == :string && !opts[:array] && current_base_type(current) == :string && current[:max_length] != opts[:limit]
 
     # when shrinking, truncate existing data that exceeds the new limit
     if opts[:limit] && current[:max_length] && opts[:limit] < current[:max_length]
@@ -472,8 +476,8 @@ class AutoMigrate
   def alter_null_constraint field, opts, current
     return if current[:allow_null] == opts[:null]
 
-    if !opts[:null] && opts[:default]
-      run_sql "UPDATE #{@table_name} SET #{field}='#{opts[:default]}' where #{field} IS NULL"
+    if !opts[:null] && !opts[:default].nil?
+      run_sql "UPDATE #{@table_name} SET #{field}=#{db.literal(opts[:default])} WHERE #{field} IS NULL"
     end
 
     action = opts[:null] ? 'DROP' : 'SET'
@@ -493,7 +497,7 @@ class AutoMigrate
       return if current[:db_type].include?('timestamp') &&
                 current[:default].to_s.include?(opts[:default].to_s.split(' ').first)
 
-      run_sql "ALTER TABLE #{@table_name} ALTER COLUMN #{field} SET DEFAULT '#{opts[:default]}'; update #{@table_name} set #{field}='#{opts[:default]}' where #{field} is null;"
+      run_sql "ALTER TABLE #{@table_name} ALTER COLUMN #{field} SET DEFAULT #{db.literal(opts[:default])}; update #{@table_name} set #{field}=#{db.literal(opts[:default])} where #{field} is null;"
     end
   end
 
@@ -576,7 +580,7 @@ class AutoMigrate
   end
 
   def transaction_do sql
-    db.run "BEGIN; #{sql} ;COMMIT;"
+    db.transaction { db.run sql }
   rescue
     puts caller[1].colorize(:red)
     puts sql.colorize(:yellow)

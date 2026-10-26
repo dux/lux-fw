@@ -50,6 +50,7 @@ class LuxJob < ApplicationModel
 
   class << self
     def define name, every: nil, timeout: nil, retries: nil, &block
+      name = name.to_sym
       JOBS[name] = { proc: block }
       JOBS[name][:name] = name.to_s
       JOBS[name][:every] = every if every
@@ -149,8 +150,8 @@ class LuxJob < ApplicationModel
               LuxJobLock.release(conn)
             end
           end
-        rescue LuxJobLockLost => e
-          Lux.shell.info "LuxJob: #{e.message}; re-acquiring in #{RELOCK_WAIT_SECS}s"
+        rescue LuxJobLockLost, Sequel::DatabaseError, PG::Error => e
+          Lux.shell.info "LuxJob: #{e.class}: #{e.message}; re-acquiring in #{RELOCK_WAIT_SECS}s"
           sleep RELOCK_WAIT_SECS
           # loop around and try again
         end
@@ -265,7 +266,7 @@ class LuxJob < ApplicationModel
         job.log log_data, verbose: verbose
 
         if opts[:every]
-          job.save
+          job.save_changes
         else
           job.delete
         end
@@ -274,7 +275,7 @@ class LuxJob < ApplicationModel
         job.response = "ERROR: #{e.message}"
         job.status_sid = 'f'
         job.log "#{e.message}", verbose: verbose
-        job.save
+        job.save_changes
 
       rescue => e
         Lux.error.log e
@@ -293,7 +294,7 @@ class LuxJob < ApplicationModel
           job.log msg, verbose: verbose
         end
 
-        job.save
+        job.save_changes
       end
     end
 

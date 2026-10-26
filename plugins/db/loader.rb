@@ -11,8 +11,6 @@
 
 Sequel::Model.require_valid_table = false if Lux.runtime.task_runner?
 
-root = File.expand_path(__dir__)
-
 # --- lib/ : pure-Ruby utilities ----------------------------------------
 require_relative 'lib/schema_define'
 
@@ -39,5 +37,4 @@ require_relative 'lib/sequel/create_limit'
 require_relative 'lib/sequel/composite_primary_keys'
 
 # --- lib/migrate/ : schema migration runtime ---------------------------
-require_relative 'lib/migrate/auto_create_tables' if ENV['DB_MIGRATE'] == 'true'
 require_relative 'lib/migrate/auto_migrate'

@@ -1,27 +1,26 @@
 // $.fn extensions ported from the apps' Zepto helpers, kept out of the
 // _dollar core so the base stays a thin Zepto-shaped shim.
 //   $('.btn').shake()        rotate wobble (error feedback)
-//   $('input').focus()       native focus on each
-//   $('input').blur()        native blur on each
 //   $('form').submit()       cancelable submit event, then native submit
+//   $('form').submit(fn)     bind a submit handler
 //   $('#list').reload()      re-fetch an .ajax container
 //   $(btn).activate()        mark active among siblings
 
 const $ = window.$
 
+let panSeq = 0
+
 // rotate wobble, ported from the apps' Zepto $.fn.shake
 $.fn.shake = function (interval = 150) {
-  this.css('transition', `all 0.${interval}s`)
+  this.css('transition', `all ${interval}ms`)
   ;['-10deg', '10deg', '-5deg', '5deg', '-2deg', '0deg'].forEach((deg, i) =>
     setTimeout(() => this.css('transform', `rotate(${deg})`), interval * i))
   return this
 }
 
-$.fn.focus = function () { return this.each(function () { this.focus?.() }) }
-$.fn.blur = function () { return this.each(function () { this.blur?.() }) }
-
 // fire a cancelable submit event, then native-submit if not prevented (Zepto-style)
-$.fn.submit = function () {
+$.fn.submit = function (fn) {
+  if (fn) return this.on('submit', fn)
   const f = this[0]
   if (f) f.requestSubmit ? f.requestSubmit() : f.submit()
   return this
@@ -30,20 +29,24 @@ $.fn.submit = function () {
 // disable a button: gray it out, swallow clicks, append a spinner (undo with .enable())
 $.fn.disable = function () {
   return this.each(function () {
+    if (this.__disabled) return
+    this.__disabled = true
     $(this).addClass('btn-disabled')
     this.oldclick = this.onclick
     this.onclick = e => { e.stopPropagation(); e.preventDefault() }
-    this.innerHTML += ' <ui-icon name="spinner"></ui-icon>'
+    this.insertAdjacentHTML('beforeend', ' <ui-icon name="spinner"></ui-icon>')
   })
 }
 
 // undo .disable(): restore the click handler and remove the spinner icon
 $.fn.enable = function () {
   return this.each(function () {
+    if (!this.__disabled) return
+    this.__disabled = false
     const el = $(this)
     el.removeClass('btn-disabled')
-    el.find('svg.icon').remove()
-    if (this.oldclick) this.onclick = this.oldclick
+    el.find('.ui-icon-fez, ui-icon, svg.icon').remove()
+    this.onclick = this.oldclick || null
   })
 }
 
@@ -61,15 +64,18 @@ $.fn.xfocus = function () {
 }
 
 // reload an .ajax container's content from its path (running any inline scripts).
-//   $('#tasks-list').reload()           // path from the node's data-path/path attr
-//   $('#dialog').reload('/c/cts/show')  // explicit path
+//   $('#tasks-list').reload()                                // path from the node's data-path/path attr
+//   $('#dialog').reload('/c/cts/show')                       // explicit path
+//   $('#list').reload('/tasks?page=2', { pushState: true })  // also push the path to history
 $.fn.reload = function (path, func) {
   if (typeof path == 'function') { func = path; path = null }
+  let opts = {}
+  if (func && typeof func == 'object') { opts = func; func = opts.done }
 
   let ajaxNode = this.parents('.ajax').first()
   if (!ajaxNode[0]) ajaxNode = this
 
-  path ||= ajaxNode.attr('data-path') || ajaxNode.attr('path') || location.pathname + location.hash
+  path ||= ajaxNode.attr('data-path') || ajaxNode.attr('path') || location.pathname + location.search
   const nodeId = ajaxNode.attr('id')
   ajaxNode.attr('path', path)
 
@@ -78,6 +84,7 @@ $.fn.reload = function (path, func) {
     const html = nodeId ? fresh.find('#' + nodeId).html() : fresh.find('.ajax').html()
     if (html) data = html
     ajaxNode.html($.parseScripts(data))
+    if (opts.pushState) history.pushState({}, '', path)
     if (func) func(data)
   })
   return this
@@ -127,7 +134,7 @@ $.fn.pannableBlock = function () {
       el.scrollLeft(scrollLeft - (x - startX))
       document.body.classList.add('no-select')
     })
-    $(document).on('mouseup', () => {
+    $(document).on(`mouseup.pan${++panSeq}`, () => {
       isDown = false
       el.css('cursor', 'default')
       document.body.classList.remove('no-select')

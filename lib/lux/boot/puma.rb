@@ -81,7 +81,11 @@ module Lux
         # let the host app override any directive at parse time (master)
         block&.call(is_prod)
 
-        return if @options[:workers].to_i < 2
+        # @options is the config-file layer only; WEB_CONCURRENCY lives in
+        # puma's default layer, so check it too (CLI -w N is not seen here -
+        # set workers in the lux_boot block or via WEB_CONCURRENCY)
+        workers = @options[:workers] || ENV['WEB_CONCURRENCY']
+        return unless workers.to_s == 'auto' || workers.to_i >= 2
 
         # puma 8 renamed on_worker_* -> before_worker_*; keep both eras working
         boot_hook = respond_to?(:before_worker_boot)     ? :before_worker_boot     : :on_worker_boot

@@ -70,19 +70,30 @@ The hash is single-use and scoped to the requesting domain, so it is worthless
 to anyone who intercepts it on another host. The domain comes from the request
 only when it sits inside the domain of `Lux.config.host` (subdomains
 included); any other Host header falls back to the configured host, so a
-forged header cannot pick the domain a stolen hash is exchanged for. The challenge is what makes the
+forged header cannot pick the domain a stolen hash is exchanged for.
+On a shared suffix (`herokuapp.com`, `github.io`, `vercel.app`) that domain
+includes strangers, so set `authcog_hosts` to the exact hosts to trust instead.
+Both the hand-off and the server-side exchange use the same guarded host
+(`Authcog.relying_url`). The challenge is what makes the
 callback belong to this browser: a login someone else started cannot be landed
 in a visitor's session (RFC 9700).
 
 The challenge is minted when the link is followed, never when it is drawn, so
 `auth_link` holds no secret and stays safe in a shared layout or a cached page.
-A browser may hold several outstanding challenges (`CHALLENGE_LIMIT`), because a
+A browser may hold several outstanding challenges (`Authcog.mint_challenge`
+keeps the last 4 by default, `limit:`), because a
 visitor can open the sign-in link in more than one tab; only a matching one is
 ever spent, so a bogus `?state=` cannot clear a real one.
 
+## Login links
+
+`UserSession.login_link(user, ttl: 1.hour)` builds a `?sso_action=` magic link
+(mailers, cross-host, admin login-as).
+It is one-time: a nonce in the sealed token is marked spent in `Lux.cache` on first use, so a forwarded or logged link cannot sign in again.
+
 ## Sign-out
 
-`UserSession.logout_link` builds a `?sso_action=` URL carrying an encrypted,
+`UserSession.logout_link` builds a `?sso_action=` URL carrying a sealed (encrypted),
 5-minute `logout` token. `resolve` consumes it on the next request. It reads
 `User.current.ref`, so guard it:
 
@@ -108,6 +119,7 @@ ever spent, so a bogus `?state=` cannot clear a real one.
 | `authcog_realm` | `auth` | Subdomain of `authcog.com` to authenticate against. |
 | `authcog_path` | `/authcog` | Where this router is mounted; what `auth_link` returns. |
 | `host` | - | The app's own URL; its domain bounds which request hosts sign-in trusts. |
+| `authcog_hosts` | - | Exact request hosts sign-in trusts (e.g. `[app.example.com, www.example.com]`); when set, replaces the domain match. |
 
 ## Redirect after login
 

@@ -1,7 +1,7 @@
 class Array
   # Wrap all list elements with a tag
   def wrap name, opts={}
-    map{ |el| el.tag(name, **opts) }
+    map { |el| el.to_s.tag(name, **opts) }
   end
 
   # Set last element of an array
@@ -11,33 +11,21 @@ class Array
 
   # Convert list to sentence, Rails like
   # `@list.to_sentence(words_connector: ', ', two_words_connector: ' and ', last_word_connector: ', and ')`
-  def to_sentence opts={}
-    opts[:words_connector]     ||= ', '
-    opts[:two_words_connector] ||= ' and '
-    opts[:last_word_connector] ||= ', and '
-
-    len = self.length
-
-    return '' if len == 0
-    return self[0] if len == 1
-    return self.join(opts[:two_words_connector]) if len == 2
-
-    self[0..-2].join(opts[:words_connector]) + opts[:last_word_connector].to_s + self[-1].to_s
+  def to_sentence words_connector: ', ', two_words_connector: ' and ', last_word_connector: ', and '
+    case length
+    when 0 then ''
+    when 1 then self[0].to_s
+    when 2 then join(two_words_connector)
+    else self[0..-2].join(words_connector) + last_word_connector + self[-1].to_s
+    end
   end
 
   # Toggle existance of an element in array and return true when one added
   # `@list.toggle(:foo)`
   def toggle element
-    self.uniq!
-    self.compact!
-
-    if self.include?(element)
-      self.delete(element)
-      false
-    else
-      self.push(element)
-      true
-    end
+    return push(element) && true unless include?(element)
+    delete(element)
+    false
   end
 
   # for easier Sequel query

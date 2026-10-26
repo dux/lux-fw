@@ -11,10 +11,12 @@ form.render do |f|
   f.row :email
   f.row :bio, as: :textarea
   f.row :role, collection: Role.all
-  f.hidden :account_id
+  f.hidden :account_ref
   f.submit 'Save'
 end
 ```
+
+`form @model` requires the model to answer `api_path(:create|:update|:destroy)` and `Model.display_name` (optional).
 
 #### Standalone (no model)
 
@@ -70,7 +72,7 @@ class AppForm < HtmlForm
 
   def setup_object
     super
-    @opts[:action] = @object.api_path(@object.id ? :update : :create)
+    @opts[:action] = @object.api_path(@object.new? ? :create : :update)
   end
 end
 ```
