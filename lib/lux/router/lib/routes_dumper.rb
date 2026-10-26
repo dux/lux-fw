@@ -13,8 +13,8 @@
 #   "everything that could match", not "what will match for THIS request"
 # * helper methods called from the route block are no-ops (method_missing),
 #   so maps inside them are not listed
-# * any code inside route blocks that hits Lux::Current state is no-op'd
-#   via the NoopCurrent stub (see #with_stub_current)
+# * any code inside route blocks that hits Lux::Context state is no-op'd
+#   via the NoopContext stub (see #with_stub_ctx)
 # * a block that raises on dumper state (a guard reading an unset ivar such as
 #   `@space.can.update!`) ends that block only; routes after the raise inside
 #   the same block are not listed
@@ -35,25 +35,19 @@ module Lux
         @visited      = Set.new
       end
 
-      def self.dump router_class = nil
-        new(router_class || Lux.router).dump
-      end
-
       def dump
-        with_stub_current { replay @router_class } if @router_class.route_block
+        with_stub_ctx { replay @router_class } if @router_class.route_block
         @entries
       end
 
       # --- routing DSL stubs ---
 
-      def root target, **_opts
-        record verb: 'GET', path: build_path, target: stringify(target)
-      end
+      def root(target, **opts) = map('', target, **opts)
 
       def map *args, **_opts, &block
         if block
           # the router passes the segment AFTER the ones it just consumed
-          # (lux.route.root inside the new scope); there is no such segment
+          # (Lux.ctx.route.root inside the new scope); there is no such segment
           # while dumping, so pass nil. A scope that maps nothing (a guard,
           # an inline render) is listed as [block].
           with_segments(args) do
@@ -101,7 +95,7 @@ module Lux
       end
 
       def plugin_routes
-        Lux::Plugin::PLUGIN.each_value do |plugin|
+        Lux::Plugin.loaded.each do |plugin|
           next unless ::File.exist?(::File.join(plugin.folder, 'routes.rb'))
           record verb: '*', path: build_path, target: '[plugin] %s' % plugin.name
         end
@@ -126,7 +120,7 @@ module Lux
       # that pre-process the request). Return a chainable noop so calls
       # like `request.path` inside conditionals do not raise.
       def method_missing _name, *_args, **_kw, &_block
-        NoopCurrent.new
+        NoopContext.new
       end
 
       def respond_to_missing? _name, _priv = false
@@ -218,16 +212,16 @@ module Lux
       end
 
       # Provide a no-op stub for `lux` calls inside route blocks so things
-      # like `lux.response.body?` do not blow up while we replay.
-      def with_stub_current
+      # like `Lux.ctx.response.body?` do not blow up while we replay.
+      def with_stub_ctx
         prev = Thread.current[:lux]
-        Thread.current[:lux] = NoopCurrent.new
+        Thread.current[:lux] = NoopContext.new
         yield
       ensure
         Thread.current[:lux] = prev
       end
 
-      class NoopCurrent
+      class NoopContext
         def method_missing(_name, *_args, **_kw, &_block); self; end
         def respond_to_missing?(_name, _priv = false); true; end
         # avoid recursive nil chains on truthy checks (e.g. `unless body?`)

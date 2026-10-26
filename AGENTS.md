@@ -17,18 +17,22 @@ module's `README.md`.** Links are in the tables below.
 * Inside `module Lux`, `Hash` lexically resolves to `Lux::Hash`. Use
   `obj.is_hash?` (from `lib/overload/object.rb`) or fully-qualified
   `::Hash`. Same for any `Lux::<CoreClass>` / gem-name alias - notably
-  `Mail` resolves to `Lux::Mail`, so write `::Mail` for the gem.
+  `Mail` resolves to `Lux::Mail` (write `::Mail` for the gem), `Context` to
+  `Lux::Context` and `Error` to `Lux::Error`.
 * Use `FOO ||=` for module-level constants, not `FOO =`.
 * End files with newline. No trailing spaces on blank lines.
 * ASCII only - `-` not `—`, `*` not `•`. No emojis unless asked.
 * Models use `ref` (string ULID) as primary key. Sequel-based ORM.
-* `Lux.current` (alias `lux`) is the thread-local request context.
+* `Lux.ctx` is the thread-local context, the only accessor. It is never
+  nil; outside a request it has no request (`Lux.ctx.request` is nil), so
+  request-bound code fails instead of reading a fake one.
 * Versioning: `.version` is YAML (`version: X.Y.Z`) holding the commit
   count rendered dotted (`371` -> `3.7.1`, `12345` -> `123.4.5`). Only
   `hammer deploy` stamps it: tests, `vstamp count --release` (stamp, amend
   or release commit, tag `vX.Y.Z`, push), then `gem build` + `gem push`.
   No git hooks. `Lux::Version.string` reads it and `Lux::VERSION` is the
-  gem form. An unstamped checkout reports `dev`.
+  gem form. An unstamped checkout reports `dev`. `LUX_VERSION` overrides
+  the file.
   `Version` lives in `lib/lux/version.rb`.
 
 ## Routing invariants
@@ -36,14 +40,16 @@ module's `README.md`.** Links are in the tables below.
 Read [`lib/lux/router/README.md`](./lib/lux/router/README.md) before
 touching the router. The three rules that catch people out:
 
-* **`lux.route` is the only path matcher.** It owns `match?` / `start_with?` /
+* **`Lux.ctx.route` is the only path matcher.** It owns `match?` / `start_with?` /
   `capture` over an offset stack, and every router `map` scope (root or
   mounted) walks it. Never re-derive a match from `nav.path` indices.
 * **The first match ends routing.** A dispatch that writes the body throws
-  `:done`, caught once in `Router#resolve_routes`. Adding a second
-  `catch(:done)` anywhere re-enables the old "keep walking as no-ops" behaviour
-  and silently re-runs work after a match. `render` and `redirect_to` throw
-  `:done` too, so code after them never runs.
+  `:done`. The route walk catches `:done` once, in `Router#resolve_routes`.
+  The other `catch(:done)` sites wrap a single hook (before/after callbacks, a
+  rescue handler, a mounted router that re-throws when it wrote the body).
+  Never add one around `map` or inside a route block - it re-enables the old
+  "keep walking as no-ops" behaviour and silently re-runs work after a match.
+  `render` and `redirect_to` throw `:done` too, so code after them never runs.
 * **`-` and `_` are equal at compare time only** (`Route#norm`). `nav.path`
   keeps the URL's own spelling so slug lookups work; never normalise it in
   place.
@@ -102,14 +108,15 @@ internal use and old apps.
 | Access check | `@model.can.read?` (policy class `ModelPolicy`) | [policy](./lib/lux/policy/README.md) |
 | Render | implicit `app/views/<router>/<action>.haml`, or `render text:` / `render json:` | [router](./lib/lux/router/README.md) |
 | Redirect + flash | `response.flash.info 'Saved'` then `response.redirect_to '/path'` | [response](./lib/lux/response/README.md) |
-| Request context | `lux` (in request code), `Lux.current` outside of it | [current](./lib/lux/current/README.md) |
+| Request context | `Lux.ctx` (`Lux.ctx.request` is nil outside a request) | [context](./lib/lux/context/README.md) |
 | Cache | `Lux.cache.fetch(key, ttl: 60) { ... }` | [cache](./lib/lux/cache/README.md) |
 | Background job | `LuxJob.add :name, opts` (job_runner plugin), `Lux.defer { }` for fire-and-forget | [job_runner](./plugins/job_runner/README.md) |
 | Ship assets | `lux assets:deploy` (generate `app/assets/*.tmp.*` -> compile -> manifest -> upload); the app defines `lux assets:compile` and `lux assets:upload LOCAL_PATH REMOTE_PATH` in `lib/tasks` | [web_common](./plugins/web_common/README.md) |
 | Call a model API from JS | `app.m.user(ref).update({...})` (`app.m.user.create({...})` for collection actions) | [web_common](./plugins/web_common/README.md#model-handles) |
 | Mail | `class Mailer < Lux::Mail::Sender`, `Mailer.deliver(:welcome, user)` | [mail](./lib/lux/mail/README.md) |
 | Model fields | `schema do ... end` in the model, migrated by `lux db:am` | [db](./plugins/db/README.md) |
-| User text / HTML | stored as typed, escaped on output by Haml `=`; build markup with `.tag` (returns `Lux::SafeString`), print stored markup with `.html_unsafe`; never `%[<b>#{x}</b>]` | [overload](./lib/overload/README.md#output-escaping) |
+| User text / HTML | stored as typed, escaped on output by Haml `=`; build markup with `.tag` (returns `Lux::SafeString`), print trusted stored markup with `.html_unsafe` (not a sanitizer - only `<script>`/`<style>` are disabled; never on user-supplied HTML); never `%[<b>#{x}</b>]` | [overload](./lib/overload/README.md#output-escaping) |
+| Push to a browser | `Lux.channel(user).push(...)` + `Lux::Browser::Channel.session_channels { }` in an initializer; `Lux.subscribe('user:<ref>', fn)` client-side | [browser-push](./doc/browser-push.md) |
 
 ## Core modules - `lib/lux/<name>/`
 
@@ -120,7 +127,7 @@ internal use and old apps.
 | `Lux::Schema`          | The shared schema DSL parser at the heart of the framework | [README](./lib/lux/schema/README.md) |
 | `Lux::Type`            | Named type vocabulary (`:email`, `:uuid`, `:slug`, ...)    | [README](./lib/lux/type/README.md) |
 | `Lux::Policy`          | Framework- and ORM-agnostic access policy                  | [README](./lib/lux/policy/README.md) |
-| `Lux::Current`         | Thread-local per-request context (`Lux.current` / `lux`)   | [README](./lib/lux/current/README.md) |
+| `Lux::Context`         | Thread-local context (`Lux.ctx`); request-less outside a request | [README](./lib/lux/context/README.md) |
 | `Lux::Response`        | HTTP response builder (`response` inside routers)          | [README](./lib/lux/response/README.md) |
 | `Lux::Render`          | Render pages, templates, cells from anywhere               | [README](./lib/lux/render/README.md) |
 | `Lux::Template`        | Template rendering via Tilt (HAML, ERB, ...)               | [README](./lib/lux/template/README.md) |
@@ -129,8 +136,10 @@ internal use and old apps.
 | `Lux::Cache`           | Uniform cache API across memory/memcached/sqlite/null      | [README](./lib/lux/cache/README.md) |
 | `Lux::Db`              | Sequel multi-DB connection management                      | [README](./lib/lux/db/README.md) |
 | `Lux::Browser`         | Server-side composer for `window.Lux` client + per-request state | [README](./lib/lux/browser/README.md) |
-| `Lux::Browser::Channel`| Pub/sub behind `response.sse`; backend via `channel_url`  | [README](./lib/lux/browser/channel/README.md) |
+| `Lux::Browser::Channel`| Pub/sub behind `/_lux_/stream` (`Lux.channel(x).push` -> `Lux.subscribe`); backend via `channel_url` | [README](./lib/lux/browser/channel/README.md) |
 | `Lux::Error`           | Thin exception class + `Lux.error.not_found` style helpers | [README](./lib/lux/error/README.md) |
+| `Lux::Defer`          | `Lux.defer { }` fire-and-forget background work             | [README](./lib/lux/defer/README.md) |
+| `Lux::Root`            | App root (Pathname) plus plugin `mount/` overlays (`.path`, `.file`, `.files`, `.require_all`) | [README](./lib/lux/plugin/README.md#mount-semantics-mount) |
 | `Lux::Environment`     | `Lux.env` / `Lux.debug?` / `Lux.runtime` facets              | [README](./lib/lux/environment/README.md) |
 | `Lux::DEPLOY_ID`       | Stable per-deploy id for cache-busting; mirrored to `ENV['DEPLOY_ID']` | [README](./README.md#luxdeploy_id) |
 | `Lux::Boot::Config`          | YAML config + `.env` loader + lifecycle hooks              | [README](./lib/lux/boot/config/README.md) |
@@ -148,9 +157,9 @@ internal use and old apps.
 |-------------------|------------|------|
 | `db`              | Sequel extensions (hooks, links, paginate, enums) + auto-migrate | [README](./plugins/db/README.md) |
 | `authcog`         | Central-auth sign-in: `AuthcogRouter` + `UserSession`               | [README](./plugins/authcog/README.md) |
-| `web_common`      | Shared web layer: html builders, assets, PG exception logger + `/admin`; list `authcog` next to it | [README](./plugins/web_common/README.md) |
-| `locale`          | Small, namespaced translation lookup + `/<xx>` URL prefixes (`localized`, `lux.lpath`) | [README](./plugins/locale/README.md) |
-| `favicon`         | `public/favicon.svg` -> generated `.ico` + touch icon, `<head>` links from `lux.render_html` / `header.render` (`el.icon false` opts out) | [README](./plugins/favicon/README.md) |
+| `web_common`      | Shared web layer: html builders, asset pipeline, JSON exception log (dboss), `/dev` pages, `ModelApi`, browser lib (`$`, `Api`, `Toast`, `<api-form>`); list `authcog` next to it | [README](./plugins/web_common/README.md) |
+| `locale`          | Small, namespaced translation lookup + `/<xx>` URL prefixes (`localized`, `Lux.ctx.lpath`) | [README](./plugins/locale/README.md) |
+| `favicon`         | `public/favicon.svg` -> generated `.ico` + touch icon, `<head>` links from `Lux.ctx.render_html` / `header.render` (`el.icon false` opts out) | [README](./plugins/favicon/README.md) |
 | `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks) + standalone web dashboard | [README](./plugins/job_runner/README.md) |
 | `pdf`             | Paged.js A4 pages under `/pdf/` + headless-Chrome PDF download     | [README](./plugins/pdf/README.md) |
 | `vibe`            | Docker harness: opencode agent + preview page for editing an app   | [README](./plugins/vibe/README.md) |
@@ -182,11 +191,11 @@ bin/cli/<name>_hammer.rb  # CLI subcommands
 ## Boot model
 
 Two-phase. `require 'lux-fw'` runs framework load (gems, overloads,
-`Lux::*` subsystems, Sequel + Haml) - no side effects on the host: no
-DB connect, no `.env`, no plugin loaders. `Lux.boot!` then runs app
-boot: `init_env`, `dotenv`, `bundler_require!`, `config`,
-`Config.set_defaults`, app autoloads (`Lux::Root.autoload!`), then plugin
-loaders. Idempotent. There is no `const_missing` hook.
+`Lux::*` subsystems, Sequel + Haml).
+Framework load does no DB connect, no `.env`, no plugin loaders; it does create `./log` and `./tmp` and resolves `Lux::DEPLOY_ID`.
+`Lux.boot!` then runs app boot: `.env` load, `LUX_ENV` check, `init_env`, `Bundler.require`, ENV-dependent defaults (`log_level`, `channel_url`), config typo warnings, the optional boot block, app autoloads (`Lux::Root.autoload!`), plugin loaders, channel listener (web only).
+The first `Lux.config` read loads `config.yaml` and fills the remaining framework defaults (`Lux::Boot.apply_defaults`), so `Lux.logger` / `Lux.log` / `Lux.defer` work before boot.
+Idempotent and thread-safe. There is no `const_missing` hook.
 
 Canonical host `config/env.rb`:
 

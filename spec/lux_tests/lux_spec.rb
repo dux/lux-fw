@@ -51,8 +51,6 @@ describe Lux do
   end
 
   describe '.defer' do
-    before { Lux.config[:delay_timeout] ||= 30 }
-
     # Pool-backed defer returns nil (not a Thread); tests use a Queue
     # barrier to wait for completion deterministically.
     def wait_defer(timeout: 1, &block)
@@ -72,7 +70,7 @@ describe Lux do
     end
 
     it 'defaults context to a frozen snapshot of the request' do
-      parent = Lux::Current.new('http://test/orders?x=1', headers: { 'X-Request-Id' => 'req-123' })
+      parent = Lux::Context.new('http://test/orders?x=1', headers: { 'X-Request-Id' => 'req-123' })
 
       received = nil
       wait_defer { |ctx| received = ctx }
@@ -83,11 +81,11 @@ describe Lux do
       _(received.request_method).must_equal 'GET'
     end
 
-    it 'rebuilds Lux.current in the worker from the snapshot' do
-      Lux::Current.new('http://test/orders', method: :post, headers: { 'X-Request-Id' => 'req-456' })
+    it 'rebuilds Lux.ctx in the worker from the snapshot' do
+      Lux::Context.new('http://test/orders', method: :post, headers: { 'X-Request-Id' => 'req-456' })
 
       inside = nil
-      wait_defer { inside = [Lux.current.request_id, Lux.current.request.url, Lux.current.request.request_method] }
+      wait_defer { inside = [Lux.ctx.request_id, Lux.ctx.request.url, Lux.ctx.request.request_method] }
 
       _(inside).must_equal ['req-456', 'http://test/orders', 'POST']
     end
@@ -118,22 +116,22 @@ describe Lux do
       _(received.equal?(custom)).must_equal true
     end
 
-    it 'starts with a clean Lux.current inside the thread' do
-      parent = Lux::Current.new('http://test')
+    it 'starts with a clean Lux.ctx inside the thread' do
+      parent = Lux::Context.new('http://test')
 
       inside = nil
-      wait_defer { inside = Lux.current }
+      wait_defer { inside = Lux.ctx }
 
-      _(inside).must_be_kind_of Lux::Current
+      _(inside).must_be_kind_of Lux::Context
       _(inside.equal?(parent)).must_equal false
     end
 
-    it 'does not mutate the parent Lux.current binding' do
-      parent = Lux::Current.new('http://test')
+    it 'does not mutate the parent Lux.ctx binding' do
+      parent = Lux::Context.new('http://test')
 
       wait_defer do
-        # touching Lux.current in the bg thread should not leak across
-        Lux.current[:bg_only] = true
+        # touching Lux.ctx in the bg thread should not leak across
+        Lux.ctx[:bg_only] = true
       end
 
       _(Thread.current[:lux].equal?(parent)).must_equal true
@@ -217,7 +215,7 @@ describe Lux do
   end
 
   describe '.cache' do
-    before { Lux::Current.new('http://test') }
+    before { Lux::Context.new('http://test') }
 
     it 'returns a Cache instance' do
       _(Lux.cache).must_be_kind_of Lux::Cache

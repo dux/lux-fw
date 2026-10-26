@@ -2,7 +2,7 @@ require 'test_helper'
 
 describe Lux::Cache do
   before do
-    Lux::Current.new('http://test-cache')
+    Lux::Context.new('http://test-cache')
   end
 
   def cache

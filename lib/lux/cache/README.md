@@ -11,11 +11,11 @@ process-local memoize (no TTL, no clear) backed by `Lux.var`.
 ```ruby
 # --- pick a backend (typically in ./config/initializers/cache.rb) -------
 
-Lux::Cache.server                    # current backend; default :memory
-Lux::Cache.server = :memcached       # uses MEMCACHE_SERVERS / Dalli
-Lux::Cache.server = :sqlite          # ./tmp/lux_cache.sqlite (WAL)
-Lux::Cache.server = :null            # no-op (tests)
-Lux::Cache.server = Dalli::Client.new('localhost:11211', namespace: 'app', expires_in: 1.hour)
+Lux.cache.server                    # current backend; default :memory
+Lux.cache.server = :memcached       # uses MEMCACHE_SERVERS / Dalli
+Lux.cache.server = :sqlite          # ./tmp/lux_cache.sqlite (WAL)
+Lux.cache.server = :null            # no-op (tests)
+Lux.cache.server = Dalli::Client.new('localhost:11211', namespace: 'app', expires_in: 1.hour)
 
 # --- read / write -------------------------------------------------------
 
@@ -33,22 +33,21 @@ Lux.cache.fetch('users/count', ttl: 60) { User.count }
 #   force: true        bypass and recompute
 #   if: false          skip cache, just yield
 #   delete_if_empty:   drop entry if block returns empty?
-#   speed:             filled in with the compute time
 
 # only cache truthy results (auth pattern)
 Lux.cache.fetch_if_true('session/check', ttl: 60) { user.still_valid? }
 
 # --- key generation -----------------------------------------------------
 
-# accepts anything responding to :id, :updated_at, :created_at; the values
-# get appended to make a stable key
+# objects contribute class + `id` + `updated_at` (else `to_s`); the values
+# get joined into a stable key
 key = Lux.cache.generate_key(caller.first, User, Product.find(3), 'data')
 Lux.cache.fetch(key, ttl: 60) { ... }
 
-# --- process-local rate limit (NOT a cross-process mutex) ---------------
+# --- cooperative rate limit (NOT a mutex) -------------------------------
 
 Lux.cache.lock('expensive-task', 3) { do_it }
-# subsequent callers in the SAME process within 3s skip the block
+# a caller within 3s of the last run sleeps out the remainder, then runs the block
 
 # --- inspect ------------------------------------------------------------
 
@@ -70,11 +69,11 @@ Lux.var                              # the underlying Hash if you need direct ac
 | Backend | Notes |
 |---------|-------|
 | `:memory` (default) | per-process RAM, TTL-aware, periodic sweep, LRU-capped at `MemoryServer::MAX_KEYS` (10k) |
-| `:memcached`       | via Dalli. `MEMCACHE_SERVERS`, `MEMCACHE_NAMESPACE` |
-| `:sqlite`          | file-backed, WAL mode, survives restarts |
+| `:memcached`       | via Dalli (needs `dalli` in the app Gemfile). `MEMCACHE_SERVERS`, `MEMCACHE_NAMESPACE` |
+| `:sqlite`          | file-backed, WAL mode, survives restarts (needs `sqlite3` in the app Gemfile) |
 | `:null`            | no-op; use in tests |
 | custom             | any object answering `get`/`set`/`delete`/`fetch`/`get_multi`/`clear` |
 
 ## See also
 
-* [`../current/README.md`](../current/README.md) - `current.cache` for request-scoped caching
+* [`../context/README.md`](../context/README.md) - `Lux.ctx.cache` for request-scoped caching

@@ -1,12 +1,12 @@
 require 'test_helper'
 
-describe Lux::Current::Session do
+describe Lux::Context::Session do
   before do
-    Lux::Current.new('http://test.example.com/')
+    Lux::Context.new('http://test.example.com/')
   end
 
   def session
-    @session ||= Lux.current.session
+    @session ||= Lux.ctx.session
   end
 
   describe '#[] and #[]=' do
@@ -108,8 +108,8 @@ describe Lux::Current::Session do
         env['HTTP_COOKIE'] = "#{name}=#{value}"
       end
 
-      Lux::Current.new(env)
-      cookie2 = Lux.current.session.generate_cookie
+      Lux::Context.new(env)
+      cookie2 = Lux.ctx.session.generate_cookie
       _(cookie2).must_be_nil
     end
   end
@@ -130,9 +130,9 @@ describe Lux::Current::Session do
   # A follow-up request to `url` that carries the session sealed from `data`.
   def session_from data, url: 'http://test.example.com/', ua: 'Mozilla/5.0 Chrome/141.0.0.0'
     env  = Rack::MockRequest.env_for(url, 'HTTP_USER_AGENT' => ua)
-    name = Lux::Current.new(env.dup).session.cookie_name
+    name = Lux::Context.new(env.dup).session.cookie_name
     env['HTTP_COOKIE'] = "#{name}=#{Lux::Utils::Crypt.seal(data, purpose: 'session')}"
-    Lux::Current.new(env).session
+    Lux::Context.new(env).session
   end
 
   describe 'sliding lifetime' do
@@ -176,26 +176,26 @@ describe Lux::Current::Session do
     end
 
     it 'has no prefix over http and is shared on the root domain' do
-      s = Lux::Current.new('http://test.example.com/').session
+      s = Lux::Context.new('http://test.example.com/').session
       _(s.cookie_name).must_match(/\Alux_/)
       _(s.generate_cookie).must_include 'Domain=example.com'
     end
 
     it 'is a __Secure- cookie on the root domain over https' do
-      s = Lux::Current.new('https://test.example.com/').session
+      s = Lux::Context.new('https://test.example.com/').session
       _(s.cookie_name).must_match(/\A__Secure-lux_/)
       _(s.generate_cookie).must_include 'Domain=example.com'
     end
 
     it 'uses an explicit session_cookie_domain' do
       with_cookie_domain 'other.com' do
-        _(Lux::Current.new('https://test.example.com/').session.generate_cookie).must_include 'Domain=other.com'
+        _(Lux::Context.new('https://test.example.com/').session.generate_cookie).must_include 'Domain=other.com'
       end
     end
 
     it 'is a host-only __Host- cookie when session_cookie_domain is false' do
       with_cookie_domain false do
-        s = Lux::Current.new('https://test.example.com/').session
+        s = Lux::Context.new('https://test.example.com/').session
         _(s.cookie_name).must_match(/\A__Host-lux_/)
         cookie = s.generate_cookie
         _(cookie).must_include 'Secure'
@@ -204,8 +204,8 @@ describe Lux::Current::Session do
     end
 
     it 'never sets Domain= for localhost or an IP' do
-      refute_includes Lux::Current.new('http://localhost:3000/').session.generate_cookie, 'Domain='
-      refute_includes Lux::Current.new('http://127.0.0.1:3000/').session.generate_cookie, 'Domain='
+      refute_includes Lux::Context.new('http://localhost:3000/').session.generate_cookie, 'Domain='
+      refute_includes Lux::Context.new('http://127.0.0.1:3000/').session.generate_cookie, 'Domain='
     end
   end
 end

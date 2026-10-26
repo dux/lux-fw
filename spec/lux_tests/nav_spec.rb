@@ -2,8 +2,8 @@ require 'test_helper'
 
 describe Lux::Router::Nav do
   def nav_for path, host: 'example.com'
-    Lux::Current.new("http://#{host}#{path}")
-    Lux.current.nav
+    Lux::Context.new("http://#{host}#{path}")
+    Lux.ctx.nav
   end
 
   describe '#root' do
@@ -84,6 +84,11 @@ describe Lux::Router::Nav do
     it 'handles multi-part TLDs' do
       _(nav_for('/', host: 'app.foo.co.uk').domain).must_equal 'foo.co.uk'
     end
+
+    it 'reads country second-level domains the way Url does' do
+      _(nav_for('/', host: 'shop.example.com.br').domain).must_equal 'example.com.br'
+      _(nav_for('/', host: 'app.localhost').domain).must_equal 'localhost'
+    end
   end
 
   describe '#subdomain' do
@@ -93,6 +98,10 @@ describe Lux::Router::Nav do
 
     it 'returns empty string when no subdomain' do
       _(nav_for('/', host: 'example.com').subdomain).must_equal ''
+    end
+
+    it 'returns empty string for an IP host' do
+      _(nav_for('/', host: '127.0.0.1').subdomain).must_equal ''
     end
 
     it 'handles multiple subdomains' do
@@ -110,8 +119,8 @@ describe Lux::Router::Nav do
 
   describe '#subdomain session: true' do
     def handoff_link
-      Lux::Current.new('https://example.com/promo')
-      Lux.current.nav.subdomain(:app, '/dashboard', session: true)
+      Lux::Context.new('https://example.com/promo')
+      Lux.ctx.nav.subdomain(:app, '/dashboard', session: true)
     end
 
     # follow a handoff link on example.com as a visitor with user 1
@@ -141,7 +150,7 @@ describe Lux::Router::Nav do
     end
 
     it 'refuses a target outside the current domain' do
-      to = Lux::Utils::Crypt.seal('https://evil.com/', purpose: Lux::Current::Session::HANDOFF_PURPOSE)
+      to = Lux::Utils::Crypt.seal('https://evil.com/', purpose: Lux::Context::Session::HANDOFF_PURPOSE)
       _(handoff("/_lux_/handoff?to=#{to}").status).must_equal 400
     end
 
@@ -403,7 +412,7 @@ describe Lux::Router::Nav do
     it 'has key:value segments already popped into params' do
       nav = nav_for('/users/page:3')
       _(nav.source_path).must_equal %w[users]
-      _(Lux.current.params[:page]).must_equal '3'
+      _(Lux.ctx.params[:page]).must_equal '3'
     end
 
     it 'survives nav.ref classification' do
@@ -449,7 +458,7 @@ describe Lux::Router::Nav do
   describe 'colon-param variables from path' do
     it 'extracts colon-separated params from path' do
       nav = nav_for('/users/page:3')
-      _(Lux.current.params[:page]).must_equal '3'
+      _(Lux.ctx.params[:page]).must_equal '3'
     end
   end
 
@@ -461,13 +470,13 @@ describe Lux::Router::Nav do
 
     it 'lowercases qs key but preserves qs value' do
       nav = nav_for('/Foo/BAR:BAZ')
-      _(Lux.current.params[:bar]).must_equal 'BAZ'
+      _(Lux.ctx.params[:bar]).must_equal 'BAZ'
       _(nav.path).must_equal %w[foo]
     end
 
     it 'only lowercases up to the first colon in a segment' do
       nav = nav_for('/A/Key:Val:Extra')
-      _(Lux.current.params[:key]).must_equal 'Val:Extra'
+      _(Lux.ctx.params[:key]).must_equal 'Val:Extra'
       _(nav.path).must_equal %w[a]
     end
   end

@@ -12,7 +12,7 @@ class ErrorsRaisingHandlerRouter < Lux::Router
 end
 
 class ErrorsSilentHandlerRouter < Lux::Router
-  rescue_from { |err| lux.var[:seen] = err.message }
+  rescue_from { |err| Lux.ctx.var[:seen] = err.message }
 
   def show = raise('silent boom')
 end
@@ -59,17 +59,26 @@ describe 'Lux::Router error handling' do
       assert_body_includes '<!DOCTYPE html>', res
     end
 
-    it 'answers JSON requests with a JSON error' do
+    it 'answers JSON requests with a JSON error, hiding a plain exception message' do
+      Lux.debug = false
       res = Lux.render.get('/errors/none', headers: { 'Content-Type' => 'application/json' })
       assert_status 500, res
+      assert_json_includes({ status: 500, error: 'Internal Server Error' }, res)
+    end
+
+    it 'shows a plain exception message in debug' do
+      Lux.debug = true
+      res = Lux.render.get('/errors/none', headers: { 'Content-Type' => 'application/json' })
       assert_json_includes({ status: 500, error: 'plain boom' }, res)
     end
   end
 
-  it 'falls back to the default screen when the handler renders nothing' do
+  it 'falls back to the default screen when the handler renders nothing, without leaking the message' do
+    Lux.debug = false
     res = Lux.render.get('/errors/silent')
     assert_status 500, res
-    assert_body_includes 'silent boom', res
+    assert_body_includes 'Internal Server Error', res
+    refute_includes res.body, 'silent boom'
   end
 
   it 'routes a template exception through rescue_from' do

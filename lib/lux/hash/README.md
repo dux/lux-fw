@@ -22,6 +22,9 @@ h.name = 'Other'                   # method-style setter
 h[:other] = 1
 h.delete(:other)
 
+# Assigning a plain ::Hash stores a converted copy - re-read the key after
+# h[:k] ||= {} instead of using the expression's value.
+
 # --- predicates ----------------------------------------------------
 
 h.foo?                             # truthy unless value is nil / false / 'false' / 0
@@ -96,8 +99,8 @@ when ::Hash then ...
 end
 ```
 
-Same applies to any other `Lux::<CoreClass>` alias (currently only
-`Lux::Hash` exists; the rule is forward-compatible).
+Same applies to every `Lux::<Name>` that shadows a top-level or gem constant: `Hash` -> `Lux::Hash`, `Mail` -> `Lux::Mail` (use `::Mail` for the gem), `Context` -> `Lux::Context` (use `::Context` for an app's own), `Error` -> `Lux::Error`.
+When in doubt, write `::Name`.
 
 ## See also
 

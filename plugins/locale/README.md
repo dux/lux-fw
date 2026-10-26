@@ -104,7 +104,7 @@ t('/emails/welcome.md')       ->  app/views/emails/welcome.<locale>.md
 ```
 
 `language:` is accepted as an alias for the `locale:` keyword. The views root
-follows `Lux.current.var.views_root` (default `./app/views`). Same fallback,
+follows `Lux.ctx.var.views_root` (default `./app/views`). Same fallback,
 marker and interpolation rules as above.
 
 ## On-disk format
@@ -129,7 +129,7 @@ For `Lux.locale.t('users.welcome', name: 'Joe')` in current locale `:de`:
 
 1. `before_get.call(:de, 'users.welcome')` - non-nil wins.
 2. `namespace(:users)` handler called with `('welcome', :de)` - non-nil wins.
-3. `store.get(:de, :users, 'welcome')` if a store is configured.
+3. The store, if configured: `store.table(:de, :users)['welcome']` when it has `.table` (loaded once per request), else `store.get(:de, :users, 'welcome')`.
 4. File `./config/locales/users/de.txt`, line `welcome: ...`.
 5. Same chain in `default` locale (skipped if already default).
 6. `fallback:` arg.
@@ -144,13 +144,13 @@ Interpolation (`%{name}`) runs on the resolved string at the end.
 | `default=`, `default` | symbol |
 | `available=`, `available` | array of symbols |
 | `dir=`, `dir` | Pathname |
-| `store=`, `store` | any object responding to `.get(locale, ns, sub)` / `.set(locale, ns, sub, value)`; replaces the file backend for reads (after namespace handler) and writes |
+| `store=`, `store` | any object responding to `.get(locale, ns, sub)` / `.set(locale, ns, sub, value)`, optionally `.table(locale, ns) -> { sub => value }` (then read once per `(locale, ns)` per request via `Lux.ctx.cache`); replaces the file backend for reads (after namespace handler) and writes |
 | `current` | symbol (validated against `available`) |
 | `force?` | bool; the active `localized` scope required the prefix |
 | `path(value, locale:)` | locale-prefixed path from a String or a `path`/`to_path` object; default locale stays bare unless forced |
 | `seo_links(value, base:)` | canonical + per-locale hreflang + x-default link attribute hashes for a locale-free path |
 | `geo_locale(country)` | available locale for an IP-geo country code (CF-IPCountry), else nil |
-| `detect` | symbol; peels `/xx` off `nav.path`, stores it in the session, sets `Lux.current.locale` |
+| `detect` | string; peels `/xx` off `nav.path`, stores it in the session, sets `Lux.ctx.locale` |
 | `t(key, locale:, fallback:, **vars)` | string |
 | `set(key, value, locale:)` | the stored value |
 | `namespace(name) { \|subkey, locale\| ... }` | registers handler |
@@ -163,12 +163,12 @@ Interpolation (`%{name}`) runs on the resolved string at the end.
 Two pieces work together:
 
 * `Lux.locale.detect` peels a leading `/xx` (or `/xx-YY`) off the request
-  path, remembers it in the session, and sets `Lux.current.locale`. Call it
+  path, remembers it in the session, and sets `Lux.ctx.locale`. Call it
   once in a `before` filter; without it the prefix is treated as an ordinary
   path segment.
 * The `localized` routing directive enforces the URL shape for a route
   scope, at the point it is declared. The request's state is kept on
-  `Lux.current[:locale_localized]` and `Lux.current[:locale_force]`.
+  `Lux.ctx[:locale_localized]` and `Lux.ctx[:locale_force]`.
 
 ```ruby
 Lux.router do
@@ -235,7 +235,7 @@ still see every locale - see [SEO links](#seo-links).
 `Lux.locale.path` builds a locale-prefixed path with the same convention - the
 default locale stays bare unless the request is forced. It takes a String, or
 any object that knows its own path (`object.path`, else `object.to_path`). The
-`lux.lpath` shortcut (the current-thread pointer) and the `lpath` template
+`Lux.ctx.lpath` shortcut (the current-thread pointer) and the `lpath` template
 helper both delegate to it:
 
 ```ruby
@@ -244,12 +244,12 @@ Lux.locale.path('/service', locale: :de) # "/de/service"
 Lux.locale.path('/')                     # "/" or "/de"
 Lux.locale.path(user)                    # user.path, locale-prefixed
 
-lux.lpath('/service')                    # current-thread shortcut
+Lux.ctx.lpath('/service')                    # current-thread shortcut
 lpath('/service')                        # template helper
 ```
 
 `Lux.locale.force?` reads the current request's flag. The state lives on
-`Lux.current[:locale_localized]` and `Lux.current[:locale_force]`.
+`Lux.ctx[:locale_localized]` and `Lux.ctx[:locale_force]`.
 
 ### SEO links
 
@@ -272,10 +272,18 @@ the absolute origin; the tags are plain hashes a view renders as-is.
 
 ## DB-backed store
 
-When `ApplicationModel` is defined, the plugin auto-loads `LuxTranslation`
-and sets it as the store. Each translation is one row keyed by
-`(locale, namespace, key)`. `Lux.locale.t` reads from the table, and
-`Lux.locale.set` upserts. Run `rake db:am` to materialise the table.
+The DB store is opt-in; without it the file backend stays active.
+Wire it in app boot, after your models load:
+
+```ruby
+require File.join(Lux.fw_root, 'plugins/locale/lib/lux_translation')
+Lux.locale.store = LuxTranslation
+```
+
+Each translation is one row keyed by `(locale, namespace, key)` (unique index).
+`Lux.locale.t` reads one `(locale, namespace)` table per request (`LuxTranslation.table`), and `Lux.locale.set` upserts.
+Rows changed by another process show up on the next request.
+Run `lux db:am` to materialise the table.
 
 Direct calls:
 
@@ -285,10 +293,9 @@ LuxTranslation.get(:en, 'users.welcome')     # full dotted key, split on first '
 LuxTranslation.set(:en, :users, 'welcome', 'Hi %{name}')
 ```
 
-To keep the file backend in a DB-enabled app, set `Lux.locale.store = nil`
-after the plugin loads.
+To go back to the file backend, set `Lux.locale.store = nil`.
 
-`current` reads `Lux.current.locale` (set by `Lux.locale.detect` from the URL
+`current` reads `Lux.ctx.locale` (set by `Lux.locale.detect` from the URL
 prefix). Falls back to `default`. Unknown locale -> `Lux::Locale::Unknown`.
 
 ## Translated columns (`pg_translations`)
@@ -319,7 +326,7 @@ record.name        # "Hello"  (current locale, fallback to default)
 
 This is the read side. The matching write side is the `:translated` schema type
 (`Lux::Type::TranslatedType`), which coerces incoming values into the same
-`{ locale => text }` jsonb shape - a bare string lands under `Lux.current.locale`,
+`{ locale => text }` jsonb shape - a bare string lands under `Lux.ctx.locale`,
 and editing a single locale drops the stale siblings so they can be re-translated.
 See [`../../lib/lux/type/README.md`](../../lib/lux/type/README.md).
 
@@ -334,6 +341,6 @@ See [`../../lib/lux/type/README.md`](../../lib/lux/type/README.md).
 
 ## See also
 
-* [`../../lib/lux/current/README.md`](../../lib/lux/current/README.md) - `Lux.current.locale`
+* [`../../lib/lux/context/README.md`](../../lib/lux/context/README.md) - `Lux.ctx.locale`
 * [`../../lib/lux/router/README.md`](../../lib/lux/router/README.md) - `Nav#locale` (URL prefix)
 * [`../../lib/lux/type/README.md`](../../lib/lux/type/README.md) - `Lux::Type::LocaleType`, `Lux::Type::TranslatedType`

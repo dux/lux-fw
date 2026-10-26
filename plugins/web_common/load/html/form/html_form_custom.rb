@@ -12,7 +12,7 @@ class HtmlForm
       info  = opts[:info] ? opts[:info].to_s.tag(:div, class: 'mb-2 small') : ''
 
       if opts[:flag]
-        locale = Lux.current.locale
+        locale = Lux.ctx.locale
         style = opts[:flag] == true ? '' : opts[:flag]
         if style.length == 2
           locale = style
@@ -32,12 +32,12 @@ class HtmlForm
       name = [:data, name]
     end
 
-    opts[:value]    = Lux.current.request.params[name] if !@object && opts[:value].nil?
+    opts[:value]    = Lux.ctx.request.params[name] if !@object && opts[:value].nil?
     opts[:onchange] = "Fez.load('?'+$(this.form).serialize())" if opts.delete(:autosubmit)
 
     node  = input(name, opts)
     label = opts[:label]
-    # humanize operation_ref → "Operation ref"; strip trailing id/sid/ref suffixes
+    # humanize operation_ref -> "Operation ref"; strip trailing id/sid/ref suffixes
     label ||= (name.is_a?(Array) ? name[1] : name).to_s.humanize.sub(/\s(s?id|ref)$/i, '')
 
     { node: node, label: label }
@@ -51,14 +51,18 @@ class HtmlForm
       name = nil
     end
 
-    action_name = @object.try(:id) ? 'update' : 'create'
+    persisted   = @object && !@object.new?
+    action_name = persisted ? 'update' : 'create'
 
     if disabled = @opts[:disabled]
       disabled = 'You are not allowed to %s' if disabled.class == TrueClass
       name = disabled
     end
 
-    name ||= '%s ' + (@object ? @object.class.display_name : 'null')
+    if @object
+      label = @object.class.respond_to?(:display_name) ? @object.class.display_name : @object.class.to_s.humanize
+    end
+    name ||= '%s ' + (label || 'null')
     name   = name % action_name if name.include?('%s')
 
     opts           = { data:" #{opts}" } if opts.kind_of?(String)
@@ -67,7 +71,7 @@ class HtmlForm
     opts[:style] ||= 'padding-left: 10px'
     opts[:'data-key'] ||= 'ctrl+s'
 
-    opts[:icon] ||= @object&.id ? :floppy_disk : :plus
+    opts[:icon] ||= persisted ? :floppy_disk : :plus
     name = { name: opts[:icon] }.tag(:'ui-icon') + ' ' + name
 
     data  = opts.tag(:button, name)
@@ -84,7 +88,7 @@ class HtmlForm
         <div class="flex-1 text-right">
           <span
             class="btn btn-danger btn-xs"
-            onclick='Dialog.inlineConfirm(this, "Delete #{@object.class.to_s.humanize.downcase} ?", { yes: "Delete!", cancel: "cancel", callback: function() { #{Api(@object.api_path(:destroy)).refresh(path)} }})'
+            onclick='Dialog.inlineConfirm(this, "Delete #{@object.class.to_s.humanize.downcase} ?", { yes: "Delete!", cancel: "cancel", callback: function() { Api(#{@object.api_path(:destroy).to_json}).refresh(#{path.to_json}) }})'
           >delete</span>
         </div>
       </div>
@@ -101,7 +105,7 @@ class HtmlForm
   end
 
   def button name, opts = {}
-    value = @object ? @object.send(name) : Lux.current.request.params[name]
+    value = @object ? @object.send(name) : Lux.ctx.request.params[name]
 
     opts[:name]    = name
     opts[:class]   = 'btn'

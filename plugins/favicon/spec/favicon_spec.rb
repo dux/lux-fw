@@ -19,7 +19,7 @@ describe Favicon do
 
   def render_html icon: nil
     previous, Lux.config[:app] = Lux.config[:app], { name: 'T' }.to_lux_hash
-    el = Lux::Current.new(Rack::MockRequest.env_for('/')).browser.html
+    el = Lux::Context.new(Rack::MockRequest.env_for('/')).browser.html
     el.render do
       el.icon icon unless icon.nil?
       el.body { 'x' }
@@ -81,12 +81,12 @@ describe Favicon do
     end
   end
 
-  it 'puts the links in lux.header.render too' do
+  it 'puts the links in Lux.ctx.header.render too' do
     in_app do
       seed
       Favicon.build!
 
-      header = Lux::Current.new(Rack::MockRequest.env_for('/')).header
+      header = Lux::Context.new(Rack::MockRequest.env_for('/')).header
       header.site_name 'T'
       _(header.render).must_include 'href="/favicon.svg?v='
     end

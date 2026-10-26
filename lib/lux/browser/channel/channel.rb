@@ -14,7 +14,9 @@ module Lux
     #
     #   Lux.config.channel_url = 'postgres:main'   # or ENV['CHANNEL_URL']
     #
-    # Unset means in-process only. See ./brokers/base.rb for the contract.
+    # Defaults to `postgres:main` when a main DB is configured (memory in test
+    # or without a DB); an empty `channel_url` forces in-process. See
+    # ./brokers/base.rb for the contract.
     module Channel
       extend self
 
@@ -33,6 +35,10 @@ module Lux
       # queue keeps growing. Past this it is dropped instead: the stream closes,
       # and EventSource reconnects and refetches.
       MAX_QUEUE ||= 1000
+
+      # "<audience>:<id>[:<more>]", ASCII, <= 128 chars. /_lux_/stream and
+      # every broker rely on it (the PG broker frames on "|").
+      NAME ||= /\A(?=.{1,128}\z)[a-zA-Z0-9_.\-]+(?::[a-zA-Z0-9_.\-]+)+\z/
 
       Publisher    ||= Struct.new(:name) do
         def push data
@@ -63,25 +69,26 @@ module Lux
       # nobody is listening to.
       #
       # underscore turns "Admin::Report" into "admin/report", and a "/" is not
-      # a legal channel name (Mount::CHANNEL_NAME) - the endpoint would drop it
-      # and the push would vanish without an error. Namespace separators become
-      # ":" instead, so a namespaced model addresses "admin:report:<ref>".
+      # a legal channel name (NAME). Namespace separators become ":" instead,
+      # so a namespaced model addresses "admin:report:<ref>".
       def channel_name target
-        if target.is_a?(String) || target.is_a?(Symbol)
-          name = target.to_s
-          raise ArgumentError, "channel needs a prefix, got #{name.inspect}" unless name.include?(':')
-          return name
-        end
+        name =
+          if target.is_a?(String) || target.is_a?(Symbol)
+            target.to_s.tap { raise ArgumentError, "channel needs a prefix, got #{_1.inspect}" unless _1.include?(':') }
+          elsif target.respond_to?(:ref)
+            '%s:%s' % [target.class.name.underscore.tr('/', ':'), target.ref]
+          else
+            raise ArgumentError, "cannot derive a channel from #{target.class}"
+          end
 
-        raise ArgumentError, "cannot derive a channel from #{target.class}" unless target.respond_to?(:ref)
-
-        '%s:%s' % [target.class.name.underscore.tr('/', ':'), target.ref]
+        raise ArgumentError, "invalid channel name #{name.inspect}" unless NAME.match?(name)
+        name
       end
 
       # Send `data` (any JSON-serialisable value, or String) to every subscriber
       # of `name`, in this process and any other the broker reaches.
       def publish name, data
-        broker.publish name.to_s, data
+        broker.publish channel_name(name), data
       end
 
       # Direct in-process fan-out, bypassing the broker. Brokers call this to
@@ -145,8 +152,8 @@ module Lux
       # from the request - a client cannot ask for a channel, so there is
       # nothing to authorize. Set this once in an initializer:
       #
-      #   Lux::Browser::Channel.session_channels do |lux|
-      #     ref = lux.session[:user_ref] or next []
+      #   Lux::Browser::Channel.session_channels do |ctx|
+      #     ref = ctx.session[:user_ref] or next []
       #     ["user:#{ref}"]
       #   end
       #
@@ -160,9 +167,9 @@ module Lux
         @session_channels
       end
 
-      def channels_for lux
+      def channels_for ctx
         return [] unless @session_channels
-        Array(@session_channels.call(lux)).map(&:to_s).reject(&:empty?).uniq
+        Array(@session_channels.call(ctx)).map(&:to_s).reject(&:empty?).uniq
       rescue => e
         Lux.logger(:channel).error("session_channels raised: #{e.message}") rescue nil
         []

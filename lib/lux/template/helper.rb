@@ -1,3 +1,10 @@
+# Empty defaults; the app (ApplicationHelper) and web_common (HtmlHelper) reopen them.
+module ApplicationHelper
+end
+
+module HtmlHelper
+end
+
 module Lux
   class Template
     module Helper
@@ -26,12 +33,12 @@ module Lux
       end
 
       define_method(:get)     { |name| instance_variable_get('@%s' % name) }
-      define_method(:current) { Lux.current }
-      define_method(:request) { lux.request }
-      define_method(:params)  { lux.params }
-      define_method(:nav)     { lux.nav }
-      define_method(:session) { lux.session }
-      define_method(:user)    { lux.user }
+      define_method(:current) { Lux.ctx }
+      define_method(:request) { Lux.ctx.request }
+      define_method(:params)  { Lux.ctx.params }
+      define_method(:nav)     { Lux.ctx.nav }
+      define_method(:session) { Lux.ctx.session }
+      define_method(:user)    { Lux.ctx.user }
 
       def no_white_space
         Lux::SafeString.new capture { yield }.gsub(/>\s+</,'><')
@@ -44,17 +51,17 @@ module Lux
         name = 'haml_content_%s' % key
 
         if name.end_with?('?')
-          haz = !!Lux.current.var[name.sub(/\?$/, '')]
+          haz = !!Lux.ctx.var[name.sub(/\?$/, '')]
           if block_given?
             haz ? capture { yield } : ''
           else
             haz
           end
         elsif block_given?
-          Lux.current.var[name] = capture { yield }
+          Lux.ctx.var[name] = capture { yield }
           nil
         else
-          Lux.current.var[name]
+          Lux.ctx.var[name]
         end
       end
 
@@ -75,19 +82,19 @@ module Lux
         unless name.start_with?('./')
           if name.include?('/')
             # path with directory (e.g., 'shared/_widget') → resolve from views root
-            views_root = Lux.current.var.views_root || './app/views'
+            views_root = Lux.ctx.var.views_root || './app/views'
             name = Pathname.new(views_root).join(name.delete_prefix('/')).to_s
           else
             # simple name (e.g., :_partial) → resolve relative to current template
-            template_path = Lux.current.var.root_template_path || './app/views'
+            template_path = Lux.ctx.var.root_template_path || './app/views'
             name = Pathname.new(template_path).join(name).to_s
           end
         end
 
         # update root_template_path to this template's directory so nested
         # render calls resolve relative to the template that calls them
-        previous_root = Lux.current.var.root_template_path
-        Lux.current.var.root_template_path = name.sub(%r{/[^/]+$}, '')
+        previous_root = Lux.ctx.var.root_template_path
+        Lux.ctx.var.root_template_path = name.sub(%r{/[^/]+$}, '')
 
         # scope locals per render call - save previous values, restore after render
         saved = {}
@@ -98,8 +105,6 @@ module Lux
         end
 
         if block_given?
-          name = "#{name}/layout" unless name.index('/')
-
           Lux::Template.render(self, name) { capture { yield } }
         else
           Lux::Template.render(self, name)
@@ -117,17 +122,16 @@ module Lux
           end
 
           # restore previous root so sibling renders still resolve correctly
-          Lux.current.var.root_template_path = previous_root
+          Lux.ctx.var.root_template_path = previous_root
         end
       end
 
       def cache name = nil, opts = {}, &block
-        if opts.class == Integer
-          opts = { ttl: opts }
-        elsif name.is_hash?
+        if name.is_hash?
           opts = name
           name = ''
         else
+          opts = { ttl: opts } if opts.is_a?(Integer)
           name = Lux.cache.generate_key(name)
         end
 
@@ -142,7 +146,7 @@ module Lux
 
         if etag = opts.delete(:etag)
           etag = key if etag.class != String
-          Lux.current.response.etag etag
+          Lux.ctx.response.etag etag
         end
 
         # the block is template output; the cache stores plain strings
@@ -155,7 +159,7 @@ module Lux
       end
 
       def once id = nil
-        Lux.current.once("template-#{id || caller[0]}") do
+        Lux.ctx.once("template-#{id || caller[0]}") do
           block_given? ? capture { yield } : true
         end
       end
@@ -168,7 +172,7 @@ module Lux
       end
 
       def flash
-        lux.response.flash
+        Lux.ctx.response.flash
       end
     end
   end

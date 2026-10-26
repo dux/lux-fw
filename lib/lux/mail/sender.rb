@@ -37,23 +37,22 @@ module Lux
 
       class << self
         # Sender.prepare(:email_login, 'foo@bar.baz')
-        def prepare template, *args
+        def prepare template, *args, **kwargs
           obj = new
           obj.instance_variable_set :@_template, template
           obj.run_callback :before
-
-          if args[0].is_hash?
-            obj.send template, **args[0]
-          else
-            obj.send template, *args
-          end
-
+          obj.send template, *args, **kwargs
           obj.run_callback :after
           obj
         end
 
-        def render method_name, *args
-          send(method_name, *args).body
+        # Mailer.deliver(:welcome, user) -> prepare(:welcome, user).deliver
+        def deliver template, *args, **kwargs
+          prepare(template, *args, **kwargs).deliver
+        end
+
+        def render template, *args, **kwargs
+          prepare(template, *args, **kwargs).body
         end
 
         # Mailer.welcome(user) -> prepare(:welcome, user), only for defined mails
@@ -61,14 +60,16 @@ module Lux
           mail_defined?(method_sym) || super
         end
 
-        def method_missing method_sym, *args
+        def method_missing method_sym, *args, **kwargs
           return super unless mail_defined?(method_sym)
-          prepare(method_sym, *args)
+          prepare(method_sym, *args, **kwargs)
         end
 
         private
 
+        # only mails a subclass defines; framework and Kernel methods are not mails
         def mail_defined? name
+          return false if Lux::Mail::Sender.method_defined?(name) || Lux::Mail::Sender.private_method_defined?(name)
           method_defined?(name) || private_method_defined?(name)
         end
       end
@@ -84,11 +85,11 @@ module Lux
 
         unless data
           helper = Lux::Template::Helper.new self, self.class.helper
-          layout = Lux::Template.find_layout './app/views', self.class.layout
+          layout = Lux::Template.find_layout cattr.template_root, self.class.layout
           data = Lux::Template.render helper, template: "#{cattr.template_root}/mailer/#{@_template}", layout: layout
         end
 
-        data.gsub(%r{\shref=(['"])/}) { %[ href=#{$1}#{Lux.config.host}/] }
+        data.gsub(%r{\shref=(['"])/(?!/)}) { %[ href=#{$1}#{Lux.config.host}/] }
       end
 
       def subject
@@ -99,10 +100,11 @@ module Lux
         @mail.to
       end
 
+      # returns the Mail::Message (nil when delivery is cancelled with mail.to = false)
       def deliver
-        if m = build_mail_object
-          Lux.current.defer(m) { |mail| mail.deliver! }
-        end
+        m = build_mail_object or return
+        Lux.ctx.defer(m) { |mail| mail.deliver! }
+        m
       end
 
       private
@@ -118,6 +120,7 @@ module Lux
         m = ::Mail.new
         m[:from]         = @mail.from
         m[:to]           = @mail.to
+        m[:cc]           = @mail.cc if @mail.cc
         m[:subject]      = @mail.subject
         m[:body]         = body
         m[:content_type] = 'text/html; charset=UTF-8'

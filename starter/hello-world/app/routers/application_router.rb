@@ -7,7 +7,7 @@ class ApplicationRouter < Lux::Router
 
     # Exported to window.app.current.user, which app-nav.fez reads. The logout
     # link is built here because UserSession.logout_link needs the current user.
-    lux.browser.window[:app][:current] = {
+    Lux.ctx.browser.window[:app][:current] = {
       user: @user && {
         ref:        @user.ref,
         email:      @user.email,

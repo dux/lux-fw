@@ -2,8 +2,8 @@ require 'test_helper'
 
 describe Lux::Router::Route do
   def route_for path
-    Lux::Current.new("http://example.com#{path}")
-    Lux.current.route
+    Lux::Context.new("http://example.com#{path}")
+    Lux.ctx.route
   end
 
   describe '#path' do
@@ -82,11 +82,11 @@ describe Lux::Router::Route do
 
   describe 'nav.path is not mutated by route scoping' do
     it 'leaves nav.path intact across scopes' do
-      Lux::Current.new('http://example.com/a/b/c')
-      Lux.current.route.with_scope(1) do
-        _(Lux.current.nav.path).must_equal %w[a b c]
+      Lux::Context.new('http://example.com/a/b/c')
+      Lux.ctx.route.with_scope(1) do
+        _(Lux.ctx.nav.path).must_equal %w[a b c]
       end
-      _(Lux.current.nav.path).must_equal %w[a b c]
+      _(Lux.ctx.nav.path).must_equal %w[a b c]
     end
   end
 
@@ -147,9 +147,9 @@ describe Lux::Router::Route do
     end
 
     it 'matches the :ref placeholder after classification' do
-      Lux::Current.new('http://example.com/spaces/abc123')
-      Lux.current.nav.map_path { |el| el == 'abc123' ? el : nil }
-      _(Lux.current.route.start_with?(:spaces, :ref)).must_equal true
+      Lux::Context.new('http://example.com/spaces/abc123')
+      Lux.ctx.nav.map_path { |el| el == 'abc123' ? el : nil }
+      _(Lux.ctx.route.start_with?(:spaces, :ref)).must_equal true
     end
 
     it 'does not match :ref before classification has run' do
@@ -162,9 +162,9 @@ describe Lux::Router::Route do
     end
 
     it 'does not match a classified segment against its own text' do
-      Lux::Current.new('http://example.com/spaces/abc123')
-      Lux.current.nav.map_path { |el| el == 'abc123' ? el : nil }
-      _(Lux.current.route.start_with?(:spaces, :abc123)).must_equal false
+      Lux::Context.new('http://example.com/spaces/abc123')
+      Lux.ctx.nav.map_path { |el| el == 'abc123' ? el : nil }
+      _(Lux.ctx.route.start_with?(:spaces, :abc123)).must_equal false
     end
 
     it 'is false with no segments given' do
@@ -184,9 +184,9 @@ describe Lux::Router::Route do
 
   describe '#normalized_path' do
     it 'is the cursor-relative view of Nav#normalized_path' do
-      Lux::Current.new('http://example.com/admin/spaces/abc123/edit')
-      Lux.current.nav.map_path { |el| el == 'abc123' ? el : nil }
-      route = Lux.current.route
+      Lux::Context.new('http://example.com/admin/spaces/abc123/edit')
+      Lux.ctx.nav.map_path { |el| el == 'abc123' ? el : nil }
+      route = Lux.ctx.route
 
       _(route.normalized_path).must_equal %w[admin spaces ref edit]
       route.with_scope(1) { _(route.normalized_path).must_equal %w[spaces ref edit] }
@@ -216,25 +216,25 @@ describe Lux::Router::Route do
     end
 
     it 'binds the id, not the placeholder, when nav.ref classification already ran' do
-      Lux::Current.new('http://example.com/users/abc123/dashboard')
-      Lux.current.nav.map_path { |el| el == 'abc123' ? el : nil }
-      _(Lux.current.nav.path[1]).must_be_kind_of Lux::Router::Nav::Base
-      _(Lux.current.route.capture('/users/:ref/dashboard')).must_equal({ ref: 'abc123' })
+      Lux::Context.new('http://example.com/users/abc123/dashboard')
+      Lux.ctx.nav.map_path { |el| el == 'abc123' ? el : nil }
+      _(Lux.ctx.nav.path[1]).must_be_kind_of Lux::Router::Nav::Base
+      _(Lux.ctx.route.capture('/users/:ref/dashboard')).must_equal({ ref: 'abc123' })
     end
 
     # regression: the value used to be recovered by counting placeholders to the
     # left, so overwriting an earlier one shifted every capture after it
     it 'binds the right id after an app rewrote an earlier segment' do
-      Lux::Current.new('http://example.com/a/r1/b/r2')
-      Lux.current.nav.map_path { |el| el.start_with?('r') ? el : nil }
-      Lux.current.nav.path[1] = 'plain'
-      _(Lux.current.route.capture('/a/plain/b/:y')).must_equal({ y: 'r2' })
+      Lux::Context.new('http://example.com/a/r1/b/r2')
+      Lux.ctx.nav.map_path { |el| el.start_with?('r') ? el : nil }
+      Lux.ctx.nav.path[1] = 'plain'
+      _(Lux.ctx.route.capture('/a/plain/b/:y')).must_equal({ y: 'r2' })
     end
 
     it 'binds the right id when several refs precede the capture' do
-      Lux::Current.new('http://example.com/a/r1/b/r2')
-      Lux.current.nav.map_path { |el| el.start_with?('r') ? el : nil }
-      _(Lux.current.route.capture('/a/:x/b/:y')).must_equal({ x: 'r1', y: 'r2' })
+      Lux::Context.new('http://example.com/a/r1/b/r2')
+      Lux.ctx.nav.map_path { |el| el.start_with?('r') ? el : nil }
+      _(Lux.ctx.route.capture('/a/:x/b/:y')).must_equal({ x: 'r1', y: 'r2' })
     end
 
     it 'reports the segment count it consumes' do

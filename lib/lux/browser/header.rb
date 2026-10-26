@@ -1,15 +1,15 @@
 module Lux
   class Browser
     # HTML <head> builder. One instance per request, lazily created by
-    # Lux::Browser#header (reached as lux.browser.header, or lux.header).
+    # Lux::Browser#header (reached as Lux.ctx.browser.header, or Lux.ctx.header).
     # Accumulates meta tags, links and flags via a chained DSL, then emits
     # the head HTML via #render.
     #
     # Usage:
-    #   lux.browser.header.title       'My page'
-    #   lux.browser.header.description 'short summary'
-    #   lux.browser.header.canonical   'https://example.com/page'
-    #   = lux.browser.header.render do |el|
+    #   Lux.ctx.browser.header.title       'My page'
+    #   Lux.ctx.browser.header.description 'short summary'
+    #   Lux.ctx.browser.header.canonical   'https://example.com/page'
+    #   = Lux.ctx.browser.header.render do |el|
     #     = el.url 'main.css'
     #
     # Setter/getter conflation: most attribute methods double as readers
@@ -31,16 +31,15 @@ module Lux
       # Set by Lux::Browser#header so #render emits that browser's window_script.
       attr_accessor :browser
 
-      def initialize app = nil
-        @meta      = {}
-        @links     = []
-        @site_name = app
+      def initialize
+        @meta  = {}
+        @links = []
       end
 
       # -- meta / title / description ------------------------------------
 
-      # Arbitrary meta tag. `value.to_s` is stored, so passing nil writes
-      # the literal string "nil" - use a fresh Header to "unset".
+      # Arbitrary meta tag. `value.to_s` is stored, so nil writes an empty
+      # content=""; use a fresh Header to unset.
       def meta name, value
         @meta[name.to_s] = value.to_s
       end
@@ -87,7 +86,7 @@ module Lux
       # ("/og.png") are made absolute via current request host.
       def image src = nil
         return @meta['og:image'] unless src.present?
-        src = "#{Lux.current.nav.base}#{src}" if src.start_with?('/')
+        src = "#{Lux.ctx.nav.base}#{src}" if src.start_with?('/')
         @meta['og:image']      = src
         @meta['twitter:image'] = src
         @meta['twitter:card']  = 'summary_large_image'
@@ -114,7 +113,7 @@ module Lux
       end
 
       def link rel, href
-        @links.push '<link rel="%s" href="%s" />' % [rel, href]
+        @links.push({ rel: rel, href: href }.tag(:link))
       end
 
       # Emits <link rel="canonical"> and sets og:url. Note: does not
@@ -162,14 +161,14 @@ module Lux
         out = tags
         # Window bootstrap before any bundle loads (so component code can drop
         # defensive `window.app ||= {}` guards). The per-request window hash is
-        # owned by lux.browser; emit it here via #window_script - the single
+        # owned by Lux.ctx.browser; emit it here via #window_script - the single
         # emitter, so layouts must not also call it. Fez re-runs <head> inline
         # scripts on navigation (see Fez.pjax.setPageBody), so this refreshes on
         # every page change.
-        out.push (browser || Lux.current.browser).window_script
+        out.push browser.window_script
         out.push extra if extra
 
-        if Lux.current.no_cache?
+        if Lux.ctx.no_cache?
           out.push %[<script>window.noCache = true;</script>]
         end
 
@@ -225,7 +224,7 @@ module Lux
         robots.push @nofollow ? :nofollow            : :follow
         value = robots.join(', ')
         meta :robots, value
-        Lux.current.response.header 'x-robots-tag', value
+        Lux.ctx.response.header 'x-robots-tag', value
       end
 
       def property? key

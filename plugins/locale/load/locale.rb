@@ -127,11 +127,11 @@ module Lux
 
     # --- per-request current locale --------------------------------------
 
-    # Pulls from Lux.current.locale (typically set by Nav from the URL
+    # Pulls from Lux.ctx.locale (typically set by Nav from the URL
     # prefix) and validates against `available`. Falls back to `default`
     # when unset.
     def current
-      lc = (Lux.current.locale.presence || default).to_sym
+      lc = (Lux.ctx.locale.presence || default).to_sym
       unless available.map(&:to_sym).include?(lc)
         raise Unknown, "locale #{lc.inspect} not in #{available.inspect}"
       end
@@ -141,13 +141,13 @@ module Lux
     # True when the active `localized` scope was declared force: true - the
     # prefix is then required, including for the default locale.
     def force?
-      !!Lux.current[:locale_force]
+      !!Lux.ctx[:locale_force]
     end
 
     # Locale-prefixed path. Accepts a String ("/foo") or an object that knows
     # its own path (object.path, else object.to_path); anything else falls back
     # to to_s. The default locale stays bare unless the request is forced; every
-    # other locale carries the /xx prefix. Reachable as lux.lpath from a request
+    # other locale carries the /xx prefix. Reachable as Lux.ctx.lpath from a request
     # and as the lpath template helper.
     #
     #   Lux.locale.path('/service')              # "/service" (default) or "/hr/service"
@@ -201,7 +201,7 @@ module Lux
     #   Lux.locale.geo_locale('DE')  # :de
     #   Lux.locale.geo_locale('US')  # nil (en maps to gb; default stays bare)
     def geo_locale country = nil
-      request = Lux.current.request
+      request = Lux.ctx.request
       country ||= request.get_header('HTTP_CF_IPCOUNTRY') ||
                   request.get_header('HTTP_X_GEO_COUNTRY') ||
                   request.get_header('HTTP_X_COUNTRY')
@@ -233,20 +233,20 @@ module Lux
     #   2. session[:locale]   - last explicitly used locale
     #   3. default
     #
-    # Sets and returns Lux.current.locale (string). Writes the session only
+    # Sets and returns Lux.ctx.locale (string). Writes the session only
     # on an explicit URL choice, so a plain visitor gets no needless cookie.
     def detect
       allowed = available.map(&:to_s)
-      session = Lux.current.session
+      session = Lux.ctx.session
 
       # Nav#locale peels /XX off the path only when the block returns truthy
-      url_locale = Lux.current.nav.locale { |seg| seg.to_s.downcase if allowed.include?(seg.to_s.downcase) }
+      url_locale = Lux.ctx.nav.locale { |seg| seg.to_s.downcase if allowed.include?(seg.to_s.downcase) }
 
       locale = (url_locale || session[:locale]).to_s
       locale = default.to_s unless allowed.include?(locale)   # guard nil / stale session value
 
       session[:locale]   = locale if url_locale && session[:locale] != locale  # remember last explicit choice
-      Lux.current.locale = locale
+      Lux.ctx.locale = locale
     end
 
     # Flag image URL for a language code, served from flagcdn.com. Uses the
@@ -327,6 +327,7 @@ module Lux
 
       if @store
         @store.set(lc, ns, subkey, value)
+        store_table(lc, ns)[subkey] = value.to_s if @store.respond_to?(:table)
       else
         file_set(ns, lc, subkey, value)
       end
@@ -352,10 +353,16 @@ module Lux
         return out unless out.nil?
       end
       if @store
-        out = @store.get(lc, ns, subkey)
+        out = @store.respond_to?(:table) ? store_table(lc, ns)[subkey] : @store.get(lc, ns, subkey)
         return out unless out.nil?
       end
       file_get(ns, lc, subkey)
+    end
+
+    # A store that exposes `table(locale, ns) -> { subkey => value }` is read
+    # once per (locale, ns) per request instead of one query per t() call.
+    def store_table(lc, ns)
+      Lux.ctx.cache("lux-locale-store:#{lc}:#{ns}") { @store.table(lc, ns) }
     end
 
     def split_key(key)
@@ -462,7 +469,7 @@ module Lux
     end
 
     def views_root
-      (Lux.current.var.views_root rescue nil) || './app/views'
+      (Lux.ctx.var.views_root rescue nil) || './app/views'
     end
 
     # Load -> merge subkey -> sort -> atomic rewrite -> drop cache row.
@@ -502,7 +509,7 @@ module Lux
 end
 
 # Route-scope locale policy. Records whether the request is localized (and
-# whether the prefix is forced) on Lux.current, then enforces the URL shape
+# whether the prefix is forced) on Lux.ctx, then enforces the URL shape
 # where it is declared. Outside a `localized` scope nothing is enforced, so a
 # page is not localized unless it says so.
 #
@@ -520,7 +527,7 @@ end
 module Lux
   class Router
     def localized value = true, force: false, geo: true, &block
-      return if lux.response.body?
+      return if Lux.ctx.response.body?
 
       # opts-hash first arg: localized(force: true) / localized(geo: false)
       if value.is_hash?
@@ -529,24 +536,24 @@ module Lux
         value = true
       end
 
-      lux[:locale_localized] = value
-      lux[:locale_force]     = force
-      lux[:locale_geo]       = geo
+      Lux.ctx[:locale_localized] = value
+      Lux.ctx[:locale_force]     = force
+      Lux.ctx[:locale_geo]       = geo
 
       if value
-        if !lux.nav.locale
+        if !Lux.ctx.nav.locale
           # no /xx prefix: route a first-time visitor by IP-geo country, else
           # leave the bare default (non-forced) or send a forced scope to it.
           if (loc = first_visit_locale)
             redirect_to Lux.locale.path(localized_target, locale: loc)
           elsif force
-            redirect_to Lux::Utils::Url.locale(Lux.locale.current)
+            redirect_to Lux.locale.path(localized_target, locale: Lux.locale.current, prefix: true)
           end
-        elsif !force && lux.nav.locale.to_s == Lux.locale.default.to_s
+        elsif !force && Lux.ctx.nav.locale.to_s == Lux.locale.default.to_s
           # not forced: the default locale is canonical without the prefix
           redirect_to localized_target
         end
-      elsif lux.nav.locale
+      elsif Lux.ctx.nav.locale
         redirect_to localized_target
       end
 
@@ -559,8 +566,8 @@ module Lux
     # `localized geo: false` opts a scope out; nil once the browser remembers a
     # choice, so it only fires on the first hit.
     def first_visit_locale
-      return nil unless lux[:locale_geo]
-      return nil unless lux.session[:locale].to_s.empty?
+      return nil unless Lux.ctx[:locale_geo]
+      return nil unless Lux.ctx.session[:locale].to_s.empty?
 
       loc = Lux.locale.geo_locale
       loc if loc && loc.to_s != Lux.locale.default.to_s
@@ -568,9 +575,9 @@ module Lux
 
     # nav.path is already prefix-free (detect peeled it); keep the query string.
     def localized_target
-      path = lux.nav.path.join('/')
+      path = Lux.ctx.nav.path.join('/')
       path = path.empty? ? '/' : "/#{path}".sub(%r{/+\z}, '')
-      qs   = lux.request.query_string.to_s
+      qs   = Lux.ctx.request.query_string.to_s
       qs.empty? ? path : "#{path}?#{qs}"
     end
   end

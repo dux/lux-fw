@@ -49,7 +49,7 @@ class ExceptionWriter
     data['tags']        = tags if tags.present?
     data['description'] = description if description.present?
     if request
-      data['request_id'] = Lux.current.request_id
+      data['request_id'] = Lux.ctx.request_id
       data['method']  = request.request_method
       data['url']     = self.class.scrub_url(request.url)
       headers         = request_headers
@@ -107,7 +107,7 @@ class ExceptionWriter
   def request
     return @request if defined?(@request)
 
-    @request = Thread.current[:lux] ? Lux.current.request : nil
+    @request = Lux.ctx.request
   rescue StandardError
     @request = nil
   end
@@ -127,9 +127,7 @@ class ExceptionWriter
   end
 
   def current_email
-    return nil unless Thread.current[:lux]
-
-    user = Lux.current.user
+    user = Lux.ctx.user
     user.email.presence if user.respond_to?(:email)
   rescue StandardError
     nil

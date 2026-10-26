@@ -14,9 +14,8 @@ module Lux
       # post?                            # bare predicate
       %w{get head post delete put patch}.each do |m|
         define_method('%s?' % m) do |*args, **opts, &block|
-          cm = lux.request.request_method
-          cm = 'GET' if cm == 'HEAD'
-          return unless cm == m.upcase
+          cm = Lux.ctx.request.request_method
+          return unless cm == m.upcase || (m == 'get' && cm == 'HEAD')
 
           if block
             instance_exec(&block)
@@ -39,14 +38,14 @@ module Lux
       # after /admin. Use `nav.root?` for the absolute answer.
       # root?(:admin) -> true if the cursor is at /admin/...
       def root? name
-        lux.route.match? name
+        Lux.ctx.route.match? name
       end
 
       # Matches given subdomain name. The block must dispatch, else 404.
       def subdomain name, &block
-        return unless lux.nav.subdomain == name.to_s
+        return unless Lux.ctx.nav.subdomain == name.to_s
         instance_exec(&block)
-        throw :done if lux.response.body?
+        throw :done if Lux.ctx.response.body?
         raise Lux.error.not_found Lux.debug?('404 Not Found') { 'Subdomain "%s" matched but nothing called' % name }
       end
 
@@ -86,7 +85,7 @@ module Lux
       # /admin/users/foo/bar         -> :bar
       # ```
       def map *args, **opts, &block
-        throw :done if lux.response.body?
+        throw :done if Lux.ctx.response.body?
 
         if block
           raise ArgumentError, 'map with a block takes segments only' if opts.any?
@@ -162,16 +161,14 @@ module Lux
         end
       end
 
-      # Pure predicate: checks if the current route cursor's root matches
-      # (no side effects). See Lux::Router::Route#match?
-      def route_match? route
-        lux.route.match? route
-      end
-
       private
 
       def check_map_segments! segments
         segments.each do |segment|
+          if segment.is_a?(::String) && segment.sub(%r{\A/}, '').include?('/')
+            raise ArgumentError, "map segment #{segment.inspect} spans several segments - write map 'a', 'b', ... or the absolute form map '/a/b', Target"
+          end
+
           next if [::String, ::Symbol, ::Regexp, ::Array].any? { segment.is_a?(_1) }
 
           raise ArgumentError, "map takes path segments (String, Symbol, Regexp or a list of them) before the target, got #{segment.inspect}. Write map 'users', UsersRouter"
@@ -182,13 +179,13 @@ module Lux
       # own scope, then runs the block with the next segment. True when the
       # segments matched (the block ran and did not render).
       def map_scope segments, &block
-        return false unless lux.route.match?(segments.first)
+        return false unless Lux.ctx.route.match?(segments.first)
 
-        lux.route.with_scope(1) do
+        Lux.ctx.route.with_scope(1) do
           if segments.length > 1
             map_scope segments.drop(1), &block
           else
-            instance_exec lux.route.root, &block
+            instance_exec Lux.ctx.route.root, &block
             true
           end
         end
@@ -196,18 +193,18 @@ module Lux
 
       # Absolute-path match for `map '/:city/people', 'people'`. Captures `:var`
       # placeholders into params and advances the route cursor by the segments
-      # consumed, so lux.route.consumed reflects the matched prefix (needed for
+      # consumed, so Lux.ctx.route.consumed reflects the matched prefix (needed for
       # sub-mounts like Lux::Api to derive their own mount_on).
       def match_path base, target, opts
-        captures = lux.route.capture(base) or return
+        captures = Lux.ctx.route.capture(base) or return
 
-        captures.each { |name, value| lux.params[name] = value }
+        captures.each { |name, value| Lux.ctx.params[name] = value }
 
-        lux.route.with_scope(lux.route.capture_length(base)) { map_dispatch target, opts }
+        Lux.ctx.route.with_scope(Lux.ctx.route.capture_length(base) - Lux.ctx.route.consumed.length) { map_dispatch target, opts }
       end
 
       def map_dispatch target, opts
-        throw :done if lux.response.body?
+        throw :done if Lux.ctx.response.body?
 
         # log original app caller (skipped in production - caller() is expensive)
         if Lux.debug?
@@ -227,21 +224,21 @@ module Lux
           if target.is_a?(::Class) && target < Lux::Router
             map_mount target, nil, opts
           elsif defined?(Lux::Api) && target.is_a?(::Class) && target < Lux::Api
-            # Mount point: the prefix the route consumed (`map 'admin/api', X`),
+            # Mount point: the prefix the route consumed (`map '/admin/api', X`),
             # else the class's declared mount_on (default '/api'). mount_at sets
             # SCRIPT_NAME so the API's auto_mount strips the prefix cleanly.
-            consumed = lux.route.consumed
+            consumed = Lux.ctx.route.consumed
             mount_at = consumed.any? ? ('/' + consumed.join('/')) : target.mount_on
             mount_at = nil if mount_at == '/' || mount_at.to_s.empty?
-            lux.response.rack target, mount_at: mount_at
+            Lux.ctx.response.rack target, mount_at: mount_at
           elsif target.is_a?(::Module) && target.respond_to?(:call)
-            lux.response.rack target
+            Lux.ctx.response.rack target
           else
             raise ArgumentError, "map target must be a Router class, 'router#action', 'router', a Symbol action or a Rack app, got #{target.inspect}"
           end
         end
 
-        throw :done if lux.response.body?
+        throw :done if Lux.ctx.response.body?
       end
 
       # Runs a router class in a fresh instance that sees this router's ivars
@@ -260,17 +257,15 @@ module Lux
           end
         end
 
-        # source_location is [file, line]; files_in_use only keeps strings, so
-        # join it into the file:line form the trail already uses
         if location = klass.source_location
-          lux.files_in_use location.is_a?(Array) ? location.join(':') : location
+          Lux.ctx.files_in_use location
         end
 
         # no restore: a body ends routing, and an error needs the innermost router
-        lux.var[:lux_router] = router
+        Lux.ctx.var[:lux_router] = router
         router.send :run_mounted, action_name, self.class
 
-        return if lux.response.body?
+        return if Lux.ctx.response.body?
 
         raise Lux.error.not_found Lux.debug?('404 Not Found') { "#{klass} matched but rendered nothing" }
       end

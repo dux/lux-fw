@@ -8,7 +8,6 @@ task :render do
   opt :cookie,  alias: :c, type: :array,    desc: 'Cookies: k=v&k=v'
   opt :header,  alias: :H, type: :array,    desc: 'Headers: K=V&K=V'
   opt :token,   alias: :t,                  desc: 'Bearer token (sets Authorization header)'
-  opt :body,    alias: :b, type: :boolean,  desc: 'Print body only (default)'
   opt :info,    alias: :i, type: :boolean,  desc: 'Print full info hash (status, time, headers, session)'
 
   proc do |opts|
@@ -22,27 +21,15 @@ task :render do
       end
     }
 
-    header_to_env = ->(name) {
-      'HTTP_%s' % name.to_s.upcase.tr('-', '_')
-    }
-
-    env_opts = {}
-    parse_pairs.(opts[:header]).each { |k, v| env_opts[header_to_env.(k)] = v }
-    env_opts['HTTP_AUTHORIZATION'] = 'Bearer %s' % opts[:token] if opts[:token]
-
-    env = ::Rack::MockRequest.env_for(path, env_opts)
-
-    render_opts = {
-      method:   opts[:method].to_s.downcase.to_sym,
-      params:   parse_pairs.(opts[:params]),
-      session:  parse_pairs.(opts[:session]),
-      cookies:  parse_pairs.(opts[:cookie])
-    }
-
-    page = Lux.router.new(env, render_opts).render_page
+    verb = opts[:method].to_s.downcase.to_sym
+    error "unknown method: #{verb}" unless Lux::Router::Render::VERBS.include?(verb)
+    page = Lux.render.public_send verb, path,
+      params:  parse_pairs.(opts[:params]),  session: parse_pairs.(opts[:session]),
+      cookies: parse_pairs.(opts[:cookie]),  headers: parse_pairs.(opts[:header]),
+      bearer:  opts[:token]
 
     if opts[:info]
-      data = page.to_h.merge(time: page.time, dispatch: Lux.current.var[:dispatch])
+      data = page.to_h.merge(time: page.time, dispatch: Lux.ctx.var[:dispatch])
       data[:body] = 'BODY length: %s kB' % (page.body.length.to_f / 1024).round(1)
       puts data.to_jsonp
     else

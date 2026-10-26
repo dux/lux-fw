@@ -1,14 +1,14 @@
 require 'test_helper'
 
-describe 'Lux::Current CSRF' do
+describe 'Lux::Context CSRF' do
   # A session cookie is what makes a request forgeable, so most of these need one.
   # `cookie: false` builds the bare machine-to-machine shape instead.
   def current_for env_extra = {}, method: 'POST', session: {}, cookie: true, params: nil
     env = ::Rack::MockRequest.env_for('/', method: method, **(params ? { params: params } : {}))
     # the cookie name is derived per request, so ask a throwaway Current for it
-    env['HTTP_COOKIE'] = "#{Lux::Current.new(env).session.cookie_name}=x" if cookie
+    env['HTTP_COOKIE'] = "#{Lux::Context.new(env).session.cookie_name}=x" if cookie
     env.merge! env_extra
-    c = Lux::Current.new env
+    c = Lux::Context.new env
     session.each { |k, v| c.session[k] = v }
     c
   end

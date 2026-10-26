@@ -9,13 +9,13 @@ describe 'Template Helper#render' do
   def build_helper(root_template_path = nil)
     scope = Object.new
     scope.extend Lux::Template::Helper
-    Lux.current.var.views_root = views
-    Lux.current.var.root_template_path = root_template_path
+    Lux.ctx.var.views_root = views
+    Lux.ctx.var.root_template_path = root_template_path
     scope
   end
 
   before do
-    Lux::Current.new('http://test-render')
+    Lux::Context.new('http://test-render')
   end
 
   describe 'basic rendering' do
@@ -31,7 +31,7 @@ describe 'Template Helper#render' do
       helper = build_helper("#{views}/pages")
 
       assert_raises(NameError) { helper.render './tmp/template_error_probe' }
-      _(Lux.current.var.root_template_path).must_equal "#{views}/pages"
+      _(Lux.ctx.var.root_template_path).must_equal "#{views}/pages"
     end
 
     it 'renders a symbol as a relative path' do
@@ -79,14 +79,14 @@ describe 'Template Helper#render' do
 
     it 'restores root_template_path even if rendering raises' do
       helper = build_helper("#{views}/pages")
-      original_root = Lux.current.var.root_template_path
+      original_root = Lux.ctx.var.root_template_path
 
       begin
         helper.render :_nonexistent
       rescue
       end
 
-      _(Lux.current.var.root_template_path).must_equal original_root
+      _(Lux.ctx.var.root_template_path).must_equal original_root
     end
   end
 
@@ -122,9 +122,9 @@ end
 
 describe 'Template output escaping' do
   before do
-    Lux::Current.new('http://test-escape')
-    Lux.current.var.views_root = './spec/fixtures/views'
-    Lux.current.var.root_template_path = nil
+    Lux::Context.new('http://test-escape')
+    Lux.ctx.var.views_root = './spec/fixtures/views'
+    Lux.ctx.var.root_template_path = nil
   end
 
   it 'escapes values, keeps markup, partials and helper blocks once' do
@@ -149,7 +149,7 @@ end
 
 describe 'Template block called after its template line' do
   it 'returns markup from Haml lines and plain text from a bare expression' do
-    Lux::Current.new('http://test-escape')
+    Lux::Context.new('http://test-escape')
     blocks = []
     scope  = Object.new
     scope.define_singleton_method(:later) { |&block| blocks << block }

@@ -23,12 +23,12 @@ end
 
 describe Sequel::Plugins::PgTranslations do
   before do
-    Lux::Current.new('http://test-pg-translations')
+    Lux::Context.new('http://test-pg-translations')
     Lux.locale.instance_variable_set(:@default, nil)
     Lux.locale.instance_variable_set(:@available, nil)
     Lux.locale.default   = :en
     Lux.locale.available = %i[en hr de fr]
-    Lux.current.locale   = 'en'
+    Lux.ctx.locale   = 'en'
   end
 
   after do
@@ -57,17 +57,17 @@ describe Sequel::Plugins::PgTranslations do
     end
 
     it 'returns value for current locale' do
-      Lux.current.locale = 'en'
+      Lux.ctx.locale = 'en'
       _(record.name).must_equal 'Hello'
     end
 
     it 'returns value for switched locale' do
-      Lux.current.locale = 'hr'
+      Lux.ctx.locale = 'hr'
       _(record.name).must_equal 'Bok'
     end
 
     it 'falls back to default locale when current locale is missing' do
-      Lux.current.locale = 'de'
+      Lux.ctx.locale = 'de'
       Lux.locale.default = :en
       _(record.name).must_equal 'Hello'
     end
@@ -78,7 +78,7 @@ describe Sequel::Plugins::PgTranslations do
     end
 
     it 'returns nil when both locale and default are missing' do
-      Lux.current.locale = 'de'
+      Lux.ctx.locale = 'de'
       Lux.locale.default = :fr
       _(record.name).must_be_nil
     end
@@ -87,13 +87,13 @@ describe Sequel::Plugins::PgTranslations do
       obj = TranslationTestModel.create(
         name_t: Sequel.pg_jsonb('en' => '', 'hr' => 'Bok')
       )
-      Lux.current.locale = 'en'
+      Lux.ctx.locale = 'en'
       Lux.locale.default = :hr
       _(obj.name).must_equal 'Bok'
     end
 
     it 'works for multiple _t columns independently' do
-      Lux.current.locale = 'hr'
+      Lux.ctx.locale = 'hr'
       _(record.name).must_equal 'Bok'
       _(record.desc).must_equal 'Opis'
     end
@@ -149,10 +149,10 @@ describe Sequel::Plugins::PgTranslations do
     end
 
     it 'still returns correct locale after method is cached' do
-      Lux.current.locale = 'en'
+      Lux.ctx.locale = 'en'
       _(record.name).must_equal 'Hello'
 
-      Lux.current.locale = 'hr'
+      Lux.ctx.locale = 'hr'
       _(record.name).must_equal 'Bok'
     end
   end

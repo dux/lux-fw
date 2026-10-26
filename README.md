@@ -19,11 +19,13 @@ lux new my-app
 `lux new` opens Hammer's starter picker: `hello-world` for a single page with sign-in and no build step, or `full-minimal` for a promo site, workspace and admin area.
 The command installs dependencies, creates and migrates the database, and starts the server.
 Both include PostgreSQL, AuthCog, Tailwind and Fez; see the [CLI guide](./bin/README.md#new-applications).
+The gem installs two binaries: `lux` and, next to it, `lux-api` (a CLI client for Lux APIs; see the [CLI guide](./bin/README.md#lux-api)).
 
 ### Sinatra-simple if that's all you need
 
 ```ruby
 # config.ru
+ENV['LUX_ENV'] ||= 'development'
 require 'lux-fw'
 
 Lux do
@@ -43,17 +45,19 @@ enterprise backend through the same DSL.
 `config.yaml`, no plugin loaders, no DB connect. App boot is one
 explicit call: `Lux.boot!`. It resolves `LUX_ENV`, loads
 `.env*`, runs `Bundler.require`, reads `config/config.yaml`, and fires
-every configured plugin's loader (DB connect, exception logger, etc).
+every configured plugin's loader (Sequel extensions, exception logger, etc.; DB connects on first use).
 Idempotent.
 
 ```ruby
 # config/env.rb - the canonical bootstrap
 require 'bundler/setup'
 require 'lux-fw'
-Lux.boot!
+Lux.boot! do
+  # runs after config is loaded, before plugins load
+  Lux.config.localize = false
+end
 
-# host-specific tweaks (config is loaded, plugins active)
-Lux.config.localize = false
+# host-specific tweaks (plugins active)
 Dir.require_all './config/initializers'
 ```
 
@@ -64,7 +68,7 @@ run Lux
 ```
 
 CLI tasks declare `needs :app` and the `:app` task in `bin/lux` runs
-`Lux.boot!` for you. Light commands like `lux routes` or `lux --help`
+`Lux.boot!` for you. Light commands like `lux hi`, `lux version` or `lux --help`
 never call it, so they stay fast. `Lux.call` also calls
 `Lux.boot!` defensively on the first request, so hosts that skip
 `config/env.rb` in `config.ru` still work.
@@ -87,7 +91,7 @@ Lux ships these as first-class modules that **share the same primitives**:
   the vocabulary everywhere a type is named.
 * **One access policy** used identically by routers, APIs, and
   models (`@blog.can.read?`).
-* **One request context** (`Lux.current`) used by everything that
+* **One request context** (`Lux.ctx`) used by everything that
   needs to know about the in-flight request.
 
 The win is twofold:
@@ -110,12 +114,12 @@ The win is twofold:
 * Schema + type system used identically in routers / APIs / models /
   DB migrations
 * Access policies usable from routers, APIs, and models
-* Multi-DB Sequel pool, eager-on-boot, lazy-on-access
+* Multi-DB Sequel pool, lazy-on-access (`Lux::Db.boot!` for eager)
 * JWT-encrypted sessions
 * Memory / Memcached / SQLite / null cache with one API
 * Custom reloader that skips `Gem.path` - reload stays fast even with a
   fat Gemfile
-* `Lux.defer` background threads with a clean `Lux.current` and parent
+* `Lux.defer` background threads with a clean `Lux.ctx` and parent
   context passed explicitly to the block
 * HTML mailer + template rendering via Tilt (HAML, ERB, ...)
 * Pluggable plugin system with canonical folder layout
@@ -133,7 +137,7 @@ class UsersRouter < Lux::Router
   opt :name,  String, max: 30
   opt :email, type: :email
   def create
-    # current.params is already validated, coerced, undeclared keys dropped
+    # Lux.ctx.params is already validated, coerced, undeclared keys dropped
   end
 end
 
@@ -172,7 +176,7 @@ guidance is consolidated in the top-level [`AGENTS.md`](./AGENTS.md).
 | [`Lux::Browser::Channel`](./lib/lux/browser/channel/README.md) | `Lux.channel(user).push(...)`       |
 | [`Lux::Cache`](./lib/lux/cache/README.md)               | `Lux.cache`                                |
 | [`Lux::Boot::Config`](./lib/lux/boot/config/README.md)             | `Lux.config`                               |
-| [`Lux::Current`](./lib/lux/current/README.md)           | `Lux.current` / `current` / `lux`          |
+| [`Lux::Context`](./lib/lux/context/README.md)           | `Lux.ctx`                                  |
 | [`Lux::Db`](./lib/lux/db/README.md)                     | `Lux.db` / `Lux.db(:name)` / `DB`          |
 | [`Lux::Environment`](./lib/lux/environment/README.md)   | `Lux.env` / `Lux.debug?` / `Lux.runtime`     |
 | [`Lux::Error`](./lib/lux/error/README.md)               | `Lux.error` / `Lux.error.not_found`        |
@@ -184,7 +188,7 @@ guidance is consolidated in the top-level [`AGENTS.md`](./AGENTS.md).
 | [`Lux::Policy`](./lib/lux/policy/README.md)             | `class XPolicy < Lux::Policy`              |
 | [`Lux::Reloader`](./lib/lux/reloader/README.md)         | `Lux::Reloader.run` / `reload!`            |
 | [`Lux::Render`](./lib/lux/render/README.md)             | `Lux.render` / `Lux.render.get(...)`       |
-| [`Lux::Response`](./lib/lux/response/README.md)         | `response` / `Lux.current.response`        |
+| [`Lux::Response`](./lib/lux/response/README.md)         | `response` / `Lux.ctx.response`        |
 | [`Lux::Schema`](./lib/lux/schema/README.md)             | `Lux.schema(:name) { ... }`                |
 | [`Lux::Shell`](./lib/lux/shell/README.md)               | `Lux.shell.exec` / `.info` / `.error`      |
 | [`Lux::Template`](./lib/lux/template/README.md)         | `Lux::Template.render`                     |
@@ -286,22 +290,22 @@ class BoardsRouter < ApplicationRouter
   opt :name,  String, max: 30
   opt :tags?, [String]
   def create
-    @user.boards.create!(current.params.to_h)
+    @user.boards.create!(Lux.ctx.params.to_h)
   end
 end
 ```
 
-### Lux::Current
+### Lux::Context
 
-Thread-local request context. One per request, accessible as
-`Lux.current`, `current`, or `lux`.
+Thread-local context, reached as `Lux.ctx`. One per request; outside a
+request it exists without one (`Lux.ctx.request` is nil).
 
 ```ruby
-current.params                         # validated/coerced params
-current.session[:user_id] = @user.id   # JWT-encrypted session
-current[:account] = @user.account      # request-scoped bag
-current.cache(:billing) { ... }        # request-scoped memo
-Lux.defer { Mailer.deliver(...) }  # bg thread, clean Lux.current inside
+Lux.ctx.params                         # validated/coerced params
+Lux.ctx.session[:user_id] = @user.id   # JWT-encrypted session
+Lux.ctx[:account] = @user.account      # request-scoped bag
+Lux.ctx.cache(:billing) { ... }        # request-scoped memo
+Lux.defer { Mailer.deliver(...) }  # bg thread, clean Lux.ctx inside
 ```
 
 ### Lux::Db
@@ -340,7 +344,7 @@ Three orthogonal facets: name, behavior, runtime.
 ```ruby
 Lux.env.production?                    # name (dev/prod/test)
 Lux.debug?                             # behavior toggle (debug/reload/silent)
-Lux.runtime.web?                       # process kind (web/cli/rake)
+Lux.runtime.web?                       # process kind (web/cli/task_runner)
 ```
 
 ### Lux::DEPLOY_ID
@@ -452,7 +456,7 @@ Mailer.deliver(:welcome, user)
 Plugin loader with canonical folder layout.
 
 ```ruby
-Lux.plugin :db, :authcog, :html
+Lux.plugin :db, :authcog, :web_common
 Lux.plugin.get(:db).folder             # filesystem path of a loaded plugin
 ```
 
@@ -568,8 +572,9 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 |--------|------|------|
 | `db`               | Sequel model extensions, auto-migrate, `link` associations | [README](./plugins/db/README.md) |
 | `authcog`          | Central-auth sign-in: `AuthcogRouter`, `UserSession` + sudo | [README](./plugins/authcog/README.md) |
-| `web_common`       | Shared web layer: html builders, assets, PG exception logger + `/admin`; list `authcog` next to it | [README](./plugins/web_common/README.md) |
-| `locale`           | Namespaced translation lookup + `/<xx>` URL prefixes (`localized`, `lux.lpath`) | [README](./plugins/locale/README.md) |
+| `web_common`       | Shared web layer: html builders, asset pipeline, JSON exception log (dboss), `/dev` pages, `ModelApi`, browser lib (`$`, `Api`, `Toast`, `<api-form>`); list `authcog` next to it | [README](./plugins/web_common/README.md) |
+| `locale`           | Namespaced translation lookup + `/<xx>` URL prefixes (`localized`, `Lux.ctx.lpath`) | [README](./plugins/locale/README.md) |
+| `favicon`          | `public/favicon.svg` -> generated `.ico` + touch icon, `<head>` links from `Lux.ctx.render_html` / `header.render` (`el.icon false` opts out) | [README](./plugins/favicon/README.md) |
 | `job_runner`       | Background job queue (LuxJob) + admin dashboard | [README](./plugins/job_runner/README.md) |
 | `pdf`              | Printable A4 pages + PDF download | [README](./plugins/pdf/README.md) |
 | `vibe`             | Docker harness for agent-driven app editing | [README](./plugins/vibe/README.md) |
@@ -577,14 +582,16 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 ## CLI
 
 ```bash
-lux server         # Start web server (alias: s, ss)
+lux server         # Start puma
+lux start          # Generate assets, run ./Procfile (alias: s)
+lux procfile       # Run Procfile services (alias: pf)
 lux console        # Start Pry console (alias: c)
 lux render /path   # Render any path locally (session, bearer, headers)
 lux routes         # Print mounted route tree
-lux generate       # Generate models, cells, routers
+lux generate       # (web_common) model + cell/policy/api/exporter
 lux evaluate CODE  # Evaluate Ruby in app context (alias: eval, e)
 lux test           # Run the test suite (alias: t)
-lux secrets        # Display ENV and secrets
+lux secrets        # Edit, show and compile secrets
 lux stats          # Project stats
 lux memory         # Profile memory usage
 ```
@@ -640,7 +647,7 @@ end
 namespace :db do
   task :migrate do
     desc 'Run pending migrations'
-    proc { |_| Lux::Db.migrate! }
+    proc { |_| Lux.db.run 'VACUUM' }
   end
 
   namespace :seed do

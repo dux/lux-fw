@@ -2,11 +2,11 @@ require 'test_helper'
 
 describe Lux::Response do
   before do
-    Lux::Current.new('http://test.example.com/')
+    Lux::Context.new('http://test.example.com/')
   end
 
   def response
-    @response ||= Lux.current.response
+    @response ||= Lux.ctx.response
   end
 
   describe 'Lux::UNSET' do
@@ -78,7 +78,7 @@ describe Lux::Response do
     AUTH_URL ||= 'https://auth.authcog.com/domain:test.example.com'
 
     def xhr!
-      Lux.current.request.env['HTTP_X_REQUESTED_WITH'] = 'XMLHttpRequest'
+      Lux.ctx.request.env['HTTP_X_REQUESTED_WITH'] = 'XMLHttpRequest'
     end
 
     def redirect where, opts = {}

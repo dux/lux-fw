@@ -1,6 +1,8 @@
 module Lux
-  def current
-    Thread.current[:lux] ||= Lux::Current.new('/mock')
+  # Per-thread context. Lazily built without a request outside of one (console,
+  # jobs, scripts), so Lux.ctx.request is the "inside a request?" check.
+  def ctx
+    Thread.current[:lux] ||= Lux::Context.new
   end
 
   # Shim - implementation lives in Lux::Defer (lib/lux/defer/defer.rb).
@@ -10,12 +12,12 @@ module Lux
   # idle. If the queue is saturated the job runs inline in the caller
   # (caller-runs overflow) - work is never dropped.
   #
-  # The live request is never shared with the worker. Lux.current inside is
-  # rebuilt from Lux.current.snapshot (request id, method, url, user), and the
+  # The live request is never shared with the worker. Lux.ctx inside is
+  # rebuilt from Lux.ctx.snapshot (request id, method, url, user), and the
   # block gets that frozen snapshot unless an explicit context is passed.
   #
-  #   Lux.defer do |ctx|
-  #     # ctx.request_id / ctx.request_method / ctx.url / ctx.ip / ctx.user
+  #   Lux.defer do |snap|
+  #     # snap.request_id / snap.request_method / snap.url / snap.ip / snap.user
   #   end
   #
   #   Lux.defer(context: user) { |u| Mailer.welcome(u).deliver }
@@ -23,14 +25,5 @@ module Lux
   # Errors and timeouts go to Lux.logger(:defer_worker) and Lux.error.log.
   def defer context: nil, timeout: nil, &block
     Lux::Defer.submit(context: context, timeout: timeout, &block)
-  end
-end
-
-# exposes lux shortcut anywhere
-class Object
-  private
-
-  def lux
-    Thread.current[:lux]
   end
 end

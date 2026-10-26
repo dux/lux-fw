@@ -14,7 +14,7 @@ class HtmlForm
     @opts   = opts
 
     @opts[:method] ||= 'post'
-    @opts[:id]     ||= 'form-%s' % Lux.current.uid
+    @opts[:id]     ||= 'form-%s' % Lux.ctx.uid
 
     setup_object if @object
 
@@ -41,39 +41,13 @@ class HtmlForm
     HtmlInput.new(@object).hidden *args
   end
 
-  def row name = nil, opts = {}
-    return super if block_given?
-    return hidden name, opts[:value] if opts[:as] == :hidden
-    r = row_prepare(name, opts)
-
-    label = r[:label].upcase.tag(:label, for: opts[:id])
-    hint  = opts[:hint] ? opts[:hint].tag(:span, class: 'gray text-sm', style: 'display:block;') : ''
-    info  = opts[:info] ? opts[:info].tag(:div, class: 'mb-2 text-sm') : ''
-
-    if opts[:flag]
-      locale = Lux.current.locale
-      style = opts[:flag] == true ? '' : opts[:flag]
-      if style.length == 2
-        locale = style
-        style = ''
-      end
-      label += { class: 'input', locale: locale, size: 20, style: style }.tag(:'ui-flag')
-    end
-
-    if @type.to_s == 'checkbox'
-      r[:node].tag(:div, class: "form-row as-#{@type}")
-    else
-      Lux::SafeString.join([label, info, r[:node], hint]).tag(:div, class: "form-row as-#{@type}")
-    end
-  end
-
   def render
     data = []
 
     # a block is template output (escaped where it printed text); pushed data is markup
     yielded = Lux::SafeString.new(block_given? ? yield(self).to_s : (@data || []).join($/))
 
-    if @object && !@object.id
+    if @object&.new?
       for k, v in @object.attributes
         data.push hidden(k.to_sym, v) if v.present?
       end
@@ -88,7 +62,7 @@ class HtmlForm
     data.push yielded
     data = Lux::SafeString.join(data, $/)
 
-    @opts[:enctype] ||= 'multipart/form-data' if yielded.include?('file') && @opts[:method] != 'get'
+    @opts[:enctype] ||= 'multipart/form-data' if yielded.include?('type="file"') && @opts[:method] != 'get'
 
     if @opts.delete(:disabled)
       data = data.tag(:fieldset, disabled: true, style: 'margin:0; padding: 0;')

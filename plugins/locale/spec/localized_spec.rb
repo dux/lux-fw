@@ -1,15 +1,11 @@
 require 'test_helper'
 
-# Boot-level config that Lux.boot! would normally set; required because this
-# spec drives the full Lux.render request pipeline.
+# Test-specific config: no static files, no asset root, no CSRF, because this
+# spec drives the full Lux.render request pipeline (other defaults come from
+# Lux::Boot.apply_defaults on the first Lux.config read).
 %i(serve_static_files asset_root csrf).each do |k|
   Lux.config[k] = false unless Lux.config.key?(k)
 end
-Lux.config[:plugins] ||= []
-Lux.config[:logger_path_mask]     ||= './log/%s.log'
-Lux.config[:logger_files_to_keep] ||= 3
-Lux.config[:logger_file_max_size] ||= 10_240_000
-Lux.config[:logger_formatter]     ||= nil
 
 Lux::Plugin.load File.expand_path('..', __dir__)
 
@@ -26,7 +22,7 @@ end
 LOCALIZED_SPEC_ROUTE ||= proc do
   # response already written without a dispatch - localized must not touch it
   map 'ping' do
-    lux.response.body 'pong'
+    Lux.ctx.response.body 'pong'
   end
 
   # non-localized scope first: its dispatch ends routing for /admin
@@ -62,8 +58,8 @@ describe 'Lux::Router#localized' do
     Lux.router.route(&LOCALIZED_SPEC_ROUTE)
     Lux.locale.default         = :en
     Lux.locale.available       = %i[en de]
-    Lux.current.locale         = nil
-    Lux.current[:locale_force] = nil
+    Lux.ctx.locale         = nil
+    Lux.ctx[:locale_force] = nil
   end
 
   it 'passes a prefix-less localized URL through' do
@@ -119,8 +115,8 @@ describe 'Lux::Locale#path' do
   before do
     Lux.locale.default         = :en
     Lux.locale.available       = %i[en de]
-    Lux.current.locale         = nil
-    Lux.current[:locale_force] = nil
+    Lux.ctx.locale         = nil
+    Lux.ctx[:locale_force] = nil
   end
 
   it 'leaves the default locale bare' do
@@ -134,7 +130,7 @@ describe 'Lux::Locale#path' do
   end
 
   it 'prefixes the default locale when the request is forced' do
-    Lux.current[:locale_force] = true
+    Lux.ctx[:locale_force] = true
     _(Lux.locale.path('/service')).must_equal '/en/service'
   end
 
@@ -144,18 +140,18 @@ describe 'Lux::Locale#path' do
   end
 
   it 'uses the current locale' do
-    Lux.current.locale = 'de'
+    Lux.ctx.locale = 'de'
     _(Lux.locale.path('/service')).must_equal '/de/service'
   end
 
   it 'localizes an object that responds to path' do
-    Lux.current.locale = 'de'
+    Lux.ctx.locale = 'de'
     object = Struct.new(:path).new('/users/1')
     _(Lux.locale.path(object)).must_equal '/de/users/1'
   end
 
   it 'falls back to to_path' do
-    Lux.current.locale = 'de'
+    Lux.ctx.locale = 'de'
     object = Struct.new(:to_path).new('/users/2')
     _(Lux.locale.path(object)).must_equal '/de/users/2'
   end
@@ -174,8 +170,8 @@ describe 'Lux::Locale#seo_links' do
   before do
     Lux.locale.default         = :en
     Lux.locale.available       = %i[en de]
-    Lux.current.locale         = 'de'
-    Lux.current[:locale_force] = nil
+    Lux.ctx.locale         = 'de'
+    Lux.ctx[:locale_force] = nil
   end
 
   it 'canonicalizes the current locale, alternates every locale, then x-default' do
@@ -199,17 +195,17 @@ describe 'lpath delegates' do
   before do
     Lux.locale.default         = :en
     Lux.locale.available       = %i[en de]
-    Lux.current.locale         = nil
-    Lux.current[:locale_force] = nil
+    Lux.ctx.locale         = nil
+    Lux.ctx[:locale_force] = nil
   end
 
-  it 'is reachable as lux.lpath' do
-    Lux.current.locale = 'de'
-    _(Lux.current.lpath('/service')).must_equal '/de/service'
+  it 'is reachable as Lux.ctx.lpath' do
+    Lux.ctx.locale = 'de'
+    _(Lux.ctx.lpath('/service')).must_equal '/de/service'
   end
 
   it 'is reachable as the lpath template helper' do
-    Lux.current.locale = 'de'
+    Lux.ctx.locale = 'de'
     helper = Object.new.extend(Lux::Template::Helper)
     _(helper.lpath('/service')).must_equal '/de/service'
   end
@@ -238,8 +234,8 @@ describe 'localized first-visit geo redirect' do
     Lux.router.route(&LOCALIZED_SPEC_ROUTE)
     Lux.locale.default         = :en
     Lux.locale.available       = %i[en de]
-    Lux.current.locale         = nil
-    Lux.current[:locale_force] = nil
+    Lux.ctx.locale         = nil
+    Lux.ctx[:locale_force] = nil
   end
 
   it 'sends a first-time visitor to their country locale' do

@@ -1,81 +1,100 @@
-# Lux::Current
+# Lux::Context
 
-Thread-local request context. One object per request, available as
-`Lux.current` or just `current` inside routers and APIs, or `lux`
-anywhere. Holds the request, response, params, session, nav, browser,
-and a per-request variable bag.
+Thread-local context, always reached as `Lux.ctx`. Inside a request it
+holds the request, response, params, session, nav and browser; everywhere
+it holds a per-thread variable bag, memoize cache, locale and user.
+
+## Outside a request
+
+`Lux.ctx` is never nil. Outside a request (console, jobs, scripts,
+`Lux.defer` from a job) it is built lazily without a request:
+
+```ruby
+Lux.ctx.request              # nil - this is the "inside a request?" check
+Lux.ctx.var / .cache / .once # work, scoped to the thread
+Lux.ctx.locale / .user       # work
+Lux.ctx.no_cache?            # false
+Lux.ctx.snapshot             # { request_id:, user: } with url/ip/method nil
+Lux.ctx.response / .nav / .session / .params  # nil
+Lux.url                      # raises: there is no request URL to build from
+```
+
+Request-bound code fails instead of reading a fake request.
+`Lux::Context.new` starts a fresh request-less context;
+`Lux::Context.new(url_or_env, opts)` builds one with a request (what the
+router and `Lux.render.get` do).
 
 ## Full example
 
 ```ruby
 class UsersRouter < ApplicationRouter
   before do
-    @user = User.find_by_token(current.bearer_token) if current.bearer_token
-    Lux.current.locale = current.session[:locale] || 'en'
+    @user = User.find_by_token(Lux.ctx.bearer_token) if Lux.ctx.bearer_token
+    Lux.ctx.locale = Lux.ctx.session[:locale] || 'en'
   end
 
   def show
     # --- request / response ----------------------------------------------
-    current.request          # Lux::Current::Request (a Rack::Request)
-    current.response         # Lux::Response
-    current.env              # raw Rack env
+    Lux.ctx.request          # Lux::Context::Request (a Rack::Request)
+    Lux.ctx.response         # Lux::Response
+    Lux.ctx.env              # raw Rack env
 
     # --- params + nav ----------------------------------------------------
-    current.params           # validated/coerced if opt declared (Lux::Hash)
-    current.nav.path         # canonical path array
-    current.nav.ref          # captured id (see Router docs)
+    Lux.ctx.params           # validated/coerced if opt declared (Lux::Hash)
+    Lux.ctx.nav.path         # canonical path array
+    Lux.ctx.nav.ref          # captured id (see Router docs)
 
     # --- session (sealed cookie, see Session below) ---------------------
-    current.session[:user_id] = @user.id
-    current.session.clear
+    Lux.ctx.session[:user_id] = @user.id
+    Lux.ctx.session.clear
 
     # --- request-scoped vars --------------------------------------------
-    current[:account] = @user.account             # shortcut for current.var[:account]
-    current[:account]
-    current.var[:flash]                            # full bag (Lux::Hash)
+    Lux.ctx[:account] = @user.account             # shortcut for Lux.ctx.var[:account]
+    Lux.ctx[:account]
+    Lux.ctx.var                                    # full bag (Lux::Hash)
 
     # --- request-scoped memoize ------------------------------------------
-    current.cache(:billing) { Billing.expensive_lookup(@user) }
+    Lux.ctx.cache(:billing) { Billing.expensive_lookup(@user) }
 
     # --- once-per-request ------------------------------------------------
-    current.once(:audit) { AuditLog.track(@user, 'viewed') }   # returns false on 2nd call
+    Lux.ctx.once(:audit) { AuditLog.track(@user, 'viewed') }   # returns false on 2nd call
 
-    # --- CSRF (see lib/lux/current/lib/csrf.rb) -------------------------
-    current.csrf             # lazy 6-char token in session[:_csrf]
-    current.csrf_valid?      # checks request _csrf / X-CSRF-Token
-    current.csrf_required?   # true for non-GET without Bearer auth
+    # --- CSRF (see lib/lux/context/lib/csrf.rb) -------------------------
+    Lux.ctx.csrf             # lazy 43-char token in session[:_csrf]
+    Lux.ctx.csrf_valid?      # checks request _csrf / X-CSRF-Token
+    Lux.ctx.csrf_required?   # non-GET/HEAD/OPTIONS, no Bearer, and a session cookie was sent
 
     # --- browser (master per-request: header / window / channel) ---------
-    current.browser.header.title 'Home'
-    current.browser.window[:app] = { cfg: { host: Lux.config.host },
+    Lux.ctx.browser.header.title 'Home'
+    Lux.ctx.browser.window[:app] = { cfg: { host: Lux.config.host },
                                      current: { user: @user.to_h } }
-    current.browser.window_script       # <script id="lux-state">...</script>
+    Lux.ctx.browser.window_script       # <script id="lux-state">...</script>
 
     # --- encrypt / decrypt (per-request key; IP-bound, default 10m TTL) -
-    token = current.encrypt(@user.id)
-    current.decrypt(token)
+    token = Lux.ctx.encrypt(@user.id)
+    Lux.ctx.decrypt(token)
 
-    # --- background thread (Lux.current rebuilt from a snapshot) --------
+    # --- background thread (Lux.ctx rebuilt from a snapshot) --------
     Lux.defer(context: @user) { |u| Mailer.deliver(:welcome, u.email) }
-    Lux.defer { |ctx| Audit.track(ctx.user, ctx.url) }         # ctx = Lux.current.snapshot
+    Lux.defer { |snap| Audit.track(snap.user, snap.url) }      # snap = Lux.ctx.snapshot
 
     # --- request meta ----------------------------------------------------
-    current.ip               # client IP (CF-Connecting-IP from a CF edge, else Rack#ip: XFF behind trusted proxies only)
-    current.request_id       # X-Request-Id if sane, else random; echoed as x-request-id
-    current.snapshot         # frozen { request_id, request_method, url, ip, user }
-    current.host             # scheme://host:port
-    current.uid              # unique id per call (each call returns a new id)
-    current.bearer_token     # Authorization: Bearer <token>
-    current.robot?
-    current.mobile?
-    current.no_cache?        # HTTP_CACHE_CONTROL=no-cache + can_clear_cache
-    current.can_clear_cache = true   # opt-in for admin clears
+    Lux.ctx.ip               # client IP (CF-Connecting-IP from a CF edge, else Rack#ip: XFF behind trusted proxies only)
+    Lux.ctx.request_id       # X-Request-Id if sane, else random; echoed as x-request-id
+    Lux.ctx.snapshot         # frozen { request_id, request_method, url, ip, user }
+    Lux.ctx.host             # scheme://host:port
+    Lux.ctx.uid              # unique id per call (each call returns a new id)
+    Lux.ctx.bearer_token     # Authorization: Bearer <token>
+    Lux.ctx.robot?
+    Lux.ctx.mobile?
+    Lux.ctx.no_cache?        # HTTP_CACHE_CONTROL=no-cache + can_clear_cache
+    Lux.ctx.can_clear_cache = true   # opt-in for admin clears
 
     # --- locale ----------------------------------------------------------
-    current.locale = :en
+    Lux.ctx.locale = :en
 
     # --- file tracking ---------------------------------------------------
-    current.files_in_use                            # Set; touched files this request
+    Lux.ctx.files_in_use                            # Set; touched files this request
   end
 end
 ```
@@ -84,38 +103,48 @@ end
 
 | Property | Type | Notes |
 |----------|------|-------|
-| `request`         | `Lux::Current::Request` | the raw request (`Rack::Request` subclass; `xhr?` also true for fetch) |
+| `request`         | `Lux::Context::Request` | the raw request (`Rack::Request` subclass; `xhr?` also true for fetch) |
 | `response`        | `Lux::Response` | response builder |
 | `nav`             | `Lux::Router::Nav` | canonical request path (see Nav below) |
 | `route`           | `Lux::Router::Route` | router cursor |
-| `session`         | `Lux::Current::Session` | sealed cookie session (see Session below) |
+| `session`         | `Lux::Context::Session` | sealed cookie session (see Session below) |
 | `params`          | `Lux::Hash` | request params (coerced if `opt` declared) |
 | `param_errors`    | hash | `{ field => 'Message' }` from the action's `opt` / `params do` contract, HTML requests only (JSON halts with 422). Empty when clean |
-| `var`             | `Lux::Hash` | request-scoped bag (`current[:k]` shortcut) |
-| `browser`         | `Lux::Browser` | master per-request object: `header` / `window` / `export` / `channel` |
+| `var`             | `Lux::Hash` | request-scoped bag (`Lux.ctx[:k]` shortcut) |
+| `browser`         | `Lux::Browser` | master per-request object: `header` / `html` / `window` / `window_script` / `channel` |
 | `locale`          | symbol/string | i18n hook |
 | `env`             | hash | Rack env |
 | `ip`              | string | client IP |
 | `request_id`      | string | upstream `X-Request-Id` or a random id; echoed in the response, exception records and `Lux.defer` |
-| `host`            | string | scheme://host:port |
+| `host`            | string | `request.base_url` (scheme://host, port only when non-default) |
 | `uid`             | string | unique id per call |
 | `bearer_token`    | string | `Authorization: Bearer <token>` |
 | `robot?` / `mobile?` | bool | UA-based |
 | `no_cache?`       | bool | `HTTP_CACHE_CONTROL=no-cache` + `can_clear_cache` |
 | `can_clear_cache` | bool | opt-in for admin clears |
 | `csrf` / `csrf_valid?` / `csrf_required?` | | CSRF surface (see `lib/csrf.rb`) |
+| `rotate_csrf!`    | | drops the CSRF token; call on sign-in |
+| `session_sid`     | string | stable per-session random id (guests too) |
+| `local_request?`  | bool | client IP is loopback |
+| `post`            | `Lux::Hash` | body-only params (form or JSON object body; mock `post:` wins) |
+| `raw_body`        | string | request body, read once and rewound |
+| `json_request?`   | bool | `Content-Type: application/json` |
+| `malformed_request` | exception/nil | unparseable query/body or dot-segment path; answered with 400 |
 
 ## Helpers
 
 | Helper | Notes |
 |--------|-------|
-| `current.cache(key) { ... }`    | request-scoped memoization |
-| `current.once(key) { ... }`     | runs once per request; subsequent calls return false |
-| `current.encrypt(data, ttl:)`   | JWT-encrypt, IP-bound by default |
-| `current.decrypt(token)`        | |
-| `Lux.defer { \|ctx\| ... }`     | bg thread; `ctx` = `Lux.current.snapshot`; `Lux.current` inside is rebuilt from it (request id, method, url, `User.current=`); errors go to `Lux.error.log` |
+| `Lux.ctx.cache(key) { ... }`    | request-scoped memoization |
+| `Lux.ctx.once(key) { ... }`     | runs once per request; subsequent calls return false |
+| `Lux.ctx.encrypt(data, ttl:)`   | signed JWT (tamper-proof, readable by the holder), IP-bound, default 10m TTL |
+| `Lux.ctx.decrypt(token)`        | |
+| `Lux.defer { \|snap\| ... }`    | bg thread; `snap` = `Lux.ctx.snapshot`; `Lux.ctx` inside is rebuilt from it (request id, method, url, `User.current=`); errors go to `Lux.error.log` |
 | `Lux.defer(context: x) { \|x\| ... }` | bg thread with an explicit context value |
-| `current.files_in_use`          | Set of files touched this request |
+| `Lux.ctx.files_in_use`          | Set of files touched this request |
+| `Lux.ctx.header`                | `browser.header` (title, meta, ...) |
+| `Lux.ctx.render_html(...)`      | whole HTML document for a layout (`Lux::Browser::Html`) |
+| `Lux::Context::EncryptParams.hidden_input(name, value)` | signed (readable, 1 day TTL) hidden `_data_*` field; decoded back into `params[name]` on submit |
 
 ## Session
 
@@ -129,19 +158,23 @@ store. Rules, in [`./lib/session.rb`](./lib/session.rb):
 * **Browser check.** User-Agent (version numbers dropped, so updates do not log
   out) plus `CF-IPCountry` is hashed into `_c`; a mismatch empties the session.
   `session_ip_check: true` adds the exact IP.
-* **Cookie name.** Over https the name carries `__Host-` (host-only, `Path=/`,
-  `Secure`), so a subdomain or plain-http page cannot plant one. Setting
-  `session_cookie_domain` shares the cookie with subdomains and switches to
-  `__Secure-`.
-* **Moving to a subdomain.** The host-only cookie is not seen by other hosts.
+* **Cookie name.** By default (`session_cookie_domain: nil`) the cookie is shared
+  with the root domain (`Domain=example.com`, `__Secure-` over https).
+  `session_cookie_domain: false` makes it host-only (`__Host-`, `Path=/`,
+  `Secure`). The name also carries a 6-char hash of `Accept-Language` and a
+  `_<port>` suffix, so a browser language change starts a fresh session.
+* **Moving to a subdomain.** With a host-only cookie (`session_cookie_domain: false`)
+  the cookie is not seen by other hosts.
   `nav.subdomain(:app, '/dashboard', session: true)` returns a same-host
   `/_lux_/handoff?to=<sealed target>` link with no session data in it, so the
   page can be cached or left open. Followed, it mints a one-time `?_lux_st=`
   token (sealed session data, valid 1 minute, for that host and this browser
   only) and redirects to the target. The receiving host merges it before any
   before-filter and 303-redirects to the same URL without the token. Only
-  targets the app sealed, on the current domain, are accepted.
-* **Device binding (DBSC).** Over https every session is offered
+  targets the app sealed, on the current domain, are accepted. A cross-site
+  (`Sec-Fetch-Site: cross-site`) arrival with a token is ignored.
+* **Device binding (DBSC).** Over https with a host-only cookie
+  (`session_cookie_domain: false`) every session is offered
   [Device Bound Session Credentials](https://w3c.github.io/webappsec-dbsc/)
   once (`Secure-Session-Registration` header). Chrome/Edge register a TPM key
   at `/_lux_/dbsc/register` and from then on must sign a challenge at
@@ -150,14 +183,14 @@ store. Rules, in [`./lib/session.rb`](./lib/session.rb):
   copied cookie dies off the device. Stateless - the public key is sealed into
   the session as `_k`. Other browsers ignore the header. Off with
   `session_dbsc: false`. See [`./lib/dbsc.rb`](./lib/dbsc.rb).
-* **CF-* headers** are dropped by `Lux::Current::Request` unless the request came
+* **CF-* headers** are dropped by `Lux::Context::Request` unless the request came
   through a Cloudflare edge (or `cloudflare: true`), so `CF-IPCountry` and
   `CF-Connecting-IP` can be trusted wherever they are read.
 
 ## Nav
 
-`current.nav` is the canonical request path - routing inspects it but
-does not mutate. See [`../router/lib/nav.rb`](../router/lib/nav.rb) for full DSL.
+`Lux.ctx.nav` is the canonical request path. See
+[`../router/lib/nav.rb`](../router/lib/nav.rb) for full DSL.
 
 ```ruby
 nav.path                          # working path array - rewritten in place
@@ -217,4 +250,4 @@ and `key:value` segments intact, and not split into segments.
 
 * [`../router/README.md`](../router/README.md) - routing
 * [`../response/README.md`](../response/README.md) - response object
-* [`../browser/README.md`](../browser/README.md) - `current.browser`
+* [`../browser/README.md`](../browser/README.md) - `Lux.ctx.browser`

@@ -43,35 +43,40 @@ Located in [`lib/lux/type/types/`](./types).
 |--------|------------|-------|
 | `:string`    | String  | default when no type given |
 | `:text`      | String  | unlimited length, multi-line |
-| `:integer`   | Integer | `min:`, `max:` |
-| `:float`     | Float   | `min:`, `max:` |
+| `:integer`   | Integer | `min:`, `max:`; non-numeric input (`"abc"`, `"1.5"`) is an error |
+| `:float`     | Float   | `min:`, `max:`, `round:`; non-numeric input is an error |
 | `:boolean`   | true/false | `Lux::Utils::Boolean.parse`: `true yes on t y 1` / `false no off f n 0` |
-| `:date`      | Date    | ISO parse |
+| `:date`      | Date    | ISO parse; `min:`/`max:` accept a Date, Time or String |
 | `:datetime`  | DateTime | ISO parse |
-| `:time`      | Time    | |
-| `:email`     | String  | validates RFC + lowercases |
+| `:time`      | DateTime | alias of `:datetime` (timestamp column) |
+| `:email`     | String  | downcased, whitespace removed, must contain `@`, length 5..120 |
 | `:url`       | String  | validates http/https |
 | `:slug`      | String  | URL-safe slug |
 | `:uuid`      | String  | RFC-4122 |
-| `:locale`    | String  | two-letter, lowercased |
-| `:country`   | String  | ISO 3166-1 alpha-2, uppercased |
-| `:currency`  | Float   | `to_f.round(2)` |
+| `:locale`    | String  | 2-5 chars of `[\w-]`, case kept |
+| `:country`   | String  | upcased, two letters A-Z |
+| `:currency`  | Float   | rounded to 2 decimals; column `decimal(8,2)`, so max 999_999.99 unless `max:` is given |
 | `:currency_code` | String | ISO 4217, uppercased |
 | `:phone`     | String  | strips parens/dashes, requires 5+ digits |
 | `:iban`      | String  | validates IBAN |
 | `:oib`       | String  | Croatian tax id |
-| `:label`     | String  | enum-friendly |
+| `:label`     | String  | max 30, spaces -> `-`, `[\w-]` only, downcased |
 | `:point` / `:simple_point` | Array(Float, Float) | lat/lon |
-| `:hash`      | Hash    | passes through |
-| `:translated` | Hash(locale => text) | jsonb; bare string → current locale; prunes stale locales when a single one changes |
-| `:image`     | upload  | works with `plugins/web_common` html form |
+| `:hash`      | Hash    | parses a JSON-object string, drops blank-string values, `allow:` whitelists keys |
+| `:translated` | Hash(locale => text) | jsonb; bare string -> current locale; prunes stale locales when a single one changes |
+| `:image`     | String  | http(s) URL; `strict: true` requires a jpg/jpeg/gif/png/svg/webp extension (not an upload) |
 | `:model`     | nested schema | set automatically by `name do ... end` |
+| `:ref`       | String  | the app id format from `Lux.config.ref_format` via `Nav::Base`; width = `db_limit` |
+| `:ip`        | String  | IPv4/IPv6 via `Resolv` |
+| `:domain`    | String  | RFC-1123 host, peels scheme/path/port |
+| `:timezone`  | String  | TZInfo identifier; needs the `tzinfo` gem in the app Gemfile |
 
 User text is stored as typed and escaped on output: Haml's `=` escapes every
 string that is not `html_safe?`, so `= @user.name` is safe as is. Print stored
 markup with `= @post.body.html_unsafe` (`<script>`/`<style>` neutralized unless
 `html_unsafe(script: true, style: true)`). See
 [`lib/overload/README.md`](../../overload/README.md#output-escaping).
+`html_unsafe` marks *trusted* markup as safe. It is not a sanitizer.
 Databases written before output escaping hold `<` as `&LT;`; run
 `lux db:unescape --apply` once per database.
 
@@ -134,7 +139,8 @@ caught by the schema and recorded during validation.
 Lux::Type.error :hr, :min_length_error, 'minimalna duljina je %s, imate %s'
 Lux::Type.error :hr, :max_length_error, 'maksimalna duljina je %s, imate %s'
 
-# resolves via Lux.current.locale automatically when validating
+# resolves via Lux.ctx.locale automatically when validating;
+# keys missing in a locale table fall back to :en
 ```
 
 Per-field overrides via `meta:` option:

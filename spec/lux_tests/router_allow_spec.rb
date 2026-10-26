@@ -3,7 +3,7 @@ require 'test_helper'
 # Default action: GET + HEAD + OPTIONS.
 class GetDefaultRouter < Lux::Router
   def show
-    render text: 'show:%s' % lux.request.request_method
+    render text: 'show:%s' % Lux.ctx.request.request_method
   end
 end
 
@@ -11,7 +11,7 @@ end
 class AllowPostRouter < Lux::Router
   allow :post
   def create
-    render text: 'create:%s' % lux.request.request_method
+    render text: 'create:%s' % Lux.ctx.request.request_method
   end
 end
 
@@ -19,7 +19,7 @@ end
 class AllowMultiRouter < Lux::Router
   allow :post, :patch
   def update
-    render text: 'update:%s' % lux.request.request_method
+    render text: 'update:%s' % Lux.ctx.request.request_method
   end
 end
 
@@ -27,7 +27,7 @@ end
 class AllowGetPostRouter < Lux::Router
   allow :get, :post
   def upsert
-    render text: 'upsert:%s' % lux.request.request_method
+    render text: 'upsert:%s' % Lux.ctx.request.request_method
   end
 end
 
@@ -35,7 +35,7 @@ end
 class AllowPostOptionsRouter < Lux::Router
   allow :post, :options
   def preflight
-    render text: 'preflight:%s' % lux.request.request_method
+    render text: 'preflight:%s' % Lux.ctx.request.request_method
   end
 end
 
@@ -43,7 +43,7 @@ end
 class AllowSplatRouter < Lux::Router
   allow :put, :delete
   def replace
-    render text: 'replace:%s' % lux.request.request_method
+    render text: 'replace:%s' % Lux.ctx.request.request_method
   end
 end
 
@@ -51,7 +51,7 @@ end
 class AllowAnyRouter < Lux::Router
   allow :any
   def webhook
-    render text: 'webhook:%s' % lux.request.request_method
+    render text: 'webhook:%s' % Lux.ctx.request.request_method
   end
 end
 
@@ -59,7 +59,7 @@ end
 class AllowAllRouter < Lux::Router
   allow :all
   def hook
-    render text: 'hook:%s' % lux.request.request_method
+    render text: 'hook:%s' % Lux.ctx.request.request_method
   end
 end
 
@@ -67,11 +67,11 @@ end
 class AllowIsolationRouter < Lux::Router
   allow :post
   def create
-    render text: 'create:%s' % lux.request.request_method
+    render text: 'create:%s' % Lux.ctx.request.request_method
   end
 
   def show
-    render text: 'show:%s' % lux.request.request_method
+    render text: 'show:%s' % Lux.ctx.request.request_method
   end
 end
 
@@ -80,7 +80,7 @@ end
 class AllowRefRouter < Lux::Router
   allow :delete
   def destroy
-    render text: 'destroy:%s:%s' % [lux.nav.ref, lux.request.request_method]
+    render text: 'destroy:%s:%s' % [Lux.ctx.nav.ref, Lux.ctx.request.request_method]
   end
 end
 
@@ -88,7 +88,7 @@ end
 class AllowErrorRouter < Lux::Router
   def error
     @status ||= 500
-    render text: 'error:%s:%s' % [@status, lux.request.request_method]
+    render text: 'error:%s:%s' % [@status, Lux.ctx.request.request_method]
   end
 end
 
@@ -97,38 +97,38 @@ end
 describe 'Lux::Router allow / HTTP verb enforcement' do
   describe 'default GET' do
     it 'accepts GET' do
-      Lux::Current.new('http://test/show')
+      Lux::Context.new('http://test/show')
       GetDefaultRouter.action(:show)
-      _(Lux.current.response.body).must_equal 'show:GET'
+      _(Lux.ctx.response.body).must_equal 'show:GET'
     end
 
     it 'accepts HEAD (implicit alongside GET)' do
-      Lux::Current.new('http://test/show', method: 'HEAD')
+      Lux::Context.new('http://test/show', method: 'HEAD')
       GetDefaultRouter.action(:show)
-      _(Lux.current.response.body).must_equal 'show:HEAD'
+      _(Lux.ctx.response.body).must_equal 'show:HEAD'
     end
 
     it 'accepts OPTIONS (implicit alongside GET)' do
-      Lux::Current.new('http://test/show', method: 'OPTIONS')
+      Lux::Context.new('http://test/show', method: 'OPTIONS')
       GetDefaultRouter.action(:show)
-      _(Lux.current.response.body).must_equal 'show:OPTIONS'
+      _(Lux.ctx.response.body).must_equal 'show:OPTIONS'
     end
 
     it 'rejects POST with 405' do
-      Lux::Current.new('http://test/show', method: 'POST')
+      Lux::Context.new('http://test/show', method: 'POST')
       err = _{ GetDefaultRouter.action(:show) }.must_raise Lux::Error
       _(err.status).must_equal 405
     end
 
     it 'names the accepted verbs in the Allow header on 405' do
-      Lux::Current.new('http://test/show', method: 'POST')
+      Lux::Context.new('http://test/show', method: 'POST')
       _{ GetDefaultRouter.action(:show) }.must_raise Lux::Error
-      _(Lux.current.response.headers['allow'].split(', ').sort).must_equal %w[GET HEAD OPTIONS]
+      _(Lux.ctx.response.headers['allow'].split(', ').sort).must_equal %w[GET HEAD OPTIONS]
     end
 
     it 'rejects PUT, PATCH, DELETE with 405' do
       %w(PUT PATCH DELETE).each do |verb|
-        Lux::Current.new('http://test/show', method: verb)
+        Lux::Context.new('http://test/show', method: verb)
         err = _{ GetDefaultRouter.action(:show) }.must_raise Lux::Error
         _(err.status).must_equal 405
       end
@@ -137,31 +137,31 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
   describe 'allow :post (replaces default, not additive)' do
     it 'accepts POST' do
-      Lux::Current.new('http://test/create', method: 'POST')
+      Lux::Context.new('http://test/create', method: 'POST')
       AllowPostRouter.action(:create)
-      _(Lux.current.response.body).must_equal 'create:POST'
+      _(Lux.ctx.response.body).must_equal 'create:POST'
     end
 
     it 'rejects GET with 405 (allow replaces default)' do
-      Lux::Current.new('http://test/create')
+      Lux::Context.new('http://test/create')
       err = _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
       _(err.status).must_equal 405
     end
 
     it 'rejects HEAD with 405 (no implicit HEAD without :get)' do
-      Lux::Current.new('http://test/create', method: 'HEAD')
+      Lux::Context.new('http://test/create', method: 'HEAD')
       err = _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
       _(err.status).must_equal 405
     end
 
     it 'rejects OPTIONS with 405 (no implicit OPTIONS without :get)' do
-      Lux::Current.new('http://test/create', method: 'OPTIONS')
+      Lux::Context.new('http://test/create', method: 'OPTIONS')
       err = _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
       _(err.status).must_equal 405
     end
 
     it 'rejects PATCH with 405' do
-      Lux::Current.new('http://test/create', method: 'PATCH')
+      Lux::Context.new('http://test/create', method: 'PATCH')
       err = _{ AllowPostRouter.action(:create) }.must_raise Lux::Error
       _(err.status).must_equal 405
     end
@@ -169,25 +169,25 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
   describe 'allow :post, :patch (POST + PATCH only)' do
     it 'accepts POST' do
-      Lux::Current.new('http://test/update', method: 'POST')
+      Lux::Context.new('http://test/update', method: 'POST')
       AllowMultiRouter.action(:update)
-      _(Lux.current.response.body).must_equal 'update:POST'
+      _(Lux.ctx.response.body).must_equal 'update:POST'
     end
 
     it 'accepts PATCH' do
-      Lux::Current.new('http://test/update', method: 'PATCH')
+      Lux::Context.new('http://test/update', method: 'PATCH')
       AllowMultiRouter.action(:update)
-      _(Lux.current.response.body).must_equal 'update:PATCH'
+      _(Lux.ctx.response.body).must_equal 'update:PATCH'
     end
 
     it 'rejects GET' do
-      Lux::Current.new('http://test/update')
+      Lux::Context.new('http://test/update')
       err = _{ AllowMultiRouter.action(:update) }.must_raise Lux::Error
       _(err.status).must_equal 405
     end
 
     it 'rejects DELETE' do
-      Lux::Current.new('http://test/update', method: 'DELETE')
+      Lux::Context.new('http://test/update', method: 'DELETE')
       err = _{ AllowMultiRouter.action(:update) }.must_raise Lux::Error
       _(err.status).must_equal 405
     end
@@ -195,31 +195,31 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
   describe 'allow :get, :post (explicit dual-verb)' do
     it 'accepts GET' do
-      Lux::Current.new('http://test/upsert')
+      Lux::Context.new('http://test/upsert')
       AllowGetPostRouter.action(:upsert)
-      _(Lux.current.response.body).must_equal 'upsert:GET'
+      _(Lux.ctx.response.body).must_equal 'upsert:GET'
     end
 
     it 'accepts HEAD (implicit because :get is declared)' do
-      Lux::Current.new('http://test/upsert', method: 'HEAD')
+      Lux::Context.new('http://test/upsert', method: 'HEAD')
       AllowGetPostRouter.action(:upsert)
-      _(Lux.current.response.body).must_equal 'upsert:HEAD'
+      _(Lux.ctx.response.body).must_equal 'upsert:HEAD'
     end
 
     it 'accepts OPTIONS (implicit because :get is declared)' do
-      Lux::Current.new('http://test/upsert', method: 'OPTIONS')
+      Lux::Context.new('http://test/upsert', method: 'OPTIONS')
       AllowGetPostRouter.action(:upsert)
-      _(Lux.current.response.body).must_equal 'upsert:OPTIONS'
+      _(Lux.ctx.response.body).must_equal 'upsert:OPTIONS'
     end
 
     it 'accepts POST' do
-      Lux::Current.new('http://test/upsert', method: 'POST')
+      Lux::Context.new('http://test/upsert', method: 'POST')
       AllowGetPostRouter.action(:upsert)
-      _(Lux.current.response.body).must_equal 'upsert:POST'
+      _(Lux.ctx.response.body).must_equal 'upsert:POST'
     end
 
     it 'rejects PATCH' do
-      Lux::Current.new('http://test/upsert', method: 'PATCH')
+      Lux::Context.new('http://test/upsert', method: 'PATCH')
       err = _{ AllowGetPostRouter.action(:upsert) }.must_raise Lux::Error
       _(err.status).must_equal 405
     end
@@ -227,32 +227,32 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
   describe 'splat form: allow :put, :delete' do
     it 'accepts PUT' do
-      Lux::Current.new('http://test/replace', method: 'PUT')
+      Lux::Context.new('http://test/replace', method: 'PUT')
       AllowSplatRouter.action(:replace)
-      _(Lux.current.response.body).must_equal 'replace:PUT'
+      _(Lux.ctx.response.body).must_equal 'replace:PUT'
     end
 
     it 'accepts DELETE' do
-      Lux::Current.new('http://test/replace', method: 'DELETE')
+      Lux::Context.new('http://test/replace', method: 'DELETE')
       AllowSplatRouter.action(:replace)
-      _(Lux.current.response.body).must_equal 'replace:DELETE'
+      _(Lux.ctx.response.body).must_equal 'replace:DELETE'
     end
   end
 
   describe 'explicit allow :options' do
     it 'accepts OPTIONS without GET when declared' do
-      Lux::Current.new('http://test/preflight', method: 'OPTIONS')
+      Lux::Context.new('http://test/preflight', method: 'OPTIONS')
       AllowPostOptionsRouter.action(:preflight)
-      _(Lux.current.response.body).must_equal 'preflight:OPTIONS'
+      _(Lux.ctx.response.body).must_equal 'preflight:OPTIONS'
     end
   end
 
   describe 'allow :any' do
     it 'accepts every verb' do
       %w(GET POST PUT PATCH DELETE TRACE).each do |verb|
-        Lux::Current.new('http://test/webhook', method: verb)
+        Lux::Context.new('http://test/webhook', method: verb)
         AllowAnyRouter.action(:webhook)
-        _(Lux.current.response.body).must_equal 'webhook:%s' % verb
+        _(Lux.ctx.response.body).must_equal 'webhook:%s' % verb
       end
     end
   end
@@ -260,22 +260,22 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
   describe 'allow :all (alias of :any)' do
     it 'accepts every verb' do
       %w(GET POST PUT DELETE).each do |verb|
-        Lux::Current.new('http://test/hook', method: verb)
+        Lux::Context.new('http://test/hook', method: verb)
         AllowAllRouter.action(:hook)
-        _(Lux.current.response.body).must_equal 'hook:%s' % verb
+        _(Lux.ctx.response.body).must_equal 'hook:%s' % verb
       end
     end
   end
 
   describe 'isolation between defs' do
     it 'applies allow :post only to the next def' do
-      Lux::Current.new('http://test/create', method: 'POST')
+      Lux::Context.new('http://test/create', method: 'POST')
       AllowIsolationRouter.action(:create)
-      _(Lux.current.response.body).must_equal 'create:POST'
+      _(Lux.ctx.response.body).must_equal 'create:POST'
     end
 
     it 'leaves the following def at GET-default' do
-      Lux::Current.new('http://test/show', method: 'POST')
+      Lux::Context.new('http://test/show', method: 'POST')
       err = _{ AllowIsolationRouter.action(:show) }.must_raise Lux::Error
       _(err.status).must_equal 405
     end
@@ -283,15 +283,15 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
   describe 'ref-bearing action' do
     it 'enforces allow when the URL carries a ref' do
-      Lux::Current.new('http://test/things/abc', method: 'DELETE')
-      Lux.current.nav.map_path { |el| el == 'abc' ? 'abc' : nil }
+      Lux::Context.new('http://test/things/abc', method: 'DELETE')
+      Lux.ctx.nav.map_path { |el| el == 'abc' ? 'abc' : nil }
       AllowRefRouter.action(:destroy)
-      _(Lux.current.response.body).must_equal 'destroy:abc:DELETE'
+      _(Lux.ctx.response.body).must_equal 'destroy:abc:DELETE'
     end
 
     it 'still rejects undeclared verbs' do
-      Lux::Current.new('http://test/things/abc', method: 'POST')
-      Lux.current.nav.map_path { |el| el == 'abc' ? 'abc' : nil }
+      Lux::Context.new('http://test/things/abc', method: 'POST')
+      Lux.ctx.nav.map_path { |el| el == 'abc' ? 'abc' : nil }
       err = _{ AllowRefRouter.action(:destroy) }.must_raise Lux::Error
       _(err.status).must_equal 405
     end
@@ -299,10 +299,10 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
   describe 'error page dispatch' do
     it 'skips the verb check so POSTed errors render' do
-      Lux::Current.new('http://test/anything', method: 'POST')
-      lux.var[:error_page] = true
+      Lux::Context.new('http://test/anything', method: 'POST')
+      Lux.ctx.var[:error_page] = true
       AllowErrorRouter.action(:error)
-      _(Lux.current.response.body).must_match(/^error:/)
+      _(Lux.ctx.response.body).must_match(/^error:/)
     end
   end
 
@@ -322,7 +322,7 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
       prev = Lux.debug?
       Lux.debug = true
       begin
-        Lux::Current.new('http://test/show', method: 'PUT')
+        Lux::Context.new('http://test/show', method: 'PUT')
         raised = nil
         begin
           GetDefaultRouter.action(:show)
@@ -342,7 +342,7 @@ describe 'Lux::Router allow / HTTP verb enforcement' do
 
   describe 'prod-mode 405 message' do
     it 'is terse (no action / verb leakage)' do
-      Lux::Current.new('http://test/show', method: 'PUT')
+      Lux::Context.new('http://test/show', method: 'PUT')
       raised = nil
       begin
         GetDefaultRouter.action(:show)

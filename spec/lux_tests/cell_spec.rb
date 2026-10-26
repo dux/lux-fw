@@ -43,19 +43,19 @@ end
 
 describe Lux::Router do
   before do
-    Lux::Current.new('http://testing')
+    Lux::Context.new('http://testing')
   end
 
   it 'renders text' do
     TestRouter.action(:render_text)
 
-    _(Lux.current.response.body).must_equal 'foo'
+    _(Lux.ctx.response.body).must_equal 'foo'
   end
 
   it 'renders json' do
     TestRouter.action(:render_json)
 
-    _(Lux.current.response.body).must_equal '{"foo":"bar"}'
+    _(Lux.ctx.response.body).must_equal '{"foo":"bar"}'
   end
 
   it 'raises on invalid render options' do
@@ -65,12 +65,12 @@ describe Lux::Router do
   it 'executes before filters in order' do
     TestRouter.action(:test_before)
 
-    _(Lux.current.response.body).must_equal 'beforesecond'
+    _(Lux.ctx.response.body).must_equal 'beforesecond'
   end
 
   it 'executes before_render callback when invoked' do
     TestRouter.action(:test_before_render_value)
 
-    _(Lux.current.response.body).must_equal 'before_render'
+    _(Lux.ctx.response.body).must_equal 'before_render'
   end
 end

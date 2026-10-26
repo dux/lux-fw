@@ -29,8 +29,11 @@ end
 end
 end
 
-def Paginate set, size: 20, param: :page, page: nil, count: nil, klass: nil
-  page = Lux.current.params[param] if Lux.current.params[param].to_s =~ /\A\d+\z/
+def Paginate set, size: 20, param: :page, page: nil, klass: nil
+  if page.nil?
+    qs   = Lux.ctx.params[param].to_s
+    page = qs if qs.match?(/\A\d+\z/)
+  end
   page = page.to_i
   page = 1 if page < 1
 

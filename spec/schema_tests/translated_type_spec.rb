@@ -60,10 +60,10 @@ describe Lux::Type::TranslatedType do
   end
 
   describe 'current locale' do
-    before { Lux::Current.new('http://test') }
+    before { Lux::Context.new('http://test') }
 
-    it 'keys a bare string under Lux.current.locale when set' do
-      Lux.current.locale = 'de'
+    it 'keys a bare string under Lux.ctx.locale when set' do
+      Lux.ctx.locale = 'de'
       _(coerce('Hallo')).must_equal({ 'de' => 'Hallo' })
     end
   end

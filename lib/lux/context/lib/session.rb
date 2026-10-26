@@ -10,10 +10,12 @@
 # sometimes there is a bug there and cookie will not be set because of http https issues
 
 module Lux
-  class Current
+  class Context
     class Session
       SEAL_PURPOSE  ||= 'session'
       REFRESH_AFTER ||= 1.day.to_i
+      # name + attributes take ~150 bytes of the ~4096 a browser keeps per cookie
+      COOKIE_WARN_BYTES ||= 3800
 
       # one-time handoff to another host, see #transfer_token
       TRANSFER_PARAM   ||= '_lux_st'
@@ -90,6 +92,11 @@ module Lux
         # copied cookie replays forever without a TTL inside the token.
         encrypted     = Lux::Utils::Crypt.seal(@hash, ttl: Lux.config[:session_cookie_max_age], purpose: SEAL_PURPOSE)
 
+        # Browsers silently drop cookies over ~4 KB, which reads as a random logout.
+        if encrypted.bytesize > COOKIE_WARN_BYTES
+          Lux.logger.error "Lux session cookie is #{encrypted.bytesize} bytes (keys: #{@hash.keys.join(', ')}); browsers drop cookies over ~4 KB"
+        end
+
         cookie = []
         cookie.push [@cookie_name, encrypted].join('=')
         cookie.push 'Max-Age=%s' % (Lux.config.session_cookie_max_age)
@@ -117,11 +124,11 @@ module Lux
       # country (CF-IPCountry) is hashed here, not in the cookie name, so geo binding is not observable.
       # UA (minus version numbers, so a browser update keeps the session) and country are treated
       # as fixed per device - any change wipes the session (re-auth). CF-* headers only survive
-      # from a Cloudflare hop, see Lux::Current::Request.
+      # from a Cloudflare hop, see Lux::Context::Request.
       # session_ip_check binds the session to the exact IP - strict, breaks on wifi/cellular switch.
       def security_string
         string  = @request.env['HTTP_USER_AGENT'].to_s.gsub(/\d+/, '') + @request.env['HTTP_CF_IPCOUNTRY'].to_s
-        string += Lux.current.ip if Lux.config[:session_ip_check]
+        string += Lux.ctx.ip if Lux.config[:session_ip_check]
         string
       end
 
@@ -139,7 +146,7 @@ module Lux
         return unless url.is_a?(String)
 
         url    = Url.new(url)
-        domain = Lux.current.nav.domain
+        domain = Lux.ctx.nav.domain
         return unless url.host == domain || url.host.to_s.end_with?(".#{domain}")
 
         url.qs(TRANSFER_PARAM, transfer_token(url.host)).url
@@ -159,6 +166,8 @@ module Lux
       # expired, already used or foreign token, or one from another browser.
       # The used-token mark is not atomic; the browser check covers the race.
       def receive_transfer token
+        # the real flow is a same-site redirect chain; cross-site means login CSRF
+        return false if @request.env['HTTP_SEC_FETCH_SITE'] == 'cross-site'
         t = Lux::Utils::Crypt.unseal(token.to_s, purpose: TRANSFER_PURPOSE)
         return false unless t.is_a?(::Hash) && t['to'] == @request.host && t['c'] == browser_check
 

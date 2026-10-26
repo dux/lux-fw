@@ -5,6 +5,7 @@
 # eval target's scope instead of ::Object, so the helpers never reach `main`.
 ::Object.class_eval do
   def cp data
+    require 'clipboard'
     data = JSON.pretty_generate(data.to_hash) if data.respond_to?(:to_hash)
     Clipboard.copy data
     'copied'
@@ -47,9 +48,6 @@ task :console do
   needs :app
 
   proc do |opts|
-    ENV['LUX_DEBUG']  ||= 'true'
-    ENV['LUX_RELOAD'] ||= 'true'
-
     require 'pry'
     require 'amazing_print'
 
@@ -77,8 +75,8 @@ task :console do
       end
     end)
 
-    # create mock session
-    Lux::Current.new '/'
+    # fresh context, no request: Lux.ctx.request is nil in the console
+    Lux::Context.new
 
     if File.exist?('./config/console.rb')
       puts '* loading ./config/console.rb'
@@ -134,9 +132,11 @@ task :console do
           lines.each { |l| Pry.history.push(l) }
         end
       end
-      Pry.start
-
-      history.write Pry.history.to_a.uniq.last(100).join($/)
+      begin
+        Pry.start
+      ensure
+        history.write Pry.history.to_a.uniq.last(100).join($/)
+      end
     end
   end
 end

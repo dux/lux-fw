@@ -73,7 +73,13 @@ describe Lux::Browser::Channel do
       name = Lux::Browser::Channel.channel_name(Ns::Report.new('xyz'))
 
       _(name).must_equal 'ns:report:xyz'
-      _(Lux::Browser::Mount::CHANNEL_NAME.match?(name)).must_equal true
+      _(Lux::Browser::Channel::NAME.match?(name)).must_equal true
+    end
+
+    it 'rejects names that would break broker framing or have no id' do
+      _{ Lux::Browser::Channel.publish('user:victim|x', 1) }.must_raise ArgumentError
+      _{ Lux::Browser::Channel.channel_name('user:') }.must_raise ArgumentError
+      _{ Lux::Browser::Channel.channel_name('org:Acme Inc') }.must_raise ArgumentError
     end
 
     it 'takes a prefixed string or symbol as-is' do
@@ -194,7 +200,7 @@ describe Lux::Browser::Channel do
 
     it 'passes the lux context through' do
       seen = nil
-      Lux::Browser::Channel.session_channels { |lux| seen = lux; [] }
+      Lux::Browser::Channel.session_channels { |ctx| seen = ctx; [] }
       Lux::Browser::Channel.channels_for(:ctx)
       _(seen).must_equal :ctx
     end

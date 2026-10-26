@@ -11,7 +11,7 @@ module Lux
     module Action
       def action name = nil
         resourceful = name.nil?
-        name ||= resourceful_action(lux.route.path)
+        name ||= resourceful_action(Lux.ctx.route.path)
 
         # The single action-name sanitiser - dashes to underscores, non-word
         # characters dropped. Every dispatch lands here.
@@ -33,16 +33,16 @@ module Lux
 
         @_lux.action = name
         # what actually served the request; `lux render -i` prints it
-        Lux.current.var[:dispatch] = { router: self.class.name, action: name }
+        Lux.ctx.var[:dispatch] = { router: self.class.name, action: name }
 
         # An error page (dispatched by Router#render_error) renders without the
         # verb check and param validation - they already ran, or are what failed.
-        unless lux.var[:error_page]
+        unless Lux.ctx.var[:error_page]
           enforce_allowed_verbs!
           validate_action_params!
         end
 
-        unless lux.response.body?
+        unless Lux.ctx.response.body?
           if respond_to?(name) && (!resourceful || app_defined_action?(name))
             send name
           else
@@ -54,13 +54,13 @@ module Lux
       end
 
       def flash
-        lux.response.flash
+        Lux.ctx.response.flash
       end
 
       private
 
-      define_method(:etag)          { |*args, **kw| lux.response.etag(*args, **kw) }
-      define_method(:cache_control) { |arg| lux.response.headers['cache-control'] = arg }
+      define_method(:etag)          { |*args, **kw| Lux.ctx.response.etag(*args, **kw) }
+      define_method(:cache_control) { |arg| Lux.ctx.response.headers['cache-control'] = arg }
 
       # layout          -> current runtime layout
       # layout :dialog  -> layout, views dir and helper for the rest of this router
@@ -70,7 +70,7 @@ module Lux
       end
 
       def send_file file, opts = {}
-        lux.response.send_file(file, opts)
+        Lux.ctx.response.send_file(file, opts)
       end
 
       # Renders and returns the markup without touching the response body.
@@ -98,15 +98,15 @@ module Lux
         # or write the response, so it bypasses the body? guard below.
         return render_template(opt) if opt.render_to_string
 
-        throw :done if lux.response.body?
+        throw :done if Lux.ctx.response.body?
 
-        lux.response.status opt.status if opt.status
-        lux.response.content_type = opt.content_type if opt.content_type
+        Lux.ctx.response.status opt.status if opt.status
+        Lux.ctx.response.content_type = opt.content_type if opt.content_type
 
         unless render_static(opt)
           # page cache keeps full documents only; body-only pjax responses render fresh
           cached = opt.cache && !request.env['HTTP_X_PJAX_LAYOUT']
-          lux.response.body(cached ? render_cached(opt) : render_template(opt))
+          Lux.ctx.response.body(cached ? render_cached(opt) : render_template(opt))
         end
 
         throw :done
@@ -122,7 +122,7 @@ module Lux
         opt = RENDER_OPTS.new **opts
         opt.text = opt.plain if opt.plain
         opt.cache = @_lux.render_cache if @_lux.render_cache
-        opt.cache = nil if lux.response.flash.present?
+        opt.cache = nil if Lux.ctx.var[:error_page] || Lux.ctx.response.flash.present?
         opt.layout = (@_lux.layout.nil? ? self.class.cattr.layout : @_lux.layout) if opt.layout.nil?
         opt
       end
@@ -132,7 +132,7 @@ module Lux
       def render_static opt
         for el in [:text, :html, :json, :javascript, :xml]
           if value = opt[el]
-            lux.response.body value, content_type: opt.content_type || el
+            Lux.ctx.response.body value, content_type: opt.content_type || el
             return true
           end
         end
@@ -145,13 +145,13 @@ module Lux
         return if etag(opt.cache)
 
         add_info = true
-        from_cache = Lux.cache.fetch opt.cache, ttl: 1_000_000 do
+        from_cache = Lux.cache.fetch opt.cache, ttl: opt.ttl || 1_000_000 do
           add_info = false
           render_template(opt)
         end
 
         if add_info && from_cache
-          lux.response.header['x-lux-cache'] = 'render-cache'
+          Lux.ctx.response.header['x-lux-cache'] = 'render-cache'
           from_cache += '<!-- from page cache -->' if from_cache =~ %r{</html>\s*$}
         end
 
@@ -162,47 +162,51 @@ module Lux
       def render_template opt
         run_callback :before_render, @_lux.action
 
-        layout_name  = opt.layout || @_lux.layout || cattr.layout
-        view_dir     = cattr.views  || layout_name
-        helper_name  = cattr.helper || layout_name
+        view_dir     = template_dir
+        helper_name  = cattr.helper || @_lux.layout || cattr.layout
         local_helper = self.helper helper_name
 
         # Template path comes from the action name verbatim.
         template = (opt.template || @_lux.action).to_s.sub(/^\//, '')
         page_template = build_template_path(template, view_dir)
 
-        Lux.current.var['views_root'] ||= cattr.template_root
-        Lux.current.var.root_template_path = page_template.sub(%r{/[\w]+$}, '')
+        Lux.ctx.var['views_root'] ||= cattr.template_root
+        Lux.ctx.var.root_template_path = page_template.sub(%r{/[^/]+$}, '')
         data = opt.inline || Lux::Template.render(local_helper, {template: page_template, dev_info: "Helper: #{helper_name.to_s.classify}Helper, Template: #{page_template}" })
 
         if opt.layout
           path = Lux::Template.find_layout cattr.template_root, opt.layout
-          lux.browser.layout = path
+          Lux.ctx.browser.layout = path
           data = Lux::Template.render(local_helper, path) { data }
         end
 
-        Lux.current.var[:dispatch]&.merge!(template: page_template, layout: path)
+        Lux.ctx.var[:dispatch]&.merge!(template: page_template, layout: path)
 
         data
       end
 
-      def helper helper
-        Lux::Template::Helper.new self, helper
+      def helper name = cattr.helper || @_lux.layout || cattr.layout
+        Lux::Template::Helper.new self, name
       end
 
-      # respond_to :js do ...
-      # respond_to do |format| ...
+      # respond_to :js do ...      runs the block when the request format is :js, else false;
+      #                            chain several calls, one per format
+      # respond_to do |format| ... yields the request format (nil when none)
       def respond_to ext = nil
-        if ext
-          if ext == lux.nav.format
-            yield if block_given?
-            true
-          elsif lux.nav.format
-            raise Lux.error.not_found Lux.debug?('404 Not Found') { '%s document Not Found' % lux.nav.format.to_s.upcase }
-          end
-        else
-          yield lux.nav.format
-        end
+        return yield(Lux.ctx.nav.format) unless ext
+        return false unless ext == Lux.ctx.nav.format
+
+        yield if block_given?
+        true
+      end
+
+      # Like respond_to, but a request for any other explicit format is a 404.
+      # A request without a format (plain html) falls through with false.
+      def respond_to! ext, &block
+        return true if respond_to(ext, &block)
+        return false unless Lux.ctx.nav.format
+
+        raise Lux.error.not_found Lux.debug?('404 Not Found') { '%s document Not Found' % Lux.ctx.nav.format.to_s.upcase }
       end
 
       def cache *args, &block
@@ -248,9 +252,9 @@ module Lux
       # mounting router already ran), then the action or the route.
       def run_mounted action_name, parent_class
         catch :done do
-          run_callback :before, skip: parent_class unless lux.var[:error_page]
+          run_callback :before, skip: parent_class unless Lux.ctx.var[:error_page]
 
-          unless lux.response.body?
+          unless Lux.ctx.response.body?
             action_name ? action(action_name) : run_route
           end
         end
@@ -270,7 +274,7 @@ module Lux
       # call `super` when your lookup also misses, to raise the 404.
       def action_missing name
         message = Lux.debug? '404 Method Not Found' do
-          base = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, lux.nav]
+          base = 'Method "%s" not found found in "%s" (nav: %s).' % [name, self.class, Lux.ctx.nav]
           defined_methods = (methods - Lux::Router.instance_methods).map(&:to_s)
           defined = '<br /><br />Defined methods %s' % defined_methods.sort.to_ul
 

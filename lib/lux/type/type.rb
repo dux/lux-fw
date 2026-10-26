@@ -10,7 +10,7 @@ module Lux
         min_value_error:  'min is %s, got %s',
         max_value_error:  'max is %s, got %s',
         unallowed_characters_error: 'is having unallowed characters',
-        not_in_range: 'Value is not in allowed range (%s)'
+        not_in_range: 'Value "%s" is not allowed'
       }
     }
 
@@ -57,7 +57,7 @@ module Lux
     class << self
       def load name
         LOAD_CACHE[name] ||= begin
-          klass = 'Lux::Type::%sType' % name.to_s.gsub(/[^\w]/, '').classify
+          klass = 'Lux::Type::%sType' % name.to_s.gsub(/[^\w]/, '').camelize
 
           if const_defined? klass
             klass.constantize
@@ -105,8 +105,6 @@ module Lux
     def initialize value, opts = {}, stored: nil, &block
       value = value.strip if value.is_a?(String)
 
-      opts.keys.each { |key| self.class.allowed_opt?(key) }
-
       @value        = value
       @opts         = opts
       @stored_value = stored   # value currently persisted; prune/merge types compare against it
@@ -126,11 +124,8 @@ module Lux
       if value.nil?
         opts[:default].nil? ? default : opts[:default]
       else
+        check_allowed   # on the raw input, so a whitelist error wins over type errors
         coerce
-
-        if opts[:values] && !opts[:values].map(&:to_s).include?(@value.to_s)
-          error_for(:not_in_range, opts[:values].join(', '))
-        end
 
         input_value
       end
@@ -219,17 +214,19 @@ module Lux
       error_for(:max_length_error, max, value.length) if max && value.length > max
     end
 
-    def error_for name, *args
-      locale =
-        if Lux.respond_to?(:current) && Lux.current
-          Lux.current.locale.to_s rescue nil
-        elsif defined?(I18n)
-          I18n.locale
-        end
+    # allowed-values check (values:/allowed:/allow:), shared by scalars and array elements
+    def check_allowed
+      allowed = opts[:values] || opts[:allowed] || opts[:allow]
+      error_for(:not_in_range, @value.to_s) if allowed && !allowed.map(&:to_s).include?(@value.to_s)
+    end
 
-      locale  = :en if locale.to_s == ''
-      pointer = ERRORS[locale.to_sym] || ERRORS[:en]
-      error   = @opts.dig(:meta, locale, name) || @opts.dig(:meta, name) || pointer[name]
+    # message lookup: per-field meta (locale, then plain), then locale table,
+    # then :en - a partial locale table falls back to English
+    def error_for name, *args
+      locale  = (Lux.ctx.locale rescue nil).to_s
+      locale  = locale == '' ? :en : locale.to_sym
+      error   = @opts.dig(:meta, locale, name) || @opts.dig(:meta, name) ||
+                ERRORS.dig(locale, name) || ERRORS[:en][name]
       error   = error % args if args.first
 
       raise 'Type error :%s not defined' % name unless error

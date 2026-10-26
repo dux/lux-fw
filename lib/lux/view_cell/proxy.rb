@@ -21,7 +21,7 @@ module Lux
           files = ["app/cells/#{cell_name}/#{cell_name}_cell.rb", "app/cells/#{cell_name}_cell.rb"]
           file  = files.find { File.exist? _1 }
 
-          Lux.current.files_in_use file || "#{cell_name.to_s.capitalize}Cell"
+          Lux.ctx.files_in_use file || "#{cell_name.to_s.classify}Cell"
         end
 
         Lux::ViewCell.get(@parent, cell_name, vars)

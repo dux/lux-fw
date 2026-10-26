@@ -2,7 +2,7 @@ module Lux
   class Template
     class << self
       def wrap_with_debug_info files, data, opts = {}
-        return data unless Lux.env.dev? && Lux.current.request.env['QUERY_STRING'].include?('debug=render')
+        return data unless Lux.env.dev? && Lux.ctx.request&.query_string.to_s.include?('debug=render')
 
         files = [files] unless files.is_a?(Array)
         files = files.compact.map do |file|
@@ -39,15 +39,16 @@ module Lux
         end
       end
 
-      def helper scope, name
-        Lux::Template::Helper.new scope, name
+      def helper scope, *names
+        Lux::Template::Helper.new scope, *names
       end
 
       def find_layout root, layout_template
         # Cache only in production. In dev/test we re-resolve so layout-file
         # changes are picked up without restarting the process.
-        pointer = Lux.env.production? ? Lux.var : Lux.current.var
-        cache = (pointer[:_cached_layouts] ||= {})
+        pointer = Lux.env.production? ? Lux.var : Lux.ctx.var
+        pointer[:_cached_layouts] ||= {}
+        cache = pointer[:_cached_layouts]
         cache_key = "#{root}/#{layout_template}"
 
         return cache[cache_key] if cache[cache_key]
@@ -92,7 +93,7 @@ module Lux
     def render
       # global thread safe reference pointer to last temaplte rendered
       # we nned this for inline template render
-      Lux.current.files_in_use(@template)
+      Lux.ctx.files_in_use(@template)
 
       data = @tilt.render(@helper) do
         yield if block_given?
@@ -122,19 +123,20 @@ module Lux
       if Lux.env.production?
         Lux.var
       else
-        Lux.current.var
+        Lux.ctx.var
       end
 
-      pointer = (pointer[:_cached_templates] ||= {})
+      pointer[:_cached_templates] ||= {}
+      pointer = pointer[:_cached_templates]
 
       if ref = pointer[template]
         @tilt, @template = *ref
         return
       end
 
-      Lux::Template.tilt_extensions.each do |ext|
-        test = [template, ext].join('.')
-
+      exts = Lux::Template.tilt_extensions
+      candidates = exts.include?(::File.extname(template).delete_prefix('.')) ? [template] : exts.map { "#{template}.#{_1}" }
+      candidates.each do |test|
         if found = Lux.root.resolve(test)
           @template = found.to_s
           break

@@ -1,6 +1,6 @@
 module Lux
   class Cache
-    OPTS ||= Struct.new(:ttl, :force, :if, :unless, :speed, :delete_if_empty)
+    OPTS ||= Struct.new(:ttl, :force, :if, :delete_if_empty)
 
     def initialize server_name = nil
       self.server= server_name || :memory
@@ -25,7 +25,7 @@ module Lux
     end
 
     def read key
-      if Lux.current.no_cache?
+      if Lux.ctx.no_cache?
         nil
       else
         key = generate_key key
@@ -35,8 +35,9 @@ module Lux
     end
     alias :get :read
 
-    def read_multi *args
-      @server.get_multi(*args)
+    def read_multi *keys
+      map = keys.to_h { [generate_key(_1), _1] }
+      @server.get_multi(*map.keys).transform_keys { map[_1] }
     end
     alias :get_multi :read_multi
 
@@ -54,13 +55,11 @@ module Lux
       key = generate_key key
 
       Lux.log do
-        if Lux.current.var[:show_cache_log]
+        if Lux.ctx.var[:show_cache_log]
           %[ Cache.delete "#{key}", at: #{Lux.app_caller}].colorize(:yellow)
         end
       end
 
-      Lux.current.var[:cache] ||= {}
-      Lux.current.var.cache.delete key
       @server.delete(key)
     end
 
@@ -73,18 +72,17 @@ module Lux
       return yield(key) if opt.if.is_a?(FalseClass)
 
       opt.ttl     = opt.ttl.to_i if opt.ttl
-      opt.force ||= Lux.current.no_cache? unless opt.force.class == FalseClass
+      opt.force ||= Lux.ctx.no_cache? unless opt.force.class == FalseClass
 
       @server.delete key if opt.force
 
-      log_key_name = "Cache.fetch.get #{opt.compact.to_jsonc}:#{key.trim(30)}"
-      log_get log_key_name
+      if Lux.debug?
+        log_key_name = "Cache.fetch.get #{opt.to_h.compact.to_jsonc}:#{key.trim(30)}"
+        log_get log_key_name
+      end
 
       data = @server.fetch(key, opt.ttl) do
-        yield_value = nil
-        opt.speed = Lux.speed { yield_value = yield }
-        Lux.log { " #{log_key_name}, at: #{Lux.app_caller}".colorize(:yellow) } if Lux.debug?
-        yield_value
+        yield.tap { Lux.log { " #{log_key_name}, at: #{Lux.app_caller}".colorize(:yellow) } if Lux.debug? }
       end
 
       data.tap do |out|
@@ -109,20 +107,17 @@ module Lux
       data
     end
 
-    # cooperative process-local rate limit (NOT a cross-process mutex).
+    # cooperative rate limit (NOT a mutex): a caller within `time` seconds of
+    # the last run sleeps out the remainder, then runs the block.
     # Two concurrent callers may race past the check; for true mutual exclusion
     # use a backend with atomic add/setnx and adapt accordingly.
     # Lux.cache.lock 'some-key', 3 do ...
     def lock key, time
-      key = "syslock-#{key}"
-      cache_time = @server.get(key)
-
-      if cache_time && cache_time > (Time.monotonic - time)
-        diff = time - (Time.monotonic - cache_time)
-        sleep diff.abs
-      end
-
-      @server.set(key, Time.monotonic, time)
+      key  = "syslock-#{key}"
+      last = @server.get(key).to_f
+      wait = time - (Time.now.to_f - last)
+      sleep wait if wait > 0 && wait <= time
+      @server.set(key, Time.now.to_f, time.ceil)
       yield
     end
 
@@ -147,8 +142,6 @@ module Lux
 
         if el.respond_to?(:updated_at)
           keys.push el.updated_at.to_f
-        elsif el.respond_to?(:id)
-          keys.push el.id
         else
           keys.push el.to_s
         end
@@ -158,26 +151,26 @@ module Lux
     end
 
     def []= key, value
-      @server.set key.to_s, value
+      write key, value
       value
     end
 
     def [] key
-      @server.get key.to_s
+      read key
     end
 
     private
 
     def log_get name
-      return unless Lux.debug?
+      return unless Lux.debug? && Lux.ctx.request
 
-      var = Lux.current.var
-      var[:show_cache_log] = true if Lux.current.params[:lux_show_cache_get]
+      var = Lux.ctx.var
+      var[:show_cache_log] = true if Lux.ctx.params[:lux_show_cache_get]
 
       if var[:show_cache_log]
         Lux.log { " Cache.get #{name}, at: #{Lux.app_caller}".colorize(:green) }
-      elsif Lux.current.once(:show_cache_log)
-        Lux.log { " Cache.get info is suppressed: enable? -> #{Lux.current.nav.base}#{Lux.current.request.path}?lux_show_cache_get=true".colorize(:green) }
+      elsif Lux.ctx.once(:show_cache_log)
+        Lux.log { " Cache.get info is suppressed: enable? -> #{Lux.ctx.nav.base}#{Lux.ctx.request.path}?lux_show_cache_get=true".colorize(:green) }
       end
     end
   end

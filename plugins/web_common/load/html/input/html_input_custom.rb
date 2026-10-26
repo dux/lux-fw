@@ -124,9 +124,9 @@ class HtmlInput
         type: :checkbox,
         value: value,
         checked: @object && Array(@object.send(@field_name)).include?(value) ? 'true' : nil
-      }.compact.tag(:input)
+      }.tag(:input)
     else
-      id = Lux.current.uid
+      id = Lux.ctx.uid
       @opts.delete(:value) if ['0', 'false', 'off'].include?(@opts[:value].to_s)
       # let this be 1 or 0, fix other code if problems
       hidden = {
@@ -193,7 +193,8 @@ class HtmlInput
     return as_radios if @opts[:collection]
 
     @opts[:type] = :radio
-    @opts[:checked] = @opts[:value] == @object.send(@name) ? true : nil
+    current = @object && @field.is_a?(Symbol) ? @object.send(@field) : nil
+    @opts[:checked] = true if current.to_s == @opts[:value].to_s
     @opts.tag(:input)
   end
 
@@ -206,7 +207,7 @@ class HtmlInput
     null  = @opts.delete(:null)
     value = @opts.delete(:value).to_s
 
-    body.push label_for(opts.tag(:input), null) if null
+    body.push label_for(@opts.merge(value: '').tag(:input), null) if null
 
     prepare_collection(collection).each do |el|
       opts = @opts.dup
@@ -221,7 +222,7 @@ class HtmlInput
 
   def as_tag
     @opts[:value] = @opts[:value].or([]).join(', ') if ['Array', 'Sequel::Postgres::PGArray'].index(@opts[:value].class.name)
-    @opts[:id] ||= Lux.current.uid
+    @opts[:id] ||= Lux.ctx.uid
     @opts[:type] = :text
     @opts[:onkeyup] = %[draw_tag('#{@opts[:id]}')]
     @opts[:autocomplete] ||= 'off'

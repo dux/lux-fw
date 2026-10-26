@@ -10,7 +10,7 @@ describe Lux::Locale do
   end
 
   before do
-    Lux::Current.new('http://test-locale')
+    Lux::Context.new('http://test-locale')
     %i[@default @available @dir @before_get @before_set @namespaces @store].each do |ivar|
       Lux.locale.instance_variable_set(ivar, nil)
     end
@@ -36,17 +36,17 @@ describe Lux::Locale do
   end
 
   describe '#current' do
-    it 'falls back to default when Lux.current.locale is unset' do
+    it 'falls back to default when Lux.ctx.locale is unset' do
       _(Lux.locale.current).must_equal :en
     end
 
-    it 'reads from Lux.current.locale' do
-      Lux.current.locale = 'de'
+    it 'reads from Lux.ctx.locale' do
+      Lux.ctx.locale = 'de'
       _(Lux.locale.current).must_equal :de
     end
 
     it 'raises Unknown for a locale not in available' do
-      Lux.current.locale = 'fr'
+      Lux.ctx.locale = 'fr'
       assert_raises(Lux::Locale::Unknown) { Lux.locale.current }
     end
   end
@@ -54,7 +54,7 @@ describe Lux::Locale do
   describe '#t' do
     it 'returns the current locale when called with no key' do
       _(Lux.locale.t).must_equal :en
-      Lux.current.locale = 'de'
+      Lux.ctx.locale = 'de'
       _(Lux.locale.t).must_equal :de
     end
 
@@ -71,7 +71,7 @@ describe Lux::Locale do
     end
 
     it 'falls back to the default locale when key missing in requested' do
-      Lux.current.locale = 'de'
+      Lux.ctx.locale = 'de'
       _(Lux.locale.t('users.profile.title')).must_equal 'Profile'
     end
 
@@ -104,7 +104,7 @@ describe Lux::Locale do
     end
 
     it 'maps leading segments to folders and the last to the filename' do
-      Lux.current.locale = 'de'
+      Lux.ctx.locale = 'de'
       _(Lux.locale.t('md:legal.terms')).must_equal "# Terms DE\n"
     end
 
@@ -113,7 +113,7 @@ describe Lux::Locale do
     end
 
     it 'falls back to the default locale when the file is missing' do
-      Lux.current.locale = 'de'
+      Lux.ctx.locale = 'de'
       _(Lux.locale.t('md:service')).must_equal "# Service\n\nWelcome %{name}\n"
     end
 
@@ -157,7 +157,7 @@ describe Lux::Locale do
     end
 
     before do
-      Lux.current.var.views_root = views.to_s
+      Lux.ctx.var.views_root = views.to_s
       FileUtils.mkdir_p views.join('main/legal')
       File.write views.join('main/legal/policy.en.html'), "<h1>Policy EN %{name}</h1>\n"
       File.write views.join('main/legal/policy.de.html'), "<h1>Policy DE</h1>\n"
@@ -174,7 +174,7 @@ describe Lux::Locale do
     end
 
     it 'falls back to the default locale when the file is missing' do
-      Lux.current.locale = 'de'
+      Lux.ctx.locale = 'de'
       File.delete views.join('main/legal/policy.de.html')
       _(Lux.locale.t('/main/legal/policy.html')).must_equal "<h1>Policy EN %{name}</h1>\n"
     end
@@ -303,6 +303,22 @@ describe Lux::Locale do
       Lux.locale.set('users.farewell', 'Bye', locale: :en)
       _(store.get(:en, :users, 'farewell')).must_equal 'Bye'
       refute_includes tmp.join('users/en.txt').read, 'farewell:'
+    end
+
+    # a store with .table is read once per (locale, ns) per request
+    it 'loads a table store once per request and sees its own writes' do
+      calls = 0
+      rows  = { 'welcome' => 'Table %{name}' }
+      Lux.locale.store = Class.new do
+        define_method(:table) { |_lc, _ns| calls += 1; rows.dup }
+        define_method(:set)   { |_lc, _ns, sub, value| rows[sub] = value.to_s }
+      end.new
+
+      _(Lux.locale.t('users.welcome', name: 'Joe')).must_equal 'Table Joe'
+      _(Lux.locale.t('users.welcome', name: 'Ann')).must_equal 'Table Ann'
+      Lux.locale.set('users.farewell', 'Bye', locale: :en)
+      _(Lux.locale.t('users.farewell')).must_equal 'Bye'
+      _(calls).must_equal 1
     end
   end
 end

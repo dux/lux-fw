@@ -4,8 +4,6 @@
 
 module Lux
   class Api
-    @@after_auto_mount = nil
-
     class << self
       # perform auto_mount from a rack call
       def call env = nil
@@ -18,19 +16,12 @@ module Lux
           Struct.new(:header, :status).new({}, 200)
         )
 
-        data = auto_mount api_host: api_host, development: ENV['LUX_ENV'] == 'development'
-
-        # 302 redirect sentinel: auto_mount returned { _redirect: '/path' }
-        if data.is_hash? && data[:_redirect]
-          return [302, { 'Location' => data[:_redirect], 'Content-Type' => 'text/html' }, []]
-        end
+        data = auto_mount api_host: api_host, development: Lux.env.to_s == 'development'
 
         if data.is_hash?
-          [
-            data[:status] || 200,
-            { 'Content-Type' => 'application/json', 'Cache-Control' => 'private, max-age=0' },
-            [data.to_json]
-          ]
+          headers = { 'Cache-Control' => 'private, max-age=0' }.merge(api_host.response.header || {})
+          headers['Content-Type'] = 'application/json'
+          [data[:status] || 200, headers, [data.to_json]]
         else
           data = data.to_s
           # merge any headers the action set on api_host.response (Content-Type,
@@ -49,7 +40,6 @@ module Lux
         # response serialization run outside the per-action rescue_from. Funnel
         # anything that escapes into the same JSON + logged error shape, so an
         # API request never returns a raw 500 or non-JSON body.
-        Lux.error.log error unless error.is_a?(Lux::Api::Error)
         body = Response.auto_format error
         [body[:status] || 500, { 'Content-Type' => 'application/json' }, [body.to_json]]
       end
@@ -64,7 +54,7 @@ module Lux
 
         # Resolution order:
         # 1. explicit `mount_on:` kwarg
-        # 2. Rack SCRIPT_NAME (set by lux.response.rack mount_at:) - per-mount override
+        # 2. Rack SCRIPT_NAME (set by Lux.ctx.response.rack mount_at:) - per-mount override
         # 3. this class's declared mount_on (walks ancestors, default '/api')
         script_name = request.env['SCRIPT_NAME'].to_s if request.respond_to?(:env)
         mount_on ||= (script_name && !script_name.empty? ? script_name : self.mount_on)
@@ -83,25 +73,29 @@ module Lux
         # (Fez.nameFromPath). The ?file= form still works.
         web_asset = "#{mount_path.chomp('/')}/sys/web/"
 
+        # handed to SysApi so generated docs/clients use the real mount ('' at /)
+        base_path = mount_path.chomp('/')
+
         if request.request_method == 'GET' && root_hit
-          render 'guide', api_host: api_host, development: development, bearer: bearer, class: 'sys'
+          render 'guide', api_host: api_host, development: development, bearer: bearer, class: 'sys', mount_path: base_path
         elsif request.request_method == 'GET' && request.path.start_with?(web_asset)
           file = request.path[web_asset.length..]
-          render 'web', api_host: api_host, development: development, bearer: bearer, class: 'sys', params: { file: file }
+          render 'web', api_host: api_host, development: development, bearer: bearer, class: 'sys', mount_path: base_path, params: { file: file }
         else
           response.header['Content-Type'] = 'application/json' if response
 
-          # Lux::Current already parsed the query string and the form or JSON
+          # Lux::Context already parsed the query string and the form or JSON
           # body; a standalone mount (no Lux app around it) builds its own
-          current = request.env['lux.current'] || Lux::Current.new(request.env)
-          raise current.malformed_request if current.malformed_request
-          params  = current.params
+          ctx = request.env['lux.ctx'] || Lux::Context.new(request.env)
+          raise ctx.malformed_request if ctx.malformed_request
+          params  = ctx.params
 
           # class: klass, params: params, bearer: bearer, request: request, response: response, development: development
           opts = {}
           opts[:api_host]    = api_host
           opts[:development] = development
-          opts[:bearer]      = bearer
+          opts[:mount_path]  = base_path
+          opts[:bearer]      = bearer || extract_bearer_token(request.env['HTTP_AUTHORIZATION'])
 
           # A JSON request body is either:
           # (a) a JSON-RPC envelope { class, action, ref, token, params } - has
@@ -111,7 +105,7 @@ module Lux
           # (b) a plain params object - use URL path for class+action, body for
           #     params. This matches what fetch(path, { body: JSON.stringify(...) })
           #     looks like in the wild.
-          is_rpc_envelope = current.json_request? && (params['class'] || params['action'])
+          is_rpc_envelope = ctx.json_request? && (params['class'] || params['action'])
 
           action =
           if is_rpc_envelope
@@ -124,7 +118,7 @@ module Lux
             ref = params['id'] if ref.nil?
             opts[:id] = ref unless ref.nil?
 
-            params['action']
+            params['action'].to_s
           else
             opts[:params] = params
             opts[:bearer] ||= params['api_token']
@@ -142,16 +136,17 @@ module Lux
               parts[-1] = $1.downcase
             end
 
-            @@after_auto_mount.call parts, opts if @@after_auto_mount
+            hook = after_auto_mount
+            hook.call parts, opts if hook
 
-            opts[:class] = parts.shift
+            # longest prefix naming an API class (namespaced Admin::UsersApi ->
+            # admin/users), always leaving at least one segment for the action
+            cut = (parts.length - 1).downto(2).find { |i| api_class_path?(parts.first(i).join('/')) } || 1
+            opts[:class] = parts.shift(cut).join('/') unless parts.empty?
             # bare /<mount>/sys -> text index of the reserved system endpoints
             parts = ['index'] if parts.empty? && opts[:class] == 'sys'
             parts
           end
-
-          bearer_token = extract_bearer_token(request.env['HTTP_AUTHORIZATION'])
-          opts[:bearer] ||= bearer_token if bearer_token
 
           api_response = render action, **opts
 
@@ -164,8 +159,14 @@ module Lux
         end
       end
 
+      # Rewrite URL path parts / dispatch opts before the API class is resolved.
+      # Per class: the hook of the mounted class (or its nearest ancestor) runs.
+      #   after_auto_mount { |parts, opts| ... }   # writer
+      #   after_auto_mount                          # reader
       def after_auto_mount &blok
-        @@after_auto_mount = blok
+        return @after_auto_mount = blok if blok
+
+        @after_auto_mount || (superclass.respond_to?(:after_auto_mount) ? superclass.after_auto_mount : nil)
       end
 
       private
@@ -174,7 +175,13 @@ module Lux
       def extract_bearer_token auth_header
         return nil unless auth_header
 
-        auth_header.to_s.split('Bearer ')[1]
+        auth_header.to_s[/\ABearer\s+(\S+)/i, 1]
+      end
+
+      def api_class_path? path
+        name = "#{path}_api".classify
+        return false unless name.match?(/\A[A-Z]\w*(::[A-Z]\w*)*\z/)
+        (k = name.constantize?) && k.is_a?(Class) && k < Lux::Api
       end
     end
   end

@@ -7,9 +7,9 @@
 # u = Lux.url('https://www.YouTube.com/watch?t=1260&v=cOFSX6nezEY')
 # u.delete :t
 # u.hash '160s'
-# u.to_s -> 'https://com.youtube.www/watch?v=cOFSX6nezEY#160s'
+# u.to_s -> 'https://www.youtube.com/watch?v=cOFSX6nezEY#160s'
 
-require 'cgi'
+require 'cgi/escape'
 
 module Lux
   module Utils
@@ -27,7 +27,7 @@ module Lux
       class << self
         # get current Url, overload for usage outside Lux
         def current
-          new Lux.current.request.url
+          new Lux.ctx.request.url
         end
 
         # host of the current request (no proto, no port)
@@ -54,7 +54,7 @@ module Lux
 
         # same as force qs but remove value if selected
         def toggle name, value
-          value = nil if Lux.current.params[name].to_s == value.to_s
+          value = nil if Lux.ctx.params[name].to_s == value.to_s
           qs name, value
         end
 
@@ -66,19 +66,37 @@ module Lux
           "#{url}#{name}="
         end
 
-        # CGI escape; nil-safe (returns '' for nil)
+        # Percent-encoding valid in a path and a query (space -> %20), same as
+        # String#escape. nil-safe (returns '' for nil).
         def escape str=nil
-          CGI::escape(str.to_s)
+          CGI.escapeURIComponent(str.to_s)
         end
 
-        # CGI unescape; nil-safe (returns '' for nil)
+        # Reads %20 and the form-style + as a space. nil-safe (returns '' for nil).
         def unescape str=nil
-          CGI::unescape(str.to_s)
+          CGI.unescape(str.to_s)
+        end
+
+        # The one domain parser (Url#initialize and Router::Nav share it):
+        #   'a.b.example.co.uk' -> ['a.b', 'example.co.uk']
+        #   'foo.localhost'     -> ['foo', 'localhost']
+        #   '127.0.0.1'         -> [nil, '127.0.0.1']
+        def split_host host
+          host  = host.to_s.downcase
+          parts = host.split('.')
+          return [nil, host] if parts.last.to_s.match?(/\A\d+\z/)
+
+          count = parts.last == 'localhost' ? 1 : 2
+          # co.uk style: a registry label under a country TLD. Matching on
+          # label length alone turned x.com into ".x.com".
+          count = 3 if count == 2 && parts.length > 2 && parts.last.length == 2 && COUNTRY_SLDS.include?(parts[-2])
+          domain = parts.pop(count).join('.')
+          [parts.empty? ? nil : parts.join('.'), domain]
         end
 
         # origin of the current request: proto://host[:port]
         def root
-          new(Lux.current.request.url).host_with_port
+          new(Lux.ctx.request.url).host_with_port
         end
       end
 
@@ -86,7 +104,7 @@ module Lux
 
       # parses an absolute or relative URL into @opt. Order:
       #   1. split off ?qs and #fragment
-      #   2. if absolute, extract proto, host, port, domain, subdomain (co.uk handled by length heuristic)
+      #   2. if absolute, extract proto, host, port, domain, subdomain (see .split_host)
       #   3. peel locale prefix (xx or xx-YY) and trailing /key:value segments off the path
       def initialize url
         @opt = OPTS.new
@@ -98,11 +116,7 @@ module Lux
         url, qs_part = url.split('?', 2)
 
         # querystring
-        @opt.qs = qs_part.to_s.split('&').inject({}) do |qs, el|
-          parts = el.split('=', 2)
-          qs[parts[0]] = Lux::Utils::Url.unescape parts[1]
-          qs
-        end
+        @opt.qs = qs_part.to_s.qs_to_hash
 
         # domain and subdomain
         if url =~ %r{^\w+://}
@@ -113,14 +127,7 @@ module Lux
           host, @opt.port = host.split(':', 2)
           @opt.port = nil if @opt.port.to_s.blank? || @opt.port == DEFAULT_PORTS[@opt.proto]
 
-          # domain and subdomain
-          parts = host.split('.').map(&:downcase)
-          @opt.domain = parts.pop(2)
-          # co.uk style: a registry label under a country TLD. Matching on
-          # label length alone turned x.com into ".x.com".
-          @opt.domain.unshift parts.pop if parts.any? && @opt.domain.last.length == 2 && COUNTRY_SLDS.include?(@opt.domain.first)
-          @opt.domain = @opt.domain.join('.')
-          @opt.subdomain = parts.first ? parts.join('.') : nil
+          @opt.subdomain, @opt.domain = self.class.split_host(host)
         else
           @opt.path = url.to_s.sub(%r{^/}, '')
         end
@@ -132,8 +139,8 @@ module Lux
           @opt.locale = parts.shift
         end
 
-        while parts.last&.include?(':')
-          key, value = parts.pop.split(':')
+        while (seg = parts.last) && seg.include?(':') && !seg.start_with?(':')
+          key, value = parts.pop.split(':', 2)
           @opt.qs_path[key] = value
         end
 
@@ -251,7 +258,7 @@ module Lux
       def pqs name = nil, value = :_nil
         if value != :_nil
           key = name.to_s
-          @opt.qs_path[key] = CGI::escape value.to_s
+          @opt.qs_path[key] = self.class.escape value
           @opt.qs.delete(key)
           self
         elsif name
@@ -264,21 +271,15 @@ module Lux
 
       # tokens after a leading ':' in the path, e.g. /:a:b/x -> ['a', 'b']
       def path_prefix
-        if @opt.path[0, 1] == ':'
-          @opt.path.split(':', 2)[1].split('/').first.split(':')
-        else
-          []
-        end
+        head = @opt.path.to_s.split('/').first.to_s
+        head.start_with?(':') ? head.split(':').reject(&:empty?) : []
       end
 
       # reader/writer; pass nil to clear
-      def locale name=nil
-        if name
-          @opt.locale = name
-          self
-        else
-          @opt.locale
-        end
+      def locale name = :_nil
+        return @opt.locale if name == :_nil
+        @opt.locale = name.to_s.empty? ? nil : name.to_s
+        self
       end
 
       # absolute form: origin + path + ?qs + #fragment
@@ -324,8 +325,8 @@ module Lux
       end
 
       # pretty-printed JSON of to_h
-      def to_json
-        JSON.pretty_generate(to_h)
+      def to_json *args
+        args.empty? ? JSON.pretty_generate(to_h) : to_h.to_json(*args)
       end
 
       private

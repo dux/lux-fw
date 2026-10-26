@@ -1,4 +1,6 @@
 class HtmlTable
+  attr_reader :scope
+
   def initialize scope, opts={}
     @sort_param    = 't-sort'
     @scope         = scope
@@ -29,13 +31,17 @@ class HtmlTable
 
   # tb.render
   def render
-    params = Lux.current.request.params
+    params = Lux.ctx.request.params
 
     if sort = params[@sort_param]
       direction, field = sort.split('-', 2)
     else
       direction, field = initial_sort
     end
+
+    # only declared columns sort - the param is user input
+    allowed = @cols.flat_map { |c| [c[:field], (c[:sort] if c[:sort].is_a?(Symbol) && !%i[a d].include?(c[:sort]))] }.compact.map(&:to_s)
+    field = nil unless allowed.include?(field.to_s)
 
     if direction && field && @scope.respond_to?(:order)
       @scope = @scope.xwhere("#{field.db_safe} is not null")
@@ -126,7 +132,7 @@ class HtmlTable
     if opts[:sort]
       sort = opts[:sort]
       field = sort.is_a?(Symbol) && sort != :a && sort != :d ? sort : opts[:field]
-      direction = Lux.current.request.params[@sort_param].to_s[0, 2] == 'a-' ? 'd-' : 'a-'
+      direction = Lux.ctx.request.params[@sort_param].to_s[0, 2] == 'a-' ? 'd-' : 'a-'
 
       title = HtmlTag.span(class: 'table-sort table-sort-%ssort' % direction) do |n|
         n.a(href: build_qs(@sort_param, direction + field.to_s)) { title }
@@ -144,14 +150,14 @@ class HtmlTable
       tr_opts[:onclick] = onclick
     end
 
-    # Do not put HTML width= on <td> — Firefox table-layout:fixed treats it
+    # Do not put HTML width= on <td> - Firefox table-layout:fixed treats it
     # inconsistently after morph. Column widths live on <col>/<th> only.
     allowed = [:id, :class, :href, :style, :align, :onclick]
 
     n.tr(**tr_opts.slice(*allowed)) do |n|
       for opts in @cols
         content = render_cell object, opts
-        td_opts = opts.slice(*allowed)
+        td_opts = opts.slice(:class, :style, :align)
         # mobile CSS stacks cells and shows the column title next to each value
         label = col_title(opts)
         td_opts[:'data-label'] = label if label.present?
@@ -191,10 +197,8 @@ class HtmlTable
   end
 
   def build_qs key, value
-    req = Lux.current.request
-    params = req.params.merge(key => value)
-    qs = params.map { |k, v| "#{k}=#{v}" }.join('&')
-    "#{req.path}?#{qs}"
+    req = Lux.ctx.request
+    "#{req.path}?#{Rack::Utils.build_nested_query(req.params.merge(key => value))}"
   end
 
   def prepare_as_blocks

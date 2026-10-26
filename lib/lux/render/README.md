@@ -28,7 +28,7 @@ client = Lux.render.client
 client.post '/login', params: { email: 'a@b.c' }
 client.get('/dashboard').status
 
-# raw JSON body (merged into lux.params like a form body)
+# raw JSON body (merged into Lux.ctx.params like a form body)
 Lux.render.post('/items', body: '{"name":"x"}', headers: { 'Content-Type' => 'application/json' })
 
 page = Lux.render.get('/search',
@@ -81,19 +81,19 @@ lux render /admin -s user_id=1 -i            # status, headers, session, time, d
 ## Page `<head>` builder
 
 The `<head>` builder moved to `Lux::Browser::Header`, reached as
-`lux.browser.header` (or the `lux.header` pointer). Chain-set title / meta /
-links, then emit via `lux.browser.header.render` in the layout's `%head` block.
+`Lux.ctx.browser.header` (or the `Lux.ctx.header` pointer). Chain-set title / meta /
+links, then emit via `Lux.ctx.browser.header.render` in the layout's `%head` block.
 See [`../browser/README.md`](../browser/README.md).
 
 ```ruby
-lux.browser.header.title       'My page'
-lux.browser.header.description 'short summary'
-lux.browser.header.canonical   'https://example.com/page'
+Lux.ctx.browser.header.title       'My page'
+Lux.ctx.browser.header.description 'short summary'
+Lux.ctx.browser.header.canonical   'https://example.com/page'
 ```
 
 ```haml
 %head
-  = lux.browser.header.render do |page|
+  = Lux.ctx.browser.header.render do |page|
     = asset 'main.css'
 ```
 

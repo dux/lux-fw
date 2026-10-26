@@ -1,8 +1,8 @@
 require 'test_helper'
 
-describe Lux::Current::Dbsc do
+describe Lux::Context::Dbsc do
   HOST ||= 'https://test.example.com'
-  DBSC ||= Lux::Current::Dbsc
+  DBSC ||= Lux::Context::Dbsc
 
   # DBSC binds only a host-only session cookie
   before do
@@ -29,7 +29,7 @@ describe Lux::Current::Dbsc do
   end
 
   def session_cookie_name
-    @session_cookie_name ||= Lux::Current.new("#{HOST}/").session.cookie_name
+    @session_cookie_name ||= Lux::Context.new("#{HOST}/").session.cookie_name
   end
 
   # Cookie header carrying a sealed session (plus an optional proof cookie)
@@ -47,18 +47,18 @@ describe Lux::Current::Dbsc do
 
   describe '.registration_header' do
     it 'offers registration once per session over https' do
-      current = Lux::Current.new("#{HOST}/")
+      current = Lux::Context.new("#{HOST}/")
       _(DBSC.registration_header(current)).must_match(%r{\A\(ES256\);path="/_lux_/dbsc/register";challenge="[\w-]+"\z})
       _(DBSC.registration_header(current)).must_be_nil
     end
 
     it 'does not offer over http' do
-      _(DBSC.registration_header(Lux::Current.new('http://test.example.com/'))).must_be_nil
+      _(DBSC.registration_header(Lux::Context.new('http://test.example.com/'))).must_be_nil
     end
 
     it 'does not offer for a session shared on the root domain' do
       Lux.config[:session_cookie_domain] = nil
-      _(DBSC.registration_header(Lux::Current.new("#{HOST}/"))).must_be_nil
+      _(DBSC.registration_header(Lux::Context.new("#{HOST}/"))).must_be_nil
     end
   end
 
@@ -119,7 +119,7 @@ describe Lux::Current::Dbsc do
   describe 'bound session' do
     def session_with cookie_header
       env = Rack::MockRequest.env_for("#{HOST}/", 'HTTP_COOKIE' => cookie_header)
-      Lux::Current.new(env).session
+      Lux::Context.new(env).session
     end
 
     it 'is kept with a fresh proof cookie' do

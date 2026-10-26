@@ -12,10 +12,10 @@ ApplicationModel.class_eval do
   end
 
   def self.current
-    Lux.current.var[to_s.underscore]
+    Lux.ctx.var[to_s.underscore]
   end
 
   def self.current=(object)
-    Lux.current.var[to_s.underscore] = object
+    Lux.ctx.var[to_s.underscore] = object
   end
 end

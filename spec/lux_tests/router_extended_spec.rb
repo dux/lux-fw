@@ -30,9 +30,9 @@ class ExtendedTestRouter < Lux::Router
 
   allow :get, :post
   def get_only
-    if lux.request.get?
+    if Lux.ctx.request.get?
       render text: 'get response'
-    elsif lux.request.post?
+    elsif Lux.ctx.request.post?
       render text: 'post response'
     end
   end
@@ -43,7 +43,7 @@ class ExtendedTestRouter < Lux::Router
   end
 
   def redirect_test
-    lux.response.redirect_to '/target', info: 'Moved'
+    Lux.ctx.response.redirect_to '/target', info: 'Moved'
   end
 end
 
@@ -65,24 +65,24 @@ end
 
 describe 'Lux::Router extended' do
   before do
-    Lux::Current.new('http://testing')
+    Lux::Context.new('http://testing')
   end
 
   describe 'render options' do
     it 'renders text with custom status' do
       ExtendedTestRouter.action(:with_status)
-      _(Lux.current.response.body).must_equal 'custom status'
-      _(Lux.current.response.status).must_equal 201
+      _(Lux.ctx.response.body).must_equal 'custom status'
+      _(Lux.ctx.response.status).must_equal 201
     end
 
     it 'renders HTML' do
       ExtendedTestRouter.action(:render_html)
-      _(Lux.current.response.body).must_equal '<h1>hello</h1>'
+      _(Lux.ctx.response.body).must_equal '<h1>hello</h1>'
     end
 
     it 'renders XML' do
       ExtendedTestRouter.action(:render_xml)
-      _(Lux.current.response.body).must_equal '<root><item>1</item></root>'
+      _(Lux.ctx.response.body).must_equal '<root><item>1</item></root>'
     end
   end
 
@@ -99,7 +99,7 @@ describe 'Lux::Router extended' do
 
     it 'does not override real methods' do
       MockableRouter.action(:real_action)
-      _(Lux.current.response.body).must_equal 'real'
+      _(Lux.ctx.response.body).must_equal 'real'
     end
   end
 
@@ -113,32 +113,32 @@ describe 'Lux::Router extended' do
   describe '#flash' do
     it 'provides access to response flash' do
       ExtendedTestRouter.action(:with_flash)
-      _(Lux.current.response.body).must_equal 'flashed'
-      _(Lux.current.response.flash.to_h[:info]).must_equal ['Hello!']
+      _(Lux.ctx.response.body).must_equal 'flashed'
+      _(Lux.ctx.response.flash.to_h[:info]).must_equal ['Hello!']
     end
   end
 
   describe '#get? / #post?' do
     it 'detects GET requests' do
-      Lux::Current.new('http://testing/get_only', method: :get)
+      Lux::Context.new('http://testing/get_only', method: :get)
       ExtendedTestRouter.action(:get_only)
-      _(Lux.current.response.body).must_equal 'get response'
+      _(Lux.ctx.response.body).must_equal 'get response'
     end
 
     it 'detects POST requests' do
-      Lux::Current.new('http://testing/get_only', method: :post)
+      Lux::Context.new('http://testing/get_only', method: :post)
       ExtendedTestRouter.action(:get_only)
-      _(Lux.current.response.body).must_equal 'post response'
+      _(Lux.ctx.response.body).must_equal 'post response'
     end
   end
 
   describe '#redirect_to' do
     it 'uses response.redirect_to to set location header' do
       # redirect_to depends on Url class from app layer, test response directly
-      Lux.current.response.headers['location'] = '/target'
-      Lux.current.response.status 302
-      _(Lux.current.response.status).must_equal 302
-      _(Lux.current.response.headers['location']).must_equal '/target'
+      Lux.ctx.response.headers['location'] = '/target'
+      Lux.ctx.response.status 302
+      _(Lux.ctx.response.status).must_equal 302
+      _(Lux.ctx.response.headers['location']).must_equal '/target'
     end
   end
 
@@ -162,7 +162,7 @@ describe 'Lux::Router extended' do
     it 'converts hyphens to underscores' do
       # 'show' with hyphens would become 'show'
       ExtendedTestRouter.action(:show)
-      _(Lux.current.response.body).must_equal 'show'
+      _(Lux.ctx.response.body).must_equal 'show'
     end
   end
 end

@@ -5,19 +5,23 @@ module ServerInfo
   extend self
 
   def report
-    stats = Lux.cache.fetch 'lux-server-info', ttl: 300 do
-      info = []
-      info.push 'BASE SERVER STATS'
-      info.push '* Ruby version: %s (%s)' % [`ruby -v`.chomp, `ruby -r rbconfig -e "puts RbConfig::CONFIG['LIBS']"`.chomp]
-      info.push '* Lux env: %s' % Lux.env
-      info.push '* RAM usage now: %s MB for pid %s' % [`ps -o rss= -p #{Process.pid}`.to_i / 1000, Process.pid]
-      info.push '* Thread started %s, %s' % [Lux.started_at, Time.ago(Lux.started_at)]
-      Lux::Db.connections.each { db_info info, _1 }
-      info.join $/
+    # per process, never cached - another worker would report its own pid / RAM
+    info = []
+    info.push 'BASE SERVER STATS'
+    info.push '* Ruby version: %s (%s)' % [RUBY_DESCRIPTION, RbConfig::CONFIG['LIBS']]
+    info.push '* Lux env: %s' % Lux.env
+    info.push '* RAM usage now: %s MB for pid %s' % [`ps -o rss= -p #{Process.pid}`.to_i / 1000, Process.pid]
+    info.push '* Thread started %s, %s' % [Lux.started_at, Time.ago(Lux.started_at)]
+
+    db = Lux.cache.fetch 'lux-server-info', ttl: 300 do
+      list = []
+      Lux::Db.connections.each { db_info list, _1 }
+      list.join $/
     end
+    stats = [info.join($/), db].join $/
 
     # per request, never cached - it is the viewer's own env
-    env = Lux.current.request.env.reject { ! [String, Boolean, Integer].include?(_2.class) || _1.downcase.include?('cookie') }
+    env = Lux.ctx.request.env.select { |k, v| [String, Integer, Boolean].any? { v.is_a?(_1) } && !k.match?(/cookie|authorization/i) }
     [stats, '', 'Current user ENV', env.to_jsonp].join $/
   end
 

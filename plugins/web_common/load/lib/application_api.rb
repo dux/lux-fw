@@ -5,19 +5,10 @@
 class ApplicationApi < Lux::Api
   mount_on '/api'
 
+  # non-`unsafe` endpoints need a user: bearer token, ?api_key= or the session
   auth do |bearer|
-    bearer ||= params[:api_key]
-    User.current ||= UserSession.api_key_load(bearer)
-  end
-
-  before do |opts|
-    # load user if token provided
-    if !user && !opts[:unsafe]
-      error [
-        'You have to have user api session to perform this action',
-        ('def info: you can mark api action as unsafe to allow anonymous usage' if Lux.env.dev?)
-      ]
-    end
+    User.current ||= UserSession.api_key_load(bearer || params[:api_key])
+    User.current or response.error('You have to have user api session to perform this action', status: 401)
   end
 
   # after do
@@ -28,30 +19,15 @@ class ApplicationApi < Lux::Api
     path.shift if path.first == 'api'
   end
 
-  rescue_from do |error|
-    # expected client faults (validation, permission, guest writes) aren't bugs -
-    # return as JSON, don't persist. logging is guarded so a failed write (e.g. a
-    # demo user tripping the guest hook inside the logger) can't escape and dump a trace.
-    client = Lux::Api::Response.client_error?(error)
-    Lux.error.log(error) rescue nil unless client
-
-    response[:error_class] = error.class.name
-    response.error error.message, status: Lux::Api::Response.error_status(error)
-  end
-
   ###
-
-  def current
-    Lux.current
-  end
 
   def paginate list, in_opts = {}
     data = list.page **in_opts
     opts = data.paginate_opts
-    url  = Url.new(Lux.current.request.url)
+    url  = Url.new(Lux.ctx.request.url)
 
-    opts[:previous] = opts[:page] > 1 ? url.qs(:page, opts[:page] - 1).to_s : false
-    opts[:next]     = url.qs(:page, opts[:page] + 1).to_s if opts[:next]
+    opts[:previous] = opts[:page] > 1 ? url.qs(opts[:param], opts[:page] - 1).to_s : false
+    opts[:next]     = url.qs(opts[:param], opts[:page] + 1).to_s if opts[:next]
 
     {
       paginate: opts,

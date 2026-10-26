@@ -44,7 +44,7 @@ module Lux
       end
 
       if source == :cli
-        Lux::Current.new('/')
+        Lux::Context.new
 
         if File.exist?('./config/console.rb')
           load './config/console.rb'

@@ -35,13 +35,13 @@ class AutoSpecRouter < Lux::Router
       @matched << :notes
     end
 
-    render text: "#{@matched.join(',')}|#{lux.route.path.join('/')}"
+    render text: "#{@matched.join(',')}|#{Lux.ctx.route.path.join('/')}"
   end
 end
 
 # auto resolves a template from the route path. A classified id renders as its
 # value, but the on-disk convention is a literal `ref` segment, so the resolver
-# reads lux.route.normalized_path.
+# reads Lux.ctx.route.normalized_path.
 class RefTemplateRouter < Lux::Router
   template_root './spec/fixtures/views'
   views  'boards'
@@ -135,7 +135,7 @@ describe 'Lux::Router route scopes and auto' do
   end
 
   # regression: to_s on a classified id is its value, so building the template
-  # path from lux.route.path looked for views/boards/<the-id>.haml
+  # path from Lux.ctx.route.path looked for views/boards/<the-id>.haml
   describe 'auto template resolution' do
     def render_for path
       Lux.render.get("http://test/ref-tpl/#{path}".chomp('/')).body
@@ -162,17 +162,23 @@ describe 'Lux::Router route scopes and auto' do
     it 'resolves a literal ref segment to the same template, with no id' do
       _(render_for('ref')).must_include 'boards:ref'
       _(render_for('ref')).must_include 'ref='
-      _(Lux.current.nav.ref).must_be_nil
+      _(Lux.ctx.nav.ref).must_be_nil
     end
 
     it 'answers 404 when no template matches' do
       _(Lux.render.get('http://test/ref-tpl/missing').status).must_equal 404
     end
+
+    # boards/_card.haml exists; partials are never reachable by URL
+    it 'answers 404 for a partial, spelled with _ or -' do
+      _(Lux.render.get('http://test/ref-tpl/_card').status).must_equal 404
+      _(Lux.render.get('http://test/ref-tpl/-card').status).must_equal 404
+    end
   end
 
   describe 'route cursor composition' do
     # A router mounted under a prefix does not repeat that prefix in its
-    # scopes - map reads lux.route, which the mount already advanced.
+    # scopes - map reads Lux.ctx.route, which the mount already advanced.
     it 'matches from the cursor, not from nav.path[0]' do
       _(matched_for('mounted/notes')).must_equal [:notes]
     end

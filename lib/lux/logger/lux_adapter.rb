@@ -4,8 +4,8 @@ module Lux
   LOGGER_CACHE ||= {}
   LOGGER_LOCK  ||= Mutex.new
 
-  # Lux.logger — default logger (STDERR in dev, silent in test, ./log/error.log in prod)
-  # Lux.logger(:foo) — named file logger (writes to ./log/foo.log)
+  # Lux.logger - default logger (STDERR in dev, silent in test, ./log/error.log in prod)
+  # Lux.logger(:foo) - named file logger (writes to ./log/foo.log)
   def logger name = nil
     return default_logger unless name
 
@@ -32,7 +32,7 @@ module Lux
   # so only LOG output is visible.
   def log what = nil, &block
     return unless Lux.logger.info?
-    return if Lux.respond_to?(:current) && Lux.current.var[:lux_disable_screen_log]
+    return if Thread.current[:lux]&.var&.[](:lux_disable_screen_log)
     what = block.call if block
     Lux.logger.info(what) if what
   end
@@ -51,9 +51,9 @@ module Lux
         l.formatter = proc { |_, _, _, msg| "#{msg}\n" }
       end
 
-      # Default uses Lux.debug? so the logger works before Lux.boot! has populated config.
+      # log_level is only defaulted at boot (it follows LUX_DEBUG from .env), so fall back to Lux.debug? before that.
       level = Lux.config.key?(:log_level) ? Lux.config[:log_level] : (Lux.debug? ? :info : :error)
-      l.level = level == :info ? Logger::INFO : Logger::ERROR
+      l.level = level.to_s
       l
     end
   end

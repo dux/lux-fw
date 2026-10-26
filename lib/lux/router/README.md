@@ -15,7 +15,8 @@ For specs use `Lux.router do ... end` (no Rack registration).
 Lux.router do
   layout :promo                               # base layout (cattr), inherited by every router class
 
-  before { UserSession.resolve }              # root pipeline hook (runs before CSRF/static)
+  before { UserSession.resolve }              # root pipeline hook (after CSRF, before static)
+  def csrf_exempt? = request.path.start_with?('/dav/')   # optional: skip CSRF here
   after  { EventLog.track(request.path) if user }   # root only, can rewrite the body
 
   rescue_from { |err| map 'promo#app_error' } # innermost router's handler wins, this is the fallback
@@ -52,7 +53,7 @@ end
 # app/routers/application_router.rb
 class ApplicationRouter < Lux::Router
   before        { response.headers['content-security-policy'] = CSP }  # once per mount chain
-  before_render { lux.browser.window[:app][:user] = user&.export }      # right before template render
+  before_render { Lux.ctx.browser.window[:app][:user] = user&.export }      # right before template render
 
   private
 
@@ -189,7 +190,9 @@ A router class may not define an action named after the routing / render DSL (`m
 
 ## Hooks
 
-* `before` on the root: part of the page pipeline, before CSRF and static files.
+* CSRF runs first: a forged POST is refused before any `before` hook, so hooks with side effects never run for it.
+  Override `csrf_exempt?` on the app router for requests with no ambient session (e.g. Basic-authed WebDAV verbs).
+* `before` on the root: part of the page pipeline, before static files.
 * `before` on a router class: once per mount, before its route or action.
   A `before` that writes the body (render, redirect) ends the chain and the router.
 * `before_render`: right before a template renders.
@@ -210,7 +213,7 @@ render :foo, status: 201                 # template by name + status
 render 'shared/widget'                   # a slash skips the views dir
 render text: 'ok' | plain: 'ok' | html: '...' | json: {...} | javascript: '...' | xml: '...'
 render text: png_bytes, content_type: :png
-render html: '...', cache: 'key/v1'      # page-level cache + etag
+render :show, cache: 'key/v1'            # page-level cache + etag (templates only)
 render_to_string :card
 render_javascript :widget                # js content type, no layout
 ```
@@ -232,7 +235,8 @@ A mounted router starts from its own class layout.
 ## `auto`
 
 `auto` renders the template matching the views dir plus the remaining route path (`app/views/<views>/<path>.{haml,md,erb}`, or `.../root.*`), else 404s.
-It reads `lux.route.normalized_path`, so a classified id maps to a literal `ref` segment on disk: `/boards/abc123/edit` renders `app/views/boards/ref/edit.haml`.
+It reads `Lux.ctx.route.normalized_path`, so a classified id maps to a literal `ref` segment on disk: `/boards/abc123/edit` renders `app/views/boards/ref/edit.haml`.
+Partials are never reachable by URL: a segment starting with `_` (or `-`, which maps to `_`) 404s, so `/profile/_menu` does not render `profile/_menu.haml`.
 Called from a route block it dispatches as action `:auto`, so the verb check and params validation run.
 `auto_render` is the bare renderer for actions that pick their own moment.
 
@@ -272,12 +276,13 @@ allow :any               # any verb (also: allow :all)
 | `redirect_to(path, flash = {})` | flash-aware redirect, ends the router |
 | `send_file(path, opts)` | file download / inline |
 | `flash` / `flash.error 'msg'` | response flash |
-| `respond_to :js do ... end` | format-based dispatch |
+| `respond_to :js do ... end` | runs the block for that format, else false; chain one call per format |
+| `respond_to! :json do ... end` | same, but any other explicit format (`.csv`) is a 404 |
 | `cache(key, ttl:) { ... }` | request-level cache |
 | `etag(*args)` / `cache_control 'private'` | conditional 304, cache header |
 | `render_cache 'key'` | page cache for the next render |
 | `authorize` / `is_authorized?` | `Lux::Policy::Authorize` |
-| `current` / `lux` / `params` / `nav` / `session` / `user` / `request` / `response` | lifecycle delegates |
+| `params` / `nav` / `session` / `user` / `request` / `response` | lifecycle delegates |
 
 ## Halting
 
@@ -311,19 +316,19 @@ In dev, opening a page clears the terminal at most every 2s when stdout is a tty
 
 ## Route cursor
 
-`nav.path` is the canonical request path; `lux.route` is the per-request cursor over it, and the single owner of path matching.
+`nav.path` is the canonical request path; `Lux.ctx.route` is the per-request cursor over it, and the single owner of path matching.
 `map` advances the cursor without mutating nav, so a router mounted under a prefix never repeats that prefix.
 
 | | |
 |---|---|
-| `lux.route.path`            | remaining path after consumed segments |
-| `lux.route.root`            | first remaining segment |
-| `lux.route.child`           | second remaining segment |
-| `lux.route.consumed`        | segments before the cursor |
-| `lux.route.match?(x)`       | does the cursor root match? String / Symbol / Regexp / Array |
-| `lux.route.start_with?(*s)` | does the cursor start with these segments? |
-| `lux.route.capture('/a/:b')`| absolute pattern match from the URL root; captures hash or nil |
-| `lux.route.with_scope(n)`   | enter a scope for the block (used by `map`) |
+| `Lux.ctx.route.path`            | remaining path after consumed segments |
+| `Lux.ctx.route.root`            | first remaining segment |
+| `Lux.ctx.route.child`           | second remaining segment |
+| `Lux.ctx.route.consumed`        | segments before the cursor |
+| `Lux.ctx.route.match?(x)`       | does the cursor root match? String / Symbol / Regexp / Array |
+| `Lux.ctx.route.start_with?(*s)` | does the cursor start with these segments? |
+| `Lux.ctx.route.capture('/a/:b')`| absolute pattern match from the URL root; captures hash or nil |
+| `Lux.ctx.route.with_scope(n)`   | enter a scope for the block (used by `map`) |
 
 `-` and `_` are the same character to every one of those matchers, and the comparison is the only place it happens; `nav.path` keeps the URL's original spelling.
 
@@ -338,5 +343,5 @@ lux routes -v       # add source location per entry
 
 * [`../schema/README.md`](../schema/README.md) - the `opt` line parser
 * [`../api/README.md`](../api/README.md) - same params DSL for JSON APIs
-* [`../current/README.md`](../current/README.md) - `nav`, `route`, request state
+* [`../context/README.md`](../context/README.md) - `nav`, `route`, request state
 * [`../response/README.md`](../response/README.md) - response builder

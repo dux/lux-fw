@@ -6,21 +6,21 @@ Two roles in one class:
    surface. Subsystems register JS modules; the composed bundle is served
    at `/_lux_/*.js` (a reserved framework path).
 2. **Instance-level** - the master per-request object, accessed via
-   `lux.browser` (instantiated by `Lux::Current#browser`). It owns the
+   `Lux.ctx.browser` (instantiated by `Lux::Context#browser`). It owns the
    browser-facing pieces:
 
    | call | returns |
    |------|---------|
-   | `lux.browser.header` | `Lux::Browser::Header` - the `<head>` builder |
-   | `lux.browser.html` | `Lux::Browser::Html` - whole-document builder behind `lux.render_html` |
-   | `lux.browser.window` | a plain `Hash`, exported onto the client `window` |
-   | `lux.browser.window_script` | the `<script>` that writes the window hash (emitted by `header.render`) |
-   | `lux.browser.bundle(*mods)` | composed client JS bundle |
-   | `lux.browser.channel(name)` | SSE channel publisher (same as `Lux.channel`) |
-   | `lux.browser.publish(name, data)` | broadcast on a channel |
+   | `Lux.ctx.browser.header` | `Lux::Browser::Header` - the `<head>` builder |
+   | `Lux.ctx.browser.html` | `Lux::Browser::Html` - whole-document builder behind `Lux.ctx.render_html` |
+   | `Lux.ctx.browser.window` | a plain `Hash`, exported onto the client `window` |
+   | `Lux.ctx.browser.window_script` | the `<script>` that writes the window hash (emitted by `header.render`) |
+   | `Lux.ctx.browser.bundle(*mods)` | composed client JS bundle |
+   | `Lux.ctx.browser.channel(name)` | SSE channel publisher (same as `Lux.channel`) |
+   | `Lux.ctx.browser.publish(name, data)` | broadcast on a channel |
 
-   `header` is its own class; `window` is just a Hash. `lux.header` is a
-   pointer to `lux.browser.header`.
+   `header` is its own class; `window` is just a Hash. `Lux.ctx.header` is a
+   pointer to `Lux.ctx.browser.header`.
 
 ## Full example
 
@@ -40,30 +40,34 @@ Lux.browser.client_js(:sse, :api)                         # core + listed
 #   /_lux_/client.js                  -> all registered modules
 #   /_lux_/client.js?modules=sse,api  -> just those
 #   /_lux_/<name>.js                  -> core + that one (404 if unknown)
+#   any unknown name in ?modules= is a 404 as well
+# Bundles are built once per module set (rebuilt on every call when Lux.reload?)
+# and served `public, max-age=3600` with ETag = Lux::DEPLOY_ID (304 on match).
+# ERB in a module therefore runs once per deploy and must not read request state.
 
 # --- INSTANCE-LEVEL: per-request (router / before hook) ---
 
 # header (<head> builder)
-lux.browser.header.title       'Home'
-lux.browser.header.description  'short summary'
+Lux.ctx.browser.header.title       'Home'
+Lux.ctx.browser.header.description  'short summary'
 
 # window - a plain Hash, unrestricted; set whatever you want. The :app bucket
 # is pre-seeded, so routers can accumulate into it incrementally:
-lux.browser.window[:app][:cfg]     = { host: Lux.config.host, locale: lux.locale }
-lux.browser.window[:app][:current] = { user: lux.user&.to_h }
-lux.browser.window[:api]           = { url: '/api' }    # extra top-level key
+Lux.ctx.browser.window[:app][:cfg]     = { host: Lux.config.host, locale: Lux.ctx.locale }
+Lux.ctx.browser.window[:app][:current] = { user: Lux.ctx.user&.to_h }
+Lux.ctx.browser.window[:api]           = { url: '/api' }    # extra top-level key
 
 # channel (SSE publish) / bundle (client bundle)
-lux.browser.channel(:notifications).push(message: 'Hello')
-lux.browser.publish(:notifications, message: 'Hello')   # same thing, shorthand
-lux.browser.bundle(:sse)                                # core + sse bundle
+Lux.ctx.browser.channel(Lux.ctx.user).push(message: 'Hello')
+Lux.ctx.browser.publish("user:#{Lux.ctx.user.ref}", message: 'Hello')   # same thing, shorthand
+Lux.ctx.browser.bundle(:sse)                                # core + sse bundle
 
 # --- EMIT in the layout head ---
-# lux.browser.header.render emits window_script for you, so a single call in
+# Lux.ctx.browser.header.render emits window_script for you, so a single call in
 # the layout %head emits both the head tags and the window bootstrap (do NOT
 # also call window_script yourself - one emitter, one #lux-state tag):
 #
-#   = lux.browser.header.render do |el|
+#   = Lux.ctx.browser.header.render do |el|
 #     = el.js 'app'           # el is web_common's CdnAsset
 #
 # the window part renders as:
@@ -77,14 +81,14 @@ lux.browser.bundle(:sse)                                # core + sse bundle
 #   </script>
 ```
 
-## Whole document - `lux.render_html`
+## Whole document - `Lux.ctx.render_html`
 
 Alternative to `header.render` that builds the full document, so pjax can be
 answered with the region alone.
 
 ```haml
-= lux.render_html do |el|                # lang from Lux.current.locale, or lang: 'hr'
-  - el.title 'Preview'                    # = lux.header.title, overrides the page's
+= Lux.ctx.render_html do |el|                # lang from Lux.ctx.locale, or lang: 'hr'
+  - el.title 'Preview'                    # = Lux.ctx.header.title, overrides the page's
   = el.google_fonts_preconnect            # or el.preconnect 'https://x.com', crossorigin: ''
   = el.assets :app, :admin                # app.css, admin.css, app.js, admin.js; block output goes into <head>
   = el.asset 'planner.css'                # single file or remote url
@@ -128,11 +132,11 @@ and host without going through ERB'd `/_lux_/*.js`.
   assigned onto the client `window` directly.
 * `app.lux` - framework debug bucket, merged in outside production only. It
   carries `file_in_use`, the render trail of this request (templates, cells,
-  route blocks) as collected by `Lux.current.files_in_use`, plus `root`, the
+  route blocks) as collected by `Lux.ctx.files_in_use`, plus `root`, the
   app root those paths are relative to (the dev menu joins the two into a
   `vscode://file/` link); omitted when the trail is empty.
-* `</` in string values is escaped to `<\/` so a payload can't break out of the
-  surrounding `<script>` tag.
+* `<` in string values is escaped to `\u003c` (covers `</script>` and `<!--`), so a
+  payload can't break out of the surrounding `<script>` tag.
 
 Note: non-`app` keys land on the **global** `window` (`window[:api]` ->
 `window.api`). Use namespaced roots and avoid native window names
@@ -144,7 +148,7 @@ structure `window[:app]`.
 
 ## Security
 
-Don't ship secrets via `lux.browser.window` - everything is visible in the
+Don't ship secrets via `Lux.ctx.browser.window` - everything is visible in the
 page source. The framework-injected `Lux.csrf` (and `Lux.config.host` /
 `Lux.config.locale`) is written by `window_script` into `#lux-state` under
 `window.Lux`, not `window.app`. Static `core.js` only leaves defaults if
@@ -167,12 +171,12 @@ those keys are unset.
 
 | call | notes |
 |------|-------|
-| `lux.browser.header` | `Lux::Browser::Header` - `<head>` builder (also `lux.header`) |
-| `lux.browser.window` | plain `Hash`, exported onto the client `window` |
-| `lux.browser.window_script` | renders the `<script id="lux-state">...</script>` (emitted by `header.render`) |
-| `lux.browser.bundle(*mods)` | composed client JS string (delegates to `client_js`) |
-| `lux.browser.channel(name)` | SSE channel publisher (same as `Lux.channel`) |
-| `lux.browser.publish(name, data)` | shorthand for `channel(name).push(data)`; from jobs use `Lux.channel(name).push(data)` |
+| `Lux.ctx.browser.header` | `Lux::Browser::Header` - `<head>` builder (also `Lux.ctx.header`) |
+| `Lux.ctx.browser.window` | plain `Hash`, exported onto the client `window` |
+| `Lux.ctx.browser.window_script` | renders the `<script id="lux-state">...</script>` (emitted by `header.render`) |
+| `Lux.ctx.browser.bundle(*mods)` | composed client JS string (delegates to `client_js`) |
+| `Lux.ctx.browser.channel(name)` | SSE channel publisher (same as `Lux.channel`) |
+| `Lux.ctx.browser.publish(name, data)` | shorthand for `channel(name).push(data)`; from jobs use `Lux.channel(name).push(data)` |
 
 ## See also
 

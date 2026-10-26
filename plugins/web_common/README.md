@@ -12,7 +12,7 @@ default:
     - web_common
 ```
 
-`web_common` builds on `db` (the legacy exception viewer needs Sequel models)
+`web_common` builds on `db` (`ModelApi` and the html builders work on Sequel models)
 and on `authcog` (`ApplicationApi` reads the signed-in user through
 `UserSession`). It does not pull `authcog` in; list both. The exception writer
 itself needs neither.
@@ -21,12 +21,12 @@ itself needs neither.
 
 | Area | Provides | Loaded from |
 |------|----------|-------------|
-| assets  | `CdnAsset` (manifest/CDN asset URLs) + `HtmlHelper` template helpers (`request`, `response`); plugin helpers live in `HtmlHelper` so the app's `ApplicationHelper` overrides them | `load/assets/` |
-| html    | form / input / table builders plus `HtmlMenu`, `HtmlHelper.paginate`, `HtmlFilter`, timezone helpers | `load/html/` |
-| api     | `ApplicationApi` (mounted at `/api`), `ModelApi` (generated CRUD), `SchemaMap` | `load/lib/` |
-| exceptions | legacy PG-backed exception logger (`LuxException` / `LuxExceptionLog`, `LuxExceptionsApi`) | `load/lib/` |
+| assets  | `CdnAsset` (manifest/CDN asset URLs) + `HtmlHelper` template helpers (`response`); plugin helpers live in `HtmlHelper` so the app's `ApplicationHelper` overrides them | `load/assets/` |
+| html    | form / input / table builders plus `HtmlMenu`, `HtmlHelper.paginate` | `load/html/` |
+| api     | `ApplicationApi` (mounted at `/api`; non-`unsafe` endpoints answer 401 without a user), `ModelApi` (generated CRUD) | `load/lib/` |
 | routes  | router helpers for `Lux.router` blocks: `server_info` (`/lux` diagnostics via `ServerInfo`, dev or admin) | `load/lib/web_common_routes.rb`, `load/lib/server_info.rb` |
-| dev     | `/dev` pages: schema map, login-as | `mount/app/routers/dev_router.rb`, `mount/app/views/dev/` |
+| dev     | `/dev` pages: index of dev pages (an app `app/views/dev/root.haml` replaces it), schema map (`SchemaMap`), login-as; dev env only | `mount/app/routers/dev_router.rb`, `mount/app/views/dev/`, `load/lib/schema_map.rb` |
+| generate | `lux generate <object>`: model, api, exporter, policy and cell templates (`m`); an app `config/templates/` dir replaces them | `hammer/generate_hammer.rb`, `hammer/generate/` |
 
 Sign-in (`AuthcogRouter`, `UserSession`) is the separate
 [`authcog`](../authcog/README.md) plugin.
@@ -51,6 +51,11 @@ end
 ```
 
 Everything is wired explicitly by the app, as above.
+The plugin also relies on these app contracts:
+
+* `FrontendRouter` must exist (`DevRouter` subclasses it).
+* Models answer `api_path(action)` for `form @model`.
+* The `/lux` diagnostics need a `server_info` line inside `route do`.
 
 ### Exception writer
 
@@ -71,18 +76,39 @@ ExceptionWriter.new(error).write(user: user.ref, ip: '203.0.113.7',
 Each line carries `uid` (SHA-256 of `[file, line, class]` from the first
 application backtrace frame), `dump` (`error.full_message(highlight: false)`),
 `message`, optional `user`, `ip`, `tags`, `description`, `method`, `url`,
-`headers` and `ts` (UTC RFC3339). `user` falls back to the signed-in user's
-email (`Lux.current.user.email`); `ip`, `method`, `url` and `headers` come from
+`headers`, `request_id` (the `X-Request-Id` / generated id) and `ts` (UTC RFC3339). `user` falls back to the signed-in user's
+email (`Lux.ctx.user.email`); `ip`, `method`, `url` and `headers` come from
 the current request, and `headers` keeps only `ExceptionWriter::HEADERS`
 (User-Agent, Referer, Accept-Language, ...), never Cookie or Authorization.
 `tags` and `description` are absent unless passed. Appends are flocked, so
 concurrent processes never interleave records.
-
-The legacy PG models (`LuxException` / `LuxExceptionLog`) and the
-`/api/lux_exceptions/toggle` API stay in the plugin but are no longer the hook
-target.
+Expected HTTP errors (`Lux::Error` below 500, API, policy and validation errors) are skipped.
 
 Server logs are read in dboss.
+
+## Browser library
+
+The browser sources live in `assets/js/` and are imported as `@web-common/js/...`.
+Every helper is documented at the top of its file; this is the public surface.
+
+| API | What it does | File |
+|-----|--------------|------|
+| `$` / `Z` | Zepto-shaped DOM shim: selection, traversal, `on`/`off`/`one` with `.namespace`, `$.ajax`/`$.get`/`$.post`, `$.param` (arrays as `k[]=`) | `dollar/_dollar.js` |
+| `$(el).on(ev, fn)` | One handler per node + event + key (explicit `.namespace`, else handler source); re-registering replaces it | `dollar/_dollar.js` |
+| `Api(path, opts)` / `$.api` | POST to `/api/*`; chain `.info()`, `.topInfo()`, `.silent()`, `.done(fn)`, `.error(fn)`, `.follow(p)`, `.refresh('#id')`, `.reload()`, `.close()`; extend with `$.apiResponse.define({...})` | `dollar/dollar_api.js` |
+| `app.m.<model>` | Model handles over `ModelApi` (see Model handles below) | `dollar/dollar_api.js` |
+| `Toast.{success,info,warning,error,api}` | Toast notifications (also `$.toast`); server flash on `window.app.flash` is shown on load and every pjax navigation | `fez/sys-toast.fez` |
+| `<api-form>` | Form posting to an API with error mapping and upload progress; see [`load/html/form/README.md`](load/html/form/README.md) | `fez/api-form.fez` |
+| `tippy="..."` / `tt="..."` / `tt-place` | Hover tooltips, one shared bubble | `fez/sys-tippy.fez` |
+| `data-key="Escape"` / `data-key="ctrl+s"` | Keyboard shortcuts; holding Ctrl/Cmd shows an overlay of available keys | `dollar/dollar_keystroke.js` |
+| `$.onKeyDown(key, fn)` | Register one key combo | `dollar/dollar_keystroke.js` |
+| `data-keynav` | Arrow-key list navigation, Enter follows `href` | `dollar/dollar_keynav.js` |
+| `$.url` / `Url` | Browser twin of `Lux::Utils::Url` | `dollar/dollar_url.js` |
+| `$.sortable(sel, opts)` | Drag to reorder; container needs `data-api-path`, children `data-ref`; posts `refs[]` | `dollar/dollar_sortable.js` |
+| `$.cache` | Small client cache | `dollar/dollar_cache.js` |
+| `$.pub` / `$.sub` / `$(el).sub` | Pub/sub on the Fez bus (`Fez.publish` / `Fez.subscribe` see the same events); `$.sub(name, fn, key)` dedupes on `key` (default: handler source), node-bound subscriptions drop when the node leaves the DOM | `dollar/dollar_pubsub.js` |
+| `$.topBarInfo()` | Flash the top progress bar | `dollar/dollar_top_bar_info.js` |
+| `$.fn` extras | `shake`, `disable`/`enable`, `reload(path, { pushState: true })`, `activate`, `pannableBlock`, ... | `dollar/dollar_func.js`, `lib/app_helpers.js` |
 
 ## Api() notifications
 
@@ -111,7 +137,7 @@ plugins/web_common/
   hammer/              # assets:* pipeline, docker:* tasks, `lux generate`
   load/
     assets/  html/{form,input,table,...}
-    lib/                 # ApplicationApi, ModelApi, SchemaMap, ExceptionWriter, legacy LuxException(s)
+    lib/                 # ApplicationApi, ModelApi, SchemaMap, ExceptionWriter
   assets/js/           # browser sources ($ shim, sys-* fez, lib), imported as @web-common/js/...
   mount/               # /dev router and views, lux_models.js.rb generator (Lux::Root overlay)
   spec/                # exception writer/hook specs, HtmlForm/HtmlInput/HtmlTable

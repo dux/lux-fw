@@ -2,6 +2,8 @@
 # input.render :email, value: 'foo@bar.baz'
 
 class HtmlInput
+  include HtmlTag
+
   attr_accessor :type, :opts
   attr_reader :opt
 
@@ -26,24 +28,16 @@ class HtmlInput
     @opts.delete :disabled if @opts[:disabled].to_s == 'false'
   end
 
-  def tag(*args, **attrs, &block)
-    if args.empty? && attrs.empty? && block.nil?
-      # no-arg form: return a chainable proxy so `tag.div { |n| ... }` works
-      HtmlTag::Proxy.new(self)
-    else
-      HtmlTag.render_root(self, *args, **attrs, &block)
-    end
-  end
-
   # .render :name          # @object.name
   # .render settings: :key # @object.settings[key]
   def render name, opts = {}
     @opts = @opt.merge(opts)
     @name = name
+    @field = name   # build_html_name turns @name into the form name
 
     @opts[:placeholder] ||= 'email...' if @name.to_s.include?('email')
     @opts[:placeholder] ||= 'https://...' if @name.to_s.end_with?('url')
-    @opts[:id]          ||= 'i_%s' % Lux.current.uid
+    @opts[:id]          ||= 'i_%s' % Lux.ctx.uid
 
     if @object && @object.class.respond_to?(:schema) && [Symbol, Array].include?(@name.class)
       schema = @object.class.schema || raise('Lux schema for object "%s" not found' % @object.class)
@@ -58,7 +52,7 @@ class HtmlInput
       end
 
       @opts[:as]    ||= calculate_type
-      @opts[:id]    ||= Lux.current.uid
+      @opts[:id]    ||= Lux.ctx.uid
       @opts[:value] ||= @object.send(name) if @object && name.is_a?(Symbol)
       @opts[:value]   = @opts[:default] if @opts[:value].blank?
       @opts[:value]   = @opts[:value].to_f if @opts[:value].class == BigDecimal
@@ -82,25 +76,21 @@ class HtmlInput
         name  = object
         value = @object.send(name)
       elsif object.is_a?(ApplicationModel)
-        name  = '%s_id' % object.class.to_s.tableize.singularize
-
-        if @object.respond_to?(name)
-          value ||= object.id
-        else
-          return hidden(:model_id, object.id) + hidden(:model_type, object.class.name)
-        end
+        name = '%s_ref' % object.class.to_s.underscore.tr('/', '_')
+        return hidden(name.to_sym, object.ref) if @object.respond_to?("#{name}=")
+        return hidden(:parent_type, object.class.name) + hidden(:parent_ref, object.ref)
       end
     end
 
     render name, as: :hidden, value: value
   end
 
-  # Emit the hidden CSRF input matching Lux.current.csrf. Use in raw <form>
+  # Emit the hidden CSRF input matching Lux.ctx.csrf. Use in raw <form>
   # markup where HtmlForm's auto-injection doesn't apply:
   #
   #   = HtmlInput.csrf
   def self.csrf
-    Lux::SafeString.new %[<input type="hidden" name="_csrf" value="#{Lux.current.csrf}">]
+    Lux::SafeString.new %[<input type="hidden" name="_csrf" value="#{Lux.ctx.csrf}">]
   end
 
   private
@@ -128,7 +118,7 @@ class HtmlInput
 
   # @model.levels_sid -> collection: Models.levels
   def resolve_collection_from_name
-    reg = /_s?id$/
+    reg = /_sid$/
     if @name.to_s =~ reg
       lookup = @name.to_s.sub(reg, '')
       if @object.class.respond_to?(lookup)
@@ -146,7 +136,7 @@ class HtmlInput
       else
         if @object
           @opts[:value] ||= @object.send(name.first.to_sym).dig(*name.drop(1).map(&:to_s))
-          name.first.to_s + name.drop(1).map{ "[#{_1}]" }.join('')
+          "#{@object.class.to_s.tableize.singularize}[#{name.first}]" + name.drop(1).map{ "[#{_1}]" }.join('')
         else
           raise 'not implemented'
         end
@@ -182,9 +172,9 @@ class HtmlInput
     else
       for el in data
         if el.respond_to?(:select_name)
-          ret.push [el.id.to_s, el.select_name]
+          ret.push [el.ref.to_s, el.select_name]
         elsif el.respond_to?(:name)
-          ret.push [el.id.to_s, el.name]
+          ret.push [el.ref.to_s, el.name]
         elsif el.kind_of?(Array)
           ret.push [el[0].to_s, el[1]]
         else

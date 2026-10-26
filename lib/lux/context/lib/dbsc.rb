@@ -17,7 +17,7 @@
 # the proof and would wipe the shared session for the whole domain.
 
 module Lux
-  class Current
+  class Context
     module Dbsc
       PREFIX        ||= '/_lux_/dbsc/'
       REGISTER_PATH ||= '/_lux_/dbsc/register'
@@ -43,33 +43,33 @@ module Lux
       end
 
       # False for a device-bound session without a fresh proof cookie of its own.
-      # The refresh endpoint is exempt - it is called because the proof expired.
+      # The refresh endpoint (POST only) is exempt - it is called because the proof expired.
       def proven? request, session
         return true unless session.hash[KEY] && enabled?(request, session)
-        return true if request.path_info == REFRESH_PATH
+        return true if request.post? && request.path_info == REFRESH_PATH
 
         proof = Lux::Utils::Crypt.unseal(request.cookies[cookie_name(session)], purpose: PROOF_PURPOSE)
         proof.is_a?(::Hash) && proof['sid'] == session.hash['sid']
       end
 
       # Offer registration once per unbound session; nil when there is nothing to offer.
-      def registration_header current
-        session = current.session
-        return unless enabled?(current.request, session)
+      def registration_header ctx
+        session = ctx.session
+        return unless enabled?(ctx.request, session)
         return if session[KEY] || session[OFFERED]
 
         session[OFFERED] = 1
-        '(ES256);path="%s";challenge="%s"' % [REGISTER_PATH, challenge(current.session_sid)]
+        '(ES256);path="%s";challenge="%s"' % [REGISTER_PATH, challenge(ctx.session_sid)]
       end
 
-      # POST /_lux_/dbsc/* - fills lux.response. Runs before the CSRF check, the
+      # POST /_lux_/dbsc/* - fills ctx.response. Runs before the CSRF check, the
       # browser posts these on its own.
-      def handle lux
-        return unless enabled?(lux.request, lux.session)
+      def handle ctx
+        return unless enabled?(ctx.request, ctx.session)
 
-        case lux.request.path_info
-        when REGISTER_PATH then register lux
-        when REFRESH_PATH  then refresh lux
+        case ctx.request.path_info
+        when REGISTER_PATH then register ctx
+        when REFRESH_PATH  then refresh ctx
         end
       end
 
@@ -79,43 +79,43 @@ module Lux
 
       private
 
-      def register lux
-        jwt = proof_jwt(lux)
+      def register ctx
+        jwt = proof_jwt(ctx)
         jwk = (JWT.decode(jwt.to_s, nil, false)[1]['jwk'] rescue nil)
         jwk = jwk.slice('kty', 'crv', 'x', 'y') if jwk.is_a?(::Hash)
         payload = verify(jwt, jwk) if jwk
 
-        return reject(lux, 400) unless payload && challenge_valid?(payload['jti'], lux.session_sid)
+        return reject(ctx, 400) unless payload && challenge_valid?(payload['jti'], ctx.session_sid)
 
-        lux.session[KEY] = jwk
-        prove lux
+        ctx.session[KEY] = jwk
+        prove ctx
       end
 
       # A bad signature is not this device: 401 makes the browser end the bound
       # session. A missing or stale challenge gets a fresh one with 403, which
       # the browser answers with a new proof.
-      def refresh lux
-        session = lux.session
-        sid     = lux.request.get_header('HTTP_SEC_SECURE_SESSION_ID').to_s.delete('"')
-        return reject(lux, 401) unless session[KEY] && sid == session[:sid]
+      def refresh ctx
+        session = ctx.session
+        sid     = ctx.request.get_header('HTTP_SEC_SECURE_SESSION_ID').to_s.delete('"')
+        return reject(ctx, 401) unless session[KEY] && sid == session[:sid]
 
-        if jwt = proof_jwt(lux)
-          payload = verify(jwt, session[KEY]) or return reject(lux, 401)
-          return prove(lux) if challenge_valid?(payload['jti'], sid)
+        if jwt = proof_jwt(ctx)
+          payload = verify(jwt, session[KEY]) or return reject(ctx, 401)
+          return prove(ctx) if challenge_valid?(payload['jti'], sid)
         end
 
-        lux.response.header 'secure-session-challenge', '"%s";id="%s"' % [challenge(sid), sid]
-        reject lux, 403
+        ctx.response.header 'secure-session-challenge', '"%s";id="%s"' % [challenge(sid), sid]
+        reject ctx, 403
       end
 
-      def prove lux
-        sid  = lux.session_sid
-        name = cookie_name(lux.session)
+      def prove ctx
+        sid  = ctx.session_sid
+        name = cookie_name(ctx.session)
 
         # sealed a minute past the cookie Max-Age, so the browser refreshes before the server rejects
-        lux.response.cookie name, Lux::Utils::Crypt.seal({ 'sid' => sid }, ttl: BOUND_TTL + 60, purpose: PROOF_PURPOSE), max_age: BOUND_TTL
-        lux.response.content_type :json
-        lux.response.body({
+        ctx.response.cookie name, Lux::Utils::Crypt.seal({ 'sid' => sid }, ttl: BOUND_TTL + 60, purpose: PROOF_PURPOSE), max_age: BOUND_TTL
+        ctx.response.content_type :json
+        ctx.response.body({
           session_identifier: sid,
           refresh_url:        REFRESH_PATH,
           scope:              { include_site: false },
@@ -123,12 +123,12 @@ module Lux
         })
       end
 
-      def reject lux, status
-        lux.response.body '', status: status
+      def reject ctx, status
+        ctx.response.body '', status: status
       end
 
-      def proof_jwt lux
-        lux.request.get_header('HTTP_SECURE_SESSION_RESPONSE').presence
+      def proof_jwt ctx
+        ctx.request.get_header('HTTP_SECURE_SESSION_RESPONSE').presence
       end
 
       # Payload of a dbsc+jwt signed by `jwk`, else nil. Both come from the

@@ -32,11 +32,15 @@ module Lux
       # Find a template by path under cattr.template_root (default ./app/views).
       # Tries /path.{haml,md,erb} then /path/root.{...}; returns the path or nil.
       # URL segments are underscored here because that is how template files are
-      # named on disk.
+      # named on disk. A segment starting with `_` (after that, so `-menu` too)
+      # names a partial, and partials are never reachable by URL: nil.
       #   auto_find_template(['main', 'notes'])  ->  '/main/notes' or nil
       def auto_find_template path
         root     = cattr.template_root
-        tpl_root = '/' + path.flatten.map { _1.to_s.tr('-', '_') }.join('/')
+        segments = path.flatten.map { _1.to_s.tr('-', '_') }
+        return if segments.any? { _1.start_with?('_') }
+
+        tpl_root = '/' + segments.join('/')
         key      = "#{root}#{tpl_root}"
 
         AUTO_PATH_CACHE.delete(key) if Lux.env.dev?
@@ -55,11 +59,11 @@ module Lux
       # or raise a 404. The 404 flows through the app error sink, which renders
       # the error template at the views root (e.g. app/views/main/error.haml).
       def auto_render
-        throw :done if lux.response.body?
+        throw :done if Lux.ctx.response.body?
 
         # normalized_path, not path: a classified id renders as its value, but
         # on disk the convention is a literal `ref` segment (boards/ref/edit.haml)
-        path = [template_dir] + lux.route.normalized_path
+        path = [template_dir] + Lux.ctx.route.normalized_path
         if tpl = auto_find_template(path)
           render tpl
         else

@@ -10,10 +10,10 @@ module Lux
     #   with_transaction { } - Lux::Test::DB
     #   assert_status, assert_json_includes, assert_body_includes, assert_redirect
     #
-    # HTTP responses come from Lux.render.<verb>; those return a Lux::Response
+    # HTTP responses come from Lux.render.<verb>; those return a Lux::Router::Page
     # which has #status, #body, #json, #headers, #redirect_to, #ok?.
     #
-    # Hooks: resets Factory fetch/sequence caches and Lux.current between
+    # Hooks: resets Factory fetch/sequence caches and Lux.ctx between
     # tests so order can't leak state.
     Case = ::Minitest::Spec
   end

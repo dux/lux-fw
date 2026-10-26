@@ -3,7 +3,7 @@
 Pub/sub channels by name. Backbone for the SSE stream served at the baked-in
 `/_lux_/stream` endpoint. Publish from anywhere on the server with
 `Lux.channel(target).push(data)` (or, in a request,
-`lux.browser.publish(name, data)`); subscribe from the client with
+`Lux.ctx.browser.publish(name, data)`); subscribe from the client with
 `Lux.subscribe`.
 
 A browser holds **one** stream, scoped to its session. The client cannot ask
@@ -22,9 +22,10 @@ SSE writer (`response/lib/sse.rb`) which fans messages out to the
 ```ruby
 # --- who gets a stream, and what it carries (once, in an initializer) ---
 
-Lux::Browser::Channel.session_channels do |lux|
-  ref = lux.session[:user_ref] or next []      # [] -> no stream for guests
-  ["user:#{ref}", "org:#{lux.session[:org_ref]}"]
+Lux::Browser::Channel.session_channels do |ctx|
+  ref = ctx.session[:user_ref] or next []      # [] -> no stream for guests
+  org = ctx.session[:org_ref]
+  ["user:#{ref}", ("org:#{org}" if org)].compact
 end
 
 # --- publish from anywhere (jobs, callbacks, actions, defer'd threads) ---
@@ -52,15 +53,18 @@ Lux.channel('user:abc')    # taken as-is
 Lux.channel('abc')         # ArgumentError - a bare ref is nobody's channel
 ```
 
+A name must match `Lux::Browser::Channel::NAME`: `<prefix>:<id>[:<more>]`, ASCII `[a-zA-Z0-9_.-]` per part, at most 128 characters.
+Anything else (an unsaved model's `"user:"`, a space, a `|`) raises `ArgumentError` when building or publishing.
+
 ```html
 <!-- client: just include /_lux_/client.js and call subscribe -->
 <script src="/_lux_/client.js"></script>
 <script>
   Lux.subscribe('user:42', msg => inbox.update(msg))
 
-  // Opens one EventSource on first subscribe and keeps it. Subscribing and
-  // unsubscribing is local bookkeeping - it never reopens the connection,
-  // because the server takes no channel parameters.
+  // Opens one EventSource on first subscribe; closes it when the last handler
+  // is removed. Adding or removing handlers while others remain is local
+  // bookkeeping and never reconnects.
 
   Lux.unsubscribe('user:42', fn)   // drop one handler
   Lux.unsubscribe('user:42')       // drop the name entirely
@@ -149,6 +153,9 @@ per-channel authorization to write.
 
 * no resolver configured -> `501`
 * resolver returns `[]` (guest) -> `403`
+
+A `501`/`403` answer is final for `EventSource` (the browser does not retry).
+The next `Lux.subscribe` opens a fresh stream (e.g. after a pjax login).
 
 Note the resolver runs before route resolution, so anything a router
 `before` hook would normally set up is not available yet - read the session
@@ -242,7 +249,7 @@ Caveats:
 | call | returns | notes |
 |------|---------|-------|
 | `Lux.channel(target).push(data)` | nil | broadcast to all subscribers of that channel |
-| `lux.browser.publish(name, data)` | nil | same, in a request context |
+| `Lux.ctx.browser.publish(name, data)` | nil | same, in a request context |
 | `Lux::Browser::Channel.channel_name(target)` | String | model -> `"<model>:<ref>"`; string must be prefixed |
 | `Lux::Browser::Channel.session_channels { \|lux\| [...] }` | | set the resolver (initializer) |
 | `Lux::Browser::Channel.channels_for(lux)` | `[String]` | what that session receives; `[]` on raise |
@@ -259,5 +266,5 @@ Caveats:
 * [`../../../../doc/browser-push.md`](../../../../doc/browser-push.md) - task-oriented walkthrough; start here
 * [`./brokers/base.rb`](./brokers/base.rb) - the broker contract
 * [`../../response/lib/sse.rb`](../../response/lib/sse.rb) - the SSE writer (`response.sse`)
-* [`../README.md`](../README.md) - parent `Lux::Browser` (serves the `Lux.sse` client)
+* [`../README.md`](../README.md) - parent `Lux::Browser` (serves the `Lux.subscribe` client)
 * [`../../../../plugins/job_runner/README.md`](../../../../plugins/job_runner/README.md) - PG LISTEN/NOTIFY pattern

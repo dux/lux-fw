@@ -23,7 +23,7 @@ Canonical docs: [`../lib/lux/router/README.md`](../lib/lux/router/README.md).
 | `call MainController` / `call 'main'` | `map MainRouter` |
 | `call { 'text' }` | `render text: 'text'` |
 | `body 'stop'` | `render text: 'stop'` |
-| `root 'main'` | `root 'main'` (mounts `MainRouter`, resourceful `:index`) |
+| `root 'main'` | `root 'main'` (mounts `MainRouter`: runs its `route`, else resourceful `:index`) |
 
 `rescue_from { call 'promo#app_error' }` becomes `rescue_from { map 'promo#app_error' }`.
 The handler runs on the innermost router that was running, so its ivars (`@error`, `@status`, loaded models) pass along.
@@ -53,4 +53,4 @@ The handler runs on the innermost router that was running, so its ivars (`@error
 
 * `Lux.render.controller('x#y')` - use `XRouter.action(:y)` or `Lux.render.get`.
 * `Lux::Error.render` - the router `error` action renders the error page.
-* `lux.var[:lux_app]` is `lux.var[:lux_router]`; the dispatch log key is `router` (`MainRouter#index`).
+* `Lux.ctx.var[:lux_app]` is `Lux.ctx.var[:lux_router]`; the dispatch log key is `router` (`MainRouter#index`).

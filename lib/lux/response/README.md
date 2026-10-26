@@ -1,7 +1,7 @@
 # Lux::Response
 
 HTTP response builder. Use as `response` inside a router, or
-`current.response` anywhere.
+`Lux.ctx.response` anywhere.
 
 ## Full example
 
@@ -60,8 +60,8 @@ class FilesRouter < ApplicationRouter
 
     # --- HTTP early hints / basic auth --------------------------------
     response.early_hints '/app.css', :stylesheet
-    response.auth(realm: 'admin') do |user, pass|
-      [user, pass] == ['root', ENV['ADMIN_PASS']]
+    return unless response.auth(realm: 'admin') do |user, pass|   # 401 + throw :done on failure
+      user == 'root' && Rack::Utils.secure_compare(pass, ENV['ADMIN_PASS'].to_s)
     end
 
     # --- CORS (see Lux::Response::Cors) -------------------------------
@@ -73,7 +73,7 @@ class FilesRouter < ApplicationRouter
                   max_age: 600
 
     # --- SSE stream (see Lux::Response::Sse + Lux::Browser::Channel) --
-    response.sse :notifications, "user:#{current_user.id}"
+    response.sse "user:#{current_user.ref}"
 
     # --- generic streaming body ---------------------------------------
     response.stream(MyIterableBody.new)           # body responds to .each(yields strings)
@@ -98,7 +98,8 @@ end
 
 ## Flash
 
-Set before a redirect; the next response receives the entries. Setting
+Set before a redirect; the next response receives the entries (the layout's
+`lux-state` script delivers and clears them). Setting
 any flash forces the response private.
 
 ## Streaming responses
@@ -116,4 +117,4 @@ streaming body. The render path:
 * [`./lib/cors.rb`](./lib/cors.rb) - the `response.cors` implementation
 * [`./lib/sse.rb`](./lib/sse.rb) - the `response.sse` SSE writer
 * [`../browser/channel/README.md`](../browser/channel/README.md) - pub/sub channels feeding SSE
-* [`../current/README.md`](../current/README.md) - request context
+* [`../context/README.md`](../context/README.md) - request context

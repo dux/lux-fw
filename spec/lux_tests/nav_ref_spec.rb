@@ -215,6 +215,19 @@ describe 'Lux::Router::Nav::Base registry' do
       value = NavRefString.new(nil, upcase: true).generate.value
       _(NavRefString.new(value).valid?).must_equal false
     end
+
+    it 'the :ref type stores an upcase family ref upcased' do
+      with_format(string: { upcase: true }) do
+        upper = NavRefString.new(nil, upcase: true).generate.value
+        _(Lux::Type::RefType.new(upper.downcase).get).must_equal upper
+      end
+    end
+
+    it 'the :ref type still rejects uppercase for the plain family' do
+      with_format(:string) do
+        _{ Lux::Type::RefType.new('K3P9X2MQ7WD1NB84').get }.must_raise TypeError
+      end
+    end
   end
 
   # the whole point: one declaration, every consumer follows
@@ -228,18 +241,18 @@ describe 'Lux::Router::Nav::Base registry' do
         _(Lux::Type::RefType.new(generated).value).must_equal generated
         _(Lux::Type::RefType.new(nil).db_schema).must_equal [:string, { limit: 36 }]
 
-        Lux::Current.new "http://example.com/boards/#{generated}"
-        Lux.current.nav.map_path
-        _(Lux.current.nav.ref).must_equal generated
-        _(Lux.current.nav.normalized_path).must_equal %w[boards ref]
+        Lux::Context.new "http://example.com/boards/#{generated}"
+        Lux.ctx.nav.map_path
+        _(Lux.ctx.nav.ref).must_equal generated
+        _(Lux.ctx.nav.normalized_path).must_equal %w[boards ref]
       end
     end
 
     it 'a 16-char ref is not an id when the app is on uuid7' do
       with_format :uuid7 do
-        Lux::Current.new 'http://example.com/boards/k3p9x2mq7wd1nb84'
-        Lux.current.nav.map_path
-        _(Lux.current.nav.ref).must_be_nil
+        Lux::Context.new 'http://example.com/boards/k3p9x2mq7wd1nb84'
+        Lux.ctx.nav.map_path
+        _(Lux.ctx.nav.ref).must_be_nil
       end
     end
 

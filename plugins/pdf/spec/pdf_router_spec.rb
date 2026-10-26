@@ -17,7 +17,7 @@ module PdfGenerator; end unless defined?(PdfGenerator)
 
 require_relative '../mount/app/routers/pdf_router.rb'
 
-# User.current is what Lux::Current#user reads; nobody is logged in here, which
+# User.current is what Lux::Context#user reads; nobody is logged in here, which
 # is the case the signature exists for.
 unless defined?(User)
   User = Class.new do
@@ -40,7 +40,7 @@ describe PdfRouter do
   # PdfRouter#pdf_path is private - it is internal to the router, and
   # this spec is asserting the contract it upholds.
   def pdf_path_for url
-    Lux::Current.new url
+    Lux::Context.new url
     PdfRouter.new.send(:pdf_path)
   end
 
@@ -57,22 +57,22 @@ describe PdfRouter do
 
     it 'survives load_models rewriting the ref segment out of nav.path' do
       ref = Lux::Utils::Ref.generate
-      Lux::Current.new "http://test/pdf/travel_orders/#{ref}"
+      Lux::Context.new "http://test/pdf/travel_orders/#{ref}"
 
       before = PdfRouter.new.send(:pdf_path)
-      Lux.current.nav.map_path                    # what pdf routes.rb does
+      Lux.ctx.nav.map_path                    # what pdf routes.rb does
       after  = PdfRouter.new.send(:pdf_path)
 
-      _(Lux.current.nav.path.last).must_be_kind_of Lux::Router::Nav::Base
+      _(Lux.ctx.nav.path.last).must_be_kind_of Lux::Router::Nav::Base
       _(after).must_equal before
       _(after).must_equal "/pdf/travel_orders/#{ref}"
     end
 
     it 'survives an app before-filter rewriting nav.path' do
-      Lux::Current.new 'http://test/pdf/salary-runs/abc'
+      Lux::Context.new 'http://test/pdf/salary-runs/abc'
       before = PdfRouter.new.send(:pdf_path)
 
-      Lux.current.nav.path.map! { |el| el.to_s.tr('-', '_') }   # a set_nav_ref style filter
+      Lux.ctx.nav.path.map! { |el| el.to_s.tr('-', '_') }   # a set_nav_ref style filter
 
       _(PdfRouter.new.send(:pdf_path)).must_equal before
     end
@@ -102,7 +102,7 @@ describe PdfRouter do
 
   describe '#verify_access!' do
     def verify url
-      Lux::Current.new url
+      Lux::Context.new url
       PdfRouter.new.send(:verify_access!)
     end
 
@@ -110,11 +110,27 @@ describe PdfRouter do
 
     # the real two-request round trip: sign on /pdf/demo.pdf, verify on /pdf/demo
     it 'accepts the signature minted by the .pdf request' do
-      Lux::Current.new 'http://test/pdf/demo.pdf'
+      Lux::Context.new 'http://test/pdf/demo.pdf'
       expires = later
-      signed  = PdfRouter.sign(PdfRouter.new.send(:pdf_path), expires)
+      signed  = PdfRouter.sign(PdfRouter.new.send(:pdf_target), expires)
 
       verify "http://test/pdf/demo?s=#{signed}&e=#{expires}"
+    end
+
+    # the page's own query is part of what is signed, in canonical order
+    it 'accepts a signature carrying the page query in any order' do
+      Lux::Context.new 'http://test/pdf/demo.pdf?month=5&year=2026'
+      expires = later
+      signed  = PdfRouter.sign(PdfRouter.new.send(:pdf_target), expires)
+
+      _(PdfRouter.new.send(:pdf_target)).must_equal '/pdf/demo?month=5&year=2026'
+      verify "http://test/pdf/demo?year=2026&s=#{signed}&month=5&e=#{expires}"
+    end
+
+    it 'rejects a signature when the page query was changed' do
+      expires = later
+      signed  = PdfRouter.sign('/pdf/demo?month=5', expires)
+      _{ verify "http://test/pdf/demo?month=6&s=#{signed}&e=#{expires}" }.must_raise Lux::Error
     end
 
     it 'rejects a signature for a different path' do

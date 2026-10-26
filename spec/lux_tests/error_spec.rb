@@ -1,7 +1,7 @@
 require 'test_helper'
 
 describe Lux::Error do
-  before { Lux::Current.new('http://testing') }
+  before { Lux::Context.new('http://testing') }
 
   describe 'as an exception class' do
     it 'is a StandardError that defaults to status 400' do
@@ -38,7 +38,7 @@ describe Lux::Error do
 end
 
 describe 'Lux.error' do
-  before { Lux::Current.new('http://testing') }
+  before { Lux::Context.new('http://testing') }
 
   def with_error_log_buffer
     buf = StringIO.new
@@ -83,7 +83,7 @@ describe 'Lux.error' do
       rescue Lux::Error
         nil
       end
-      _(Lux.current.response.status).must_be_nil
+      _(Lux.ctx.response.status).must_be_nil
     end
 
     it 'fills the message from Rack::Utils::HTTP_STATUS_CODES when none given' do

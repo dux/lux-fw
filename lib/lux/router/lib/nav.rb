@@ -11,7 +11,7 @@ module Lux
       # acepts path as a string
       def initialize request
         # lowercase path segments; for `key:value` segments only the key is lowercased
-        @path        = (request.path.split('/').slice(1, 100) || []).map { |s| s.sub(/\A[^:]+/) { _1.downcase } }
+        @path        = request.path.split('/').reject(&:empty?).first(100).map { |s| s.sub(/\A[^:]+/) { _1.downcase } }
         @request     = request
 
         set_variables
@@ -62,11 +62,11 @@ module Lux
         name, path = args
         url = Url.current.subdomain(name)
         url.path path if path
-        session ? Lux.current.session.handoff_link(url.url) : url.url
+        session ? Lux.ctx.session.handoff_link(url.url) : url.url
       end
 
       # get Url object initialized with request.url - relative
-      # current.nav.url(:foo, 1).to_s # /path?foo=1
+      # Lux.ctx.nav.url(:foo, 1).to_s # /path?foo=1
       def url *args
         if args.first
           Url.current.qs(*args)
@@ -154,10 +154,10 @@ module Lux
       # removes leading www.
       # https://www.foo.bar/path -> https://foo.bar/path
       def remove_www
-        url = Lux.current.request.url
+        url = Lux.ctx.request.url
 
         if url.include?('://www.')
-          Lux.current.response.redirect_to url.sub('://www.', '://')
+          Lux.ctx.response.redirect_to url.sub('://www.', '://')
         end
       end
 
@@ -165,14 +165,14 @@ module Lux
       # http://localhost:3000/foo?bar=123 -> http://lvh.me:3000/foo?bar=123
       def rename_domain from_domain, to_domain
         if from_domain == @domain
-          url = Url.new Lux.current.request.url
-          Lux.current.response.redirect_to url.domain(to_domain).to_s
+          url = Url.new Lux.ctx.request.url
+          Lux.ctx.response.redirect_to url.domain(to_domain).to_s
         end
       end
 
       # http://tiger.lvh.me:3000/foo?bar=1 -> http://tiger.lvh.me:3000
       def base
-        @base ||= Lux.current.request.url.split('/').first(3).join('/')
+        @base ||= Lux.ctx.request.url.split('/').first(3).join('/')
       end
 
       def to_s
@@ -243,38 +243,20 @@ module Lux
         # convert /foo/bar:baz to /foo?bar=baz
         while @path.last&.include?(':')
           key, val = @path.pop.split(':', 2)
-          Lux.current.params[key.to_sym] ||= val
+          Lux.ctx.params[key.to_sym] ||= val
         end
       end
 
-      # Known two-part TLDs where the domain is the third-from-last segment
-      TWO_PART_TLDS ||= %w[
-        co.uk co.nz co.in co.za co.jp co.kr co.il co.th
-        com.au com.br com.sg com.hk com.mx com.ar com.tw
-        org.uk org.au org.nz
-        net.au net.nz
-        ac.uk ac.nz
-        gov.uk edu.au
-      ].freeze
-
+      # one domain parser for Nav and Url, so the TLD rules cannot drift apart
       def set_domain request
-        begin
-          parts = request.host.to_s.split('.')
+        host = begin
+          request.host
         rescue NoMethodError
           raise Lux.error 400, 'Host name error'
         end
 
-        if parts.last.is_numeric?
-          @domain = request.host
-        else
-          count = 2
-          count = 1 if parts.last == 'localhost'
-          count = 3 if TWO_PART_TLDS.include?(parts.last(2).join('.'))
-
-          @domain    = parts.pop(count).join('.')
-          @domain    += ".#{parts.pop}" if @domain.length < 6
-          @subdomain = parts.join('.')
-        end
+        subdomain, @domain = Lux::Utils::Url.split_host(host)
+        @subdomain = subdomain.to_s
       end
 
       def set_format
@@ -285,8 +267,6 @@ module Lux
           @format    = parts.pop.to_s.downcase.to_sym
           @path.last = parts.join('.')
         end
-
-        @path.shift if @path[0] == ''
       end
     end
   end

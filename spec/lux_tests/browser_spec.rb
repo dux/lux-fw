@@ -92,13 +92,13 @@ describe Lux::Browser do
   end
 
   describe '#window_script' do
+    before { Lux::Context.new Rack::MockRequest.env_for('/') }
+
     def b
       @b ||= Lux::Browser.new
     end
 
     it 'emits Lux bootstrap + app guard when the window hash is empty' do
-      env = Rack::MockRequest.env_for('/')
-      Lux::Current.new env
       tag = b.window_script
       _(tag).must_include 'window.Lux = window.Lux || {};'
       _(tag).must_include 'Object.assign(window.Lux,'
@@ -109,8 +109,6 @@ describe Lux::Browser do
     end
 
     it 'merges :app into window.app and assigns other keys onto window' do
-      env = Rack::MockRequest.env_for('/')
-      Lux::Current.new env
       b.window[:app] = { cfg: { host: 'http://x' } }
       b.window[:foo] = 1
       tag = b.window_script
@@ -141,7 +139,7 @@ describe Lux::Browser do
     end
 
     it 'exports the request render trail as window.app.lux.file_in_use' do
-      Lux.current.files_in_use 'app/views/main/index.haml'
+      Lux.ctx.files_in_use 'app/views/main/index.haml'
       tag = b.window_script    # dev json is pretty printed, so match the parts
 
       _(tag).must_include '"lux"'
@@ -150,7 +148,7 @@ describe Lux::Browser do
     end
 
     it 'exports the app root the trail is relative to' do
-      Lux.current.files_in_use 'app/views/main/index.haml'
+      Lux.ctx.files_in_use 'app/views/main/index.haml'
       tag = b.window_script
 
       _(tag).must_include '"root"'
@@ -159,7 +157,7 @@ describe Lux::Browser do
 
     it 'omits the lux bucket in production' do
       Lux.env.define_singleton_method(:prod?) { true }
-      Lux.current.files_in_use 'app/views/main/index.haml'
+      Lux.ctx.files_in_use 'app/views/main/index.haml'
 
       refute_includes b.window_script, 'file_in_use'
     ensure
@@ -170,7 +168,20 @@ describe Lux::Browser do
       b.window[:danger] = "</script><script>x()</script>"
       tag = b.window_script
       refute_includes tag, '</script><script>'
-      _(tag).must_include '<\/script>'
+      _(tag).must_include '\u003c/script>'
+    end
+
+    it 'escapes <!-- so window data cannot open a script-data comment' do
+      b.window[:danger] = '<!--<script>'
+      refute_includes b.window_script, '<!--'
+    end
+
+    it "merges a string 'app' key into window.app" do
+      b.window['app'] = { a: 1 }
+      b.window[:app][:b] = 2
+      tag = b.window_script.gsub(/\s+/, '')
+      _(tag).must_include '"a":1'
+      _(tag).must_include '"b":2'
     end
   end
 
@@ -184,7 +195,7 @@ describe Lux::Browser do
     it 'emits the window bootstrap via window_script' do
       previous = Lux.config[:app]
       Lux.config[:app] = { name: 'T' }.to_lux_hash
-      c = Lux::Current.new Rack::MockRequest.env_for('/')
+      c = Lux::Context.new Rack::MockRequest.env_for('/')
       html = c.browser.header.render
       _(html).must_include '<script id="lux-state">'
       _(html).must_include 'window.Lux = window.Lux || {};'
@@ -197,10 +208,10 @@ describe Lux::Browser do
   end
 
   describe '#boot_script / #state_script' do
-    before { Lux::Current.new Rack::MockRequest.env_for('/') }
+    before { Lux::Context.new Rack::MockRequest.env_for('/') }
 
     it 'boot carries the Lux surface and app guard, not page state' do
-      b = Lux.current.browser
+      b = Lux.ctx.browser
       b.window[:app][:cfg] = { x: 1 }
       tag = b.boot_script
       _(tag).must_include 'Object.assign(window.Lux,'
@@ -210,7 +221,7 @@ describe Lux::Browser do
     end
 
     it 'state resets the page, merges app and repeats the Lux cfg' do
-      b = Lux.current.browser
+      b = Lux.ctx.browser
       b.window[:app][:cfg] = { x: 1 }
       tag = b.state_script
       _(tag).must_include '<script id="lux-state">'
@@ -222,7 +233,7 @@ describe Lux::Browser do
 
   describe '#layout_id / #pjax?' do
     def browser_for headers = {}
-      Lux::Current.new(Rack::MockRequest.env_for('/', headers)).browser
+      Lux::Context.new(Rack::MockRequest.env_for('/', headers)).browser
     end
 
     it 'is nil without a layout' do
@@ -244,6 +255,13 @@ describe Lux::Browser do
       _(browser_for('HTTP_X_PJAX_LAYOUT' => id).tap { _1.layout = 'main' }.pjax?).must_equal true
       _(browser_for('HTTP_X_PJAX_LAYOUT' => 'nope').tap { _1.layout = 'main' }.pjax?).must_equal false
     end
+
+    it 'drops the memoised id when the layout changes' do
+      b = browser_for.tap { _1.layout = 'main' }
+      first = b.layout_id
+      b.layout = 'admin'
+      refute_equal first, b.layout_id
+    end
   end
 
   describe 'render_html' do
@@ -255,7 +273,7 @@ describe Lux::Browser do
     after { Lux.config[:app] = @previous }
 
     def render headers = {}, lang: nil, footer: true, body: true
-      c = Lux::Current.new Rack::MockRequest.env_for('/', headers)
+      c = Lux::Context.new Rack::MockRequest.env_for('/', headers)
       c.browser.layout = 'main'
       c.header.title = 'Page'
       html = c.render_html(lang: lang) do |el|
@@ -267,7 +285,7 @@ describe Lux::Browser do
     end
 
     def layout_id
-      Lux::Current.new(Rack::MockRequest.env_for('/')).browser.tap { _1.layout = 'main' }.layout_id
+      Lux::Context.new(Rack::MockRequest.env_for('/')).browser.tap { _1.layout = 'main' }.layout_id
     end
 
     it 'builds the whole document on a full load' do
@@ -288,8 +306,22 @@ describe Lux::Browser do
       assert html.index('<link rel="x"') < html.index('lux-state')
     end
 
+    it 'keeps an existing Vary header' do
+      c = Lux::Context.new Rack::MockRequest.env_for('/')
+      c.response.headers['vary'] = 'Origin'
+      c.browser.layout = 'main'
+      c.render_html { |el| el.body { 'x' }; '' }
+      _(c.response.headers['vary']).must_equal 'Origin, x-pjax-layout'
+    end
+
+    it 'builds #lux-state after the body block ran' do
+      c = Lux::Context.new Rack::MockRequest.env_for('/')
+      html = c.render_html { |el| el.body { c.browser.window[:app][:late] = 1; 'x' }; '' }
+      _(html.gsub(/\s+/, '')).must_include '"late":1'
+    end
+
     it 'takes lang from the locale, or an explicit one' do
-      Lux::Current.new Rack::MockRequest.env_for('/')
+      Lux::Context.new Rack::MockRequest.env_for('/')
       _(render(lang: 'hr_HR').first).must_include '<html lang="hr-HR">'
     end
 
@@ -302,20 +334,20 @@ describe Lux::Browser do
     end
 
     it 'blanks assets on pjax' do
-      c = Lux::Current.new Rack::MockRequest.env_for('/', 'HTTP_X_PJAX_LAYOUT' => layout_id)
+      c = Lux::Context.new Rack::MockRequest.env_for('/', 'HTTP_X_PJAX_LAYOUT' => layout_id)
       c.browser.layout = 'main'
       _(c.browser.html.asset('app.js')).must_equal ''
       _(c.browser.html.assets(:app)).must_equal ''
     end
 
     it 'renders preconnect links' do
-      el = Lux::Current.new(Rack::MockRequest.env_for('/')).browser.html
+      el = Lux::Context.new(Rack::MockRequest.env_for('/')).browser.html
       _(el.preconnect('https://x.com')).must_equal '<link rel="preconnect" href="https://x.com" />'
       _(el.google_fonts_preconnect).must_include '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />'
     end
 
     it 'el.title sets the header title' do
-      c = Lux::Current.new Rack::MockRequest.env_for('/')
+      c = Lux::Context.new Rack::MockRequest.env_for('/')
       html = c.render_html { |el| el.title 'Preview'; el.body { 'x' }; '' }
       _(html).must_include '<title>Preview | T</title>'
     end
@@ -325,10 +357,10 @@ describe Lux::Browser do
     end
   end
 
-  describe 'Lux.current#browser' do
+  describe 'Lux.ctx#browser' do
     it 'is the master per-request object with header + window' do
       env = Rack::MockRequest.env_for('/')
-      c = Lux::Current.new env
+      c = Lux::Context.new env
       _(c.browser).must_be_kind_of Lux::Browser
       _(c.browser.header).must_be_kind_of Lux::Browser::Header
       _(c.browser.window).must_be_kind_of Hash
@@ -336,13 +368,46 @@ describe Lux::Browser do
       _(c.browser.window).must_equal(app: { x: 1 })
     end
 
-    it 'memoises, points lux.header at lux.browser.header, and back-refs the browser' do
+    it 'memoises, points Lux.ctx.header at Lux.ctx.browser.header, and back-refs the browser' do
       env = Rack::MockRequest.env_for('/')
-      c = Lux::Current.new env
+      c = Lux::Context.new env
       _(c.browser.object_id).must_equal c.browser.object_id
       _(c.browser.window.object_id).must_equal c.browser.window.object_id
       _(c.header.object_id).must_equal c.browser.header.object_id
       _(c.browser.header.browser).must_equal c.browser
+    end
+  end
+
+  describe 'Mount' do
+    def handle url
+      Lux::Browser::Mount.handle Lux::Context.new(url)
+    end
+
+    it 'serves known modules' do
+      _(handle('http://t/_lux_/client.js?modules=sse').first).must_equal 200
+    end
+
+    it 'answers 404 for an unknown module in ?modules=' do
+      _(handle('http://t/_lux_/client.js?modules=sse,nope').first).must_equal 404
+    end
+
+    it 'serves bundles cacheable, validated by the deploy id' do
+      skip 'dev reload never caches' if Lux.reload?
+      status, headers, = handle('http://t/_lux_/sse.js')
+      _(status).must_equal 200
+      _(headers['cache-control']).must_match(/\Apublic, max-age=\d+\z/)
+      _(headers['etag']).must_equal %["#{Lux::DEPLOY_ID}"]
+    end
+
+    it 'answers 304 when If-None-Match carries the deploy id' do
+      skip 'dev reload never caches' if Lux.reload?
+      env = Rack::MockRequest.env_for('http://t/_lux_/sse.js', 'HTTP_IF_NONE_MATCH' => %["#{Lux::DEPLOY_ID}"])
+      _(Lux::Browser::Mount.handle(Lux::Context.new(env)).first).must_equal 304
+    end
+
+    it 'memoises a module set' do
+      skip 'dev reload re-reads modules' if Lux.reload?
+      _(Lux::Browser.client_js(:sse).object_id).must_equal Lux::Browser.client_js(:sse).object_id
     end
   end
 end

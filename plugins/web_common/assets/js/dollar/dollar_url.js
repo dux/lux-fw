@@ -184,10 +184,11 @@ class Url {
     return []
   }
 
-  // reader/writer; pass null to clear
+  // reader when called bare; writer (chainable) when given a value; null/'' clears
   locale(name) {
-    if (name) { this.opt.locale = name; return this }
-    return this.opt.locale
+    if (!arguments.length) return this.opt.locale
+    this.opt.locale = (name == null || name === '') ? null : name
+    return this
   }
 
   // absolute form: origin + path + ?qs + #fragment
@@ -233,7 +234,7 @@ class Url {
     return '?' + keys.sort().map(k => `${k}=${Url.escape(String(this.opt.qs[k]))}`).join('&')
   }
 
-  // -- statics; the Ruby class reads Lux.current.request, here we read location.href --
+  // -- statics; the Ruby class reads Lux.ctx.request, here we read location.href --
 
   static current() { return new Url(location.href) }
 
@@ -273,7 +274,8 @@ class Url {
   // CGI.unescape compatible ('+' -> space); null-safe
   static unescape(str) {
     if (str == null) return ''
-    return decodeURIComponent(String(str).replace(/\+/g, '%20'))
+    const s = String(str).replace(/\+/g, '%20')
+    try { return decodeURIComponent(s) } catch (_) { return s.replace(/%20/g, ' ') }
   }
 }
 

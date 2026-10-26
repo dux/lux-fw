@@ -1,15 +1,11 @@
 require 'test_helper'
 
-# Config defaults that Lux.boot! would normally set, needed because this spec
-# exercises Lux.render which walks the full request pipeline.
+# Test-specific config: no static files, no asset root, no CSRF, because this
+# spec drives the full Lux.render request pipeline (other defaults come from
+# Lux::Boot.apply_defaults on the first Lux.config read).
 %i(serve_static_files asset_root csrf).each do |k|
   Lux.config[k] = false unless Lux.config.key?(k)
 end
-Lux.config[:plugins] ||= []
-Lux.config[:logger_path_mask]     = './log/%s.log' unless Lux.config.key?(:logger_path_mask)
-Lux.config[:logger_files_to_keep] = 3              unless Lux.config.key?(:logger_files_to_keep)
-Lux.config[:logger_file_max_size] = 10_240_000     unless Lux.config.key?(:logger_file_max_size)
-Lux.config[:logger_formatter]     = nil            unless Lux.config.key?(:logger_formatter)
 
 class ExplodingRouter < Lux::Router
   def boom
@@ -61,7 +57,7 @@ class RoutesTestRouter < Lux::Router
   end
 
   def foo
-    render text: lux.params[:foo]
+    render text: Lux.ctx.params[:foo]
   end
 
   def city
@@ -74,6 +70,17 @@ class RoutesTestRouter < Lux::Router
     end
 
     render text: 'nested'
+  end
+
+  def multi_format
+    respond_to(:csv) { render text: 'csv' }
+    respond_to(:json) { render json: { f: 'json' } }
+    render text: 'html' unless Lux.ctx.response.body?
+  end
+
+  def strict_format
+    respond_to!(:json) { render json: { f: 'json' } }
+    render text: 'html' unless Lux.ctx.response.body?
   end
 
   allow :post
@@ -139,7 +146,7 @@ end
 
 # mounted without matching: sees the whole cursor it was mounted at
 class SpecPromoRouter < Lux::Router
-  route { render text: "promo:#{lux.route.path.join('/')}" }
+  route { render text: "promo:#{Lux.ctx.route.path.join('/')}" }
 end
 
 class IvarProbeRouter < Lux::Router
@@ -147,18 +154,18 @@ class IvarProbeRouter < Lux::Router
 end
 
 class BeforeCountParentRouter < Lux::Router
-  before { lux.var[:parent_before] = lux.var[:parent_before].to_i + 1 }
+  before { Lux.ctx.var[:parent_before] = Lux.ctx.var[:parent_before].to_i + 1 }
 end
 
 class BeforeCountRouter < BeforeCountParentRouter
-  before { lux.var[:child_before] = lux.var[:child_before].to_i + 1 }
+  before { Lux.ctx.var[:child_before] = Lux.ctx.var[:child_before].to_i + 1 }
 
   route { map 'deep', 'before_count_deep#show' }
 end
 
 class BeforeCountDeepRouter < BeforeCountParentRouter
   def show
-    render text: %i[root_before parent_before child_before].map { "#{_1}=#{lux.var[_1].to_i}" }.join(' ')
+    render text: %i[root_before parent_before child_before].map { "#{_1}=#{Lux.ctx.var[_1].to_i}" }.join(' ')
   end
 end
 
@@ -204,7 +211,7 @@ Lux.router do
   before do
     # canonicalize ID-like segments to :ref before routing
     nav.map_path { |el| el =~ /\A\d+\z/ ? el : nil }
-    lux.var[:root_before] = lux.var[:root_before].to_i + 1
+    Lux.ctx.var[:root_before] = Lux.ctx.var[:root_before].to_i + 1
   end
 
   def root_meth = render(text: 'root-meth')
@@ -250,6 +257,8 @@ ROUTES_SPEC_ROUTE ||= proc do
 
   map 'routes_test' do
     map 'foo-nested', 'routes_test#nested'
+    map 'multi-format', 'routes_test#multi_format'
+    map 'strict-format', 'routes_test#strict_format'
   end
 
   map 'exploding', 'exploding#boom'
@@ -383,7 +392,7 @@ describe 'Lux::Router' do
       _(res.json[:data]).must_equal 'pong'
     end
 
-    # Lux::Current reads the JSON body before the API runs; the API takes its
+    # Lux::Context reads the JSON body before the API runs; the API takes its
     # params from there, as sent (escaping happens on HTML output only)
     it 'passes JSON body and query params to the API' do
       res = Lux.render.post('/echo-api/mounted_echo/echo?q=1', body: '{"space_ref":"abc","name":"<b>"}', headers: { 'Content-Type' => 'application/json' })
@@ -391,7 +400,7 @@ describe 'Lux::Router' do
       _(res.json[:data][:space_ref]).must_equal 'abc'
       _(res.json[:data][:q]).must_equal '1'
       _(res.json[:data][:name]).must_equal '<b>'
-      _(Lux.current.params[:name]).must_equal '<b>'
+      _(Lux.ctx.params[:name]).must_equal '<b>'
     end
   end
 
@@ -415,6 +424,18 @@ describe 'Lux::Router' do
 
   it 'should render js route' do
     _(Lux.render.get('/routes_test/foo-nested.js').json[:a]).must_equal 1
+  end
+
+  it 'chains respond_to across formats' do
+    _(Lux.render.get('/routes_test/multi-format.json').json[:f]).must_equal 'json'
+    _(Lux.render.get('/routes_test/multi-format.csv').body).must_equal 'csv'
+    _(Lux.render.get('/routes_test/multi-format').body).must_equal 'html'
+  end
+
+  it 'respond_to! 404s on another explicit format' do
+    _(Lux.render.get('/routes_test/strict-format.json').json[:f]).must_equal 'json'
+    _(Lux.render.get('/routes_test/strict-format').body).must_equal 'html'
+    _(Lux.render.get('/routes_test/strict-format.csv').status).must_equal 404
   end
 
   it 'dispatches errors through Router rescue_from when defined (always wins)' do

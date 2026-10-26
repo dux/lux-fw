@@ -1,20 +1,20 @@
-# CSRF token surface on Lux::Current.
+# CSRF token surface on Lux::Context.
 #
 # Token is a 43-character random string (32 bytes) stored in the session under
 # :_csrf, generated lazily on first read. It lives as long as the session, except
 # that a sign-in replaces it (rotate_csrf!), so a token seen before login is dead.
 #
-#   lux.session[:_csrf]   # raw token from session (or nil before first read)
-#   lux.csrf              # lazy generate+persist; safe to call from anywhere
-#   lux.csrf_valid?       # check incoming request submitted the right token
+#   Lux.ctx.session[:_csrf]   # raw token from session (or nil before first read)
+#   Lux.ctx.csrf              # lazy generate+persist; safe to call from anywhere
+#   Lux.ctx.csrf_valid?       # check incoming request submitted the right token
 #
 # Auto-checked by Router#render_base for non-GET requests that aren't
-# Bearer-authenticated. Use lux.csrf in templates to render the hidden field:
+# Bearer-authenticated. Use Lux.ctx.csrf in templates to render the hidden field:
 #
-#   <input type="hidden" name="_csrf" value="<%= lux.csrf %>">
+#   <input type="hidden" name="_csrf" value="<%= Lux.ctx.csrf %>">
 
 module Lux
-  class Current
+  class Context
     SESSION_CSRF_KEY ||= :_csrf
 
     # Returns the session's CSRF token, generating one on first read.
@@ -34,7 +34,7 @@ module Lux
       expected = @session[SESSION_CSRF_KEY].to_s
       return false if expected.empty?
 
-      submitted = @request.params['_csrf'].to_s
+      submitted = @params[:_csrf].to_s
       submitted = @request.env['HTTP_X_CSRF_TOKEN'].to_s if submitted.empty?
       return false if submitted.empty?
 
@@ -52,6 +52,9 @@ module Lux
     def csrf_required?
       return false if CSRF_SAFE_METHODS.include?(@request.request_method)
       return false if bearer_token
+      # cached Basic credentials ride cross-site POSTs without the Lax session cookie
+      return true if @request.env['HTTP_AUTHORIZATION'].to_s.start_with?('Basic ') &&
+                     @request.env['HTTP_SEC_FETCH_SITE'] == 'cross-site'
       return false unless @session.cookie?
       true
     end

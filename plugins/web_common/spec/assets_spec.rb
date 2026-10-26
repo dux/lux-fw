@@ -9,7 +9,7 @@ describe 'el.assets' do
     Dir.mktmpdir do |dir|
       FileUtils.mkdir_p "#{dir}/public/assets"
       %w[app.css app.js admin.css].each { File.write "#{dir}/public/assets/#{_1}", '' }
-      el = Lux::Current.new(Rack::MockRequest.env_for('/')).browser.html
+      el = Lux::Context.new(Rack::MockRequest.env_for('/')).browser.html
       tags = Dir.chdir(dir) { el.assets(:app, :admin) }.split("\n")
       _(tags.size).must_equal 3
       _(tags[0]).must_match %r{<link .*href="/assets/app\.css\?}

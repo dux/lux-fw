@@ -1,8 +1,8 @@
-# Shared browser session + admin "sudo as" support for web_common apps.
+# Shared browser session + admin "sudo as" support for authcog apps.
 #
-# Identity is keyed on user.ref. The ?sso_action= param carries an encrypted
+# Identity is keyed on user.ref. The ?sso_action= param carries a sealed
 # hash { action: 'login' | 'sudo_as' | 'logout', ref: ... } that resolve()
-# decrypts and dispatches on the next request; ?sso_action=false clears a sudo
+# unseals and dispatches on the next request; ?sso_action=false clears a sudo
 # overlay. Links are plain URLs, so they work in mailers and across hosts.
 # Sudo is an overlay: the target wins everywhere except /admin, where the real
 # admin identity is kept.
@@ -13,20 +13,22 @@ module UserSession
 
   USER_REF      ||= :user_ref
   SUDO_USER_REF ||= :sudo_user_ref
+  SSO_PURPOSE   ||= 'sso_action'
   API_KEY_CACHE_TTL ||= 1.hour
 
   def resolve
-    if bearer = current.bearer_token
-      resolve_bearer bearer
-    elsif token = params[:sso_action]
+    return resolve_bearer(Lux.ctx.bearer_token) if Lux.ctx.bearer_token
+
+    ref = session_ref
+    load_user_by_ref ref if ref
+
+    if token = params[:sso_action]
       resolve_sso_action token
     elsif params[:uref] && impersonate?
       uref = params[:uref]
       ref  = uref.include?('@') ? User.find_by(email: uref)&.ref : uref
       login_user_ref ref if ref
       redirect_to request.path
-    elsif ref = session_ref
-      load_user_by_ref ref
     end
   end
 
@@ -34,17 +36,17 @@ module UserSession
   # /dev/login_as. Needs the dev env AND a client on this machine: dev? is just
   # "not production", so LUX_ENV alone would open them on staging/test deploys.
   def impersonate?
-    Lux.env.dev? && current.local_request?
+    Lux.env.dev? && Lux.ctx.local_request?
   end
 
-  # Load a user by API key. Caches key -> ref; cache hits reload via User.find(ref).
+  # Load a user by API key. Caches key -> ref; cache hits reload via User.take(ref).
   # Sleeps 200ms on a miss to slow down brute-force guessing.
   def api_key_load api_key
     return unless api_key
 
     cache_key = api_key_cache_key(api_key)
     if ref = Lux.cache.get(cache_key)
-      if user = User.find(ref)
+      if user = User.take(ref)
         return user if user.api_key == api_key
       end
       Lux.cache.delete cache_key
@@ -60,15 +62,18 @@ module UserSession
     user
   end
 
-  # login magic link (mailers, cross-host, dev/admin login-as).
+  # login magic link (mailers, cross-host, dev/admin login-as). One-time: the
+  # nonce is marked spent in Lux.cache on first use, so a forwarded or logged
+  # link cannot sign in again within its TTL.
   # subdomain: builds an absolute link on that subdomain of the current host.
   def login_link user, path: nil, ttl: nil, subdomain: nil
     ref   = user.is_a?(String) ? user : user.ref
-    token = sso_action_token(:login, ref: ref, ttl: ttl || 1.hour)
+    ttl   = (ttl || 1.hour).to_i
+    token = sso_action_token(:login, ref: ref, ttl: ttl, n: Lux::Utils::Crypt.uid(16), x: ttl)
 
     return '%s?sso_action=%s' % [path || '/', token] unless subdomain
 
-    Lux.current.url.subdomain(subdomain).path(path || '/').qs('sso_action', token).url
+    Lux.ctx.url.subdomain(subdomain).path(path || '/').qs('sso_action', token).url
   end
 
   # admins only: start a sudo overlay
@@ -102,7 +107,8 @@ module UserSession
 
   def login_user_ref ref
     session[USER_REF] = ref
-    current.rotate_csrf!
+    session.delete SUDO_USER_REF
+    Lux.ctx.rotate_csrf!
     load_user_by_ref ref
   end
 
@@ -120,7 +126,7 @@ module UserSession
   # protocol-relative to browsers, so they count as leaving.
   def local_path path
     path = path.to_s
-    path if path.start_with?('/') && !path.start_with?('//', '/\\')
+    path if path.match?(%r{\A/(?![/\\])}) && !path.match?(/[[:cntrl:]]/)
   end
 
   def redirect_after_login! where = nil
@@ -135,16 +141,18 @@ module UserSession
 
   private
 
-  # encode the ?sso_action= token: { action:, ... } encrypted with a TTL
+  # encode the ?sso_action= token: { action:, ... } sealed with a TTL
   def sso_action_token action, ttl:, **data
-    Lux::Utils::Crypt.encrypt({ action: action }.merge(data), ttl: ttl)
+    Lux::Utils::Crypt.seal({ 'action' => action.to_s }.merge(data.transform_keys(&:to_s)), ttl: ttl, purpose: SSO_PURPOSE)
   end
 
-  # decrypt ?sso_action= and dispatch to action_<name>
+  # unseal ?sso_action= and dispatch to action_<name>
   def resolve_sso_action token
     return action_sudo_off if token == 'false'
 
-    data = Lux::Utils::Crypt.decrypt(token, unsafe: true) or return
+    data = Lux::Utils::Crypt.unseal(token, purpose: SSO_PURPOSE)
+    return unless data.is_a?(::Hash)
+
     case data['action']
     when 'login'   then action_login   data
     when 'sudo_as' then action_sudo_as data
@@ -152,18 +160,23 @@ module UserSession
     end
   end
 
+  # The spent mark is not atomic; a racing double click both sign in the same user.
   def action_login data
+    used = 'authcog:login-link:%s' % data['n']
+    return redirect_to('/', error: 'Login link already used') if data['n'].blank? || Lux.cache.get(used)
+
+    Lux.cache.set used, 1, data['x'].to_i
     user = User.take(data['ref']) or return redirect_to('/', error: 'User cant be loaded')
-    session[USER_REF] = user.ref
-    current.rotate_csrf!
-    User.current = user
+    login_user_ref user.ref
     redirect_to request.path, info: 'Loged in as %s' % user.email
   end
 
   def action_sudo_as data
-    return unless (User.current && User.current.can.admin?) || impersonate?
+    User.current = User.take(session[USER_REF])   # real identity, not a sudo overlay
+    return response.flash.error('Sudo error') unless User.current && (User.current.can.admin? || impersonate?)
+
     target = User.take(data['ref'])
-    if target && User.current && target.ref != User.current.ref
+    if target && target.ref != User.current.ref
       session[SUDO_USER_REF] = target.ref
       resolve_redirect 'Sudoing as %s' % target.name
     else
@@ -185,7 +198,7 @@ module UserSession
   def session_ref
     base = session[USER_REF]
     sudo = session[SUDO_USER_REF]
-    return base if base && sudo && Lux.current.nav.path.first == 'admin'
+    return base if base && sudo && Lux.ctx.nav.path.first == 'admin'
     sudo || base
   end
 
@@ -199,7 +212,7 @@ module UserSession
 
   def load_user_by_ref ref
     User.current = User.take(ref)
-    current.can_clear_cache ||= true if User.current && (Lux.env.dev? || User.current.can.admin?)
+    Lux.ctx.can_clear_cache ||= true if User.current && (Lux.env.dev? || User.current.can.admin?)
   end
 
   def api_key_cache_key api_key

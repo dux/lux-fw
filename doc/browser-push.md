@@ -24,8 +24,8 @@ Two steps, once per app.
 the only piece you have to write. Put it in `config/initializers/stream.rb`:
 
 ```ruby
-Lux::Browser::Channel.session_channels do |lux|
-  ref = lux.session[:user_ref] or next []      # [] -> guests get no stream
+Lux::Browser::Channel.session_channels do |ctx|
+  ref = ctx.session[:user_ref] or next []      # [] -> guests get no stream
   ["user:#{ref}"]
 end
 ```
@@ -44,7 +44,7 @@ session directly.
 %script{ src: '/_lux_/sse.js' }
 ```
 
-That is it. No route to declare, no controller, no config. Cross-process
+That is it. No route to declare, no router, no config. Cross-process
 delivery is already on by default - see [Two processes](#two-processes).
 
 ## Sending
@@ -61,8 +61,10 @@ A model becomes `"<model>:<ref>"`. A string is taken as-is but **must** carry a
 prefix - `Lux.channel('abc123')` raises rather than quietly creating a channel
 nobody is subscribed to. The channel name is the audience, so a bare ref is
 always a mistake.
+Names must match `Lux::Browser::Channel::NAME`: `<prefix>:<id>` (more `:` parts allowed), ASCII `[a-zA-Z0-9_.-]` per part, at most 128 characters.
+Anything else raises `ArgumentError`.
 
-The payload is anything JSON-serialisable. Push from anywhere: a controller, a
+The payload is anything JSON-serialisable. Push from anywhere: a router action, a
 model callback, a job, a `Lux.defer` thread.
 
 ## Receiving
@@ -71,7 +73,7 @@ model callback, a job, a `Lux.defer` thread.
 Lux.subscribe('user:abc123', msg => { ... })   // add a handler
 Lux.unsubscribe('user:abc123', fn)             // drop one handler
 Lux.unsubscribe('user:abc123')                 // drop the name
-Lux.onConnectionChange(state => ...)           // 'open' | 'closed'
+Lux.onConnectionChange(state => ...)           // 'open' | 'closed' | 'resync'
 Lux.disconnect()                               // close the stream
 ```
 
@@ -82,6 +84,8 @@ and never reopens the socket, because the server takes no channel parameters.
 `onConnectionChange` fires immediately with the current state, which is
 `'closed'` until the socket is up. Only treat a close as a real drop once you
 have seen an `'open'`.
+`'resync'` means messages may have been lost (PG listener reconnect) - refetch.
+A `403`/`501` answer is final for EventSource; the next `subscribe` opens a fresh stream.
 
 ### Many logs on one stream
 
@@ -136,7 +140,7 @@ Read this bit - it decides how you design the feature.
   that starts after a push never sees it.
 
 * **One thread per open connection.** Your server's thread cap is also the
-  concurrent-viewer ceiling per worker (puma's default 100). Well beyond typical
+  concurrent-viewer ceiling per worker (lux_boot's default is 32). Well beyond typical
   use, but it is a real limit, so do not lower `threads`.
 
 * **~7.9 KB per message** on the PG backend - a NOTIFY payload limit. Push a
@@ -184,7 +188,7 @@ shell:
 curl -N -H 'Cookie: <your session cookie>' http://localhost:3000/_lux_/stream
 ```
 
-Expect `: connected`, then `: ping` every 30 seconds, then `data: {...}` frames.
+Expect `retry: <ms>` and `: connected`, then `: ping` every 30 seconds, then `data: {...}` frames.
 
 ## See also
 

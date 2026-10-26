@@ -1,15 +1,31 @@
 module Sequel::Plugins::LuxBeforeSave
   module InstanceMethods
     def validate
+      lux_stamp_audit
+      super
+    end
+
+    # save! (validate: false) skips validate, so stamp here as well; idempotent
+    def before_save
+      lux_stamp_audit
+      super
+    end
+
+    def lux_stamp_audit
       # timestamps
       self[:created_at] = Time.now.utc if new? && respond_to?(:created_at)
       self[:updated_at] = Time.now.utc if respond_to?(:updated_at)
 
       # audit fields are written once, at create; a later write cannot rewrite
-      # them, however the update was constructed
+      # them, however the update was constructed. A nil initial value is not a
+      # written audit value: a save nested in an after_create hook runs before
+      # dirty resets initial values, so they still hold the pre-insert nils.
       if !new?
-        self[:created_at] = initial_value(:created_at) if respond_to?(:created_at) && column_changed?(:created_at)
-        self[:creator_ref] = initial_value(:creator_ref) if respond_to?(:creator_ref) && column_changed?(:creator_ref)
+        %i(created_at creator_ref).each do |col|
+          next unless respond_to?(col) && column_changed?(col)
+          old = initial_value(col)
+          self[col] = old unless old.nil?
+        end
       end
 
       if defined?(User)
@@ -25,18 +41,33 @@ module Sequel::Plugins::LuxBeforeSave
           end
         end
       end
+    end
 
+    # clear before the after(:c/:u) hooks run (lux_hooks is plugged in first,
+    # so this super chain reaches it later): a hook that re-reads the record
+    # through find/take must see the saved row, not the pre-save cache entry
+    def after_create
+      lux_clear_find_cache
       super
     end
 
-    def after_save
-      Lux.cache.delete("#{self.class}/#{self[:ref]}") if self[:ref]
+    def after_update
+      lux_clear_find_cache
       super
     end
 
     def before_destroy
-      Lux.cache.delete("#{self.class}/#{self[:ref]}") if self[:ref]
+      lux_clear_find_cache
       super
+    end
+
+    # drop the find/take cache entry, global and request-local (the request
+    # cache also keeps nil misses)
+    def lux_clear_find_cache
+      return unless self[:ref]
+      key = "#{self.class}/#{self[:ref]}"
+      Lux.cache.delete key
+      Lux.ctx.var[:cache]&.delete key
     end
 
     def destroy
@@ -44,7 +75,7 @@ module Sequel::Plugins::LuxBeforeSave
         opts = { is_deleted: true }
         opts[:deleted_at] = Time.now if respond_to?(:deleted_at)
 
-        if (cur = User.current)
+        if defined?(User) && (cur = User.current)
           opts[:deleted_by_ref] = cur.ref if respond_to?(:deleted_by_ref)
           opts[:deleted_by]     = cur.ref if respond_to?(:deleted_by)
         end

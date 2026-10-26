@@ -1,7 +1,7 @@
 # Lux.plugin :favicon
 
 App icon from a single SVG.
-`public/favicon.svg` is the source, everything else is generated from it, and the `<head>` builder (`lux.render_html`, or `lux.header.render`) writes the links on its own.
+`public/favicon.svg` is the source, everything else is generated from it, and the `<head>` builder (`Lux.ctx.render_html`, or `Lux.ctx.header.render`) writes the links on its own.
 
 ```yaml
 # config/config.yaml
@@ -12,11 +12,11 @@ default:
 ```
 
 ```haml
-= lux.render_html do |el|
+= Lux.ctx.render_html do |el|
   = el.icon false          # only to leave the icon links out (popups, embeds)
 ```
 
-With `lux.header.render` the switch is `lux.header.icon false`.
+With `Lux.ctx.header.render` the switch is `Lux.ctx.header.icon false`.
 
 ## Files
 

@@ -2,9 +2,10 @@
 
 Status: accepted (2026-06-03), updated 2026-06-17
 
-Server-injected client state is exported by `lux.browser.window` - a plain
-Hash assigned onto the client `window` by `lux.browser.window_script`. The framework
-guarantees only two lines (`window.app = window.app || {};` and
+Server-injected client state is exported by `Lux.ctx.browser.window` - a plain
+Hash assigned onto the client `window` by `Lux.ctx.browser.window_script`. Besides the
+`window.Lux` csrf/config line, the framework guarantees two `app` lines
+(`window.app = window.app || {};` and
 `window.app.page = {};`); everything else is just the hash you set. The
 structure below is a **convention**, not enforced machinery - it's how you
 shape `window[:app]`.
@@ -25,9 +26,9 @@ old `window.X` names as back-compat aliases.
 |-----------------|-----------------------------------------|----------------------------------------------------|
 | `app.cfg`       | static app config: host, locale, deploy id, feature flags | set once; **survives** navigations until re-set |
 | `app.current`   | session / identity: `current.user`, permissions | survives until it actually changes (login/logout) |
-| `app.page`      | the current page's payload              | **reset every render** by `export`; never carries over |
+| `app.page`      | the current page's payload              | **reset every render** by `window_script` / `state_script`; never carries over |
 
-Mirrors the server vocabulary: `app.current.user` <-> `lux.current.user`.
+Mirrors the server vocabulary: `app.current.user` <-> `Lux.ctx.user`.
 
 ## Lifetimes
 
@@ -54,7 +55,7 @@ window.app.lux.root          // "/Users/me/dev/app" - what those paths are relat
 ```
 
 `file_in_use` is the render trail of the current request - every file that passed
-through `Lux.current.files_in_use` (templates, view cells, route blocks), in the
+through `Lux.ctx.files_in_use` (templates, view cells, route blocks), in the
 order they were used, so a dev tool can map what it sees back to source. Entries
 may carry a `:line` suffix (route blocks come from `source_location`). `root`
 joins with them into an absolute path - that is how the dev menu
@@ -67,9 +68,9 @@ the trail is empty.
 
 ```ruby
 # server (router / before hook)
-lux.browser.window[:app] = {
+Lux.ctx.browser.window[:app] = {
   cfg:     { host: Lux.config.host, deploy_id: Lux::DEPLOY_ID },
-  current: { user: lux.user&.to_h },
+  current: { user: Lux.ctx.user&.to_h },
   page:    { title: 'Home' },            # reset on next navigation
 }
 ```
@@ -81,11 +82,10 @@ window.app.current.user
 window.app.page.title
 
 // client - functions
-window.app.fn.Toast('saved')
-window.Toast('saved')                            // back-compat alias, same fn
+window.Toast.info('saved')                       // sys-toast.fez (web_common)
 ```
 
-Other top-level keys (`lux.browser.window[:api] = { url: '/api' }` ->
+Other top-level keys (`Lux.ctx.browser.window[:api] = { url: '/api' }` ->
 `window.api`) work for cases that genuinely need a separate global, but
 app/page data belongs in `app`.
 

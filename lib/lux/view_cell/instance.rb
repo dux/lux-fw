@@ -10,7 +10,7 @@ module Lux
       before
     end
 
-    # called every time for every method in a class
+    # runs once from initialize; override or use the class-level before { }
     def before
     end
 
@@ -38,39 +38,21 @@ module Lux
       class_part = self.class.to_s.underscore.sub(/_cell$/, '')
       path = path % class_part if path.include?('%s')
 
-      RENDER_CACHE.delete(path) if _development?
-      RENDER_CACHE[path] ||= begin
-        file_name = ''
-
-        # find extension if one not provided
-        if path =~ /\.\w{2,4}$/
-          file_name = path
+      RENDER_CACHE.delete(path) if Lux.env.dev?
+      tilt = RENDER_CACHE[path] ||= begin
+        file_name = if path =~ /\.\w{2,4}$/
+          path
         else
-          file_name = if Pathname.new(path).absolute?
-            Dir['%s.*' % path].first
-          else
-            Lux.root.files('%s.*' % path).first&.to_s
-          end
+          ext = Lux::Template.tilt_extensions.find { |e| (f = Lux.root.resolve("#{path}.#{e}")) && f.exist? }
+          ext && Lux.root.resolve("#{path}.#{ext}").to_s
         end
-
-        unless file_name && File.exist?(file_name)
-          raise ArgumentError, 'Template "%s.*" not found' % [path.sub(Dir.pwd, '.')]
-        end
-
-        Lux.current.files_in_use file_name if Lux.respond_to?(:current) && Lux.current
-
+        raise ArgumentError, 'Template "%s.*" not found' % [path.sub(Dir.pwd, '.')] unless file_name && File.exist?(file_name)
+        Lux.ctx.files_in_use file_name
         Tilt.new(file_name)
       end
 
-      data = RENDER_CACHE[path].render(self)
-      data = Lux::Template.wrap_with_debug_info(file_name, data) if defined?(Lux::Template)
+      data = Lux::Template.wrap_with_debug_info(tilt.file, tilt.render(self))
       Lux::SafeString.new data
-    end
-
-    private
-
-    def _development?
-      Lux.respond_to?(:env) ? Lux.env.dev? : (ENV['LUX_ENV'] == 'development')
     end
   end
 end

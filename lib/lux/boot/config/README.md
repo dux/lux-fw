@@ -20,6 +20,9 @@ production:
     log:  postgres://prod-host/myapp_log
 ```
 
+Environment sections deep-merge over `default`: hashes merge key by key, every other value replaces.
+An env array replaces the default array (`default: plugins: [a]` plus `production: plugins: [b]` gives `[b]`), and an explicit `key: ~` clears a default to `nil`.
+
 ```ruby
 # --- reads (host/db merged from default + current env) -----------------
 
@@ -39,12 +42,15 @@ Lux.config.host = 'other.com'    # write at runtime
 
 # --- framework defaults you can override -------------------------------
 #
-# Declare these in config/config.yaml. Lux::Boot.set_defaults fills in only
-# what you left out, so an explicit `false` is never flipped back on.
+# Declare these in config/config.yaml. The first Lux.config read fills in
+# only what you left out (Lux::Boot.apply_defaults), so an explicit `false`
+# is never flipped back on, and Lux.logger / Lux.log / Lux.defer work before
+# Lux.boot!. log_level and channel_url follow ENV that .env may supply
+# (LUX_DEBUG, DB_MAIN), so they are only defaulted by Lux.boot!.
 
 Lux.config.delay_timeout       = 30
 Lux.config.serve_static_files  = true
-Lux.config.log_level           = :info
+Lux.config.log_level           = :info     # YAML `log_level: info` works too (info / warn / error / debug)
 Lux.config.ref_format          = :string   # or :uuid7 - see Nav::Base.register
 
 # logger config
@@ -64,15 +70,16 @@ Lux.config.cloudflare          = false
 # session
 Lux.config[:session_cookie_name]      = '_app_session'
 Lux.config[:session_cookie_max_age]   = 10.days  # sliding: reissued once a day while in use
-Lux.config[:session_cookie_domain]    = nil      # nil = host-only __Host- cookie; 'example.com' shares it (as __Secure-)
+Lux.config[:session_cookie_domain]    = nil      # nil = shared on the root domain (__Secure-); false = host-only __Host-; 'example.com' = that domain
 Lux.config[:session_ip_check]         = false    # bind session to exact IP (strict, breaks on network switch)
-Lux.config[:session_dbsc]             = true     # device-bound sessions over https (Chrome/Edge), see Lux::Current::Dbsc
+Lux.config[:session_dbsc]             = true     # device-bound sessions over https (Chrome/Edge), see Lux::Context::Dbsc
 
 # csrf opt-out (default on)
 Lux.config.csrf                = false
 
-# browser-state root namespace (default 'app'; see Lux::Browser)
-Lux.config.browser_namespace   = 'app'
+# inbound mail: authserv-ids whose Authentication-Results headers are trusted;
+# empty (default) means inbound mail is never `verified`
+Lux.config[:mail] = { trusted_authserv_ids: ['mx.example.com'] }
 
 # --- hooks -------------------------------------------------------------
 
@@ -85,7 +92,9 @@ end
 Lux.dotenv     # loads, returns list of files actually loaded
 # load order (most specific wins, Dotenv.load is non-destructive):
 #   .env.<env>.local  ->  .env.local  ->  .env.<env>  ->  .env
-# Env name resolves from LUX_ENV, defaulting to 'development'.
+# Env name resolves from LUX_ENV; when unset, LUX_ENV is peeked from
+# .env.local / .env, else 'development'. Lux.boot! loads .env before the
+# LUX_ENV check, so LUX_ENV may live in .env.
 
 # --- env name ----------------------------------------------------------
 
@@ -98,6 +107,9 @@ Plugins may ship `plugins/<name>/config.yaml`. During `Lux.plugin :name`,
 the plugin config is merged into `Lux.config` before the plugin loader
 and `load/` files run. It follows the same `default` plus current-env
 shape as app config.
+
+Plugin config fills keys the app did not declare, whole: an app array or `nil` is never merged with the plugin value; a dependent plugin overrides its dependency.
+App values (including the framework defaults) are never overwritten; a plugin that must change one does it in its `loader.rb`.
 
 If a plugin config contains a top-level `plugins:` list, those plugin
 names append to the configured plugin list instead of replacing it. Use

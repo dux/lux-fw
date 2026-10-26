@@ -1,5 +1,5 @@
-# Lux::Locale - namespaced flat-file translation lookup, with optional
-# DB-backed store (LuxTranslation) when ApplicationModel is available.
+# Lux::Locale - namespaced flat-file translation lookup, with an optional
+# opt-in DB-backed store (LuxTranslation, see README "DB-backed store").
 #
 # Enable in config.yaml:
 #   plugins:
@@ -9,16 +9,16 @@
 #   * Lux::Locale module (the API; see ./load/locale.rb)
 #   * Lux.locale            - shortcut accessor for Lux::Locale
 #   * t(key, **opts)        - template helper, forwards to Lux.locale.t
-#   * LuxTranslation model  - only when ApplicationModel is loaded; becomes
-#                             the active Lux::Locale.store automatically
+#   * lib/lux_translation.rb - LuxTranslation model; not loaded here, an app
+#                             opts in with `Lux.locale.store = LuxTranslation`
 
 # Lux.locale shortcut
 module ::Lux
   def locale = Lux::Locale
 end
 
-# Current-thread shortcut: lux.lpath('/service') / lux.lpath(@user)
-class ::Lux::Current
+# Current-thread shortcut: Lux.ctx.lpath('/service') / Lux.ctx.lpath(@user)
+class ::Lux::Context
   def lpath(value = '/', **opts) = Lux.locale.path(value, **opts)
 end
 
@@ -27,13 +27,4 @@ end
 module Lux::Template::Helper
   def t(key = nil, **opts) = Lux.locale.t(key, **opts)
   def lpath(value = '/', **opts) = Lux.locale.path(value, **opts)
-end
-
-# DB-backed store. Apps that don't have a DB (or just want the file backend)
-# simply don't define ApplicationModel; the file backend stays active.
-# Only an already loaded ApplicationModel counts - one merely registered for
-# autoload (app/models/application_model.rb) would load here, mid plugin boot.
-if Object.const_defined?(:ApplicationModel) && !Object.autoload?(:ApplicationModel)
-  require_relative 'lib/lux_translation'
-  Lux::Locale.store = LuxTranslation
 end

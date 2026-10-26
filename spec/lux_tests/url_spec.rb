@@ -1,9 +1,9 @@
 require 'test_helper'
 
 # Tests for the vendored Lux::Utils::Url (formerly the lux-url gem).
-# Covers the parser, mutators, and the new Lux.url / Lux.current.url
+# Covers the parser, mutators, and the new Lux.url / Lux.ctx.url
 # entry points. Class methods that consult the current request use the
-# Lux::Current shim already used by nav_spec.
+# Lux::Context shim already used by nav_spec.
 
 describe Lux::Utils::Url do
   describe 'integration' do
@@ -18,13 +18,13 @@ describe Lux::Utils::Url do
     end
 
     it 'Lux.url with no arg uses the current request URL' do
-      Lux::Current.new('http://example.com/foo?bar=1')
+      Lux::Context.new('http://example.com/foo?bar=1')
       _(Lux.url.to_s).must_equal 'http://example.com/foo?bar=1'
     end
 
-    it 'Lux.current.url returns a Url for the current request' do
-      Lux::Current.new('http://example.com/x?y=2')
-      u = Lux.current.url
+    it 'Lux.ctx.url returns a Url for the current request' do
+      Lux::Context.new('http://example.com/x?y=2')
+      u = Lux.ctx.url
       _(u).must_be_kind_of Lux::Utils::Url
       _(u[:y]).must_equal '2'
     end
@@ -80,6 +80,24 @@ describe Lux::Utils::Url do
       _(url.subdomain).must_equal 'www'
     end
 
+    it 'keeps an IP host whole and peels a *.localhost subdomain' do
+      url = Lux.url('http://127.0.0.1:3000/x')
+      _(url.domain).must_equal '127.0.0.1'
+      _(url.subdomain).must_be_nil
+      _(url.to_s).must_equal 'http://127.0.0.1:3000/x'
+
+      url = Lux.url('http://app.localhost:3000/')
+      _(url.domain).must_equal 'localhost'
+      _(url.subdomain).must_equal 'app'
+    end
+
+    it 'split_host is the one domain parser' do
+      _(Url.split_host('a.b.Example.co.uk')).must_equal ['a.b', 'example.co.uk']
+      _(Url.split_host('shop.example.com.br')).must_equal ['shop', 'example.com.br']
+      _(Url.split_host('x.com')).must_equal [nil, 'x.com']
+      _(Url.split_host('10.0.0.1')).must_equal [nil, '10.0.0.1']
+    end
+
     it 'pulls a 2-letter and hyphenated locale prefix' do
       _(Lux.url('/fr/foo').locale).must_equal 'fr'
       _(Lux.url('/en-UK/foo').locale).must_equal 'en-UK'
@@ -101,7 +119,7 @@ describe Lux::Utils::Url do
     it 'encodes qs on render' do
       url = Lux.url('/foo')
       url.qs[:foo] = 'a/b|c d'
-      _(url.to_s).must_equal '/foo?foo=a%2Fb%7Cc+d'
+      _(url.to_s).must_equal '/foo?foo=a%2Fb%7Cc%20d'
     end
 
     it 'qs with explicit nil deletes the key' do
@@ -115,10 +133,10 @@ describe Lux::Utils::Url do
       _(url.qs).must_equal({ 'c' => '3' })
     end
 
-    it 'pqs CGI-escapes values on write' do
+    it 'pqs escapes values on write, space as %20' do
       url = Lux.url('/foo')
       url.pqs(:name, 'a b')
-      _(url.path).must_include 'name:a+b'
+      _(url.path).must_include 'name:a%20b'
     end
 
     it 'instance pqs clears a matching qs key' do
@@ -151,12 +169,14 @@ describe Lux::Utils::Url do
 
   describe 'class helpers against current request' do
     before do
-      Lux::Current.new('https://base.lvh.me:3000/fr/some/path?foo=bar')
+      Lux::Context.new('https://base.lvh.me:3000/fr/some/path?foo=bar')
     end
 
-    it 'Url.escape / Url.unescape round-trip' do
-      _(Url.escape('a b/c')).must_equal 'a+b%2Fc'
-      _(Url.unescape('a+b%2Fc')).must_equal 'a b/c'
+    it 'Url.escape / Url.unescape round-trip, space as %20' do
+      _(Url.escape('a b/c')).must_equal 'a%20b%2Fc'
+      _('a b/c'.escape).must_equal Url.escape('a b/c')
+      _(Url.unescape('a%20b%2Fc')).must_equal 'a b/c'
+      _(Url.unescape('a+b')).must_equal 'a b'
     end
 
     it 'Url.escape returns "" for nil' do
@@ -199,6 +219,17 @@ describe Lux::Utils::Url do
 
     it 'to_s returns the relative form when no domain is present' do
       _(Lux.url('/x?a=1').to_s).must_equal '/x?a=1'
+    end
+
+    it 'keeps a colon-led path prefix when the rest is path qs' do
+      u = Lux.url('/:a:b/page:2')
+      _(u.path_prefix).must_equal %w[a b]
+      _(u[:page]).must_equal '2'
+      _(u.to_s).must_match %r{\A/:a:b/}
+    end
+
+    it 'serializes inside JSON.generate' do
+      _(JSON.parse(JSON.generate([Lux.url('/x')])).first).must_be_kind_of Hash
     end
   end
 end

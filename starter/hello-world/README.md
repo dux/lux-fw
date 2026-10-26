@@ -56,10 +56,10 @@ scripts.
 `ApplicationRouter` exports the current user to the page:
 
 ```ruby
-lux.browser.window[:app][:current] = { user: ... }
+Lux.ctx.browser.window[:app][:current] = { user: ... }
 ```
 
-`= lux.browser.window_script` in the layout head emits that as
+`= Lux.ctx.browser.window_script` in the layout head emits that as
 `<script id="lux-state">`, so the browser sees `window.app.current.user`.
 `./public/components/app-nav.fez` reads it and renders either a sign-in link or
 the user's name plus a sign-out link.

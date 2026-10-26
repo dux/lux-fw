@@ -10,7 +10,7 @@ Lux.config[:plugins] ||= []
 class RequestTestRouter < Lux::Router
   allow :get, :post
   def echo
-    render json: lux.params.to_h
+    render json: Lux.ctx.params.to_h
   end
 
   def go
@@ -18,23 +18,23 @@ class RequestTestRouter < Lux::Router
   end
 
   def remember
-    lux.session[:seen] = lux.params[:v]
+    Lux.ctx.session[:seen] = Lux.ctx.params[:v]
     render text: 'ok'
   end
 
   def recall
-    render text: lux.session[:seen].to_s
+    render text: Lux.ctx.session[:seen].to_s
   end
 
   def set_cookie
-    lux.session[:seen] = 1
+    Lux.ctx.session[:seen] = 1
     response.cookie 'theme', 'dark', max_age: 3600
     response.cookie 'old', nil
     render text: 'ok'
   end
 
   def flavor
-    render text: "#{@flavor}:#{lux.params[:x]}"
+    render text: "#{@flavor}:#{Lux.ctx.params[:x]}"
   end
 
   def cached
@@ -44,9 +44,9 @@ class RequestTestRouter < Lux::Router
 end
 
 class FilterHaltRouter < Lux::Router
-  before { redirect_to '/login' if lux.params[:login] }
-  before { render text: 'denied', status: 403 if lux.params[:deny] }
-  before { redirect_to '/elsewhere' if lux.params[:deny] }
+  before { redirect_to '/login' if Lux.ctx.params[:login] }
+  before { render text: 'denied', status: 403 if Lux.ctx.params[:deny] }
+  before { redirect_to '/elsewhere' if Lux.ctx.params[:deny] }
 
   def show
     render text: 'shown'
@@ -54,7 +54,7 @@ class FilterHaltRouter < Lux::Router
 end
 
 class HaltProbeRouter < Lux::Router
-  before { lux.response.header 'x-probe', '1' }
+  before { Lux.ctx.response.header 'x-probe', '1' }
 
   def index
     render text: 'probe'
@@ -62,10 +62,13 @@ class HaltProbeRouter < Lux::Router
 end
 
 Lux.router do
-  before { lux.response.body 'from before' if lux.request.path == '/static_guard.txt' }
-  before { lux.response.body 'first' if lux.request.path == '/halt_before' }
-  before { lux.response.header 'x-second', '1' if lux.request.path == '/halt_before' }
+  before { Lux.ctx.response.body 'from before' if Lux.ctx.request.path == '/static_guard.txt' }
+  before { Lux.ctx.response.body 'first' if Lux.ctx.request.path == '/halt_before' }
+  before { Lux.ctx.response.header 'x-second', '1' if Lux.ctx.request.path == '/halt_before' }
+  before { CSRF_PROBE_RAN << Lux.ctx.request.path if Lux.ctx.params[:csrf_probe] }
 end
+
+CSRF_PROBE_RAN ||= []
 
 REQUEST_SPEC_ROUTE ||= proc do
   map 'request_test', 'request_test'
@@ -78,7 +81,7 @@ REQUEST_SPEC_ROUTE ||= proc do
   end
 
   map 'raw_then_map' do
-    lux.response.body 'raw'
+    Lux.ctx.response.body 'raw'
     map 'halt_probe#index'
   end
 end
@@ -195,6 +198,23 @@ describe 'request pipeline' do
 
     it 'runs the action when no filter answers' do
       assert_body_includes 'shown', Lux.render.get('/filter_halt')
+    end
+  end
+
+  describe 'CSRF' do
+    it 'rejects a forged POST before any before filter runs' do
+      previous = Lux.config[:csrf]
+      Lux.config[:csrf] = true
+      CSRF_PROBE_RAN.clear
+      page = Lux.render.post('/request_test/echo', params: { csrf_probe: 1 }, headers: {
+        'Authorization'  => 'Basic dTpw',
+        'Sec-Fetch-Site' => 'cross-site',
+      })
+
+      assert_status 403, page
+      _(CSRF_PROBE_RAN).must_equal []
+    ensure
+      Lux.config[:csrf] = previous
     end
   end
 

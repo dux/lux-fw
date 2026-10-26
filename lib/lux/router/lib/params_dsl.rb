@@ -12,7 +12,7 @@
 #     opt :email, type: :email
 #     allow :post                       # this action accepts POST only
 #     def create
-#       # current.params already coerced + validated, undeclared keys dropped
+#       # Lux.ctx.params already coerced + validated, undeclared keys dropped
 #     end
 #   end
 #
@@ -36,6 +36,11 @@ module Lux
                               render_to_string render_javascript redirect_to send_file layout plugin_route
                               plugin_routes localized].freeze
 
+      # [router class, action] => composed Lux::Schema (false when none).
+      # Any params/opt declaration clears it all: a code reload re-runs class
+      # bodies, and subclasses compose their parents' rules.
+      SCHEMA_CACHE ||= {}
+
       def self.included base
         base.extend ClassMethods
       end
@@ -45,6 +50,7 @@ module Lux
         # Lux.schema do ... end.
         def params &block
           raise ArgumentError, 'params requires a block' unless block_given?
+          SCHEMA_CACHE.clear
           @_params_schema = Lux.schema(&block)
         end
 
@@ -89,6 +95,7 @@ module Lux
           if @_pending_opts && @_pending_opts.any?
             @_action_opts ||= {}
             @_action_opts[name] = @_pending_opts
+            SCHEMA_CACHE.clear
             @_pending_opts = nil
           end
           if @_pending_allows && @_pending_allows != []
@@ -120,8 +127,20 @@ module Lux
 
         # Compose class-level + method-level into one Lux::Schema, with
         # method rules winning on collision. Walks the ancestor chain so
-        # subclasses inherit parent params/opt declarations.
+        # subclasses inherit parent params/opt declarations. Memoised per
+        # [class, action]; Lux::Schema#validate works on a copy, so sharing is safe.
         def params_schema_for action_name
+          key = [self, action_name]
+          cached = SCHEMA_CACHE[key]
+          return cached || nil unless cached.nil?
+
+          SCHEMA_CACHE[key] = build_params_schema(action_name) || false
+          SCHEMA_CACHE[key] || nil
+        end
+
+        private
+
+        def build_params_schema action_name
           class_schema  = nil
           action_pending = nil
 
@@ -145,7 +164,7 @@ module Lux
           if action_pending
             pending = action_pending
             action_schema = Lux.schema do
-              pending.each { |n, args| send n, *args }
+              pending.each { |n, args| set n, *args }
             end
             combined_rules = class_rules.merge(action_schema.rules)
           else
@@ -154,6 +173,8 @@ module Lux
 
           Lux::Schema.new(nil, define: Lux::Schema::Define.new(combined_rules))
         end
+
+        public
       end
 
       # Instance-side. Called from Lux::Router#action right after the
@@ -162,13 +183,13 @@ module Lux
       # Skips when the response body is already set - a prior route has
       # already responded and must not be turned into a 405.
       def enforce_allowed_verbs!
-        return if lux.response.body?
-        verb    = lux.request.request_method.to_s.downcase.to_sym
+        return if Lux.ctx.response.body?
+        verb    = Lux.ctx.request.request_method.to_s.downcase.to_sym
         allowed = self.class.allowed_verbs_for(@_lux.action)
         return if allowed == :any || allowed.include?(verb)
 
         # RFC 9110 15.5.6: a 405 names what the resource does accept
-        lux.response.header 'allow', allowed.to_a.map { |v| v.to_s.upcase }.join(', ')
+        Lux.ctx.response.header 'allow', allowed.to_a.map { |v| v.to_s.upcase }.join(', ')
 
         raise Lux.error.method_not_allowed Lux.debug?('405 Method Not Allowed') {
           allowed_label = allowed.to_a.map { |v| v.to_s.upcase }.join(', ')
@@ -183,20 +204,20 @@ module Lux
         schema = self.class.params_schema_for(@_lux.action)
         return unless schema
 
-        errors = schema.validate(lux.params, strict: true)
+        errors = schema.validate(Lux.ctx.params, strict: true)
         return if errors.empty?
 
         # JSON contract: halt with 422 + structured body.
-        if lux.nav.format.to_s == 'json' || lux.request.content_type.to_s.include?('json')
-          lux.response.status 422
-          lux.response.content_type = :json
-          lux.response.body({ errors: errors }.to_json)
+        if Lux.ctx.nav.format.to_s == 'json' || Lux.ctx.request.content_type.to_s.include?('json')
+          Lux.ctx.response.status 422
+          Lux.ctx.response.content_type = :json
+          Lux.ctx.response.body({ errors: errors }.to_json)
         else
-          # HTML: stash errors on lux.param_errors and fall through, so the
-          # action decides whether to re-render or carry on. lux.params has
+          # HTML: stash errors on Lux.ctx.param_errors and fall through, so the
+          # action decides whether to re-render or carry on. Lux.ctx.params has
           # already been stripped and coerced at this point - it is the
           # validated set, not the raw submission.
-          lux.var[:param_errors] = errors
+          Lux.ctx.var[:param_errors] = errors
         end
       end
     end

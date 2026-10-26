@@ -52,6 +52,7 @@ DB.create_table :users do
   String  :email
   Integer :age, default: 0
   column  :tags, 'text[]', default: Sequel.lit("'{}'")
+  column  :codes, 'varchar(20)[]'
   TrueClass :is_deleted, default: false
   TrueClass :is_active, default: true
   String  :step_sid, default: 'a'
@@ -91,6 +92,7 @@ DB.create_table :org_users do
   String :user_ref
   DateTime :created_at
   DateTime :updated_at
+  index [:org_ref, :user_ref], unique: true   # what `lux db:am` adds for primary_keys
 end
 
 DB.create_table :tree_nodes do
@@ -283,13 +285,13 @@ def create_task(attrs = {})
   Task.create(attrs)
 end
 
-# Ensure a Lux::Current is always present (needed by find_precache & before_save).
+# Ensure a Lux::Context is always present (needed by find_precache & before_save).
 # Each top-level describe in this file calls `db_plugin_setup` to install the
 # per-test hook (replacement for the original RSpec :db_plugin metadata tag).
 module DbPluginSetup
   def db_plugin_setup
     before do
-      Lux::Current.new('http://test')
+      Lux::Context.new('http://test')
       User.current = nil
     end
   end
@@ -957,6 +959,35 @@ describe 'plugins/db/before_save_filters.rb' do
       u = create_user(name: 'NoAudit')
       _(u.creator_ref).must_be_nil
     end
+
+    describe 'with after hooks' do
+      after do
+        hooks = Sequel::Plugins::LuxHooks::HOOK_METHODS[User][:a]
+        hooks[:c]&.delete 'spec:nested_save'
+        hooks[:u]&.delete 'spec:fresh_find'
+      end
+
+      # the nested save runs before dirty resets initial values, which still
+      # hold the pre-insert nils; those must not be written back
+      it 'keeps created_at and creator_ref on a save nested in after(:c)' do
+        User.current = current_user
+        User.after(:c, key: 'spec:nested_save') { self.name = 'Nested'; save_changes(validate: false) }
+        u = create_user(name: 'Outer')
+        row = DB[:users].where(ref: u.ref).first
+        _(row[:name]).must_equal 'Nested'
+        refute_nil row[:created_at]
+        _(row[:creator_ref]).must_equal current_user.ref
+      end
+
+      it 'drops the find cache before after(:u) hooks run' do
+        u = create_user(name: 'Old')
+        _(User.find(u.ref).name).must_equal 'Old'
+        seen = nil
+        User.after(:u, key: 'spec:fresh_find') { seen = User.find(ref).name }
+        u.update(name: 'New')
+        _(seen).must_equal 'New'
+      end
+    end
   end
 
   describe 'soft delete' do
@@ -1056,10 +1087,9 @@ describe 'plugins/db/enums_plugin.rb' do
       _(vals.keys.sort).must_equal ['high', 'low', 'medium']
     end
 
-    it 'returns nil values (array enums store key only)' do
-      # array-based enums produce { 'low' => nil, 'medium' => nil, 'high' => nil }
-      # because Array elements destructure as (key, nil) pairs
-      _(User.priorities['low']).must_be_nil
+    it 'uses the key as the label (array shorthand)' do
+      _(User.priorities['low']).must_equal 'low'
+      _(User.priorities.for_select).must_include ['low', 'low']
     end
 
     it 'has no field (field: false for array-based)' do
@@ -1392,8 +1422,14 @@ describe 'plugins/db/composite_primary_keys.rb' do
 
     it 'raises when duplicate composite key is inserted' do
       OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u1')
-      err = _ { OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u1') }.must_raise StandardError
+      err = _ { OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u1') }.must_raise Sequel::Plugins::PrimaryKeys::DuplicateRecord
       _(err.message).must_match(/already exists/)
+      _(OrgUser.where(org_ref: 'org1').count).must_equal 1
+    end
+
+    it 'lets a record with the key re-save itself' do
+      ou = OrgUser.create(ref: new_ref, org_ref: 'org1', user_ref: 'u1')
+      ou.update(updated_at: Time.now)   # should not raise
     end
 
     it 'allows same org_ref with different user_ref' do
@@ -1481,6 +1517,17 @@ describe 'plugins/db/array_search.rb' do
       _(User.dataset.where_all(nil, :tags).count).must_equal 3
       _(User.dataset.where_all('', :tags).count).must_equal 3
     end
+
+    it 'matches a text[] column with mixed-type input' do
+      _(User.dataset.where_all(['ruby', :js], :tags).count).must_equal 1
+    end
+
+    it 'matches a varchar[] column (cast to text[])' do
+      DB[:users].insert(ref: new_ref, name: 'D', codes: Sequel.pg_array(%w[hr de en], :varchar))
+      DB[:users].insert(ref: new_ref, name: 'E', codes: Sequel.pg_array(%w[hr], :varchar))
+      _(User.dataset.where_all(%w[hr de], :codes).map { _1[:name] }).must_equal ['D']
+      _(User.dataset.where_all('hr', :codes).count).must_equal 2
+    end
   end
 end
 
@@ -1556,7 +1603,7 @@ describe 'plugins/db/paginate.rb' do
     end
   end
 
-  # Paginate reads page from Lux.current.params[param], so we use a unique
+  # Paginate reads page from Lux.ctx.params[param], so we use a unique
   # param name and set it in the request URL to control pagination in tests.
 
   describe 'Paginate()' do
@@ -1566,15 +1613,15 @@ describe 'plugins/db/paginate.rb' do
     end
 
     it 'paginates correctly across pages' do
-      Lux::Current.new('http://test?pg=1')
+      Lux::Context.new('http://test?pg=1')
       page1 = Paginate(User.dataset.order(:name), size: 4, param: :pg)
-      Lux::Current.new('http://test?pg=2')
+      Lux::Context.new('http://test?pg=2')
       page2 = Paginate(User.dataset.order(:name), size: 4, param: :pg)
       assert_empty(page1.map(&:name) & page2.map(&:name))
     end
 
     it 'sets paginate_page from request params' do
-      Lux::Current.new('http://test?pg=3')
+      Lux::Context.new('http://test?pg=3')
       result = Paginate(User.dataset, size: 5, param: :pg)
       _(result.paginate_page).must_equal 3
     end
@@ -1590,7 +1637,7 @@ describe 'plugins/db/paginate.rb' do
     end
 
     it 'sets paginate_opts' do
-      Lux::Current.new('http://test?pg=2')
+      Lux::Context.new('http://test?pg=2')
       result = Paginate(User.dataset, size: 5, param: :pg)
       opts = result.paginate_opts
       _(opts[:page]).must_equal 2

@@ -1,14 +1,8 @@
 :ruby
   # dev pages of web_common and of the app (app/views/dev is optional)
-  @files = ["#{Lux::Plugin.get(:web_common).folder}/mount/app/views/dev", 'app/views/dev']
-    .select { Dir.exist?(_1) }
-    .flat_map { Dir.files(_1) }
-    .reject {|f| f.start_with?('_') }
-    .map {|f| f.split('.').first }
-    .uniq
-  @files -= ['layout', 'root']
+  @files = Lux.root.files('app/views/dev/*.*').map { _1.basename.to_s.split('.').first }.reject { _1.start_with?('_') }.uniq - %w[layout root]
 
-= lux.render_html do |el|
+= Lux.ctx.render_html do |el|
   = el.assets :app
 
   = el.body do

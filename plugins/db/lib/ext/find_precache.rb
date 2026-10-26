@@ -27,7 +27,7 @@ class Sequel::Model
       key = "#{self}/#{ref}"
       hash = { ref: ref }
 
-      Lux.current.cache key do
+      Lux.ctx.cache key do
         if cattr.cache_ttl
           Lux.cache.fetch(key, ttl: cattr.cache_ttl) do
             self.first hash

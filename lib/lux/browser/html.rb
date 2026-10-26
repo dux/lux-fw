@@ -1,10 +1,10 @@
 module Lux
   class Browser
-    # Whole-document builder behind lux.render_html. The block's own output is
+    # Whole-document builder behind Lux.ctx.render_html. The block's own output is
     # the <head> extras (assets, links); el.body captures the pjax region and
     # el.footer optional chrome after it.
     #
-    #   = lux.render_html do |el|
+    #   = Lux.ctx.render_html do |el|
     #     = el.assets :app
     #     = el.body class: 'bg-white' do
     #       = yield
@@ -24,16 +24,17 @@ module Lux
 
       def render lang: nil
         head = yield(self).to_s
-        raise ArgumentError, 'lux.render_html: el.body was never called' unless @region
+        raise ArgumentError, 'Lux.ctx.render_html: el.body was never called' unless @region
 
         if (id = browser.layout_id)
-          Lux.current.response.header 'x-pjax-layout', id
-          Lux.current.response.header 'vary', 'x-pjax-layout'
+          Lux.ctx.response.header 'x-pjax-layout', id
+          h = Lux.ctx.response.headers
+          h['vary'] = Lux::Response::Cors.vary_with(h['vary'], 'x-pjax-layout')
         end
 
         return Lux::SafeString.new(%[<title>#{header.full_title}</title>\n#{@region}]) if browser.pjax?
 
-        lang ||= Lux.current.locale.to_s.presence || 'en'
+        lang ||= Lux.ctx.locale.to_s.presence || 'en'
 
         out = header.tags
         out.push %[<meta name="pjax-layout" content="#{id}" />] if id
@@ -53,7 +54,8 @@ module Lux
       # attrs go on <body>
       def body **attrs
         @body_attrs = attrs
-        @region = %[<div class="pjax" id="main">#{browser.state_script}#{yield}</div>]
+        content     = yield   # before state_script, so body-side window writes land in #lux-state
+        @region     = %[<div class="pjax" id="main">#{browser.state_script}#{content}</div>]
         nil
       end
 
@@ -70,7 +72,7 @@ module Lux
         nil
       end
 
-      # page title, same as lux.header.title; overrides one set by the page template
+      # page title, same as Lux.ctx.header.title; overrides one set by the page template
       def title text
         header.title text
         nil

@@ -102,15 +102,15 @@ describe ExceptionWriter do
   end
 
   it 'falls back to the request IP when ip is not given' do
-    Lux::Current.new('http://test-writer')
-    Lux.current.request.env['REMOTE_ADDR'] = '198.51.100.9'
+    Lux::Context.new('http://test-writer')
+    Lux.ctx.request.env['REMOTE_ADDR'] = '198.51.100.9'
 
     ExceptionWriter.new(error).write
     _(lines.first['ip']).must_equal '198.51.100.9'
   end
 
   it 'records the request method, url and allowlisted headers' do
-    Lux::Current.new(Rack::MockRequest.env_for('http://test-writer/sites/1?tab=seo', method: 'POST',
+    Lux::Context.new(Rack::MockRequest.env_for('http://test-writer/sites/1?tab=seo', method: 'POST',
       'HTTP_USER_AGENT' => 'Mozilla/5.0', 'HTTP_REFERER' => 'http://test-writer/sites',
       'HTTP_COOKIE' => 'sid=secret', 'HTTP_AUTHORIZATION' => 'Bearer secret'))
 
@@ -122,7 +122,7 @@ describe ExceptionWriter do
   end
 
   it 'masks credential query params in the url and referer' do
-    Lux::Current.new(Rack::MockRequest.env_for('http://test-writer/x?sso_action=tok&tab=seo',
+    Lux::Context.new(Rack::MockRequest.env_for('http://test-writer/x?sso_action=tok&tab=seo',
       'HTTP_REFERER' => 'http://test-writer/y?api_key=k1'))
 
     ExceptionWriter.new(error).write
@@ -132,8 +132,8 @@ describe ExceptionWriter do
   end
 
   it 'falls back to the signed-in user email, caller user wins' do
-    Lux::Current.new('http://test-writer')
-    Lux.current.define_singleton_method(:user) { Struct.new(:email).new('ana@example.com') }
+    Lux::Context.new('http://test-writer')
+    Lux.ctx.define_singleton_method(:user) { Struct.new(:email).new('ana@example.com') }
 
     ExceptionWriter.new(error).write
     ExceptionWriter.new(error).write(user: 'u_42')

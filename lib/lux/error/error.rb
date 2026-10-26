@@ -92,8 +92,7 @@ module Lux
 
       # Current request URL if available, nil in non-HTTP contexts.
       def current_url
-        return nil unless Thread.current[:lux]
-        Lux.current.request.url
+        Lux.ctx.request&.url
       rescue StandardError
         nil
       end

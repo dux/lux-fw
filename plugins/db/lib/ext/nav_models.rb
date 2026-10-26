@@ -33,7 +33,7 @@ module Ref
     if ref
       key = key_ref
     else
-      key, ref = key_ref.to_s.split('-')
+      key, ref = key_ref.to_s.split('-', 2)
     end
     klass(key).find(ref)
   end
@@ -56,9 +56,9 @@ class Lux::Router::Nav
   #
   # Driven by the path, not by a model list: every classified ref is named by
   # the segment in front of it (Nav::Base#path_before), which is matched against
-  # each model's name, plural or abbr. A ref whose owner names no model, or
-  # whose record does not exist, is skipped - the URL simply carries an id that
-  # is not ours to load.
+  # each model's name, plural or abbr. A ref whose owner names no model is
+  # skipped; a ref whose record does not exist raises `Lux.error.not_found`
+  # (404) from `find`.
   #
   #   /boards/<ref>       or  /boa/<ref>   segment right before the ref
   #   /boa:<ref>                           abbr:ref path-qs (params[:boa])
@@ -80,7 +80,7 @@ class Lux::Router::Nav
     # idempotent - a router that already declared the format keeps its result
     map_path
 
-    app     = Lux.current.var[:lux_router] if ivars
+    app     = Lux.ctx.var[:lux_router] if ivars
     lookup  = load_models_index models
     found   = {}   # ivar name => record, in resolution order
     deepest = nil
@@ -90,7 +90,7 @@ class Lux::Router::Nav
       klass, name = lookup[load_models_key(segment.path_before)]
       next unless klass
 
-      object = klass.find(segment.value) or next
+      object = klass.find(segment.value)
       found[name] = object
       deepest     = object
     end
@@ -104,7 +104,7 @@ class Lux::Router::Nav
         out[abbr.to_sym] ||= [klass, name]
       end
 
-      Lux.current.params.each do |key, value|
+      Lux.ctx.params.each do |key, value|
         klass, name = by_abbr[key.to_sym]
         next unless klass
         next if found.key?(name)
@@ -114,7 +114,7 @@ class Lux::Router::Nav
         # not a ref and must not reach find()
         next unless value.is_a?(String) && value.present?
 
-        object = klass.find(value) or next
+        object = klass.find(value)
         found[name] = object
       end
     end

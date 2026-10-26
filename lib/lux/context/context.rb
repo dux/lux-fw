@@ -2,7 +2,7 @@ require 'set'
 require 'ipaddr'
 
 module Lux
-  class Current
+  class Context
     # Lux's own request class, so the xhr? change below stays out of every
     # other Rack app and middleware in the process.
     class Request < ::Rack::Request
@@ -46,7 +46,7 @@ module Lux
       end
     end
 
-    OPTS ||= Struct.new 'LuxCurrentOpts', :params, :post, :http_method, :session, :cookies, :query_string, :headers, :bearer
+    OPTS ||= Struct.new 'LuxContextOpts', :params, :post, :http_method, :session, :cookies, :query_string, :headers, :bearer
 
     # Same charset Rage and most proxies accept for X-Request-Id.
     REQUEST_ID_RE ||= /\A[\w\-@.]{1,128}\z/
@@ -69,6 +69,8 @@ module Lux
     # bodies and to the JSON-parsed body for application/json. @opt.post wins
     # (set by Lux.render.post mocks).
     def post
+      return unless @request
+
       @post ||= begin
         raw = if @opt.post
           @opt.post
@@ -78,7 +80,7 @@ module Lux
         else
           @request.POST.dup
         end
-        (raw || {}).to_lux_hash
+        (raw.is_a?(::Hash) ? raw : {}).to_lux_hash
       end
     end
 
@@ -86,6 +88,8 @@ module Lux
     # use this copy. Rewound after the read so a Rack app mounted with `map`
     # can still read the stream itself.
     def raw_body
+      return unless @request
+
       @raw_body ||= begin
         body = @request.body
         body&.read.to_s.tap { body.rewind if body.respond_to?(:rewind) }
@@ -93,24 +97,38 @@ module Lux
     end
 
     def json_request?
-      @request.media_type == 'application/json'
+      @request&.media_type == 'application/json'
     end
 
+    # Without env the context has no request: request, response, nav, route,
+    # session and params stay nil, so request-bound code fails instead of
+    # reading a fake one. var, once, cache, locale and user work either way.
     def initialize env = nil, opts = {}
-      @env     = env || '/mock'
+      @var          = { cache: {} }.to_lux_hash
+      @files_in_use = Set.new
+
+      unless env
+        Thread.current[:lux] = self
+        return
+      end
+
+      @env     = env
       # body: raw request body for a mock (e.g. a JSON string with a content-type header)
       @env     = ::Rack::MockRequest.env_for(env, input: opts[:body]) if @env.is_a?(String)
       @request = Request.new @env
-      # lets a mounted Lux::Api find the Current that already parsed this request
-      @request.env['lux.current'] = self
+      # lets a mounted Lux::Api find the Context that already parsed this request
+      @request.env['lux.ctx'] = self
 
       @opt = OPTS.new
       if opts.keys.length > 0
         @opt = OPTS.new **opts.slice(:params, :post, :session, :cookies, :query_string, :headers, :bearer).merge(
           opts.key?(:method) ? { http_method: opts[:method] } : {}
         )
+        # `params:` is the body for a non-GET mock; `post:` always is
+        body_verb = @opt.http_method && !%w[GET HEAD].include?(@opt.http_method.to_s.upcase)
+        @opt.post ||= @opt.params if body_verb
         if @opt.post
-          @opt.http_method = 'POST'
+          @opt.http_method ||= 'POST'
           @opt.params = @opt.post
         end
       end
@@ -139,12 +157,10 @@ module Lux
       end
 
       # base vars
-      @files_in_use = Set.new
       @response     = Lux::Response.new
       @nav          = Lux::Router::Nav.new @request
-      @session      = Lux::Current::Session.new @request, @nav.domain
+      @session      = Lux::Context::Session.new @request, @nav.domain
       @route        = Lux::Router::Route.new @nav
-      @var          = { cache: {} }.to_lux_hash
 
       @opt.session.or({}).each {|k,v| @session[k] = v }
     end
@@ -152,7 +168,7 @@ module Lux
     # Param validation errors from the action's `opt` / `params do` contract,
     # as { field => 'Message' }. Only populated for HTML requests - a JSON
     # request halts with 422 instead (see Router::ParamsDsl). Note that
-    # lux.params has already been filtered and coerced by the time this is set,
+    # Lux.ctx.params has already been filtered and coerced by the time this is set,
     # so re-render the form from the submitted values you kept, not from params.
     def param_errors
       @var[:param_errors] || {}
@@ -168,7 +184,7 @@ module Lux
 
     # Full host with port
     def host
-      "#{request.env['rack.url_scheme']}://#{request.host}:#{request.port}".sub(':80','')# rescue 'http://locahost:3000'
+      request.base_url
     end
 
     # Lux::Utils::Url wrapper around the current request URL.
@@ -189,9 +205,9 @@ module Lux
       data[0]
     end
 
-    # Set Lux.current.can_clear_cache = true in production for admins
+    # Set Lux.ctx.can_clear_cache = true in production for admins
     def no_cache?
-      if @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache'
+      if @request && @request.env['HTTP_CACHE_CONTROL'].to_s.downcase == 'no-cache'
         can_clear_cache
       else
         false
@@ -214,11 +230,10 @@ module Lux
     end
 
     # Generete unique ID par page render
-    # current.uid => "uid_123_1668273316128"
-    # current.uid(true) => 123
+    # Lux.ctx.uid => "uid_123_1668273316128"
+    # Lux.ctx.uid(true) => 123
     def uid num_only = false
-      Thread.current[:lux][:uid_cnt] ||= 0
-      num = Thread.current[:lux][:uid_cnt] += 1
+      num = @var[:uid_cnt] = (@var[:uid_cnt] || 0) + 1
       num_only ? num : "uid_#{num}_#{(Time.now.to_f*1000).to_i}"
     end
 
@@ -259,7 +274,7 @@ module Lux
 
     # Background thread; thin wrapper over Lux.defer.
     # Positional arg becomes the explicit context passed to the block.
-    # See Lux.defer for full semantics (clean Lux.current inside the thread,
+    # See Lux.defer for full semantics (clean Lux.ctx inside the thread,
     # parent context only via the block arg).
     def defer context = nil, &block
       Lux.defer(context: context, &block)
@@ -269,6 +284,8 @@ module Lux
     # takes the last untrusted hop, so a client cannot spoof it. CF-Connecting-IP
     # is still here only when that hop was Cloudflare (see Request#initialize).
     def ip
+      return unless @request
+
       @ip ||= request.env['HTTP_CF_CONNECTING_IP'] || request.ip || '127.0.0.1'
     end
 
@@ -284,19 +301,19 @@ module Lux
     # response header and carried into Lux.defer and exception records.
     def request_id
       @request_id ||= begin
-        id = @request.env['HTTP_X_REQUEST_ID'].to_s
+        id = @request&.env&.[]('HTTP_X_REQUEST_ID').to_s
         id.match?(REQUEST_ID_RE) ? id : SecureRandom.hex(10)
       end
     end
 
-    # Frozen copy of what background work may need from this request. Safe to
-    # hand to another thread, unlike the live Current. Lux.defer passes it to
-    # the block and rebuilds the worker's Lux.current from it.
+    # Frozen copy of what background work may need from this context. Safe to
+    # hand to another thread, unlike the live Context. Lux.defer passes it to
+    # the block and rebuilds the worker's Lux.ctx from it.
     def snapshot
       {
         request_id:     request_id,
-        request_method: request.request_method,
-        url:            request.url,
+        request_method: @request&.request_method,
+        url:            @request&.url,
         ip:             ip,
         user:           (user if defined?(::User))
       }.to_lux_hash.freeze
@@ -308,7 +325,7 @@ module Lux
       @browser ||= Lux::Browser.new
     end
 
-    # Pointer to lux.browser.header (same instance per request).
+    # Pointer to Lux.ctx.browser.header (same instance per request).
     def header
       browser.header
     end
@@ -350,8 +367,7 @@ module Lux
     def prepare_params
       @params = (request_params.dup || {}).to_lux_hash
       @params.merge! @opt.query_string if @opt.query_string
-      # `params:` is the GET shorthand for query_string (for POST it feeds the body, see line ~54)
-      @params.merge! @opt.params if @opt.params && request.request_method == 'GET'
+      @params.merge! @opt.params if @opt.params
 
       # remove empty parametars in GET request
       if request.request_method == 'GET'
@@ -360,7 +376,7 @@ module Lux
         end
       end
 
-      Lux::Current::EncryptParams.decrypt @params
+      Lux::Context::EncryptParams.decrypt @params
     end
 
     # Rack raises (EmptyContentError / "bad content body", both EOFError) when a

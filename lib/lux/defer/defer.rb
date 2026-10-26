@@ -8,9 +8,8 @@ module Lux
   # automatic and no work is dropped.
   #
   # Public entry point is the existing Lux.defer shim
-  # (lib/lux/current/lux_adapter.rb), which delegates here.
+  # (lib/lux/context/lux_adapter.rb), which delegates here.
   module Defer
-    DEFAULT_POOL_SIZE ||= 3
     IDLE_TIMEOUT_SECS ||= 60
 
     @mutex     ||= Mutex.new
@@ -21,7 +20,7 @@ module Lux
       def submit context: nil, timeout: nil, &block
         raise ArgumentError, 'Block not given' unless block
 
-        snapshot  = Lux.current.snapshot
+        snapshot  = Lux.ctx.snapshot
         context   = snapshot if context.nil?
         timeout ||= Lux.config.delay_timeout
         raise 'Timeout is not numeric (seconds)' unless timeout.is_a?(Numeric)
@@ -43,8 +42,7 @@ module Lux
       end
 
       def pool_size
-        size = Lux.config[:defer_pool_size] if defined?(Lux.config) && Lux.config.respond_to?(:[])
-        size || DEFAULT_POOL_SIZE
+        Lux.config[:defer_pool_size]
       end
 
       def stats
@@ -62,7 +60,7 @@ module Lux
         -> do
           started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           begin
-            seed_current snapshot
+            seed_ctx snapshot
             ::Timeout::timeout(timeout) do
               block.arity == 0 ? block.call : block.call(context)
             end
@@ -82,14 +80,15 @@ module Lux
         end
       end
 
-      # Fresh Lux.current that keeps the submitting request's id, method and
+      # Fresh Lux.ctx that keeps the submitting request's id, method and
       # URL (logs and exception records point back at it) and its user, via
       # the app's User.current= when it has one. Session, params and response
-      # are not carried over.
-      def seed_current snapshot
-        current = Lux::Current.new snapshot.url, method: snapshot.request_method, headers: { 'X-Request-Id' => snapshot.request_id }
+      # are not carried over. A snapshot taken outside a request has no url,
+      # so the worker gets a context without a request too.
+      def seed_ctx snapshot
+        ctx = Lux::Context.new snapshot.url, method: snapshot.request_method, headers: { 'X-Request-Id' => snapshot.request_id }
         ::User.current = snapshot.user if snapshot.user && ::User.respond_to?(:current=)
-        current
+        ctx
       end
 
       def ensure_worker
@@ -111,7 +110,11 @@ module Lux
           rescue => e
             log.error 'Lux.defer worker died: %s: %s' % [e.class, e.message]
           ensure
-            @mutex.synchronize { @worker_ct -= 1 }
+            # a job queued while this worker was exiting must not be stranded
+            @mutex.synchronize do
+              @worker_ct -= 1
+              spawn_worker if !@queue.empty? && @worker_ct < pool_size
+            end
           end
         end
       end

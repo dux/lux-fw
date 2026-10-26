@@ -12,7 +12,7 @@ Subclass per resource; `model.can.action?` is the canonical call.
 # --- 1. Define ----------------------------------------------------------
 
 class BlogPolicy < Lux::Policy
-  # before-hook: truthy short-circuits to allow
+  # before-hook: returning `true` allows; anything else falls through to the action
   def before action
     return true if user.can.admin?
   end
@@ -40,7 +40,7 @@ end
 @blog.can.read?                       # true / false (swallows errors)
 @blog.can(@another_user).read?        # explicit user (instead of current)
 @blog.can.write!                      # returns @blog, raises Lux::Policy::Error on fail
-@blog.can.write! { |msg| flash.error msg }   # block runs on fail, no raise
+@blog.can.write! { |err| "Custom: #{err.message}" }   # still raises; a truthy block result becomes the error message
 
 # --- 3. Use in a router ------------------------------------------------
 
@@ -54,7 +54,7 @@ class BlogsRouter < ApplicationRouter
 
   def update
     authorize @blog.can.write?        # marks request authorized or raises
-    @blog.update(current.params.to_h)
+    @blog.update(Lux.ctx.params.to_h)
   end
 end
 
@@ -95,15 +95,15 @@ resolver.
 |--------|---------|------------|
 | `proxy.read?`          | `true` / `false`     | swallows `Lux::Policy::Error` |
 | `proxy.read!`          | the `model`          | raises `Lux::Policy::Error` |
-| `proxy.read?` w/ block | `true` / `false`     | calls block with error message |
-| `proxy.read!` w/ block | `true` / `false`     | calls block, no raise |
+| `proxy.read?` w/ block | `false` on deny      | block gets the `Lux::Policy::Error` |
+| `proxy.read!` w/ block | the `model`          | raises `Lux::Policy::Error`; the block's truthy return replaces the message |
 
 ## Router mixin
 
 `Lux::Policy::Authorize` is auto-mixed into `Lux::Router`:
 
 ```ruby
-authorize @blog.can.read?       # truthy → authorized; falsy → 403
+authorize @blog.can.read?       # truthy -> authorized; falsy -> 403
 is_authorized?                  # boolean
 is_authorized!                  # 403 if not authorized
 ```

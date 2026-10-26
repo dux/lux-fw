@@ -9,7 +9,7 @@
 module Lux
   class Response
     # types that get `; charset=utf-8` - never images, fonts or archives
-    TEXT_TYPE ||= %r{\Atext/|json|javascript|xml}
+    TEXT_TYPE ||= %r{\Atext/|[/+]json\z|javascript|[/+]xml\z}
 
     attr_reader   :render_start
     attr_accessor :headers
@@ -18,10 +18,6 @@ module Lux
       @render_start = Time.monotonic
       @headers      = Lux::Response::Header.new
       @cache        = Lux::Response::CachePolicy.new(self)
-    end
-
-    def current
-      Lux.current
     end
 
     def cache
@@ -37,7 +33,7 @@ module Lux
           args.first.each { |k, v| header k, v.to_s if k && v }
         else
           key = args.first.to_s.downcase
-          @headers[key] = args[1].to_s if args[1] != :_
+          @headers[key] = args[1].to_s if args.length > 1
           @headers[key]
         end
       end
@@ -52,6 +48,7 @@ module Lux
 
     def max_age= age
       @cache.max_age = age.to_i
+      @cache.public  = true if age.to_i > 0
     end
 
     def stale_while_revalidate= swr
@@ -93,7 +90,10 @@ module Lux
     def early_hints link = nil, type = nil
       @early_hints ||= []
       hint = [link, type]
-      @early_hints.push hint if type && !@early_hints.include?(hint)
+      if type && !@early_hints.include?(hint)
+        @early_hints.push hint
+        Lux.ctx.request.env['rack.early_hints']&.call('link' => "<#{link}>; rel=preload; as=#{type}")
+      end
       @early_hints
     end
 
@@ -101,16 +101,16 @@ module Lux
     # etag @post, last_modified: @post.updated_at  # also answers If-Modified-Since
     def etag *args, last_modified: nil
       unless @headers['etag']
-        key = '"%s"' % Lux.cache.generate_key([current.request.url, args])
+        key = '"%s"' % Lux.cache.generate_key([Lux.ctx.request.url, args])
         key = 'W/%s' % key unless @cache.public?
         @headers['etag'] = key
       end
 
       @headers['last-modified'] ||= last_modified.httpdate if last_modified
 
-      if !@status && !current.no_cache? && fresh?(last_modified)
+      if !@status && !Lux.ctx.no_cache? && fresh?(last_modified)
         if Lux.reload?
-          Lux.log { " * etag match at #{Lux.app_caller || ':lux'} (skipping for Lux.reload?)" } unless current.nav.format
+          Lux.log { " * etag match at #{Lux.app_caller || ':lux'} (skipping for Lux.reload?)" } unless Lux.ctx.nav.format
         else
           Lux.log { ' * etag match' }
           @status = 304
@@ -133,7 +133,7 @@ module Lux
         num = 400
       end
 
-      @status = num
+      @status = num.to_i
     end
     alias :status= :status
 
@@ -188,7 +188,7 @@ module Lux
     def content_type in_type = Lux::UNSET
       return @content_type if in_type.equal?(Lux::UNSET)
 
-      in_type = :js if in_type == :javascript
+      in_type = { javascript: :js, plain: :text }.fetch(in_type, in_type)
 
       if in_type.is_a?(Symbol)
         type = ::Rack::Mime.mime_type(".#{in_type}", nil)
@@ -202,7 +202,7 @@ module Lux
     alias :content_type= :content_type
 
     def flash message = nil
-      @flash ||= Flash.new current.session[:lux_flash]
+      @flash ||= Flash.new Lux.ctx.session[:lux_flash]
       message ? @flash.error(message) : @flash
     end
 
@@ -251,19 +251,23 @@ module Lux
       opts = { info: opts } if opts.is_a?(String)
 
       if where == :self
-        where = current.request.path
+        where = Lux.ctx.request.path
       elsif where == :back
-        where  = current.request.env['HTTP_REFERER'].or('/')
+        ref   = Lux.ctx.request.env['HTTP_REFERER'].to_s
+        where = ref.start_with?(Lux.ctx.request.base_url + '/') ? ref : '/'
       elsif where[0,1] == '?'
-        where  = "#{current.request.path}#{where}"
+        where  = "#{Lux.ctx.request.path}#{where}"
       # elsif !where.include?('://')
-      #   where = current.host + where
+      #   where = Lux.ctx.host + where
       end
+
+      # browsers read `\` as `/` and drop tab/LF, so /\host and /<TAB>/host go off-site
+      where = '/' if where.match?(%r{\A/[/\\]|[\x00-\x1f]})
 
       if where.start_with?('/') || opts.delete(:redirect_tracker)
         redirect_var = Lux.config[:redirect_var] || :_r
         url = Url.new where
-        url[redirect_var] = current.request.params[redirect_var].to_i + 1
+        url[redirect_var] = Lux.ctx.request.params[redirect_var.to_s].to_i + 1
 
         where = if opts.delete(:silent)
           url.delete redirect_var
@@ -302,16 +306,18 @@ module Lux
       redirect_to where, status: 301
     end
 
-    # auth { |user, pass| [user, pass] == ['foo', 'bar'] }
+    # return unless response.auth { |user, pass| Rack::Utils.secure_compare(pass, ENV['PASS']) && user == 'foo' }
+    # On failure it answers 401 and throws :done, like redirect_to.
     def auth realm: nil, message: nil
-      if auth = current.request.env['HTTP_AUTHORIZATION']
-        credentials = auth.to_s.split('Basic ', 2)[1].unpack("m*").first.split(':', 2)
-        return true if yield *credentials
+      if (encoded = Lux.ctx.request.env['HTTP_AUTHORIZATION'].to_s[/\ABasic (.+)\z/, 1])
+        user, pass = encoded.unpack1('m').to_s.split(':', 2)
+        return true if yield user.to_s, pass.to_s
       end
 
-      header('WWW-Authenticate', 'Basic realm="%s"' % realm.or('default'))
+      header 'www-authenticate', 'Basic realm="%s"' % realm.or('default')
       self.status = 401
       @body = message || 'HTTP 401 Authorization needed'
+      throw :done
     end
 
     def render app = nil
@@ -332,33 +338,40 @@ module Lux
       log_request if Lux.config[:log_requests]
 
       Lux.log do
-        log_data  = " #{@status}, #{@data.to_s.length}, #{(@body.bytesize.to_f/1024).round(1)}kb, #{@headers['x-lux-speed']}"
-        log_data += " (#{current.request.url})" if current.nav.format
+        size      = streaming? ? 'stream' : "#{(@body.to_s.bytesize / 1024.0).round(1)}kb"
+        log_data  = " #{@status}, #{size}, #{@headers['x-lux-speed']}"
+        log_data += " (#{Lux.ctx.request.url})" if Lux.ctx.nav.format
 
         [200, 304].include?(@status) ? log_data : log_data.colorize(:magenta)
       end
 
-      if current.request.request_method == 'HEAD' || [204, 304].include?(@status.to_i)
+      if Lux.ctx.request.request_method == 'HEAD' || [204, 304].include?(@status.to_i)
         @body = ''
       end
 
-      return [@status || 200, @headers.to_h, @body] if streaming?
+      return [@status || 200, @headers.to_h, @body.is_a?(String) ? [@body] : @body] if streaming?
 
       [@status, @headers.to_h, [@body]]
     end
 
     def rack klass, mount_at: nil
-      env = current.env
+      env = Lux.ctx.env
       if mount_at
-        env = env.merge(
-          'SCRIPT_NAME' => mount_at,
-          'PATH_INFO'   => env['PATH_INFO'].delete_prefix(mount_at).then { |p| p.empty? ? '/' : p }
+        path = env['PATH_INFO'].to_s
+        rest = path.downcase.start_with?(mount_at.downcase) ? path[mount_at.length..] : path
+        env  = env.merge(
+          'SCRIPT_NAME' => env['SCRIPT_NAME'].to_s + mount_at,
+          'PATH_INFO'   => rest.empty? ? '/' : rest
         )
       end
-      data = klass.call env
-      @headers.merge data[1]
+
+      status, headers, chunks = klass.call env
+      out = +''
+      chunks.each { out << _1.to_s }
+      chunks.close if chunks.respond_to?(:close)
+      @headers.merge headers
       # 204/304 carry an empty body array; '' still marks the request handled
-      body data[2].first.to_s, status: data[0]
+      body out, status: status
     end
 
     private
@@ -367,18 +380,18 @@ module Lux
     # log, since log_level :error drops the dev request lines. Path only: a
     # query string can carry tokens.
     def log_request
-      req  = current.request
-      user = current.user if defined?(::User)
+      req  = Lux.ctx.request
+      user = Lux.ctx.user if defined?(::User)
       data = {
         ts:       Time.now.utc.iso8601(3),
-        id:       current.request_id,
+        id:       Lux.ctx.request_id,
         method:   req.request_method,
         path:     req.path,
         status:   @status,
         ms:       ((Time.monotonic - @render_start) * 1000).round(1),
-        ip:       current.ip,
+        ip:       Lux.ctx.ip,
         user:     (user.ref if user.respond_to?(:ref)),
-        dispatch: current.var[:dispatch]&.values_at(:router, :action)&.join('#')
+        dispatch: Lux.ctx.var[:dispatch]&.values_at(:router, :action)&.join('#')
       }
 
       logger = Lux.logger(:request)
@@ -390,7 +403,7 @@ module Lux
 
     def app_cookies
       (@cookies || {}).map do |name, (value, opts)|
-        opts = { path: '/', httponly: true, same_site: :lax, secure: current.request.ssl? }.merge(opts)
+        opts = { path: '/', httponly: true, same_site: :lax, secure: Lux.ctx.request.ssl? }.merge(opts)
         opts[:max_age] = opts[:max_age].to_i if opts[:max_age]
 
         value.nil? ? ::Rack::Utils.delete_set_cookie_header(name, opts) : ::Rack::Utils.set_cookie_header(name, opts.merge(value: value.to_s))
@@ -398,7 +411,7 @@ module Lux
     end
 
     def is_bot?
-      current.request.user_agent.to_s.include?('Googlebot')
+      Lux.ctx.request.user_agent.to_s.include?('Googlebot')
     end
 
     # An XHR cannot follow a cross-origin redirect - the browser follows the 3xx
@@ -406,12 +419,12 @@ module Lux
     # can answer with a status the browser leaves alone, letting the client read
     # Location and navigate for real.
     def xhr_external_redirect? where
-      return false unless current.request.xhr?
+      return false unless Lux.ctx.request.xhr?
 
       uri = URI.parse(where)
       return false unless uri.host
 
-      [uri.scheme, uri.host, uri.port] != [current.request.scheme, current.request.host, current.request.port]
+      [uri.scheme, uri.host, uri.port] != [Lux.ctx.request.scheme, Lux.ctx.request.host, Lux.ctx.request.port]
     rescue URI::InvalidURIError
       false
     end
@@ -420,7 +433,7 @@ module Lux
     # list (proxies such as nginx gzip turn strong tags weak); If-Modified-Since
     # applies only without it.
     def fresh? last_modified
-      env = current.request.env
+      env = Lux.ctx.request.env
 
       if (match = env['HTTP_IF_NONE_MATCH'].to_s.strip).present?
         tag = @headers['etag'].delete_prefix('W/')
@@ -439,9 +452,9 @@ module Lux
     def write_flash_to_session
       flash_hash = flash.to_h
       if flash_hash.keys.any?
-        current.session[:lux_flash] = flash_hash
-      elsif current.session[:lux_flash]
-        current.session.delete(:lux_flash)
+        Lux.ctx.session[:lux_flash] = flash_hash
+      elsif Lux.ctx.session[:lux_flash]
+        Lux.ctx.session.delete(:lux_flash)
       end
     end
 
@@ -457,16 +470,9 @@ module Lux
       end
 
       # respond as JSON if we recive hash
-      if @body.kind_of?(Hash)
+      if @body.is_hash?
         @body = Lux.debug? ? JSON.pretty_generate(@body) : JSON.generate(@body)
-
-        if current.request.params[:callback]
-          @body = "#{current.request.params[:callback]}(#{@body})"
-          @content_type ||= 'text/javascript'
-        else
-          @content_type ||= 'application/json'
-        end
-
+        @content_type ||= 'application/json'
         @body += "\n"
       else
         # if somebody sets @content_type, respect that
@@ -491,11 +497,11 @@ module Lux
       # only emit Set-Cookie when cache policy allows it; one header line per
       # cookie (Rack 3 array), keeping any the app set on the header itself
       if @cache.allow_cookies? && !is_bot?
-        if offer = Lux::Current::Dbsc.registration_header(current)
+        if offer = Lux::Context::Dbsc.registration_header(Lux.ctx)
           @headers['secure-session-registration'] = offer
         end
 
-        cookies =[*@headers['set-cookie'], current.session.generate_cookie, *app_cookies].compact
+        cookies =[*@headers['set-cookie'], Lux.ctx.session.generate_cookie, *app_cookies].compact
         @headers['set-cookie'] = cookies.length > 1 ? cookies : cookies.first if cookies.any?
       end
 
@@ -503,16 +509,16 @@ module Lux
       # no-store and streaming responses don't benefit from a conditional-GET
       # round-trip, so skipping saves a full-body SHA1 on the response path. A
       # HEAD that skipped building its body has nothing to hash.
-      if %w[GET HEAD].include?(current.request.request_method) && !@cache.no_store? && @status.to_i < 300 && !streaming? && !@body.empty?
+      if %w[GET HEAD].include?(Lux.ctx.request.request_method) && !@cache.no_store? && @status.to_i < 300 && !streaming? && !@body.empty?
         etag(@body)
       end
 
       @headers['x-lux-speed']     = "#{((Time.monotonic - @render_start)*1000).round(1)}ms"
-      @headers['x-request-id']  ||= current.request_id
+      @headers['x-request-id']  ||= Lux.ctx.request_id
 
-      # 304 must not carry content-type / content-length per RFC 7232.
+      # 1xx/204/304 must not carry content-type / content-length (RFC 9110, Rack 3 Lint).
       # Streaming bodies set their own content-type and never carry a length.
-      unless @status.to_i == 304
+      unless ::Rack::Utils::STATUS_WITH_NO_ENTITY_BODY.key?(@status.to_i)
         if streaming?
           # content-type was set by the streaming writer (text/event-stream etc.)
         else
@@ -523,7 +529,7 @@ module Lux
           # nothing on the wire can contradict the header. Anywhere else the
           # computed length wins, including after :after rewrote the body.
           declared = @headers['content-length'] && @body.empty? &&
-                     current.request.request_method == 'HEAD'
+                     Lux.ctx.request.request_method == 'HEAD'
 
           @headers['content-length'] = @body.bytesize.to_s unless declared
         end
