@@ -26,7 +26,8 @@ module Sequel::Plugins::LuxCreateLimit
     def validate
       super
 
-      # return if Lux.env.cli?
+      # spam protection is for web requests; seeds, jobs and the console create freely
+      return unless Lux.runtime.web?
       return unless defined?(User)
 
       # return if object exists

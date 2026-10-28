@@ -2007,6 +2007,9 @@ describe 'plugins/db/create_limit.rb' do
   end
 
   describe 'validate' do
+    before { Lux.runtime.define_singleton_method(:web?) { true } }
+    after  { Lux.runtime.singleton_class.send(:remove_method, :web?) }
+
     it 'raises when no user is logged in' do
       User.current = nil
       note = Note.new(ref: new_ref, body: 'Test')
@@ -2065,6 +2068,14 @@ describe 'plugins/db/create_limit.rb' do
         User.current = other_user
 
         note = Note.new(ref: new_ref, body: 'From other', creator_ref: other_user.ref)
+        _(note.valid?).must_equal true
+      end
+
+      it 'skips the limit outside the web runtime' do
+        3.times { |i| Note.create(ref: new_ref, body: "N#{i}", creator_ref: current_user.ref) }
+        Lux.runtime.define_singleton_method(:web?) { false }
+
+        note = Note.new(ref: new_ref, body: 'Seeded', creator_ref: current_user.ref)
         _(note.valid?).must_equal true
       end
     end
