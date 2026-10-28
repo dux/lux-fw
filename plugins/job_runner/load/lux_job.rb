@@ -272,7 +272,7 @@ class LuxJob < ApplicationModel
         end
 
       rescue LuxJobError => e
-        job.response = "ERROR: #{e.message}"
+        job.response = "ERROR: #{e.message}"[0, 255]
         job.status_sid = 'f'
         job.log "#{e.message}", verbose: verbose
         job.save_changes
@@ -281,7 +281,8 @@ class LuxJob < ApplicationModel
         Lux.error.log e
 
         msg = "UNHANDLED: #{e.message} (#{e.class}) #{e.backtrace&.first}"
-        job.response = msg
+        # response is 255 chars; a failing save here would kill the runner
+        job.response = msg[0, 255]
         job.retry_count += 1
 
         if job.retry_count >= opts[:retries]

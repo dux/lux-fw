@@ -93,6 +93,17 @@ describe LuxJob do
       assert_in_delta (Time.now + LuxJob::RETRY_BASE_WAIT).to_f, job.run_at.to_f, 5
     end
 
+    it 'records a failure whose message is longer than the response column' do
+      LuxJob.define(:verbose_failure) { raise 'x' * 400 }
+      job = LuxJob.create(name: 'verbose_failure', run_at: Time.now - 1.minute)
+
+      LuxJob.run_job(job)
+      job.reload
+
+      _(job.status_sid).must_equal 'f'
+      _(job.response.length).must_equal 255
+    end
+
     it 'increases retry delay by 60% each attempt' do
       LuxJob.define(:backoff_job) { raise 'fail' }
       job = LuxJob.create(name: 'backoff_job', run_at: Time.now - 1.minute, retry_count: 3)
