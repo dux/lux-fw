@@ -25,6 +25,12 @@ class SpecSenderMailer < Lux::Mail::Sender
   def cancelled
     mail.to = false
   end
+
+  # Kernel#test is private on every object, so a mail named test shadows it
+  def test
+    mail.to      = 't@example.com'
+    mail.subject = 'test mail'
+  end
 end
 
 describe Lux::Mail::Sender do
@@ -65,5 +71,10 @@ describe Lux::Mail::Sender do
     assert_equal 'Hi there', SpecSenderMailer.welcome('a@example.com').subject
     assert_raises(NoMethodError) { SpecSenderMailer.system('true') }
     refute SpecSenderMailer.respond_to?(:build_mail_object)
+  end
+
+  it 'reaches a mail that reuses a Kernel method name' do
+    assert_equal 'test mail', SpecSenderMailer.test.subject
+    assert SpecSenderMailer.respond_to?(:test)
   end
 end

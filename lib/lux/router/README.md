@@ -28,6 +28,7 @@ Lux.router do
     map 'dev',    'dev#auto'                  # mount DevRouter (web_common), run :auto
     map '/skills/:skill', 'skills#show'       # absolute pattern, :skill lands in params
     map %w[help faq], 'pages'                 # any-of segments, 'pages' = PagesRouter's route
+    map 'boards'                              # == map 'boards', 'boards': /boards/* -> BoardsRouter
     post? 'hook', :hook                       # verb predicates: get? head? post? put? patch? delete?
     subdomain 'app' do                        # subdomain scope: must render or 404s
       map MainRouter
@@ -37,7 +38,8 @@ Lux.router do
       plugin_routes                           # every loaded plugin's routes.rb
       map AdminRouter
     end
-    nav.load_models                           # sets @board, @space ... on this router; copied on mount; unknown ref 404s
+    nav.map_path                              # ids in nav.path: nav.ref, map :ref, resourceful actions
+    nav.load_models                           # db plugin: map_path + @board, @space ...; copied on mount; unknown ref 404s
     root 'main#index'                         # == map '', 'main#index' (cursor empty)
     map(user ? MainRouter : 'promo#auto')     # one arg = dispatch without matching
   end
@@ -129,6 +131,7 @@ Every shape is listed here; anything else raises `ArgumentError` with the canoni
 |------|-------|----------|
 | `map 'a' do ... end` | `/a` | block, nested routes see the rest of the path |
 | `map :spaces, :ref, :admin do ... end` | the segments in sequence | block |
+| `map 'a'` | `/a` | same as `map 'a', 'a'` |
 | `map 'a', :name` | `/a` | action `:name` on this router, opts become ivars |
 | `map 'a', 'foo'` | `/a` | mount `FooRouter`, run its `route` (resourceful action when it has none) |
 | `map 'a', 'foo#bar'` | `/a` | mount `FooRouter`, run action `:bar` |
@@ -142,7 +145,7 @@ Every shape is listed here; anything else raises `ArgumentError` with the canoni
 | `root 'foo#bar'` | empty cursor | same as `map '', 'foo#bar'` |
 
 Segments are Strings, Symbols, Regexps or Arrays (any of).
-`:ref` matches a segment `nav.map_path` classified as an id, by type; a URL segment spelled `ref` is not one.
+`:ref` matches a segment `nav.map_path` classified as an id (a `Lux::Ref::Base` element, reads `'ref'`), by type; a URL segment spelled `ref` is not one.
 `'admin/users'` resolves to `Admin::UsersRouter`.
 
 `subdomain 'x' do ... end` scopes on the subdomain and 404s when the block dispatches nothing.
@@ -169,16 +172,21 @@ A router class inherits its parents' `route`, never the root's.
 `action` runs one action: the `only` / `except` gates, the verb check, params validation, the method, then the implicit render of `<views dir>/<action>`.
 Inside an action, `action :other` transfers without rerunning `before`.
 
-Resourceful actions read the action name off the URL tail: the last segment that is not a classified id.
+Resourceful actions read the action name off the URL tail: the last segment that is not an id.
+Under a matching map (`map 'boards'`), the next segment is an action the router defines, or else the id, Rails-style - no `nav.map_path` needed.
+An id `nav.map_path` / `nav.load_models` already set wins, and no second id is read.
+Any action after the id must be defined, else 404.
 
 | URL                        | Action    | `nav.ref` |
 |----------------------------|-----------|-----------|
 | `/boards`                  | `:index`  | nil       |
-| `/boards/edit`             | `:edit`   | nil       |
+| `/boards/new`              | `:new` (defined) | nil |
 | `/boards/123`              | `:show`   | "123"     |
+| `/boards/typo`             | `:show`   | "typo" - `find` 404s |
 | `/boards/123/edit`         | `:edit`   | "123"     |
-| `/boards/users/123`        | `:users`  | "123"     |
-| `/boards/foo/bar`          | `:bar`    | nil       |
+| `/boards/123/foo`          | `:foo`, 404 unless defined | "123" |
+
+`auto` does not read ids by position: there a word that is not a parsed id stays literal, so `/boards/typo` 404s instead of rendering `boards/ref.haml` without its record.
 
 Only methods the app defined on a `Lux::Router` subclass are reachable this way, so a URL never dispatches into a framework method or a root router method.
 Explicit `'router#action'` and Symbol targets bypass that check.
@@ -235,7 +243,8 @@ A mounted router starts from its own class layout.
 ## `auto`
 
 `auto` renders the template matching the views dir plus the remaining route path (`app/views/<views>/<path>.{haml,md,erb}`, or `.../root.*`), else 404s.
-It reads `Lux.ctx.route.normalized_path`, so a classified id maps to a literal `ref` segment on disk: `/boards/abc123/edit` renders `app/views/boards/ref/edit.haml`.
+A classified id reads as `'ref'`, so it maps to a literal `ref` segment on disk: `/boards/abc123/edit` renders `app/views/boards/ref/edit.haml`.
+Ids come only from `nav.map_path` / `nav.load_models`: an unparsed word is never read as an id, so `/boards/typo` 404s even when `boards/ref.haml` exists.
 Partials are never reachable by URL: a segment starting with `_` (or `-`, which maps to `_`) 404s, so `/profile/_menu` does not render `profile/_menu.haml`.
 Called from a route block it dispatches as action `:auto`, so the verb check and params validation run.
 `auto_render` is the bare renderer for actions that pick their own moment.
@@ -316,7 +325,8 @@ In dev, opening a page clears the terminal at most every 2s when stdout is a tty
 
 ## Route cursor
 
-`nav.path` is the canonical request path; `Lux.ctx.route` is the per-request cursor over it, and the single owner of path matching.
+App code reads the path with `nav.path`, `nav.root`, `nav.ref`, and the `map 'x' do |seg|` block argument for the next segment.
+`Lux.ctx.route` is the router's own per-request cursor over `nav.path`, and the single owner of path matching; reach for it only when a router needs the cursor-relative view.
 `map` advances the cursor without mutating nav, so a router mounted under a prefix never repeats that prefix.
 
 | | |

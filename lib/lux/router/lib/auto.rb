@@ -61,9 +61,9 @@ module Lux
       def auto_render
         throw :done if Lux.ctx.response.body?
 
-        # normalized_path, not path: a classified id renders as its value, but
-        # on disk the convention is a literal `ref` segment (boards/ref/edit.haml)
-        path = [template_dir] + Lux.ctx.route.normalized_path
+        # an id element reads `ref`, so boards/<id>/edit renders
+        # boards/ref/edit.haml
+        path = [template_dir] + Lux.ctx.route.path
         if tpl = auto_find_template(path)
           render tpl
         else

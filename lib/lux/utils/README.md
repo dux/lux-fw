@@ -23,12 +23,9 @@ with `var[:time_zone]`) need `tzinfo` in the app Gemfile; both load lazily.
 | `Lux::Utils::TimeOptions`   | `time_options.rb`    | `short` / `long` date formatters, mixed into Time/Date/DateTime |
 | `Lux::Utils::HtmlTag`       | `html_tag/`          | tag-based HTML builder DSL (vendored, rewritten); top-level `HtmlTag` kept as alias |
 | `Lux::Utils::Url`           | `url.rb`             | URL parser/builder with path attrs, locale, qs, pqs (vendored from `lux-url` gem); top-level `Url` kept as alias; browser twin is `$.url` |
-| `Lux::Utils::Ref`           | `ref.rb`             | `generate` / `is?` for the default ref format; the rule lives in `Lux::Router::Nav::RefString` |
 | `Lux::SafeString`           | `safe_string.rb`     | markup string templates print as is (`html_safe?`); required by `loader.rb` right after `lib/overload/string.rb`, see [Output escaping](../../overload/README.md#output-escaping) |
 
-The db plugin reopens `Lux::Utils::Ref` in `ext/nav_models.rb` to add the model
-registry (`register` / `klass` / `load` / `models` / `public_link`), which needs
-Sequel. One more constant lives there outright:
+One more constant lives in the db plugin outright, since it needs Sequel:
 
 | Constant | File |
 |----------|------|
@@ -265,6 +262,5 @@ Time.now.short(true) # force default format, ignore config
 
 * [`../context/README.md`](../context/README.md) - `Lux.ctx.encrypt/decrypt` (per-request variants)
 * [`url.rb`](./url.rb) - `Lux::Utils::Url` (server); browser twin [`dollar_url.js`](../../../plugins/web_common/assets/js/dollar/dollar_url.js) (`$.url`)
-* [`../router/lib/nav/ref_string.rb`](../router/lib/nav/ref_string.rb) - the format behind `Lux::Utils::Ref`
-* [`../../../plugins/db/lib/ext/nav_models.rb`](../../../plugins/db/lib/ext/nav_models.rb) - `Lux::Utils::Ref` model registry + `Nav#load_models` (db plugin)
+* [`../ref/README.md`](../ref/README.md) - `Lux::Ref`, the app's id format
 * [`../../../plugins/db/lib/ext/paginate.rb`](../../../plugins/db/lib/ext/paginate.rb) - `Lux::Utils::PaginatedArray`

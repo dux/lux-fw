@@ -33,7 +33,7 @@ end
 describe 'Lux::Router::Nav#load_models' do
   REF1 ||= 'd' * 16
 
-  # No extract_ref! here on purpose: load_models classifies refs itself.
+  # No nav.map_path here on purpose: load_models classifies refs itself.
   def nav_for path
     Lux::Context.new("http://example.com#{path}").nav
   end

@@ -144,6 +144,14 @@ class AdminTestRouter < Lux::Router
   def show;  render text: "admin:show:#{nav.ref}";       end
 end
 
+# mounted with the one-arg `map 'things'`; prints what it read from the URL
+class ThingsRouter < Lux::Router
+  def index = render(text: "things:index:#{nav.ref}")
+  def new   = render(text: "things:new:#{nav.ref}")
+  def show  = render(text: "things:show:#{nav.ref}")
+  def edit  = render(text: "things:edit:#{nav.ref}:#{nav.path.join('/')}")
+end
+
 # mounted without matching: sees the whole cursor it was mounted at
 class SpecPromoRouter < Lux::Router
   route { render text: "promo:#{Lux.ctx.route.path.join('/')}" }
@@ -226,6 +234,11 @@ ROUTES_SPEC_ROUTE ||= proc do
   map 'boards', 'boards'
   map 'profile', 'profile'
   map 'admin_test', 'admin_test'
+  map 'things'
+
+  map 'loose' do
+    map ThingsRouter
+  end
 
   map 'plain' do
     render text: 'plain'
@@ -321,8 +334,10 @@ describe 'Lux::Router' do
     app = Lux::Router.new('/')
     error = assert_raises(ArgumentError) { app.map(user: 'routes_test#user') }
     assert_includes error.message, "map 'users', UsersRouter"
-    error = assert_raises(ArgumentError) { app.map('routes_test') }
+    error = assert_raises(ArgumentError) { app.map('admin/users') }
     assert_includes error.message, 'map UsersRouter'
+    error = assert_raises(ArgumentError) { app.map('routes_test#') }
+    assert_includes error.message, "map 'routes_test'"
     error = assert_raises(ArgumentError) { app.map({ a: 1 }, 'routes_test#user') }
     assert_includes error.message, 'path segments'
   end
@@ -538,6 +553,43 @@ describe 'Lux::Router' do
 
     it '/admin_test/users/123/foo/bar -> :bar with nav.ref' do
       _(Lux.render.get('/admin_test/users/123/foo/bar').body).must_equal 'admin:bar:123'
+    end
+  end
+
+  # `map 'things'` == map 'things', 'things'. Rails-style: the next segment is
+  # an action the router defines, or else the id. The spec's root before filter
+  # classifies digits only, so letters arrive unparsed.
+  describe "one-arg map 'name' and ids by position" do
+    it 'matches /things and runs :index' do
+      _(Lux.render.get('/things').body).must_equal 'things:index:'
+    end
+
+    it 'runs a defined action' do
+      _(Lux.render.get('/things/new').body).must_equal 'things:new:'
+    end
+
+    it 'reads any other segment as the id and runs :show' do
+      _(Lux.render.get('/things/typo').body).must_equal 'things:show:typo'
+    end
+
+    it 'runs the action after the id, which reads ref in nav.path' do
+      _(Lux.render.get('/things/abc/edit').body).must_equal 'things:edit:abc:things/ref/edit'
+    end
+
+    it 'answers 404 for an undefined action after the id' do
+      _(Lux.render.get('/things/abc/foo').status).must_equal 404
+    end
+
+    it 'keeps an id nav.map_path already set' do
+      _(Lux.render.get('/things/12/edit').body).must_equal 'things:edit:12:things/ref/edit'
+    end
+
+    it 'does not read a second id once nav.ref is set' do
+      _(Lux.render.get('/things/abc/12').status).must_equal 404
+    end
+
+    it 'only reads ids by position under a matching map, not a bare mount' do
+      _(Lux.render.get('/loose/abc').status).must_equal 404
     end
   end
 

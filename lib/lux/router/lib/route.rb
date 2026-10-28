@@ -12,7 +12,7 @@ module Lux
     # and slug lookups still work.
     #
     # `:ref` is the one pattern matched by type rather than by text - it means
-    # "a segment nav.ref classified as an id" (see #match_segment?).
+    # a Lux::Ref::Base element, a segment nav.map_path classified (see #match_segment?).
     class Route
       def initialize nav
         @nav     = nav
@@ -21,12 +21,6 @@ module Lux
 
       def path
         @nav.path[@offsets.last..] || []
-      end
-
-      # #path with classified ids put back as the literal `ref` placeholder.
-      # See Nav#normalized_path - this is the cursor-relative view of it.
-      def normalized_path
-        @nav.normalized_path[@offsets.last..] || []
       end
 
       def root
@@ -104,19 +98,19 @@ module Lux
 
       private
 
-      # `:ref` matches any segment `nav.ref` classified as an id, by type - a
-      # literal URL segment spelled "ref" is not one. Everything else compares
-      # as text.
+      # `:ref` matches any Lux::Ref::Base element, by type - a literal URL
+      # segment spelled "ref" is not one. Everything else compares as text,
+      # and an id never matches as text.
       def match_segment? segment, pattern
-        return segment.is_a?(Nav::Base) if norm(pattern) == 'ref'
+        return segment.is_a?(Lux::Ref::Base) if norm(pattern) == 'ref'
 
-        !segment.is_a?(Nav::Base) && norm(segment) == norm(pattern)
+        !segment.is_a?(Lux::Ref::Base) && norm(segment) == norm(pattern)
       end
 
-      # A classified segment carries its own id (see Nav::Base), so a capture
-      # that lands on one binds the value, not the placeholder.
+      # An id element reads 'ref' and carries its id, so a capture that lands
+      # on one binds the value, not the placeholder.
       def segment_value segment
-        segment.is_a?(Nav::Base) ? segment.value : segment
+        segment.is_a?(Lux::Ref::Base) ? segment.value : segment
       end
 
       # `-` and `_` are the same character to the router. Applied to both sides

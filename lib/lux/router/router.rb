@@ -36,7 +36,7 @@ module Lux
     DEFAULT_ERROR_TEMPLATE ||= ERB.new(Lux.fw_root.join('assets/router/error_page.html.erb').read)
 
     # per-instance framework state; @_ prefixed, so a mount never copies it
-    IVARS ||= Struct.new 'LuxRouterIvars', :action, :layout, :render_cache, :only, :except
+    IVARS ||= Struct.new 'LuxRouterIvars', :action, :layout, :render_cache, :only, :except, :resource
     RENDER_OPTS ||= Struct.new 'LuxRouterRenderOpts', :inline, :text, :plain, :html, :json, :javascript, :xml, :cache, :template, :layout, :render_to_string, :status, :ttl, :content_type
 
     # Layout name; views dir and helper follow it unless set. Inherited, so

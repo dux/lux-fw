@@ -137,10 +137,9 @@ module Lux
       set_default config, :asset_root, false
       set_default config, :plugins, []
 
-      # What an id looks like, app-wide: the router (nav.map_path), the :ref
-      # column type, Lux::Utils::Ref and load_models all resolve through it, so
-      # they cannot drift apart. A registered name, or `{ name => attrs }`.
-      # See Lux::Router::Nav::Base.register for what is available.
+      # What an id looks like, app-wide: nav.map_path, the :ref column type and
+      # Lux::Ref.generate all resolve through it, so they cannot drift apart.
+      # A registered name, or `{ name => attrs }`. See Lux::Ref.register.
       set_default config, :ref_format, :string
 
       # Serve static files is on by default

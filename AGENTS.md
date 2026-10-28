@@ -53,22 +53,24 @@ touching the router. The three rules that catch people out:
 * **`-` and `_` are equal at compare time only** (`Route#norm`). `nav.path`
   keeps the URL's own spelling so slug lookups work; never normalise it in
   place.
-* **Three views of the path.** `nav.source_path` is the frozen original,
+* **Two views of the path.** `nav.source_path` is the frozen original,
   `nav.path` the working copy that `nav.map_path`, `nav.locale { }` and app code
-  rewrite in place, and `nav.normalized_path` the working copy as a *shape*
-  (classified ids back as `'ref'`). Values -> `path`, disk/template lookup ->
-  `normalized_path`, "what arrived" -> `source_path`. Never snapshot `nav.path`
-  yourself.
-* **A classified id is an object, never a symbol.** `nav.map_path` replaces the
-  segment with a `Lux::Router::Nav::Base` instance carrying the value, so
-  `nav.refs` is derived from `nav.path` and cannot drift from it. Test with
-  `is_a?(Nav::Base)`, never `== :ref`; `:ref` in a route pattern is matched by
-  type, so a URL segment spelled `ref` is not one. `nav.ref` is read-only.
+  rewrite in place. After `nav.map_path` an id reads as `'ref'` in `nav.path`
+  (the route shape, used for template lookup), and its value is on the element.
+  Values -> `nav.ref` / `nav.refs` / `nav.pathname`, shape -> `path`, "what
+  arrived" -> `source_path`. Never snapshot `nav.path` yourself.
+* **A classified id is a `Lux::Ref::Base` element.** `nav.map_path` replaces the
+  segment with a format instance - a frozen String reading `'ref'` whose
+  `.value` is the id - so `nav.refs` is derived from `nav.path` and cannot
+  drift from it. Test with `is_a?(Lux::Ref::Base)`, never `== 'ref'`; `:ref` in
+  a route pattern is matched by type, so a URL segment spelled `ref` is not
+  one. `nav.ref` is read-only.
 * **The id format is named once, by `Lux.config.ref_format`.** Never hardcode a
   format class. `nav.map_path`, `Lux::Type::RefType` (validation *and* column
-  width), `Lux::Utils::Ref` (primary keys) and `load_models` all resolve through
-  `Nav::Base.resolve` / `.build`, so an app that switches to `:uuid7` moves all
-  four together. New shapes subclass `Nav::Base` and `Nav::Base.register` a name.
+  width), `Lux::Ref.generate` (primary keys) and `load_models` all resolve
+  through `Lux::Ref.resolve` / `.build`, so an app that switches to `:uuid7`
+  moves all four together. New shapes subclass `Lux::Ref::Base` (or `Short` /
+  `Slug`) and `Lux::Ref.register` a name. See [`lib/lux/ref/README.md`](./lib/lux/ref/README.md).
 
 There are no per-action URL macros and no `_ref` action suffix - URLs are
 declared in the router. See [`doc/migration-routing.md`](./doc/migration-routing.md)
@@ -100,7 +102,7 @@ internal use and old apps.
 
 | Task | Canonical form | Read |
 |------|----------------|------|
-| Route a path | `map 'users', UsersRouter` / `map 'users', 'users#index'` (match, then target) / `map 'admin' do ... end` / `root 'main#index'` / one-arg `map MainRouter` (no match) inside `Lux.router { route do ... end }` (app/routes.rb); other shapes raise | [router](./lib/lux/router/README.md) |
+| Route a path | `map 'users'` (== `map 'users', 'users'`) / `map 'users', UsersRouter` / `map 'users', 'users#index'` (match, then target) / `map 'admin' do ... end` / `root 'main#index'` / one-arg `map MainRouter` or `map 'users#index'` (no match) inside `Lux.router { route do ... end }` (app/routes.rb); other shapes raise | [router](./lib/lux/router/README.md) |
 | Mount an API | `map 'api', ApplicationApi` | [api](./lib/lux/api/README.md) |
 | Validate params | `opt :name, String, max: 30` above `def`, or `params do ... end` | [router](./lib/lux/router/README.md) |
 | JSON endpoint | `define :name do proc { ... } end` in a `Lux::Api` class | [api](./lib/lux/api/README.md) |
@@ -126,6 +128,7 @@ internal use and old apps.
 | `Lux::Api`             | JSON API classes; same params DSL as routers               | [README](./lib/lux/api/README.md) |
 | `Lux::Schema`          | The shared schema DSL parser at the heart of the framework | [README](./lib/lux/schema/README.md) |
 | `Lux::Type`            | Named type vocabulary (`:email`, `:uuid`, `:slug`, ...)    | [README](./lib/lux/type/README.md) |
+| `Lux::Ref`             | The app id format (`Lux.config.ref_format`): `generate` / `is?`, formats, `nav.path` id elements | [README](./lib/lux/ref/README.md) |
 | `Lux::Policy`          | Framework- and ORM-agnostic access policy                  | [README](./lib/lux/policy/README.md) |
 | `Lux::Context`         | Thread-local context (`Lux.ctx`); request-less outside a request | [README](./lib/lux/context/README.md) |
 | `Lux::Response`        | HTTP response builder (`response` inside routers)          | [README](./lib/lux/response/README.md) |

@@ -66,7 +66,7 @@ Located in [`lib/lux/type/types/`](./types).
 | `:translated` | Hash(locale => text) | jsonb; bare string -> current locale; prunes stale locales when a single one changes |
 | `:image`     | String  | http(s) URL; `strict: true` requires a jpg/jpeg/gif/png/svg/webp extension (not an upload) |
 | `:model`     | nested schema | set automatically by `name do ... end` |
-| `:ref`       | String  | the app id format from `Lux.config.ref_format` via `Nav::Base`; width = `db_limit` |
+| `:ref`       | String  | the app id format from `Lux.config.ref_format` via `Lux::Ref`; width = `db_limit` |
 | `:ip`        | String  | IPv4/IPv6 via `Resolv` |
 | `:domain`    | String  | RFC-1123 host, peels scheme/path/port |
 | `:timezone`  | String  | TZInfo identifier; needs the `tzinfo` gem in the app Gemfile |

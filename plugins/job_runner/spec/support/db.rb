@@ -24,7 +24,7 @@ unless defined?(ApplicationModel)
     plugin :lux_schema
 
     def before_create
-      self[:ref] ||= Lux::Utils::Ref.generate
+      self[:ref] ||= Lux::Ref.generate
       super
     end
   end

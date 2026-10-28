@@ -224,36 +224,30 @@ describe Lux::Router::Nav do
     it 'reflects ref classification from nav.ref' do
       nav = nav_for('/boards/abc-123/edit')
       nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
-      _(nav[1]).must_be_kind_of Lux::Router::Nav::Base
+      _(nav[1]).must_be_kind_of Lux::Ref::Base
+      _(nav[1]).must_equal 'ref'
       _(nav[1].value).must_equal '123'
     end
   end
 
-  describe '#normalized_path' do
-    it 'puts classified ids back as the ref placeholder' do
+  describe '#path after map_path' do
+    it 'reads ids as ref, keeps the value on the element and the text elsewhere' do
       nav = nav_for('/boards/abc-123/edit')
-      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
-      _(nav.normalized_path).must_equal %w[boards ref edit]
-    end
+      classifier = ->(el) { el.include?('-') ? el.split('-').last : nil }
+      nav.map_path(&classifier)
 
-    it 'equals the path when nothing is classified' do
-      nav = nav_for('/boards/edit')
-      _(nav.normalized_path).must_equal %w[boards edit]
-    end
-
-    it 'leaves the working path untouched' do
-      nav = nav_for('/boards/abc-123/edit')
-      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
-      nav.normalized_path
-      _(nav.path[1]).must_be_kind_of Lux::Router::Nav::Base
-      _(nav.path.map(&:to_s)).must_equal %w[boards 123 edit]
-    end
-
-    it 'is the URL shape, while pathname stays concrete' do
-      nav = nav_for('/boards/abc-123/edit')
-      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
-      _('/' + nav.normalized_path.join('/')).must_equal '/boards/ref/edit'
+      _(nav.path).must_equal %w[boards ref edit]
+      _(nav.path[1].value).must_equal '123'
+      _(nav.ref).must_equal '123'
       _(nav.pathname).must_equal '/boards/123/edit'
+      _(nav.source_path).must_equal %w[boards abc-123 edit]
+
+      nav.map_path(&classifier)
+      _(nav.refs).must_equal ['123']
+    end
+
+    it 'is the plain path when nothing is classified' do
+      _(nav_for('/boards/edit').path).must_equal %w[boards edit]
     end
   end
 
@@ -284,7 +278,7 @@ describe Lux::Router::Nav do
       nav = nav_for('/skip/x1/boards/x1')
       nav.map_path { |el, list| el == 'x1' && list.last == 'boards' ? el : nil }
       _(nav.refs).must_equal %w[x1]
-      _(nav.normalized_path).must_equal %w[skip x1 boards ref]
+      _(nav.path).must_equal %w[skip x1 boards ref]
     end
 
     it 'yields both to a splat block without raising' do
@@ -318,7 +312,7 @@ describe Lux::Router::Nav do
       # second call must not re-process the classified segment or duplicate it
       nav.map_path(&classifier)
       _(nav.refs).must_equal ['123']
-      _(nav.path.map(&:to_s)).must_equal %w[boards 123]
+      _(nav.path).must_equal %w[boards ref]
     end
 
     it 'is a pure reader with no block - never mutates the path' do
@@ -344,8 +338,8 @@ describe Lux::Router::Nav do
       nav = nav_for('/boards/abc123')
       nav.map_path { |el| el == 'abc123' }
       _(nav.ref).must_equal 'abc123'
-      _(nav.path.map(&:to_s)).must_equal %w[boards abc123]
-      _(nav.path[1]).must_be_kind_of Lux::Router::Nav::Base
+      _(nav.path).must_equal %w[boards ref]
+      _(nav.path[1]).must_be_kind_of Lux::Ref::Base
     end
 
     it 'classifies from a format class with no block' do
@@ -361,19 +355,6 @@ describe Lux::Router::Nav do
       nav.map_path
       _(nav.refs).must_equal []
       _(nav.path).must_equal %w[boards short edit]
-    end
-
-    it 'exposes the segment before each ref as path_before' do
-      nav = nav_for('/orgs/a-1/users/b-2')
-      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
-      _(nav.path[1].path_before).must_equal 'orgs'
-      _(nav.path[3].path_before).must_equal 'users'
-    end
-
-    it 'has no path_before at position 0' do
-      nav = nav_for('/a-1/users')
-      nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
-      _(nav.path[0].path_before).must_be_nil
     end
 
     # regression: the value used to live in a parallel array, indexed by
@@ -418,7 +399,7 @@ describe Lux::Router::Nav do
     it 'survives nav.ref classification' do
       nav = nav_for('/boards/abc-123/edit')
       nav.map_path { |el| el.include?('-') ? el.split('-').last : nil }
-      _(nav.path.map(&:to_s)).must_equal %w[boards 123 edit]
+      _(nav.path).must_equal %w[boards ref edit]
       _(nav.source_path).must_equal %w[boards abc-123 edit]
     end
 

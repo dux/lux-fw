@@ -215,24 +215,22 @@ nav.ref / nav.refs                # captured ids
 nav.pathname(has: 'edit')         # /foo/edit/x => true
 ```
 
-Three views of the path:
+Two views of the path:
 
 | reader | what it is |
 |--------|------------|
 | `nav.source_path` | frozen snapshot of what arrived |
 | `nav.path` | the working copy, mutated in place |
-| `nav.normalized_path` | the working copy as a *shape* - ids back as `'ref'` |
 
-`nav.path` is the working copy: `nav.ref` swaps id segments for a
-`Nav::Base` instance carrying the id (see
-[`../../../doc/migration-nav-ref.md`](../../../doc/migration-nav-ref.md)),
-`nav.locale { }` peels a leading `/xx`, and app code edits it directly
-(`nav.path[1] = board.ref`).
+`nav.path` is the working copy: `nav.map_path` swaps each id segment for a
+`Lux::Ref::Base` element that reads `'ref'` and carries the id as `.value`
+(see [`../ref/README.md`](../ref/README.md)), `nav.locale { }` peels a leading
+`/xx`, and app code edits it directly (`nav.path[1] = board.ref`).
 
-`nav.normalized_path` is that same working copy with every classified id put
-back as the literal `'ref'` - `/boards/abc123/edit` reads
-`['boards', 'ref', 'edit']`. That is the form that maps to disk, so
-`auto_render` uses it to find `app/views/boards/ref/edit.haml`.
+After `nav.map_path`, `/boards/abc123/edit` reads `['boards', 'ref', 'edit']` -
+the route shape. `map :ref` matches it, and `auto_render` uses it to find
+`app/views/boards/ref/edit.haml`. `nav.path[1].value`, `nav.ref` and
+`nav.pathname` (`/boards/abc123/edit`) give the id back.
 
 `nav.source_path` is a frozen snapshot taken at the
 end of `Nav#initialize` - lowercased, format and `key:value` already stripped, but
@@ -242,7 +240,6 @@ and something in between may have changed it:
 ```ruby
 '/' + nav.source_path.join('/')   # stable canonical pathname
 ```
-
 It is not `request.path`, which is the raw Rack string: original case, extension
 and `key:value` segments intact, and not split into segments.
 

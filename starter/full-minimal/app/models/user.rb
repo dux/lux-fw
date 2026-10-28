@@ -17,7 +17,7 @@ class User < ApplicationModel
     first(email: email) || begin
       user = new(email: email)
       # A self-registering user owns their initial audit fields.
-      user[:ref] = user[:creator_ref] = user[:updater_ref] = Lux::Utils::Ref.generate
+      user[:ref] = user[:creator_ref] = user[:updater_ref] = Lux::Ref.generate
       user.save
     end
   end

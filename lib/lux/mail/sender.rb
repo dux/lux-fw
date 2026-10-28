@@ -67,10 +67,13 @@ module Lux
 
         private
 
-        # only mails a subclass defines; framework and Kernel methods are not mails
+        # only mails a subclass defines; framework and Kernel methods are not
+        # mails, but a subclass may reuse a Kernel name (`def test`)
         def mail_defined? name
-          return false if Lux::Mail::Sender.method_defined?(name) || Lux::Mail::Sender.private_method_defined?(name)
-          method_defined?(name) || private_method_defined?(name)
+          owner = instance_method(name).owner
+          ancestors.index(owner) < ancestors.index(Lux::Mail::Sender)
+        rescue NameError
+          false
         end
       end
 

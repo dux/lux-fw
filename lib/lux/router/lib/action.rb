@@ -12,10 +12,7 @@ module Lux
       def action name = nil
         resourceful = name.nil?
         name ||= resourceful_action(Lux.ctx.route.path)
-
-        # The single action-name sanitiser - dashes to underscores, non-word
-        # characters dropped. Every dispatch lands here.
-        name = name.to_s.tr('-', '_').gsub(/[^\w]/, '').to_sym
+        name = action_key(name)
 
         if name == :action
           raise Lux.error.internal_server_error('Forbiden action name :%s' % name)
@@ -268,6 +265,12 @@ module Lux
       def app_defined_action? name
         owner = method(name).owner
         owner.is_a?(Class) && owner < Lux::Router
+      end
+
+      # The single action-name sanitiser - dashes to underscores, non-word
+      # characters dropped. Every dispatch and resourceful lookup goes through it.
+      def action_key name
+        name.to_s.tr('-', '_').gsub(/[^\w]/, '').to_sym
       end
 
       # No action by that name. Override on a router to add a custom lookup;

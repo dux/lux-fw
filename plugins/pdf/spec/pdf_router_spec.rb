@@ -56,14 +56,14 @@ describe PdfRouter do
     end
 
     it 'survives load_models rewriting the ref segment out of nav.path' do
-      ref = Lux::Utils::Ref.generate
+      ref = Lux::Ref.generate
       Lux::Context.new "http://test/pdf/travel_orders/#{ref}"
 
       before = PdfRouter.new.send(:pdf_path)
       Lux.ctx.nav.map_path                    # what pdf routes.rb does
       after  = PdfRouter.new.send(:pdf_path)
 
-      _(Lux.ctx.nav.path.last).must_be_kind_of Lux::Router::Nav::Base
+      _(Lux.ctx.nav.path.last).must_be_kind_of Lux::Ref::Base
       _(after).must_equal before
       _(after).must_equal "/pdf/travel_orders/#{ref}"
     end

@@ -1,52 +1,15 @@
 # Nav <-> model integration. Needs Sequel, so it stays in the db plugin; core
 # Nav has no model knowledge.
 #
-# The ref *format* is core (named by Lux.config.ref_format, resolved through
-# Lux::Router::Nav::Base). What lives here is the mapping from a ref in the
-# URL to a record: the dispatch-key registry, and Nav#load_models.
+# The ref *format* is core (Lux::Ref). What lives here is the mapping from a
+# ref in the URL to a record: Lux::Ref.models and Nav#load_models.
 
 module Lux
-module Utils
 module Ref
-  extend self
-
-  REGISTRY ||= {}
-
-  # Ref.register(:ast, Asset)
-  def register key, klass
-    REGISTRY[key.to_sym] = klass
-  end
-
   # every model that declares an abbr; memoized after first scan
   def models
     @models ||= Sequel::Model.descendants.select { |klass| (klass.abbr rescue nil).present? }
   end
-
-  # resolve dispatch key (":ast") to model class
-  def klass key
-    REGISTRY[key.to_sym] || raise("Unsupported ref key #{key.inspect}")
-  end
-
-  # Ref.load("ast-abc123...")   -> Asset.find('abc123...')
-  # Ref.load(:ast, "abc123...")
-  def load key_ref, ref = nil
-    if ref
-      key = key_ref
-    else
-      key, ref = key_ref.to_s.split('-', 2)
-    end
-    klass(key).find(ref)
-  end
-
-  def public_link key_link
-    object = self.load key_link rescue nil
-    if object
-      "#{object.name || '-'} (#{key_link.split('-')[0]})".tag(:a, href: object.path)
-    else
-      key_link.to_s.tag(:span, class: 'gray')
-    end
-  end
-end
 end
 end
 
@@ -54,8 +17,8 @@ class Lux::Router::Nav
   # Resolve the URL's refs to records and export them as @object + @<model>
   # ivars on the running app.
   #
-  # Driven by the path, not by a model list: every classified ref is named by
-  # the segment in front of it (Nav::Base#path_before), which is matched against
+  # Driven by the path, not by a model list: every id is named by the segment
+  # in front of it in nav.path, which is matched against
   # each model's name, plural or abbr. A ref whose owner names no model is
   # skipped; a ref whose record does not exist raises `Lux.error.not_found`
   # (404) from `find`.
@@ -85,9 +48,14 @@ class Lux::Router::Nav
     found   = {}   # ivar name => record, in resolution order
     deepest = nil
 
-    # the segment in front of a ref names its model
-    path.grep(Lux::Router::Nav::Base).each do |segment|
-      klass, name = lookup[load_models_key(segment.path_before)]
+    # the segment in front of an id names its model
+    path.each_with_index do |segment, i|
+      next unless segment.is_a?(Lux::Ref::Base) && i > 0
+
+      owner = path[i - 1]
+      next if owner.is_a?(Lux::Ref::Base)   # two adjacent ids: the second has no name
+
+      klass, name = lookup[load_models_key(owner)]
       next unless klass
 
       object = klass.find(segment.value)
@@ -137,7 +105,7 @@ class Lux::Router::Nav
   # :usr), and /usr:<ref> means the parent. The subclass keeps its own name, so
   # /pro/<ref> still reaches it.
   def load_models_index models
-    models = Lux::Utils::Ref.models if models.nil?
+    models = Lux::Ref.models if models.nil?
 
     ordered = Array(models).sort_by { |klass| [klass.ancestors.length, klass.to_s] }
 

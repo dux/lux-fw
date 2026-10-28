@@ -1,3 +1,9 @@
+> **Superseded:** the formats moved to core `Lux::Ref` (`lib/lux/ref/`), and a
+> classified id now reads as `'ref'` in `nav.path` (value on `.value`), so
+> `normalized_path` and `path_before` are gone. See
+> [`../lib/lux/ref/README.md`](../lib/lux/ref/README.md). The rest of this page
+> is history.
+
 # Nav refs are objects now - what app authors need to change
 
 `nav.map_path { }` used to replace an id segment with the `:ref` **symbol** and park
@@ -238,7 +244,7 @@ call changed name, but if you required either file directly, update the path:
 
 | was | now |
 |-----|-----|
-| `Lux::Utils::Ref.generate` / `.is?` | [`lib/lux/utils/ref.rb`](../lib/lux/utils/ref.rb) (core) |
+| `Lux::Utils::Ref.generate` / `.is?` | now `Lux::Ref` - [`lib/lux/ref/ref.rb`](../lib/lux/ref/ref.rb) (core) |
 | `Lux::Type::RefType` | [`lib/lux/type/types/ref_type.rb`](../lib/lux/type/types/ref_type.rb) (core) |
 | `Nav#load_models`, `Ref.register` / `.klass` / `.load` / `.models` / `.public_link` | `plugins/db/lib/ext/nav_models.rb` (still the plugin - needs Sequel) |
 

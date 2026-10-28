@@ -7,7 +7,7 @@ ApplicationModel.include Lux::Policy::Model
 
 ApplicationModel.class_eval do
   def before_validation
-    self[:ref] ||= Lux::Utils::Ref.generate if new?
+    self[:ref] ||= Lux::Ref.generate if new?
     super
   end
 

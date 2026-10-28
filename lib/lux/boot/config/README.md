@@ -51,7 +51,7 @@ Lux.config.host = 'other.com'    # write at runtime
 Lux.config.delay_timeout       = 30
 Lux.config.serve_static_files  = true
 Lux.config.log_level           = :info     # YAML `log_level: info` works too (info / warn / error / debug)
-Lux.config.ref_format          = :string   # or :uuid7 - see Nav::Base.register
+Lux.config.ref_format          = :string   # or :uuid7 / :slug - see Lux::Ref.register
 
 # logger config
 Lux.config.logger_path_mask     = './log/%s.log'

@@ -47,7 +47,7 @@ makes `creator_ref` NOT NULL while the auto-fill needs `User.current`, so the
 first row attributes itself:
 
 ```ruby
-ref = Lux::Utils::Ref.generate
+ref = Lux::Ref.generate
 admin = User.new email: ..., is_admin: true
 admin[:ref] = admin[:creator_ref] = admin[:updater_ref] = ref
 admin.save

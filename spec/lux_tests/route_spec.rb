@@ -182,14 +182,14 @@ describe Lux::Router::Route do
     end
   end
 
-  describe '#normalized_path' do
-    it 'is the cursor-relative view of Nav#normalized_path' do
+  describe '#path' do
+    it 'reads a classified id as ref, cursor-relative' do
       Lux::Context.new('http://example.com/admin/spaces/abc123/edit')
       Lux.ctx.nav.map_path { |el| el == 'abc123' ? el : nil }
       route = Lux.ctx.route
 
-      _(route.normalized_path).must_equal %w[admin spaces ref edit]
-      route.with_scope(1) { _(route.normalized_path).must_equal %w[spaces ref edit] }
+      _(route.path).must_equal %w[admin spaces ref edit]
+      route.with_scope(1) { _(route.path).must_equal %w[spaces ref edit] }
     end
   end
 
@@ -218,7 +218,7 @@ describe Lux::Router::Route do
     it 'binds the id, not the placeholder, when nav.ref classification already ran' do
       Lux::Context.new('http://example.com/users/abc123/dashboard')
       Lux.ctx.nav.map_path { |el| el == 'abc123' ? el : nil }
-      _(Lux.ctx.nav.path[1]).must_be_kind_of Lux::Router::Nav::Base
+      _(Lux.ctx.nav.path[1]).must_be_kind_of Lux::Ref::Base
       _(Lux.ctx.route.capture('/users/:ref/dashboard')).must_equal({ ref: 'abc123' })
     end
 

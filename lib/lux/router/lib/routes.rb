@@ -54,6 +54,7 @@ module Lux
       # ```
       # map 'admin' do ... end              # scope: nested routes see the rest of the path
       # map :spaces, :ref, :admin do ... end  # segments matched in sequence, :ref by type
+      # map 'users'                         # match /users, resourceful UsersRouter
       # map 'users', UsersRouter            # mount a router, run its route
       # map 'users', 'users'                # same, by name -> UsersRouter
       # map 'login', 'guest#login'          # mount GuestRouter, run action :login
@@ -76,13 +77,15 @@ module Lux
       # map 'users', 'admin/users', foo: :bar   # -> @foo = :bar in Admin::UsersRouter
       # ```
       #
-      # Resourceful actions (a router with no `route` block):
+      # Resourceful actions (a router with no `route` block) - see
+      # #resourceful_action. Under a matching map the next segment is an action
+      # the router defines, or else the id; any later action must be defined:
       # ```
       # /admin                       -> :index
-      # /admin/edit                  -> :edit
+      # /admin/new                   -> :new    (def new)
       # /admin/123                   -> :show   (nav.ref = 123)
+      # /admin/typo                  -> :show   (nav.ref = typo)
       # /admin/123/edit              -> :edit   (nav.ref = 123)
-      # /admin/users/foo/bar         -> :bar
       # ```
       def map *args, **opts, &block
         throw :done if Lux.ctx.response.body?
@@ -111,6 +114,9 @@ module Lux
           target = args.first
 
           if target.is_a?(::String) && !target.include?('#')
+            # map 'boards' == map 'boards', 'boards'
+            return map(target, target.tr('-', '_'), **opts) if target.match?(/\A[\w-]+\z/)
+
             raise ArgumentError, "map #{target.inspect} needs a target: map 'users', UsersRouter. To dispatch without matching write map UsersRouter or map 'users#action'"
           end
 
@@ -124,7 +130,7 @@ module Lux
         end
 
         check_map_segments! args
-        map_scope(args) { map_dispatch target, opts }
+        map_scope(args) { map_dispatch target, opts, resource: true }
       end
 
       # Evaluates `plugins/<name>/routes.rb` in the Router instance, so the
@@ -203,7 +209,10 @@ module Lux
         Lux.ctx.route.with_scope(Lux.ctx.route.capture_length(base) - Lux.ctx.route.consumed.length) { map_dispatch target, opts }
       end
 
-      def map_dispatch target, opts
+      # resource: true when a map matched segments before this target, so a
+      # resourceful router may read the next segment as the id (see
+      # #resourceful_action).
+      def map_dispatch target, opts, resource: false
         throw :done if Lux.ctx.response.body?
 
         # log original app caller (skipped in production - caller() is expensive)
@@ -219,10 +228,14 @@ module Lux
           action target
         when ::String
           name, action_name = target.split('#', 2)
-          map_mount router_class(name), (action_name.to_sym unless action_name.to_s.empty?), opts
+          if action_name&.empty?
+            raise ArgumentError, "map target #{target.inspect} has no action - write map '#{name}' to match /#{name}, or map '#{name}#index'"
+          end
+
+          map_mount router_class(name), action_name&.to_sym, opts, resource: resource
         else
           if target.is_a?(::Class) && target < Lux::Router
-            map_mount target, nil, opts
+            map_mount target, nil, opts, resource: resource
           elsif defined?(Lux::Api) && target.is_a?(::Class) && target < Lux::Api
             # Mount point: the prefix the route consumed (`map '/admin/api', X`),
             # else the class's declared mount_on (default '/api'). mount_at sets
@@ -243,9 +256,10 @@ module Lux
 
       # Runs a router class in a fresh instance that sees this router's ivars
       # (framework state is @_ prefixed and stays behind).
-      def map_mount klass, action_name, opts
+      def map_mount klass, action_name, opts, resource: false
         router = klass.new
         state  = router.instance_variable_get(:@_lux)
+        state.resource = resource
 
         instance_variables_hash.each { |k, v| router.instance_variable_set k, v }
 
@@ -289,23 +303,39 @@ module Lux
         instance_exec(&cached[1])
       end
 
-      # Resourceful action resolution from the remaining route cursor path.
-      # The action is the last segment that is not a classified id, so it
-      # reads straight off the tail of the URL:
+      # Resourceful action from the remaining route cursor path, Rails-style.
+      # Under a matching map (`map 'users'`), the next segment is an action the
+      # router defines, or else the id: it becomes an id element in nav.path,
+      # so nav.ref reads it - unless nav.ref is already set by nav.map_path /
+      # load_models. The action is then the last segment that is not an id,
+      # and the router must define it, else 404:
       #
       #   /users               -> :index
-      #   /users/edit          -> :edit
+      #   /users/new           -> :new    (def new)
       #   /users/123           -> :show   (nav.ref == '123')
+      #   /users/typo          -> :show   (nav.ref == 'typo', find 404s)
       #   /users/123/edit      -> :edit   (nav.ref == '123')
-      #   /users/posts/123     -> :posts
-      #   /users/foo/bar       -> :bar
+      #   /users/123/foo       -> :foo    (404 unless def foo)
       #
       # Actions that need the id read `nav.ref`; there is no separate `_ref`
       # action name.
       def resourceful_action remaining
         return :index if remaining.empty?
 
-        (remaining.reverse.find { |s| !s.is_a?(Nav::Base) } || :show).to_sym
+        if @_lux.resource && !Lux.ctx.nav.ref && resourceful_id?(remaining.first)
+          Lux.ctx.nav.ref_at! Lux.ctx.route.consumed.length
+          remaining = Lux.ctx.route.path
+        end
+
+        (remaining.reverse.find { |s| !s.is_a?(Lux::Ref::Base) } || :show).to_sym
+      end
+
+      # a plain segment that names no action this router defines
+      def resourceful_id? segment
+        return false if segment.is_a?(Lux::Ref::Base)
+
+        key = action_key(segment)
+        !(respond_to?(key) && app_defined_action?(key))
       end
     end
   end

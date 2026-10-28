@@ -1,7 +1,3 @@
-require_relative './nav/base'
-require_relative './nav/ref_string'
-require_relative './nav/ref_uuid7'
-
 module Lux
   class Router
     class Nav
@@ -19,12 +15,12 @@ module Lux
         set_format
 
         # The path as the request arrived - lowercased, format and `key:value`
-        # already stripped, but before `nav.map_path { }` classification, `nav.locale { }`
-        # peeling or any app rewrite. #path is the working copy that all of those
-        # mutate; this is what you snapshot against.
+        # already stripped, but before `nav.map_path` classification, `nav.locale { }`
+        # peeling or any app rewrite. The one place an id survives as its URL
+        # text; #path is the working copy that all of those mutate.
         #
         # A plain dup is enough: every later mutation (map!, []=, shift, unshift,
-        # and the `@path = @path.map` in #map_path) replaces elements or the whole
+        # and the `@path = ...` in #map_path) replaces elements or the whole
         # array, never mutates a segment string in place.
         @source_path = @path.dup.freeze
       end
@@ -75,10 +71,11 @@ module Lux
         end
       end
 
-      # The working path: plain Strings for ordinary segments, a Nav::Base
-      # instance for anything `nav.map_path` classified as an id. Rewritten in place
-      # by `nav.map_path`, `nav.locale { }` and app code (`nav.path[1] = board.ref`,
-      # `unshift`, ...). See #source_path for the version that arrived.
+      # The working path: plain Strings, plus a Lux::Ref::Base for each segment
+      # `nav.map_path` classified as an id - it reads 'ref' (the route shape)
+      # and `.value` is the id. Rewritten in place by `nav.map_path`,
+      # `nav.locale { }` and app code (`nav.path[1] = board.ref`, `unshift`, ...).
+      # See #source_path for the version that arrived.
       def path
         @path
       end
@@ -87,30 +84,24 @@ module Lux
         @path = list
       end
 
-      # The working path with every classified id put back as the literal
-      # `ref` placeholder - the URL's *shape* rather than its values.
-      #
-      #   /boards/abc123/edit
-      #   path             ['boards', #<RefString "abc123">, 'edit']
-      #   normalized_path  ['boards', 'ref', 'edit']
-      #
-      # This is what maps to disk: the auto-render template convention is
-      # app/views/boards/ref/edit.haml. Unrelated to `Route#norm`, which is the
-      # `-`/`_` equivalence used when comparing a single segment.
-      def normalized_path
-        @path.map { |el| el.is_a?(Base) ? 'ref' : el }
-      end
-
-      # Every classified id in the URL, in path order. Derived from @path, so
-      # there is no second copy to fall out of sync with it.
+      # The `.value` of every id element in the path, in path order. Derived
+      # from @path, so there is no second copy to fall out of sync with it.
       def refs
-        @path.grep(Base).map(&:value)
+        @path.grep(Lux::Ref::Base).map(&:value)
       end
 
-      # The first classified id in the URL, or nil. Read-only - classification
-      # is #map_path.
+      # The first id in the path, or nil. Read-only - classification is
+      # #map_path, or a resourceful router reading an id by position (#ref_at!).
       def ref
         refs.first
+      end
+
+      # Marks the segment at `index` as an id by its position, the way a
+      # resourceful router reads /boards/<id>: it becomes an element of the
+      # app's ref format carrying the segment as is. Returns nav.ref.
+      def ref_at! index
+        @path[index] = Lux::Ref.build(@path[index].to_s)
+        ref
       end
 
       # Map id segments in the path to typed ref objects. One line in a router
@@ -121,10 +112,11 @@ module Lux
       #   nav.map_path :string, upcase: true    # ... with attributes
       #   nav.map_path { |segment, list| ... }  # a custom rule
       #
-      # A matched segment is replaced by a format instance carrying the value
-      # (see Nav::Base); the rest are left alone. With no block the format's own
-      # #valid? decides. With a block, the block decides per segment and the
-      # format's #valid? is bypassed by design - you have already ruled:
+      # A matched segment is replaced by a format instance that reads 'ref' and
+      # carries the id as `.value` (see Lux::Ref::Base); the rest are left alone.
+      # With no block the format's own #extract decides. With a block, the block
+      # decides per segment and the format is bypassed by design - you have
+      # already ruled:
       # * truthy return -> that value is the id (a literal `true` means the
       #                    segment itself)
       # * nil/false     -> segment left as-is
@@ -133,19 +125,20 @@ module Lux
       # look at what sits to its left. Declare only what you need - a one-arg
       # block is the common case.
       #
-      # nav.map_path { |el| el.split('-').last.then { |p| Ref.is?(p) ? p : nil } }
-      # /foo/title-cw7r/bar -> ['foo', #<RefString "cw7r">, 'bar'] -> nav.ref == 'cw7r'
+      # nav.map_path { |el| el.split('-').last.then { |p| Lux::Ref.is?(p) ? p : nil } }
+      # /foo/title-cw7r/bar -> ['foo', 'ref', 'bar'], nav.path[1].value == 'cw7r'
       #
-      # Segments that are no longer plain Strings (already classified, or set by
-      # app code) are skipped, so re-running is idempotent. Returns nav.ref.
+      # Elements that are already ids are skipped, so re-running is
+      # idempotent. Returns nav.ref.
       def map_path format = nil, **attrs, &block
-        klass, defaults = Base.resolve(format)
+        klass, defaults = Lux::Ref.resolve(format)
         attrs = defaults.merge(attrs)
 
-        # built left to right so each match can see the segment before it, in
-        # its already-classified form (see Nav::Base#path_before)
+        # built left to right so a block can see the segments before it, in
+        # their already-classified form
         @path = @path.each_with_object([]) do |el, list|
-          list << (el.is_a?(::String) ? classify(el, klass, attrs, list, &block) : el)
+          plain = el.is_a?(::String) && !el.is_a?(Lux::Ref::Base)
+          list << (plain ? classify(el, klass, attrs, list, &block) : el)
         end
 
         refs.first
@@ -176,10 +169,10 @@ module Lux
       end
 
       def to_s
-        @path.join('/').sub(/\/$/, '')
+        text_path.join('/').sub(/\/$/, '')
       end
 
-      # Reader, and the locale-segment classifier - same shape as #map_path.
+      # Reader, and the locale-segment classifier.
       # nav.locale { _1.length == 2 ? _1 : nil }
       def locale
         if @locale
@@ -210,9 +203,9 @@ module Lux
 
       # Canonical path string, or test path inclusion.
       # Reads from @path, so format/locale stripping and any app rewrite are
-      # reflected. Classified segments render as their value, not as a placeholder.
+      # reflected. Ids print as their value.
       def pathname ends: nil, has: nil
-        pn = '/' + @path.map(&:to_s).join('/')
+        pn = '/' + text_path.join('/')
         return pn.include?("/#{has}") if has
         return pn.end_with?("/#{ends}") if ends
         pn
@@ -232,11 +225,15 @@ module Lux
           return segment unless result
           value = result == true ? segment : result
         else
-          value = segment
-          return segment unless klass.new(value, **attrs).valid?
+          value = klass.new(nil, **attrs).extract(segment) or return segment
         end
 
-        klass.new value, path_before: list.last, **attrs
+        klass.new value, **attrs
+      end
+
+      # the path as URL text - an id element prints its value, not 'ref'
+      def text_path
+        @path.map { _1.is_a?(Lux::Ref::Base) ? _1.value.to_s : _1.to_s }
       end
 
       def set_variables

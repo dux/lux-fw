@@ -39,9 +39,8 @@ class AutoSpecRouter < Lux::Router
   end
 end
 
-# auto resolves a template from the route path. A classified id renders as its
-# value, but the on-disk convention is a literal `ref` segment, so the resolver
-# reads Lux.ctx.route.normalized_path.
+# auto resolves a template from the route path, where a classified id reads as
+# the literal `ref` - the on-disk convention (boards/ref/edit.haml).
 class RefTemplateRouter < Lux::Router
   template_root './spec/fixtures/views'
   views  'boards'
@@ -165,7 +164,8 @@ describe 'Lux::Router route scopes and auto' do
       _(Lux.ctx.nav.ref).must_be_nil
     end
 
-    it 'answers 404 when no template matches' do
+    # ids come only from nav.map_path; an unparsed word is never read as one
+    it 'answers 404 when no template matches, even with a ref template there' do
       _(Lux.render.get('http://test/ref-tpl/missing').status).must_equal 404
     end
 
