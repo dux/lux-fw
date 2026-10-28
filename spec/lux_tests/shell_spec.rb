@@ -28,6 +28,10 @@ describe Lux::Shell do
       _(Lux.shell.exec('cat', stdin_data: 'y' * 200_000, timeout: 5).size).must_equal 200_000
     end
 
+    it 'returns text in the default external encoding with a timeout' do
+      _(Lux.shell.exec('echo', 'račun', timeout: 5).encoding).must_equal Encoding.default_external
+    end
+
     it 'calls block(err, out) on failure and returns nil' do
       seen_err = seen_out = nil
       result = Lux.shell.exec('sh', '-c', 'echo to-out; echo to-err 1>&2; exit 4') do |err, out|

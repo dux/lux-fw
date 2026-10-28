@@ -241,7 +241,8 @@ module Lux
         status = wait_thr.value
       end
 
-      [out, err, status, timed_out]
+      # readpartial yields binary chunks; match Open3.capture3, which returns default_external
+      [out.force_encoding(Encoding.default_external), err.force_encoding(Encoding.default_external), status, timed_out]
     rescue Errno::ENOENT => e
       [String.new, e.message, nil, false]
     end
