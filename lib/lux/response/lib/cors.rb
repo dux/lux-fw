@@ -38,7 +38,7 @@ module Lux
           max_age ||= DEFAULT_MAX_AGE
         end
 
-        request      = response.current.request
+        request      = Lux.ctx.request
         origin_value = resolve_origin(request, origins)
         h            = response.headers
 
