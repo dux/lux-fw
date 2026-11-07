@@ -110,7 +110,8 @@ bundle exec lux s
 
 Setup uses the generated app's bundle and development database.
 The database step connects before it creates, so setup can be re-run over a database that already exists.
-When invoked from a local Lux checkout, the generator links every checkout the starter declares into `./.libs`: each `lgem 'name'` in the Gemfile and each `"file:.libs/name"` in `package.json`, whichever exist next to the Lux checkout.
+When invoked from a local Lux checkout, the generator links every checkout the starter declares into `./.libs`: each `lgem 'name'` in the Gemfile and each `"link:.libs/name"` (or `file:`) in `package.json`, whichever exist next to the Lux checkout.
+A `link:` dependency is a symlink in `node_modules`, so the app builds against the live checkout; `file:` is a copy taken at install.
 An installed Lux gem links nothing; `lgem` then falls back to the RubyGems gem, pinned exactly (`'= X.Y.Z'`) to the version that ran `lux new` (no pin for a `dev` build or an unresolvable version).
 Both starters declare lux-fw with `lgem`.
 It also writes the app's `AGENTS.md` with a marked block that points coding agents at the framework docs: `.libs/lux-fw/AGENTS.md` for a linked checkout, the installed gem's absolute path otherwise.

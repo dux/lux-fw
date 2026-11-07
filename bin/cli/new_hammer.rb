@@ -60,10 +60,10 @@ task :new do
     end
 
     # Which local checkouts the starter wants linked, read from what it declares:
-    # `lgem 'x'` in the Gemfile and `"file:.libs/x"` in package.json.
+    # `lgem 'x'` in the Gemfile and `"link:.libs/x"` (or `file:`) in package.json.
     package_json = File.join(target, 'package.json')
     wanted  = File.read(File.join(target, 'Gemfile')).scan(/^\s*lgem '([^']+)'/).flatten
-    wanted += File.read(package_json).scan(%r{"file:\.libs/([^"]+)"}).flatten if File.exist?(package_json)
+    wanted += File.read(package_json).scan(%r{"(?:link|file):(?:\./)?\.libs/([^"]+)"}).flatten if File.exist?(package_json)
 
     if local_fw
       FileUtils.mkdir_p File.join(target, '.libs')
