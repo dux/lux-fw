@@ -5,8 +5,6 @@
 %h1.mb-1 Dev
 %p.gray.mb-5
   = user ? user.email : 'not logged in'
-  %span &sdot;
-  %a{ href: '/admin' } admin
 
 %ul
   - for page in pages

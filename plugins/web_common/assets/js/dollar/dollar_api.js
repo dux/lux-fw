@@ -86,14 +86,11 @@ ApiResponse.define({
   follow(arg) {
     let header_location
     if (arg) {
-      // Api('posts/create', name: 'New post').follow('/admin/posts/show/ulid:{ulid}')
+      // Api('posts/create', name: 'New post').follow('/posts/show/ulid:{ulid}')
       const path = arg.replace(/\{(\w+)\}/g, (_, r1) => this.data[r1])
       Fez.load(path)
     } else if ((header_location = this.api_response.getResponseHeader('location'))) {
       Fez.load(header_location)
-    } else if (location.pathname.includes('/admin/')) {
-      const base = location.pathname.split('/')[2]
-      Fez.load(`/admin/${base}/${this.data.ref}`)
     } else if (this.meta.path) {
       Fez.load(this.meta.path)
     } else {
