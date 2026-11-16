@@ -64,8 +64,9 @@ Gem::Specification.new 'lux-fw' do |gem|
 
   ### shuld be removed from a gem
 
-  # for console
+  # for console; reline is Pry's input (loader.rb), a bundled gem since Ruby 4.0
   gem.add_dependency 'pry'
+  gem.add_dependency 'reline'
 
   # best ORM mapper for ruby/postgres
   gem.add_dependency 'sequel'
