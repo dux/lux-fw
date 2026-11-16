@@ -30,7 +30,10 @@ module LuxPack
   #
   # Note the app code then comes only from the pushed commit. HEAD has to be on
   # the remote, or the box has nothing to reset to.
-  def build dest: DEFAULT_DEST, includes: [], dry: false, only_gems: false
+  #
+  # excludes drops paths the release must not carry (deploy keys, dev tooling,
+  # specs): a tracked file at or under one, or an include that is one.
+  def build dest: DEFAULT_DEST, includes: [], excludes: [], dry: false, only_gems: false
     raise Hammer::Error, 'not a git repo (no ./.git)' unless Dir.exist?('.git')
     abs = File.expand_path(dest.to_s.strip)
     cwd = File.expand_path(Dir.pwd)
@@ -55,12 +58,15 @@ module LuxPack
 
       AUTO_INCLUDES.each { |p| includes |= [p] if File.exist?(p) }
     end
-    includes.select! { |p| File.exist?(p) }
+    excludes = excludes.map { |p| p.chomp('/') }
+    excluded, files = files.partition { |f| excluded?(f, excludes) }
+    includes = includes.select { |p| File.exist?(p) && !excluded?(p, excludes) }
 
     puts 'Pack -> %s'         % dest.colorize(:yellow)
     puts 'Mode          : %s' % 'only-gems'.colorize(:yellow) if only_gems
     puts 'Tracked files : %s' % files.size.to_s.colorize(:yellow) unless only_gems
     puts 'Skipped (gone): %s' % missing.size.to_s.colorize(:red) if missing.any?
+    puts 'Excluded      : %s' % excluded.size.to_s.colorize(:yellow) if excluded.any?
     puts 'Includes      : %s' % (includes.empty? ? '-' : includes.join(', ')).colorize(:yellow)
 
     if dry
@@ -90,6 +96,10 @@ module LuxPack
     end
 
     warn_unsynced_links files, includes
+  end
+
+  def excluded? path, excludes
+    excludes.any? { |x| path == x || path.start_with?("#{x}/") }
   end
 
   # rsync -L bakes the *working-tree* state of every symlinked repo into the
@@ -165,12 +175,15 @@ task :pack do
   desc 'Build a symlink-flattened, gitignore-clean app copy ready for rsync deploy'
   opt :dest,    alias: :d, type: :string,  default: LuxPack::DEFAULT_DEST, desc: 'Destination dir'
   opt :include, alias: :i, type: :string,  default: '',                    desc: 'Extra gitignored paths to bundle (comma-sep)'
+  opt :exclude, alias: :x, type: :string,  default: '',                    desc: 'Tracked paths to leave out of the pack (comma-sep)'
   opt :dry_run, alias: :n, type: :boolean, default: false,                 desc: 'List what would be packed, write nothing'
   opt :only_gems,          type: :boolean, default: false,                 desc: 'Pack ./.libs only - no app files, no other includes'
 
   proc do |opts|
+    list = ->(value) { value.to_s.split(',').map(&:strip).reject(&:empty?) }
     LuxPack.build dest:      opts[:dest],
-                  includes:  opts[:include].to_s.split(',').map(&:strip).reject(&:empty?),
+                  includes:  list.(opts[:include]),
+                  excludes:  list.(opts[:exclude]),
                   dry:       opts[:dry_run],
                   only_gems: opts[:only_gems]
   end
