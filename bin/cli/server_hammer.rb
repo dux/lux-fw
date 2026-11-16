@@ -40,8 +40,12 @@ task :server do
       ' by %s' % cwd.sub(/\A#{Regexp.escape(Dir.home)}/, '~')
     end
 
+    # Same bind rule as lux_boot (lib/lux/boot/puma.rb): loopback unless
+    # PUMA_HOST says otherwise. The CLI bind outranks the config file's, so it
+    # has to carry the host too, or puma falls back to every interface.
+    host = ENV['PUMA_HOST'] ||= '127.0.0.1'
     require 'socket'
-    TCPServer.new('0.0.0.0', port).close
+    TCPServer.new(host, port).close
 
     # rename the terminal window/tab (ghostty, iterm2) for the server's lifetime
     print "\e]0;lux: #{File.basename(Dir.pwd)}\a" if $stdout.tty?
@@ -53,10 +57,10 @@ task :server do
     base = "#{envs} bundle exec puma #{puma_cfg}".squeeze(' ')
 
     if opts[:rerun]
-      sh "find #{LUX_ROOT} . -name '*.rb' | entr -r #{base} -p #{port}"
+      sh "find #{LUX_ROOT} . -name '*.rb' | entr -r #{base} -b tcp://#{host}:#{port}"
     else
       # replace the launcher with puma so no idle ruby process lingers
-      exec "#{base} -p #{port}"
+      exec "#{base} -b tcp://#{host}:#{port}"
     end
   rescue Errno::EADDRINUSE
     Lux.shell.die 'Port %s is already in use%s. Use -p PORT or PORT=n lux s' % [port, port_owner.(port)]
