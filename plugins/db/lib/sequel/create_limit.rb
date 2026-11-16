@@ -1,24 +1,37 @@
-# define create limit for objects in a database
-# registred user can create max or x items in y time
-
-# triggers autoloader error unless present
-# ApplicationModel
-
-# create max 30 objects per day
-# create_limit 30, 1.day
-
-# create max 30 object that have the same :org_ref
-# create_limit 30, :org_ref
+# Spam protection: a user may create at most N records of a model in a time
+# window, or N per value of a field.
+#
+#   create_limit 30, 1.day        # 30 per user per day
+#   create_limit 30, :org_ref     # 30 per user with the same org_ref
+#
+# It guards client writes only, so it runs inside an HTTP API call
+# (Lux::Api.current) and nowhere else - router pages, jobs, seeds and the
+# console create freely. Admins (User#is_admin?) are never limited. Inside an
+# API call the check can be switched off for a block, on every model:
+#
+#   Spot.without_create_limit { SpotImporter.new(data).import_all }
 
 module Sequel::Plugins::LuxCreateLimit
   def self.apply(model)
     model.cattr :create_limit_data
   end
 
-  module ClassMethods
+  def self.skipped?
+    Thread.current[:lux_create_limit_skip] == true
+  end
 
+  module ClassMethods
     def create_limit number, in_time, name=nil
       cattr.create_limit_data = [number, in_time, name]
+    end
+
+    # Per thread and nestable, restored even when the block raises
+    def without_create_limit
+      prev = Thread.current[:lux_create_limit_skip]
+      Thread.current[:lux_create_limit_skip] = true
+      yield
+    ensure
+      Thread.current[:lux_create_limit_skip] = prev
     end
   end
 
@@ -26,38 +39,30 @@ module Sequel::Plugins::LuxCreateLimit
     def validate
       super
 
-      # spam protection is for web requests; seeds, jobs and the console create freely
-      return unless Lux.runtime.web?
+      return unless new?
+      return unless data = cattr.create_limit_data
+      return unless db_schema[:creator_ref]
+      return unless defined?(Lux::Api) && Lux::Api.current
+      return if Sequel::Plugins::LuxCreateLimit.skipped?
       return unless defined?(User)
 
-      # return if object exists
-      return unless new?
+      user = ::User.try(:current)
+      raise Lux.error.unauthorized('You need to log in to save') unless user
+      return if user.respond_to?(:is_admin?) && user.is_admin?
 
-      return unless db_schema[:creator_ref]
+      max_count, sec_or_field, _name = *data
 
-      if data = cattr.create_limit_data
-        unless ::User.try(:current)
-          raise Lux.error.unauthorized('You need to log in to save')
-        end
+      mine = self.class.where(creator_ref: user.ref)
 
-        # Dev only: seeding runs as a real user, so a reseed spends that user's
-        # whole quota and locks them out of their own site for a day. Production
-        # keeps the limit for everybody - raise it per model if it is too tight.
-        return if Lux.env.dev? && ::User.current.respond_to?(:is_admin?) && ::User.current.is_admin?
-
-        max_count, sec_or_field, name = *data
-
-        mine = self.class.where(creator_ref: ::User.current.ref)
-
+      current_count =
         if sec_or_field.is_a?(Symbol)
-          current_count = mine.where(sec_or_field => self[sec_or_field]).count
+          mine.where(sec_or_field => self[sec_or_field]).count
         else
-          current_count = mine.where(Sequel.lit("created_at > (now() - interval '#{sec_or_field.to_i} seconds')")).count
+          mine.where(Sequel.lit("created_at > (now() - interval '#{sec_or_field.to_i} seconds')")).count
         end
 
-        if !Lux.env.test? && current_count >= max_count
-          errors.add(:base, create_limit_message(*data))
-        end
+      if !Lux.env.test? && current_count >= max_count
+        errors.add(:base, create_limit_message(*data))
       end
     end
 

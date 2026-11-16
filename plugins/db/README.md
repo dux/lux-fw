@@ -166,6 +166,23 @@ Errors added in a `before` hook abort the write with `Sequel::ValidationFailed`.
 Hooks declared on a parent class (`ApplicationModel`) fire for every subclass.
 `save!` (`validate: false`) skips hooks and validation.
 With `lux_before_save` plugged after `lux_hooks` (the usual order), the record's `find`/`take` cache entry is dropped before the `after(:c)` / `after(:u)` hooks run, so a hook that reloads it through `find` sees the saved row.
+`lux_before_save` stamps `created_at` on create unless the record already carries one, so an import can keep the source date; `updated_at` is stamped on every save.
+
+## Create limit
+
+```ruby
+class Post < ApplicationModel
+  plugin :lux_create_limit
+  create_limit 100, 1.day      # per user (creator_ref) per window
+  create_limit 30, :org_ref    # or per user and field value
+end
+
+Post.without_create_limit { import_posts }   # off for the block, on every model
+```
+
+Spam protection for client writes: it runs only inside an HTTP API call (`Lux::Api.current`), so router pages, jobs, seeds and the console create freely.
+Admins (`User#is_admin?`) are never limited; a guest inside an API call gets `unauthorized`.
+`without_create_limit` is per thread, nestable, and restored when the block raises.
 
 ## Named caches
 

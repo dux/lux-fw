@@ -924,6 +924,15 @@ describe 'plugins/db/before_save_filters.rb' do
       assert_in_delta Time.now.utc, u.created_at, 2
     end
 
+    it 'keeps a created_at given on create, and never rewrites it on update' do
+      at = Time.utc(2020, 1, 2, 3, 4, 5)
+      u = create_user(name: 'Imported', created_at: at)
+      _(User[u.ref].created_at.to_i).must_equal at.to_i
+
+      u.update(name: 'Edited')
+      _(User[u.ref].created_at.to_i).must_equal at.to_i
+    end
+
     it 'sets updated_at on every save' do
       u = create_user(name: 'Up')
       original_updated = u.updated_at
@@ -2007,8 +2016,9 @@ describe 'plugins/db/create_limit.rb' do
   end
 
   describe 'validate' do
-    before { Lux.runtime.define_singleton_method(:web?) { true } }
-    after  { Lux.runtime.singleton_class.send(:remove_method, :web?) }
+    # inside an HTTP API call, the only place the limit runs
+    before { Thread.current[:lux_api] = Object.new }
+    after  { Thread.current[:lux_api] = nil }
 
     it 'raises when no user is logged in' do
       User.current = nil
@@ -2071,12 +2081,33 @@ describe 'plugins/db/create_limit.rb' do
         _(note.valid?).must_equal true
       end
 
-      it 'skips the limit outside the web runtime' do
+      it 'skips the limit outside an HTTP API call' do
         3.times { |i| Note.create(ref: new_ref, body: "N#{i}", creator_ref: current_user.ref) }
-        Lux.runtime.define_singleton_method(:web?) { false }
+        Thread.current[:lux_api] = nil
 
         note = Note.new(ref: new_ref, body: 'Seeded', creator_ref: current_user.ref)
         _(note.valid?).must_equal true
+      end
+
+      it 'never limits an admin' do
+        3.times { |i| Note.create(ref: new_ref, body: "N#{i}", creator_ref: current_user.ref) }
+        current_user.define_singleton_method(:is_admin?) { true }
+
+        note = Note.new(ref: new_ref, body: 'Admin', creator_ref: current_user.ref)
+        _(note.valid?).must_equal true
+      end
+
+      it 'skips the limit inside without_create_limit and restores it after a raise' do
+        3.times { |i| Note.create(ref: new_ref, body: "N#{i}", creator_ref: current_user.ref) }
+        note = Note.new(ref: new_ref, body: 'Imported', creator_ref: current_user.ref)
+
+        Note.without_create_limit do
+          Note.without_create_limit { _(note.valid?).must_equal true }
+          _(note.valid?).must_equal true
+        end
+        _ { Note.without_create_limit { raise ArgumentError } }.must_raise ArgumentError
+
+        _(note.valid?).must_equal false
       end
     end
   end

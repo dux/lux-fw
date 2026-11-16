@@ -173,6 +173,9 @@ endpoint. Private and protected methods are never endpoints.
 | `send_file(path, opts)` / `send_data(blob, opts)` | file download |
 | `super!`                | call the superclass action - use for BOTH collection and member endpoints (plain `super` is unreliable inside a `define` proc body) |
 
+`Lux::Api.current` is the API instance serving the current HTTP request, nil anywhere else (router pages, jobs, console, an in-process `render`).
+Model code reads it to tell a client write from the app's own, as the db plugin's `create_limit` does.
+
 ### Calling super
 
 Action bodies are `Proc`s installed via `define_method`, and `ref do` renames member

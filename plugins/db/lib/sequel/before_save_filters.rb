@@ -12,8 +12,9 @@ module Sequel::Plugins::LuxBeforeSave
     end
 
     def lux_stamp_audit
-      # timestamps
-      self[:created_at] = Time.now.utc if new? && respond_to?(:created_at)
+      # timestamps; a create may carry its own created_at (an import keeping the
+      # source date) - clients cannot, ModelApi strips the audit columns
+      self[:created_at] ||= Time.now.utc if new? && respond_to?(:created_at)
       self[:updated_at] = Time.now.utc if respond_to?(:updated_at)
 
       # audit fields are written once, at create; a later write cannot rewrite

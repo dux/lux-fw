@@ -53,10 +53,20 @@ module Lux
       @bearer_token = @api.bearer
     end
 
+    # The API serving an HTTP request, nil anywhere else (router pages, jobs,
+    # console, an in-process render). Model code asks this to tell a client
+    # write from its own - see the db plugin's create_limit.
+    def self.current
+      Thread.current[:lux_api]
+    end
+
     def execute_call
       # an in-process render (no request) is not an HTTP call, skip the verb check
       request_type = @api.request&.request_method
       is_allowed   = request_type.nil? || Lux::Utils::HttpVerbs.allowed?(@api.method_opts[:allow] || [:post], request_type)
+
+      prev_api = Thread.current[:lux_api]
+      Thread.current[:lux_api] = self if request_type
 
       if is_allowed
         begin
@@ -96,6 +106,8 @@ module Lux
       end
 
       @api.raw || response.render
+    ensure
+      Thread.current[:lux_api] = prev_api
     end
 
     def to_json

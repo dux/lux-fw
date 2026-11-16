@@ -1,25 +1,24 @@
 require 'test_helper'
 
 describe Lux::Response::Cors do
-  # Minimal stand-ins so we can drive Cors.apply without booting the app.
+  # Cors.apply reads the request from Lux.ctx; the response is a stand-in, so
+  # the app does not have to boot.
   Headers ||= Class.new(Hash) do
     def []=(k, v); super(k.to_s.downcase, v); end
     def [](k);     super(k.to_s.downcase); end
   end
 
-  Request ||= Struct.new(:env, :request_method)
-  ResponseStub ||= Struct.new(:headers, :current, :_status, :_body) do
+  ResponseStub ||= Struct.new(:headers, :_status, :_body) do
     def status(n); self._status = n; end
     def body(b);   self._body = b;   end
   end
-  CurrentStub ||= Struct.new(:request)
 
   def build_response request_method: 'GET', origin: nil, acrm: nil
-    env = {}
+    env = { method: request_method }
     env['HTTP_ORIGIN'] = origin if origin
     env['HTTP_ACCESS_CONTROL_REQUEST_METHOD'] = acrm if acrm
-    req = Request.new(env, request_method)
-    ResponseStub.new(Headers.new, CurrentStub.new(req))
+    Lux::Context.new Rack::MockRequest.env_for('/', env)
+    ResponseStub.new(Headers.new)
   end
 
   describe ':all shortcut' do

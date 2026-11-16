@@ -32,6 +32,12 @@ class RootMountedPingApi < RootMountedApi
   end
 end
 
+class RoutingCurrentApi < ApplicationApi
+  define :current do
+    proc { Lux::Api.current.equal?(self) }
+  end
+end
+
 def routing_env path, method: 'GET'
   {
     'REQUEST_METHOD'  => method,
@@ -89,5 +95,13 @@ describe 'Lux::Api.opts memo' do
   it 'keeps callback arrays out of the merged opts' do
     _(ApplicationApi.opts.values.all? { _1.is_a?(Hash) }).must_equal true
     _(ApplicationApi.opts.key?(:before_all)).must_equal false
+  end
+
+  it 'exposes the API serving an HTTP call as Lux::Api.current, and only then' do
+    _, body = routing_call ApplicationApi, '/api/routing_current/current'
+    _(body[:data]).must_equal true
+    _(Lux::Api.current).must_be_nil
+
+    _(RoutingCurrentApi.render(:current)[:data]).must_equal false
   end
 end
