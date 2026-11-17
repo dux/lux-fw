@@ -572,7 +572,7 @@ Optional features, loaded with `Lux.plugin :name`. Canonical layout: see
 |--------|------|------|
 | `db`               | Sequel model extensions, auto-migrate, `link` associations | [README](./plugins/db/README.md) |
 | `authcog`          | Central-auth sign-in: `AuthcogRouter`, `UserSession` + sudo | [README](./plugins/authcog/README.md) |
-| `web_common`       | Shared web layer: html builders, asset pipeline, JSON exception log (dboss), `/dev` pages, `ModelApi`, browser lib (`$`, `Api`, `Toast`, `<api-form>`); list `authcog` next to it | [README](./plugins/web_common/README.md) |
+| `web_common`       | Shared web layer: html builders, asset pipeline, JSON exception log (dboss), `/dev` pages, `ModelApi`; no browser JS, the app owns it; list `authcog` next to it | [README](./plugins/web_common/README.md) |
 | `locale`           | Namespaced translation lookup + `/<xx>` URL prefixes (`localized`, `Lux.ctx.lpath`) | [README](./plugins/locale/README.md) |
 | `favicon`          | `public/favicon.svg` -> generated `.ico` + touch icon, `<head>` links from `Lux.ctx.render_html` / `header.render` (`el.icon false` opts out) | [README](./plugins/favicon/README.md) |
 | `job_runner`       | Background job queue (LuxJob) + admin dashboard | [README](./plugins/job_runner/README.md) |

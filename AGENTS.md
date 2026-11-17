@@ -114,7 +114,6 @@ internal use and old apps.
 | Cache | `Lux.cache.fetch(key, ttl: 60) { ... }` | [cache](./lib/lux/cache/README.md) |
 | Background job | `LuxJob.add :name, opts` (job_runner plugin), `Lux.defer { }` for fire-and-forget | [job_runner](./plugins/job_runner/README.md) |
 | Ship assets | `lux assets:deploy` (generate `app/assets/*.tmp.*` -> compile -> manifest -> upload); the app defines `lux assets:compile` and `lux assets:upload LOCAL_PATH REMOTE_PATH` in `lib/tasks` | [web_common](./plugins/web_common/README.md) |
-| Call a model API from JS | `app.m.user(ref).update({...})` (`app.m.user.create({...})` for collection actions) | [web_common](./plugins/web_common/README.md#model-handles) |
 | Mail | `class Mailer < Lux::Mail::Sender`, `Mailer.deliver(:welcome, user)` | [mail](./lib/lux/mail/README.md) |
 | Model fields | `schema do ... end` in the model, migrated by `lux db:am` | [db](./plugins/db/README.md) |
 | User text / HTML | stored as typed, escaped on output by Haml `=`; build markup with `.tag` (returns `Lux::SafeString`), print trusted stored markup with `.html_unsafe` (not a sanitizer - only `<script>`/`<style>` are disabled; never on user-supplied HTML); never `%[<b>#{x}</b>]` | [overload](./lib/overload/README.md#output-escaping) |
@@ -160,7 +159,7 @@ internal use and old apps.
 |-------------------|------------|------|
 | `db`              | Sequel extensions (hooks, links, paginate, enums) + auto-migrate | [README](./plugins/db/README.md) |
 | `authcog`         | Central-auth sign-in: `AuthcogRouter` + `UserSession`               | [README](./plugins/authcog/README.md) |
-| `web_common`      | Shared web layer: html builders, asset pipeline, JSON exception log (dboss), `/dev` pages, `ModelApi`, browser lib (`$`, `Api`, `Toast`, `<api-form>`); list `authcog` next to it | [README](./plugins/web_common/README.md) |
+| `web_common`      | Shared web layer: html builders, asset pipeline, JSON exception log (dboss), `/dev` pages, `ModelApi`; no browser JS, the app owns it; list `authcog` next to it | [README](./plugins/web_common/README.md) |
 | `locale`          | Small, namespaced translation lookup + `/<xx>` URL prefixes (`localized`, `Lux.ctx.lpath`) | [README](./plugins/locale/README.md) |
 | `favicon`         | `public/favicon.svg` -> generated `.ico` + touch icon, `<head>` links from `Lux.ctx.render_html` / `header.render` (`el.icon false` opts out) | [README](./plugins/favicon/README.md) |
 | `job_runner`      | Postgres-backed job queue (LISTEN/NOTIFY + advisory locks) + standalone web dashboard | [README](./plugins/job_runner/README.md) |

@@ -22,7 +22,7 @@ with `var[:time_zone]`) need `tzinfo` in the app Gemfile; both load lazily.
 | `Lux::Utils::Json`          | `json.rb`            | `to_jsons` / `to_jsonp` / `to_jsonc`, mixed into Hash/Array |
 | `Lux::Utils::TimeOptions`   | `time_options.rb`    | `short` / `long` date formatters, mixed into Time/Date/DateTime |
 | `Lux::Utils::HtmlTag`       | `html_tag/`          | tag-based HTML builder DSL (vendored, rewritten); top-level `HtmlTag` kept as alias |
-| `Lux::Utils::Url`           | `url.rb`             | URL parser/builder with path attrs, locale, qs, pqs (vendored from `lux-url` gem); top-level `Url` kept as alias; browser twin is `$.url` |
+| `Lux::Utils::Url`           | `url.rb`             | URL parser/builder with path attrs, locale, qs, pqs (vendored from `lux-url` gem); top-level `Url` kept as alias |
 | `Lux::SafeString`           | `safe_string.rb`     | markup string templates print as is (`html_safe?`); required by `loader.rb` right after `lib/overload/string.rb`, see [Output escaping](../../overload/README.md#output-escaping) |
 
 One more constant lives in the db plugin outright, since it needs Sequel:
@@ -197,9 +197,8 @@ tag(name, inner = nil, **attrs, &block)
 ### Url (`lib/lux/utils/url.rb`)
 
 Vendored from the old `lux-url` gem. Source of truth for URL parse/build on
-the server. Same vocabulary as the browser port `$.url`
-([`plugins/web_common/.../dollar/dollar_url.js`](../../../plugins/web_common/assets/js/dollar/dollar_url.js)):
-`qs`, `pqs` / `path_qs`, path prefix `/:a:b`, locale segment, subdomain, fragment.
+the server: `qs`, `pqs` / `path_qs`, path prefix `/:a:b`, locale segment,
+subdomain, fragment.
 
 Entry points: `Lux::Utils::Url` (canonical), top-level `Url` alias, `Lux.url`,
 `Lux.ctx.url`, class methods on `Url` that rewrite the current request.
@@ -261,6 +260,6 @@ Time.now.short(true) # force default format, ignore config
 ## See also
 
 * [`../context/README.md`](../context/README.md) - `Lux.ctx.encrypt/decrypt` (per-request variants)
-* [`url.rb`](./url.rb) - `Lux::Utils::Url` (server); browser twin [`dollar_url.js`](../../../plugins/web_common/assets/js/dollar/dollar_url.js) (`$.url`)
+* [`url.rb`](./url.rb) - `Lux::Utils::Url`
 * [`../ref/README.md`](../ref/README.md) - `Lux::Ref`, the app's id format
 * [`../../../plugins/db/lib/ext/paginate.rb`](../../../plugins/db/lib/ext/paginate.rb) - `Lux::Utils::PaginatedArray`

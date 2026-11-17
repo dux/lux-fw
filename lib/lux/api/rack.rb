@@ -69,8 +69,8 @@ module Lux
         root_hit   = request.path.chomp('/') == mount_path.chomp('/')
 
         # GET /<mount>/sys/web/<asset> serves the explorer's files by path, so a
-        # component URL ends in .fez and fez can name it from the path
-        # (Fez.nameFromPath). The ?file= form still works.
+        # component URL ends in .fez and fez can name it from the path. The
+        # ?file= form still works.
         web_asset = "#{mount_path.chomp('/')}/sys/web/"
 
         # handed to SysApi so generated docs/clients use the real mount ('' at /)

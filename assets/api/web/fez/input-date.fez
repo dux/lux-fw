@@ -102,7 +102,7 @@
 
         // Trigger onchange handler if provided
         if (this.props.onchange) {
-          Fez.resolveFunction(this.props.onchange, this.state.inputElement)
+          Fez.getFunction(this.props.onchange)(value)
         }
       }
     }

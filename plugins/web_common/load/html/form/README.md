@@ -30,8 +30,8 @@ end
 
 #### API forms
 
-A form whose action starts with `/api/` (every model form) renders as `<api-form>`
-(`assets/js/fez/api-form.fez`), which posts over XHR and runs `done:`.
+A form whose action starts with `/api/` (every model form) renders as `<api-form>`,
+an element the app ships, which posts over XHR and runs `done:`.
 
 | Option    | Description                                                        |
 |-----------|--------------------------------------------------------------------|

@@ -80,9 +80,6 @@ Lux.ctx.browser.window[:app] = {
 window.app.cfg.host
 window.app.current.user
 window.app.page.title
-
-// client - functions
-window.Toast.info('saved')                       // sys-toast.fez (web_common)
 ```
 
 Other top-level keys (`Lux.ctx.browser.window[:api] = { url: '/api' }` ->

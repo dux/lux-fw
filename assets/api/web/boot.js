@@ -116,9 +116,10 @@
   // --- schema fetch --------------------------------------------------------
 
   document.addEventListener('DOMContentLoaded', function () {
-    Fez.fetch(window.lux_api.schema_url, function (schema) {
-      window.lux_api.api_schema = schema;
-      Fez.publish('lux_api:schema-loaded', schema);
+    Fez.req(window.lux_api.schema_url).then(function (res) {
+      if (!res.ok) return;
+      window.lux_api.api_schema = res.data;
+      Fez.publish('lux_api:schema-loaded', res.data);
     });
   });
 

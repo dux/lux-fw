@@ -4,7 +4,6 @@
 #   load/html     - form / input / table / menu / paginate builders
 #   load/lib      - ApplicationApi, ModelApi, router helpers (/lux server_info),
 #                   exception writer
-#   assets/js     - browser sources, apps import them as @web-common/js/...
 #   mount/        - /dev router and views
 #
 # Sign-in is the authcog plugin; apps list it next to this one.
