@@ -67,12 +67,6 @@ describe Lux::Cache do
     end
   end
 
-  describe '#is_available?' do
-    it 'returns true for working cache server' do
-      _(cache.is_available?).must_equal true
-    end
-  end
-
   describe '#generate_key' do
     it 'returns string keys unchanged' do
       _(cache.generate_key('my-key')).must_equal 'my-key'
@@ -246,16 +240,6 @@ describe Lux::Cache::MemoryServer do
       _(server.delete('missing')).must_equal false
     end
   end
-
-  describe '#get_multi' do
-    it 'returns multiple values' do
-      server.set('a', 1)
-      server.set('b', 2)
-      server.set('c', 3)
-      result = server.get_multi('a', 'c')
-      _(result).must_equal({ 'a' => 1, 'c' => 3 })
-    end
-  end
 end
 
 describe Lux::Cache::NullServer do
@@ -272,10 +256,6 @@ describe Lux::Cache::NullServer do
     call_count = 0
     3.times { server.fetch('k') { call_count += 1; 'v' } }
     _(call_count).must_equal 3
-  end
-
-  it 'get_multi returns empty hash' do
-    _(server.get_multi('a', 'b')).must_equal({})
   end
 
   it 'clear returns true' do
@@ -330,12 +310,6 @@ describe Lux::Cache::SqliteServer do
   it 'fetch computes and stores if missing' do
     _(server.fetch('k') { 'computed' }).must_equal 'computed'
     _(server.get('k')).must_equal 'computed'
-  end
-
-  it 'get_multi returns hash of values for known keys' do
-    server.set('a', 1)
-    server.set('b', 2)
-    _(server.get_multi('a', 'b')).must_equal({ 'a' => 1, 'b' => 2 })
   end
 
   it 'falls back to default path when nil given' do

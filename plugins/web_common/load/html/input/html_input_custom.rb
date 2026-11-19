@@ -90,7 +90,6 @@ class HtmlInput
 
   def as_file
     @opts[:type] = 'file'
-    @opts[:onchange] ||= "$.pub('file-picked', this)"
     @opts.tag(:input)
   end
 
@@ -187,115 +186,6 @@ class HtmlInput
     end
 
     @opts.tag(:select, Lux::SafeString.join(body, "\n"))
-  end
-
-  def as_radio
-    return as_radios if @opts[:collection]
-
-    @opts[:type] = :radio
-    current = @object && @field.is_a?(Symbol) ? @object.send(@field) : nil
-    @opts[:checked] = true if current.to_s == @opts[:value].to_s
-    @opts.tag(:input)
-  end
-
-  def as_radios
-    body = []
-    collection = @opts.delete(:collection)
-
-    @opts[:type] = :radio
-
-    null  = @opts.delete(:null)
-    value = @opts.delete(:value).to_s
-
-    body.push label_for(@opts.merge(value: '').tag(:input), null) if null
-
-    prepare_collection(collection).each do |el|
-      opts = @opts.dup
-      opts[:value]   = el[0]
-      opts[:checked] = true if value == el[0].to_s
-
-      body.push label_for(opts.tag(:input), el[1])
-    end
-
-    Lux::SafeString.join(body, "\n").tag(:div, class: 'form-radios')
-  end
-
-  def as_tag
-    @opts[:value] = @opts[:value].or([]).join(', ') if ['Array', 'Sequel::Postgres::PGArray'].index(@opts[:value].class.name)
-    @opts[:id] ||= Lux.ctx.uid
-    @opts[:type] = :text
-    @opts[:onkeyup] = %[draw_tag('#{@opts[:id]}')]
-    @opts[:autocomplete] ||= 'off'
-    @opts[:style] = ['display: block; width: 100%;', @opts[:style]].join(';')
-
-    ret = Lux::SafeString.new %[
-    <script>
-       window.draw_tag = window.draw_tag || function (id) {
-        tags = $.map(String($('#'+id).val()).split(/\s*,\s*/), function(el) {
-          val = el.replace(/\s+/,'-');
-          return val ? '<span class="label label-primary">'+val+'</span> ' : ''
-        });
-        $('#'+id+'_tags').html(tags)
-      }</script>]
-    ret += @opts.tag(:input)
-    ret += { id: "#{@opts[:id]}_tags", style: 'margin-top:5px;' }.tag(:div)
-    ret += Lux::SafeString.new %[<script>if (window.$) { draw_tag('#{@opts[:id]}'); } else { window.onload = function(){ draw_tag('#{@opts[:id]}'); } }</script>]
-    ret
-  end
-
-  def as_color
-    c1 = {}
-    c1[:id]       = @opts[:id]+'1'
-    c1[:type]     = :color
-    c1[:style]    = 'height: 44px; position: relative; top: 11px; margin-right: 10px;'
-    c1[:onchange] = "$('##{@opts[:id]}2').val(this.value).css('background-color', this.value)"
-    c1[:value]    = @opts[:value].or @opts[:placeholder] || '#ffffff'
-    c1[:disabled] = true if @opts[:disabled]
-
-    c2 = {}
-    c2[:id]          = @opts[:id]+'2'
-    c2[:type]        = :text
-    c2[:name]        = @opts[:name]
-    c2[:value]       = @opts[:value]
-    c2[:style]       = "background-color:#{@opts[:value]}; width: 90px;"
-    c2[:onkeyup]     = "if (this.value && this.value.length==7) { $('##{@opts[:id]}1').val(this.value); $(this).css('background-color', this.value) }"
-    c2[:placeholder] = @opts[:placeholder]
-    c2[:disabled]    = true if @opts[:disabled]
-
-    tag.div style: 'position: relative; top: -12px;' do |n|
-      n.push c1.tag(:input)
-      n.push c2.tag(:input)
-
-      if @opts[:value] && !@opts[:disabled]
-        n.push %[ &sdot; <span class="btn btn-xs" onclick="$('##{c2[:id]}').val('')">clear</span>]
-      end
-    end
-  end
-
-  def as_geo
-    @opts[:type] = 'text'
-    if @opts[:value]
-      @opts[:style] = 'width:200px; float:left; margin-right: 20px;'
-      @opts[:value] = @opts[:value].map(&:to_f).join(', ')
-      ret = @opts.tag(:input)
-      ret += Lux::SafeString.new %[ <a target="new" href="http://maps.google.com/maps?q=loc:#{@opts[:value]}" style="display:block; margin-top:7px;">&nbsp;Show on map</a>]
-    else
-      @opts.tag(:input)
-    end
-  end
-
-  def as_address
-    val = @opts[:value]
-    @opts[:style] ||= 'height:55px; width:250px; float: left; margin-right:5px;'
-    ret = as_textarea
-    ret += Lux::SafeString.new %[<div><a class="btn btn-default btn-xs" onclick="window.open('https://www.google.hr/maps?q='+$('##{@opts[:id]}').val()); return false;">open in new window</a></div>] if val.to_s.length > 5
-    ret
-  end
-
-  def as_disabled
-    @opts[:disabled] = true
-    @opts.delete(:name)
-    as_text
   end
 
   private

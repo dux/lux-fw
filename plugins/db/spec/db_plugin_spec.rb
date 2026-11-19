@@ -457,17 +457,6 @@ describe 'plugins/db/core.rb' do
       end
     end
 
-    describe '#unique?' do
-      it 'returns true when no other record has same value' do
-        _(user.unique?(:email)).must_equal true
-      end
-
-      it 'returns false when another record shares the value' do
-        DB[:users].insert(ref: new_ref, name: 'Alice', email: 'a@b.c')
-        _(user.unique?(:email)).must_equal false
-      end
-    end
-
     describe '#save!' do
       it 'saves without validation' do
         u = User.new
@@ -1315,13 +1304,6 @@ describe 'plugins/db/_parent_model.rb' do
     end
   end
 
-  describe '#parent?' do
-    it 'returns truthy when parent columns exist' do
-      t = Task.new
-      assert t.parent?
-    end
-  end
-
   describe '.where_ref (parent_key fallback)' do
     # Comment has parent_key but no user_ref, so where_ref falls through
     # the scalar/array shapes and lands on parent_key.
@@ -1570,16 +1552,6 @@ describe 'plugins/db/model_tree.rb (ModelTree)' do
       root = TreeNode[root_ref]
       kids = root.children
       _(kids.map(&:ref)).must_include child_ref
-    end
-  end
-
-  describe '#children_refs' do
-    it 'returns self ref plus all descendant refs' do
-      root = TreeNode[root_ref]
-      refs = root.children_refs
-      _(refs).must_include root_ref
-      _(refs).must_include child_ref
-      _(refs).must_include grandchild_ref
     end
   end
 
@@ -1852,13 +1824,6 @@ describe 'plugins/db/_parent_model.rb – parent_type/parent_ref style' do
     end
   end
 
-  describe '#parent?' do
-    it 'returns truthy for model with parent_type column' do
-      note = Note.new
-      assert note.parent?
-    end
-  end
-
   describe '.where_ref (parent_type/parent_ref)' do
     it 'scopes records to given parent' do
       DB[:notes].insert(ref: new_ref, body: 'N1', parent_type: 'User', parent_ref: user_ref)
@@ -1923,10 +1888,6 @@ describe 'plugins/db/_ref_linker.rb - parent_model column' do
       m = Memo[m_ref]
       _(m.parent).must_be_kind_of User
       _(m.parent.ref).must_equal user_ref
-    end
-
-    it 'parent? returns true for models with parent_model' do
-      assert Memo.new.parent?
     end
 
     it 'scope routes through parent_model column' do

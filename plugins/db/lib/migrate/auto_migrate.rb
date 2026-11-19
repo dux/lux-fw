@@ -152,10 +152,6 @@ class AutoMigrate
     end
   end
 
-  def enable_extension name
-    db.run "CREATE EXTENSION IF NOT EXISTS #{name};"
-  end
-
   def extension name
     exists = db["SELECT extname FROM pg_extension where extname='#{name}'"].to_a.first
     run_sql "CREATE EXTENSION #{name}" unless exists

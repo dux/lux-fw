@@ -8,22 +8,12 @@ class AppCell < Lux::ViewCell
   before do
     @numbers = [123]
   end
-
-  css %[
-    .foo {
-      .bar {
-        font-weight: bold;
-      }
-    }
-  ]
 end
 
 class VcUserCell < AppCell
   delegate :email
 
   template_root './spec/view_cell_tests/misc'
-
-  css 'css/user.scss'
 
   def before
     super

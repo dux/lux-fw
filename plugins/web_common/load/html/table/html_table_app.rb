@@ -101,17 +101,6 @@ class AppTable < HtmlTable
     end
   end
 
-  def as_bold opts
-    proc { |o| o.send(opts[:field]).wrap(:b) }
-  end
-
-  def as_url opts
-    proc do |o|
-      value = o.send(opts[:field])
-      value ? value.wrap(:a, href: value) : '-'
-    end
-  end
-
   def as_email opts
     proc do |o|
       value = o.send(opts[:field])
@@ -123,14 +112,6 @@ class AppTable < HtmlTable
     proc do |o|
       value = o.send(opts[:field])
       scope_link value
-    end
-  end
-
-  def as_sentence opts
-    proc do |o|
-      values = o.send(opts[:field])
-      values = values.map { scope_link _1 } if values.first && values.first.is_a?(ApplicationModel)
-      Lux::SafeString.new values.map { _1.to_s.html_safe? ? _1.to_s : _1.to_s.html_escape }.to_sentence
     end
   end
 
@@ -165,7 +146,7 @@ class AppTable < HtmlTable
       onclick = opts.delete(:onclick) || Proc.new { |o| "Api('#{o.api_path(:destroy)}').refresh(); return false;" }
       onclick = onclick.call o
       onclick = %[event.stopPropagation(); if (confirm('Sure to delete?')) { #{onclick} }]
-      { class: 'icon icon-trash gray', onmouseover: "$(this).toggleClass('gray')", onmouseout: "$(this).toggleClass('gray')", onclick: onclick }.tag(:i)
+      { class: 'icon icon-trash gray', onmouseover: "this.classList.remove('gray')", onmouseout: "this.classList.add('gray')", onclick: onclick }.tag(:i)
     end
   end
 

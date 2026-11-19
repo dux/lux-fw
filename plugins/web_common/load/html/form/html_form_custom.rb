@@ -33,7 +33,6 @@ class HtmlForm
     end
 
     opts[:value]    = Lux.ctx.request.params[name] if !@object && opts[:value].nil?
-    opts[:onchange] = "Fez.load('?'+$(this.form).serialize())" if opts.delete(:autosubmit)
 
     node  = input(name, opts)
     label = opts[:label]
@@ -98,10 +97,6 @@ class HtmlForm
     Lux::SafeString.new <<~TEXT
       <div class="form-row form-submit"><label>#{opts[:narrow] ? '' : '&nbsp;'}</label>#{data}</div>
     TEXT
-  end
-
-  def isubmit name
-    HtmlTag.button(name, class: 'btn btn-lg', style: 'height: 42px; margin-left: 2px; margin-top: -3px;')
   end
 
   def button name, opts = {}

@@ -331,11 +331,11 @@ describe HtmlTable do
     end
 
     def row1
-      @row1 ||= record(active: true, created_at: now, price: 1234.5, score: 0.856, email: 'alice@test.com', tags: ['a', 'b'], bio: 'x' * 100, avatar: '/img/alice.png')
+      @row1 ||= record(active: true, created_at: now, price: 1234.5, email: 'alice@test.com', bio: 'x' * 100, avatar: '/img/alice.png')
     end
 
     def row2
-      @row2 ||= record(active: false, created_at: nil, price: nil, score: nil, email: nil, tags: [], bio: 'short', avatar: nil)
+      @row2 ||= record(active: false, created_at: nil, price: nil, email: nil, bio: 'short', avatar: nil)
     end
 
     it 'as_boolean renders checkmark for true' do
@@ -396,14 +396,6 @@ describe HtmlTable do
       assert_includes html, 'xxxxxxxxxx...'
     end
 
-    it 'as_percent formats as percentage' do
-      t = HtmlTable.new(scope)
-      t.col :score, as: :percent
-      html = t.render
-
-      assert_includes html, '85.6%'
-    end
-
     it 'as_email renders mailto link' do
       t = HtmlTable.new(scope)
       t.col :email, as: :email
@@ -411,14 +403,6 @@ describe HtmlTable do
 
       assert_includes html, 'mailto:alice@test.com'
       assert_includes html, 'alice@test.com'
-    end
-
-    it 'as_list joins array values' do
-      t = HtmlTable.new(scope)
-      t.col :tags, as: :list
-      html = t.render
-
-      assert_includes html, 'a, b'
     end
 
     it 'as_image renders img tag' do

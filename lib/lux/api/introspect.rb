@@ -92,7 +92,6 @@ module Lux
           out[api_name] = {
             path:       api_name,
             desc:       class_opts[:desc],
-            detail:     class_opts[:detail],
             icon:       class_opts[:icon],
             auth:       (true if class_opts[:auth]),
             schema_ref: class_schema_ref(klass, schemas_map),

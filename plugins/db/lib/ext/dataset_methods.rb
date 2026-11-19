@@ -17,10 +17,6 @@ Sequel::Model.dataset_module do
     order Sequel.lit text
   end
 
-  def xfrom text
-    from Sequel.lit text
-  end
-
   def xwhere hash_or_string, *args
     return self if hash_or_string.nil?
     return where(Sequel.lit("coalesce(%s,'')!=''" % hash_or_string)) if hash_or_string.is_a?(Symbol)

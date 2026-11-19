@@ -48,7 +48,6 @@ class FilesRouter < ApplicationRouter
     response.redirect_to '/foo'
     response.redirect_to '/foo', info: 'Moved'
     response.redirect_to :back, error: 'Invalid'
-    response.permanent_redirect_to '/new-home'    # 301
 
     # --- flash --------------------------------------------------------
     response.flash.info    'Saved'

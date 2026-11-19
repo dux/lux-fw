@@ -148,7 +148,6 @@ Interpolation (`%{name}`) runs on the resolved string at the end.
 | `current` | symbol (validated against `available`) |
 | `force?` | bool; the active `localized` scope required the prefix |
 | `path(value, locale:)` | locale-prefixed path from a String or a `path`/`to_path` object; default locale stays bare unless forced |
-| `seo_links(value, base:)` | canonical + per-locale hreflang + x-default link attribute hashes for a locale-free path |
 | `geo_locale(country)` | available locale for an IP-geo country code (CF-IPCountry), else nil |
 | `detect` | string; peels `/xx` off `nav.path`, stores it in the session, sets `Lux.ctx.locale` |
 | `t(key, locale:, fallback:, **vars)` | string |
@@ -250,25 +249,6 @@ lpath('/service')                        # template helper
 
 `Lux.locale.force?` reads the current request's flag. The state lives on
 `Lux.ctx[:locale_localized]` and `Lux.ctx[:locale_force]`.
-
-### SEO links
-
-For a localized site, `seo_links` returns the canonical and hreflang tags a
-crawler needs: a self-canonical for the current locale, one `alternate` per
-available locale, and `x-default` for the default. Pass a locale-free path and
-the absolute origin; the tags are plain hashes a view renders as-is.
-
-```haml
-- Lux.locale.seo_links(here, base: 'https://example.com').each do |link|
-  %link{ link }
-```
-
-```html
-<link href="https://example.com/de/docs" rel="canonical">
-<link href="https://example.com/docs" hreflang="en" rel="alternate">
-<link href="https://example.com/de/docs" hreflang="de" rel="alternate">
-<link href="https://example.com/docs" hreflang="x-default" rel="alternate">
-```
 
 ## DB-backed store
 

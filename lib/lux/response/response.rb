@@ -302,10 +302,6 @@ module Lux
       throw :done
     end
 
-    def permanent_redirect_to where
-      redirect_to where, status: 301
-    end
-
     # return unless response.auth { |user, pass| Rack::Utils.secure_compare(pass, ENV['PASS']) && user == 'foo' }
     # On failure it answers 401 and throws :done, like redirect_to.
     def auth realm: nil, message: nil

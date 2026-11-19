@@ -1,10 +1,6 @@
-require 'pathname'
-
 module Lux
   class ViewCell
     include HtmlTag
-
-    DATA ||= { css: {} }
 
     # exports "template_root" class attr
     cattr :template_root, class: true
@@ -46,30 +42,6 @@ module Lux
         define_method :before do
           super() if self.class != Lux::ViewCell
           instance_exec(&block)
-        end
-      end
-
-      def css text = nil
-        text = yield if block_given?
-
-        if text
-          require 'sassc' unless Object.const_defined?('SassC')
-
-          unless text.include?('{')
-            dir_name = self.template_root || File.dirname(caller[0].split(':')[0])
-            class_part = to_s.underscore.sub(/_cell$/, '')
-            dir_name = dir_name % class_part if dir_name.include?('%s')
-            css_file = Pathname.new(dir_name).join(text)
-            text = css_file.read
-          end
-
-          key = caller[0].split(':in ')[0]
-          DATA[:css][key] = SassC::Engine.new(text, style: :compact).render.gsub(/\n+/, $/).chomp
-        else
-          DATA[:css].inject([]) do |list, el|
-            name = el[0].split('/').last.split('.')[0].gsub('_', '-')
-            list.push("/* #{name} */\n" + el[1])
-          end.join("\n\n")
         end
       end
     end

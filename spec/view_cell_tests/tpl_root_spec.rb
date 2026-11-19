@@ -5,8 +5,6 @@ require 'test_helper'
 class TplCell < Lux::ViewCell
   template_root './spec/view_cell_tests/views/%s'
 
-  css 'foo.scss'
-
   def foo
     @num = 3
     template 'tpl/base'
@@ -18,13 +16,6 @@ end
 describe 'Lux::ViewCell tpl' do
   before do
     TplCell.template_root './spec/view_cell_tests/views'
-  end
-
-  it 'compiles css defined in custom template root' do
-    css = TplCell.css
-    # foo.scss compiles to a block containing "#foo" and "color: yellow"
-    _(css).must_include '#foo'
-    _(css).must_include 'color: yellow'
   end
 
   it 'compiles template defined in custom template root' do

@@ -35,12 +35,6 @@ module Lux
     end
     alias :get :read
 
-    def read_multi *keys
-      map = keys.to_h { [generate_key(_1), _1] }
-      @server.get_multi(*map.keys).transform_keys { map[_1] }
-    end
-    alias :get_multi :read_multi
-
     def write key, data, ttl = nil
       ttl = ttl[:ttl] || ttl[:expires_at] if ttl.is_hash?
       ttl = ttl.to_i if ttl
@@ -123,12 +117,6 @@ module Lux
 
     def clear
       @server.clear
-    end
-
-    def is_available?
-      k = Lux::Utils::Crypt.sha1('__lux_cache_health__')
-      @server.set(k, 9)
-      @server.get(k) == 9
     end
 
     def generate_key *data

@@ -26,14 +26,6 @@ module Lux
       def is_authorized?
         @_is_policy_authorized == true
       end
-
-      def is_authorized!
-        if is_authorized?
-          true
-        else
-          Lux::Policy.error('Request is not authorized!')
-        end
-      end
     end
   end
 end

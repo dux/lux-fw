@@ -40,10 +40,6 @@ module Lux
       define_method(:session) { Lux.ctx.session }
       define_method(:user)    { Lux.ctx.user }
 
-      def no_white_space
-        Lux::SafeString.new capture { yield }.gsub(/>\s+</,'><')
-      end
-
       # = content :foo do ...            # define
       # = content :foo? ? true : false   # ceheck existance
       # = content :foo                   # get content
@@ -63,10 +59,6 @@ module Lux
         else
           Lux.ctx.var[name]
         end
-      end
-
-      def capture_proc
-        proc { |*args| "#{yield(*args)}" }
       end
 
       # renders template by name, resolves relative to current template's directory

@@ -19,7 +19,7 @@ with `var[:time_zone]`) need `tzinfo` in the app Gemfile; both load lazily.
 | `Lux::Utils::StringBase`    | `string_base.rb`     | base-N integer encoding (short/medium/long key sets) |
 | `Lux::Utils::TimeDifference`| `time_difference.rb` | humanise relative time ("3 minutes ago") |
 | `Lux::Utils::Boolean`       | `boolean.rb`         | string -> boolean parser, mixed into TrueClass/FalseClass |
-| `Lux::Utils::Json`          | `json.rb`            | `to_jsons` / `to_jsonp` / `to_jsonc`, mixed into Hash/Array |
+| `Lux::Utils::Json`          | `json.rb`            | `to_jsonp` / `to_jsonc`, mixed into Hash/Array |
 | `Lux::Utils::TimeOptions`   | `time_options.rb`    | `short` / `long` date formatters, mixed into Time/Date/DateTime |
 | `Lux::Utils::HtmlTag`       | `html_tag/`          | tag-based HTML builder DSL (vendored, rewritten); top-level `HtmlTag` kept as alias |
 | `Lux::Utils::Url`           | `url.rb`             | URL parser/builder with path attrs, locale, qs, pqs (vendored from `lux-url` gem); top-level `Url` kept as alias |
@@ -66,10 +66,6 @@ Lux.crypt.random(16)                                  # 16 chars from a-z0-9 (no
 # --- bcrypt (needs the bcrypt gem in the app Gemfile) ------------------
 hash  = Lux.crypt.bcrypt('password')                  # hash a password
 match = Lux.crypt.bcrypt('password', hash)            # boolean check
-
-# --- ROT13+base64 (NOT crypto - just obfuscation) ----------------------
-Lux.crypt.simple_encode('hi')
-Lux.crypt.simple_decode('uv')
 
 # --- per-request variants (IP-bound, 10-minute default) ----------------
 Lux.ctx.encrypt('data')                           # password defaults to caller IP
@@ -128,7 +124,6 @@ true.is_a?(Boolean)      # true  (TrueClass/FalseClass include Lux::Utils::Boole
 
 ```ruby
 data = { user: { name: 'Dux' } }
-data.to_jsons        # pretty in dev mode, compact in prod
 data.to_jsonp        # always pretty
 data.to_jsonp(true)  # pretty + colorise keys (terminal)
 data.to_jsonc        # compact, unquoted keys (for embedding in JS)

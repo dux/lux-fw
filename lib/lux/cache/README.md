@@ -21,7 +21,6 @@ Lux.cache.server = Dalli::Client.new('localhost:11211', namespace: 'app', expire
 
 Lux.cache.write('key', value, 60)    # ttl seconds
 Lux.cache.read('key')                 # alias: get
-Lux.cache.read_multi('a', 'b', 'c')  # alias: get_multi
 Lux.cache.delete('key')
 
 # --- fetch (the workhorse) ---------------------------------------------
@@ -51,7 +50,6 @@ Lux.cache.lock('expensive-task', 3) { do_it }
 
 # --- inspect ------------------------------------------------------------
 
-Lux.cache.is_available?              # backend reachable?
 Lux.cache.server                     # current backend
 
 # --- process-local memoize (no TTL, no clear) ---------------------------
@@ -72,7 +70,7 @@ Lux.var                              # the underlying Hash if you need direct ac
 | `:memcached`       | via Dalli (needs `dalli` in the app Gemfile). `MEMCACHE_SERVERS`, `MEMCACHE_NAMESPACE` |
 | `:sqlite`          | file-backed, WAL mode, survives restarts (needs `sqlite3` in the app Gemfile) |
 | `:null`            | no-op; use in tests |
-| custom             | any object answering `get`/`set`/`delete`/`fetch`/`get_multi`/`clear` |
+| custom             | any object answering `get`/`set`/`delete`/`fetch`/`clear` |
 
 ## See also
 

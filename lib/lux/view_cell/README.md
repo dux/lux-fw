@@ -66,8 +66,6 @@ Class-level API:
 
 * `delegate :a, :b` - define instance methods that forward to `parent`.
 * `before { ... }` - runs once from `initialize`; chains with the superclass `before`.
-* `css 'card.scss'` or `css '.card { ... }'` - inline SCSS or a file next to the cell;
-  `Lux::ViewCell.css` returns every registered block, compiled.
 * `template_root './app/cells/%s'` - template directory; `%s` is the cell name
   (`user_card` for `UserCardCell`). Without it, templates resolve from the
   directory of the file that calls `template`.

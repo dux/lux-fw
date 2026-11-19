@@ -286,7 +286,6 @@ allow :any               # any verb (also: allow :all)
 | `send_file(path, opts)` | file download / inline |
 | `flash` / `flash.error 'msg'` | response flash |
 | `respond_to :js do ... end` | runs the block for that format, else false; chain one call per format |
-| `respond_to! :json do ... end` | same, but any other explicit format (`.csv`) is a 404 |
 | `cache(key, ttl:) { ... }` | request-level cache |
 | `etag(*args)` / `cache_control 'private'` | conditional 304, cache header |
 | `render_cache 'key'` | page cache for the next render |

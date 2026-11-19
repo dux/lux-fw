@@ -16,7 +16,6 @@ lux assets:upload    # Upload LOCAL_PATH to REMOTE_PATH on the app CDN (app defi
 lux console          # Start console                                        (alias: c)
 lux evaluate CODE    # Eval Ruby in the app context                         (alias: e, eval)
 lux hi               # Print hello world
-lux mail:pull        # Pull unseen mail from the configured IMAP inbox(es)
 lux memory           # Show memory usage
 lux new NAME         # Create, set up and start a new Lux application
 lux pack             # Build a symlink-flattened, gitignore-clean app copy for rsync deploy

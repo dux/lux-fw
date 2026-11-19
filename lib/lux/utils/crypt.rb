@@ -131,15 +131,6 @@ module Crypt
     out[0]
   end
 
-  # works with Z.simpleEncode
-  def simple_decode str
-    Base64.decode64 str.gsub('_', '/').tr('A-Za-z', 'N-ZA-Mn-za-m')
-  end
-
-  def simple_encode str
-    Base64.strict_encode64(str).tr('/', '_').delete('=').tr('A-Za-z', 'N-ZA-Mn-za-m')
-  end
-
   private
 
   def seal_key purpose

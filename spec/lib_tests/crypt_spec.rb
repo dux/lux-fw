@@ -168,20 +168,6 @@ describe Lux::Utils::Crypt do
     end
   end
 
-  describe '.simple_encode / .simple_decode' do
-    it 'encodes and decodes strings with ROT13+base64' do
-      original = 'hello world'
-      encoded = Lux::Utils::Crypt.simple_encode(original)
-      _(encoded).wont_equal original
-      _(Lux::Utils::Crypt.simple_decode(encoded)).must_equal original
-    end
-
-    it 'matches the browser $.simpleEncode output' do
-      _(Lux::Utils::Crypt.simple_encode('???')).must_equal 'Cm8_'
-      _(Lux::Utils::Crypt.simple_decode('Cm8_')).must_equal '???'
-    end
-  end
-
   describe '.uid' do
     it 'returns lowercase alphanumerics of the requested size' do
       _(Lux::Utils::Crypt.uid(40)).must_match(/\A[a-z0-9]{40}\z/)

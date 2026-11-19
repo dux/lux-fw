@@ -37,9 +37,6 @@
     {#if state.api.desc}
       <p class="text-gray-600 mb-0 max-w-3xl mt-3">{@html window.luxMd(state.api.desc)}</p>
     {/if}
-    {#if state.api.detail}
-      <p class="small-text text-gray-500 mt-1 max-w-3xl">{@html window.luxMd(state.api.detail)}</p>
-    {/if}
   </header>
 
   {#if state.api.schema_ref}

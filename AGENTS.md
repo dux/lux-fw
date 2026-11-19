@@ -73,10 +73,8 @@ touching the router. The three rules that catch people out:
   `Slug`) and `Lux::Ref.register` a name. See [`lib/lux/ref/README.md`](./lib/lux/ref/README.md).
 
 There are no per-action URL macros and no `_ref` action suffix - URLs are
-declared in the router. See [`doc/migration-routing.md`](./doc/migration-routing.md)
-for what was removed and why, and [`doc/migration-router.md`](./doc/migration-router.md)
-for moving an app from controllers to routers. Note `Lux::Api.ref` is a
-separate, live macro on a different class.
+declared in the router. Note `Lux::Api.ref` is a separate, live macro on a
+different class.
 
 ## The unified DSL
 
@@ -134,7 +132,7 @@ internal use and old apps.
 | `Lux::Render`          | Render pages, templates, cells from anywhere               | [README](./lib/lux/render/README.md) |
 | `Lux::Template`        | Template rendering via Tilt (HAML, ERB, ...)               | [README](./lib/lux/template/README.md) |
 | `Lux::ViewCell`        | Reusable view components with their own templates          | [README](./lib/lux/view_cell/README.md) |
-| `Lux::Mail`            | Inbound + outbound mail: `Sender` (compose/send) + `Inbox` (`on_receive` event, IMAP `mail:pull`) | [README](./lib/lux/mail/README.md) |
+| `Lux::Mail`            | Outbound mail: `Sender` (compose/send) + Cloudflare delivery | [README](./lib/lux/mail/README.md) |
 | `Lux::Cache`           | Uniform cache API across memory/memcached/sqlite/null      | [README](./lib/lux/cache/README.md) |
 | `Lux::Db`              | Sequel multi-DB connection management                      | [README](./lib/lux/db/README.md) |
 | `Lux::Browser`         | Server-side composer for `window.Lux` client + per-request state | [README](./lib/lux/browser/README.md) |

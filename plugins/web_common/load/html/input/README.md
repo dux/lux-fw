@@ -51,13 +51,6 @@ input[:class] = 'x'  # shortcut for input.opts[:class] = 'x'
 | `:checkbox`  | Checkbox (single or array)           |
 | `:checkboxes`| Multiple checkboxes from collection  |
 | `:select`    | Select dropdown from collection      |
-| `:radio`     | Single radio button                  |
-| `:radios`    | Radio group from collection          |
-| `:tag`       | Tag input with visual preview        |
-| `:color`     | Color picker with hex input          |
-| `:geo`       | Geo coordinates with map link        |
-| `:address`   | Address textarea with map link       |
-| `:disabled`  | Disabled text input                  |
 
 #### Auto-detection
 

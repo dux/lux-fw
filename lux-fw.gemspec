@@ -82,9 +82,6 @@ Gem::Specification.new 'lux-fw' do |gem|
   # server-side markdown (CommonMark + GFM) for the API guide and .md views
   gem.add_dependency 'commonmarker'
 
-  # used by Lux::ViewCell.css to compile SCSS blocks defined in cells
-  gem.add_dependency 'sassc'
-
   # gem.add_dependency 'dry-inflector' # replace with sequel inflector
 
   # gem.add_dependency 'memory_profiler'

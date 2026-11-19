@@ -79,10 +79,6 @@ _No documented API classes. Mark a class with `documented` and give actions a
 
 <%= api[:desc] %>
 <% end -%>
-<% if api[:detail] && !api[:detail].to_s.empty? -%>
-
-<%= api[:detail] %>
-<% end -%>
 <% if api[:schema_ref] -%>
 
 Model schema: `<%= api[:schema_ref] %>`

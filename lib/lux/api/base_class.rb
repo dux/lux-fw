@@ -296,13 +296,6 @@ module Lux
         pending_opts[:detail] = data
       end
 
-      # set class-level detailed description
-      def class_detail data
-        return if data.to_s == ''
-
-        set :opts, :detail, data
-      end
-
       # HTTP verbs the next define accepts. Same contract as Lux::Router
       # (Lux::Utils::HttpVerbs): the list REPLACES the POST default.
       # allow :get            # GET (+ HEAD, OPTIONS) only

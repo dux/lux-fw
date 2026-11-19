@@ -21,10 +21,6 @@ module Lux
         nil
       end
 
-      def get_multi *args
-        {}
-      end
-
       def clear
         true
       end

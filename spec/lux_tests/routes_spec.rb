@@ -78,11 +78,6 @@ class RoutesTestRouter < Lux::Router
     render text: 'html' unless Lux.ctx.response.body?
   end
 
-  def strict_format
-    respond_to!(:json) { render json: { f: 'json' } }
-    render text: 'html' unless Lux.ctx.response.body?
-  end
-
   allow :post
   def posted
     render text: 'posted'
@@ -445,12 +440,6 @@ describe 'Lux::Router' do
     _(Lux.render.get('/routes_test/multi-format.json').json[:f]).must_equal 'json'
     _(Lux.render.get('/routes_test/multi-format.csv').body).must_equal 'csv'
     _(Lux.render.get('/routes_test/multi-format').body).must_equal 'html'
-  end
-
-  it 'respond_to! 404s on another explicit format' do
-    _(Lux.render.get('/routes_test/strict-format.json').json[:f]).must_equal 'json'
-    _(Lux.render.get('/routes_test/strict-format').body).must_equal 'html'
-    _(Lux.render.get('/routes_test/strict-format.csv').status).must_equal 404
   end
 
   it 'dispatches errors through Router rescue_from when defined (always wins)' do

@@ -92,12 +92,6 @@ class Sequel::Model
       true
     end
 
-    def unique?(field)
-      check = self.class.where(field => self[field])
-      check = check.exclude(ref: self[:ref]) if self[:ref]
-      check.empty?
-    end
-
     def save!
       save validate: false
     end

@@ -82,24 +82,10 @@ class HtmlTable
     end
   end
 
-  def as_percent col
-    proc do |object|
-      val = object.send(col[:field])
-      val ? '%.1f%%' % (val * 100) : ''
-    end
-  end
-
   def as_email col
     proc do |object|
       val = object.send(col[:field])
       val ? HtmlTag.a(href: "mailto:#{val}") { val } : ''
-    end
-  end
-
-  def as_list col
-    proc do |object|
-      val = object.send(col[:field])
-      Array(val).join(', ')
     end
   end
 end

@@ -70,22 +70,6 @@ class ModelApi < ApplicationApi
 
   ###
 
-  # toggles value in postgre array field
-  def toggle_value field, value, object = nil
-    object ||= @object
-    object[field] ||= []
-
-    if object[field].include?(value)
-      object[field] -= [value]
-      object.save
-      false
-    else
-      object[field] += [value]
-      object.save
-      true
-    end
-  end
-
   def report_errors_if_any
     return if @object.errors.count == 0
 

@@ -54,11 +54,6 @@ module Lux
         Array(entry[:http]).uniq
       end
 
-      def has_methods? api_doc
-        (api_doc[:collection] && !api_doc[:collection].empty?) ||
-        (api_doc[:member]     && !api_doc[:member].empty?)
-      end
-
       def params_table params
         return '' if params.nil? || params.empty?
 

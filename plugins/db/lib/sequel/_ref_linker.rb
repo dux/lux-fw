@@ -309,10 +309,5 @@ module Sequel::Plugins::RefLinker
           Sequel::Plugins::RefLinker.die_missing_poly_columns self.class
         end
     end
-
-    # True if the host model declares any polymorphic-parent columns.
-    def parent?
-      !!(db_schema[:parent_key] || db_schema[:parent_model] || db_schema[:parent_type])
-    end
   end
 end

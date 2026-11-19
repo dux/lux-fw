@@ -19,10 +19,6 @@ module ModelTree
     self.class.order(:name).xwhere('parent_refs[1]=?', self[:ref]).all
   end
 
-  def children_refs
-    [self[:ref]] + self.class.xwhere('?=any(parent_refs)', self[:ref]).select_map(:ref)
-  end
-
   # sets full path
   def parent_ref= val
     return self[:parent_refs] = [] if val.blank?

@@ -237,11 +237,6 @@ module Lux
       num_only ? num : "uid_#{num}_#{(Time.now.to_f*1000).to_i}"
     end
 
-    def robot?
-      ua = request.env['HTTP_USER_AGENT'].to_s.downcase
-      ua.include?('wget/') || ua.include?('curl/')
-    end
-
     def mobile?
       ua = request.env['HTTP_USER_AGENT'].to_s.downcase
       mobile_keywords = %w[

@@ -139,7 +139,7 @@ endpoint. Private and protected methods are never endpoints.
 | `desc 'text'`           | optional description for the next define (metadata only) |
 | `detail 'longer'`       | longer description (Markdown) |
 | `icon File.read(...)`   | SVG icon for the explorer |
-| `class_desc` / `class_detail` | apply to whole class |
+| `class_desc 'text'`     | description for the whole class |
 | `params do ... end`     | param schema for the next endpoint |
 | `schema_ref :name`      | point generated docs at a named schema (doc-only; runtime validation still comes from `params do`) |
 | `schema :name, schema` / `schema Model` | register a named schema (referenced as `schema(:name)` inside `params`) and document it centrally |

@@ -85,7 +85,6 @@ class UsersRouter < ApplicationRouter
     Lux.ctx.host             # scheme://host:port
     Lux.ctx.uid              # unique id per call (each call returns a new id)
     Lux.ctx.bearer_token     # Authorization: Bearer <token>
-    Lux.ctx.robot?
     Lux.ctx.mobile?
     Lux.ctx.no_cache?        # HTTP_CACHE_CONTROL=no-cache + can_clear_cache
     Lux.ctx.can_clear_cache = true   # opt-in for admin clears
@@ -119,7 +118,7 @@ end
 | `host`            | string | `request.base_url` (scheme://host, port only when non-default) |
 | `uid`             | string | unique id per call |
 | `bearer_token`    | string | `Authorization: Bearer <token>` |
-| `robot?` / `mobile?` | bool | UA-based |
+| `mobile?`         | bool | UA-based |
 | `no_cache?`       | bool | `HTTP_CACHE_CONTROL=no-cache` + `can_clear_cache` |
 | `can_clear_cache` | bool | opt-in for admin clears |
 | `csrf` / `csrf_valid?` / `csrf_required?` | | CSRF surface (see `lib/csrf.rb`) |

@@ -214,24 +214,6 @@ describe Lux::Context do
     end
   end
 
-  describe '#robot?' do
-    it 'returns false for normal requests' do
-      _(Lux.ctx.robot?).must_equal false
-    end
-
-    it 'detects wget user agent' do
-      env = Rack::MockRequest.env_for('http://test.example.com/', 'HTTP_USER_AGENT' => 'Wget/1.21')
-      Lux::Context.new(env)
-      _(Lux.ctx.robot?).must_equal true
-    end
-
-    it 'detects curl user agent' do
-      env = Rack::MockRequest.env_for('http://test.example.com/', 'HTTP_USER_AGENT' => 'curl/7.79.1')
-      Lux::Context.new(env)
-      _(Lux.ctx.robot?).must_equal true
-    end
-  end
-
   describe '#mobile?' do
     it 'returns false for desktop user agent' do
       env = Rack::MockRequest.env_for('http://test.example.com/', 'HTTP_USER_AGENT' => 'Mozilla/5.0 (Macintosh)')

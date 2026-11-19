@@ -166,31 +166,6 @@ describe 'Lux::Locale#path' do
   end
 end
 
-describe 'Lux::Locale#seo_links' do
-  before do
-    Lux.locale.default         = :en
-    Lux.locale.available       = %i[en de]
-    Lux.ctx.locale         = 'de'
-    Lux.ctx[:locale_force] = nil
-  end
-
-  it 'canonicalizes the current locale, alternates every locale, then x-default' do
-    links = Lux.locale.seo_links('/docs', base: 'https://example.com')
-
-    _(links).must_equal [
-      { rel: 'canonical', href: 'https://example.com/de/docs' },
-      { rel: 'alternate', hreflang: 'en', href: 'https://example.com/docs' },
-      { rel: 'alternate', hreflang: 'de', href: 'https://example.com/de/docs' },
-      { rel: 'alternate', hreflang: 'x-default', href: 'https://example.com/docs' }
-    ]
-  end
-
-  it 'ignores a trailing slash on the base' do
-    links = Lux.locale.seo_links('/', base: 'https://example.com/')
-    _(links.first[:href]).must_equal 'https://example.com/de'
-  end
-end
-
 describe 'lpath delegates' do
   before do
     Lux.locale.default         = :en

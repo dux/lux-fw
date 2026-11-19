@@ -132,13 +132,4 @@ describe HtmlInput do
       assert_includes html, 'type="datetime-local"'
     end
   end
-
-  describe 'disabled input' do
-    it 'renders disabled text input' do
-      input = HtmlInput.new
-      html = input.render :name, as: :disabled, value: 'locked'
-
-      assert_includes html, 'disabled'
-    end
-  end
 end

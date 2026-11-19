@@ -35,12 +35,10 @@ t.render
 | `:datetime` | Format as `YYYY-MM-DD HH:MM`            |
 | `:number`   | Integer with comma separators            |
 | `:currency` | Two decimal places                       |
-| `:percent`  | Multiply by 100, append `%`             |
 | `:truncate` | Truncate to `:limit` chars (default 50)  |
 | `:email`    | Mailto link                              |
 | `:link`     | Anchor tag, optional `:href` proc        |
 | `:image`    | Img tag, uses `:width` (default 40px)    |
-| `:list`     | Join array with `, `                     |
 
 The types above belong to the base `HtmlTable`. The app-facing `table`
 helper (`HtmlHelper#table`) builds an `AppTable` instead, which
@@ -51,14 +49,11 @@ Its `t.ref` column shows the record `ref` (models key on `ref`, not `id`):
 |----------------|------------------------------------------------------|
 | `:boolean`     | `Yes` (green) for true, `-` otherwise                |
 | `:image`       | `<ui-asset>` tag (asset id or raw HTML/URL)          |
-| `:url`         | Anchor linking to the field's own value              |
 | `:email`       | Mailto link                                          |
-| `:bold`        | Wrap value in `<b>`                                  |
 | `:ago`         | Relative time (`Time.ago`), defaults to `created_at` |
 | `:user`        | Record's `creator` name (optionally with email)      |
 | `:scope_link`  | Linked button to the associated record's `scope_path`|
 | `:object`      | Associated record rendered as a scope link           |
-| `:sentence`    | Array joined to a sentence (models become links)     |
 | `:tags`        | Array joined with `&sdot;`                            |
 | `:date`        | Short date                                           |
 | `:time`        | Long datetime                                        |

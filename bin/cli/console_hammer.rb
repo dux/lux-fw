@@ -50,6 +50,7 @@ task :console do
   proc do |opts|
     require 'pry'
     require 'amazing_print'
+    require 'tty-prompt'
 
     # double Ctrl+C exits Pry: first one at an empty prompt arms the exit
     # and prints a hint, the next one bails out. Ctrl+C while typing only

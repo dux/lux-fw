@@ -39,10 +39,6 @@ module Lux
         @server.delete key
       end
 
-      def get_multi *args
-        @server.get_multi(*args).transform_values { |v| v == NIL_MARK ? nil : v }
-      end
-
       def fetch key, ttl = nil
         raw = @server.get key
         return (raw == NIL_MARK ? nil : raw) unless raw.nil?

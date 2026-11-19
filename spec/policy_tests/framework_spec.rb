@@ -51,10 +51,6 @@ describe Lux::Policy do
       _(router.is_authorized?).must_equal true
     end
 
-    it 'fails on is_authorized! bang check' do
-      _{ router.is_authorized! }.must_raise Lux::Policy::Error
-    end
-
     it 'fails on false pass' do
       _{ router.authorize(false) }.must_raise Lux::Policy::Error
     end

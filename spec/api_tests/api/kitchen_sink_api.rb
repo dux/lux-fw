@@ -44,9 +44,8 @@ class KitchenSinkApi < KitchenSinkBaseApi
   plugin :kitchen_sink_plugin
 
   documented
-  class_desc   'Kitchen sink reference API'
-  class_detail 'Exercises every Lux::Api DSL feature in one class.'
-  icon         '<path d="M0 0h24v24H0z"/>'
+  class_desc 'Kitchen sink reference API'
+  icon       '<path d="M0 0h24v24H0z"/>'
 
   # ---- root-level callbacks fire for collection AND ref actions ----------
   before do

@@ -15,10 +15,9 @@ describe 'KitchenSinkApi - DSL feature coverage' do
       _(Lux::Api.documented).must_include KitchenSinkApi
     end
 
-    it 'records class_desc, class_detail, icon' do
+    it 'records class_desc, icon' do
       opts = KitchenSinkApi.opts[:opts]
       _(opts[:desc]).must_equal 'Kitchen sink reference API'
-      _(opts[:detail]).must_equal 'Exercises every Lux::Api DSL feature in one class.'
       _(opts[:icon]).must_include '<path'
     end
 

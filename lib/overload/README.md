@@ -81,7 +81,7 @@ No file in this directory patches Symbol directly.
 * `Time` / `Date` / `DateTime` include `Lux::Utils::TimeOptions` -> `short` / `long` / `current` formatters.
 
 ### Hash / Array (`json.rb`)
-Both include `Lux::Utils::Json` -> `to_jsons` (pretty in dev), `to_jsonp` (pretty), `to_jsonc` (compact, unquoted keys).
+Both include `Lux::Utils::Json` -> `to_jsonp` (pretty), `to_jsonc` (compact, unquoted keys).
 
 ### Enumerable (`enumerable.rb`)
 * `index_by` - `{ key_from_block => element }`.

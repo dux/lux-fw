@@ -77,10 +77,6 @@ Lux.config[:session_dbsc]             = true     # device-bound sessions over ht
 # csrf opt-out (default on)
 Lux.config.csrf                = false
 
-# inbound mail: authserv-ids whose Authentication-Results headers are trusted;
-# empty (default) means inbound mail is never `verified`
-Lux.config[:mail] = { trusted_authserv_ids: ['mx.example.com'] }
-
 # --- hooks -------------------------------------------------------------
 
 Lux.config.on_mail_send do |mail|

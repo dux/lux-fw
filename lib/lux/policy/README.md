@@ -105,7 +105,6 @@ resolver.
 ```ruby
 authorize @blog.can.read?       # truthy -> authorized; falsy -> 403
 is_authorized?                  # boolean
-is_authorized!                  # 403 if not authorized
 ```
 
 ## See also

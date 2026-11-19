@@ -172,26 +172,6 @@ module Lux
       end
     end
 
-    # SEO link attributes for a locale-free path: a self-canonical for the
-    # current locale, an alternate per available locale, and x-default for the
-    # default locale. `base` is the absolute origin (trailing slash ignored).
-    # Returns an array of attribute hashes a view renders as-is:
-    #
-    #   - Lux.locale.seo_links('/docs', base: 'https://example.com').each do |link|
-    #     %link{ link }
-    def seo_links value = '/', base: ''
-      base = base.to_s.sub(%r{/+\z}, '')
-
-      links = [{ rel: 'canonical', href: "#{base}#{path(value, locale: current)}" }]
-
-      available.each do |loc|
-        links << { rel: 'alternate', hreflang: loc.to_s, href: "#{base}#{path(value, locale: loc)}" }
-      end
-
-      links << { rel: 'alternate', hreflang: 'x-default', href: "#{base}#{path(value, locale: default)}" }
-      links
-    end
-
     # Locale for an IP-geo country code, so a first-time visitor can be sent to
     # the right /xx page. Reads CF-IPCountry (Cloudflare), then X-Geo-Country /
     # X-Country for other proxies; pass `country` to map one directly. Countries

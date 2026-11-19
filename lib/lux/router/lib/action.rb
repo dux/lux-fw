@@ -197,15 +197,6 @@ module Lux
         true
       end
 
-      # Like respond_to, but a request for any other explicit format is a 404.
-      # A request without a format (plain html) falls through with false.
-      def respond_to! ext, &block
-        return true if respond_to(ext, &block)
-        return false unless Lux.ctx.nav.format
-
-        raise Lux.error.not_found Lux.debug?('404 Not Found') { '%s document Not Found' % Lux.ctx.nav.format.to_s.upcase }
-      end
-
       def cache *args, &block
         Lux.cache.fetch *args, &block
       end
