@@ -66,22 +66,18 @@ module Lux
         nil
       end
 
-      # el.icon false leaves out the favicon plugin's icon links
-      def icon value
-        header.icon value
-        nil
-      end
+      # head state, forwarded to Lux.ctx.header (el.title 'x', el.meta :referrer, 'no-referrer',
+      # el.icon false, el.noindex, ...); returns nil so `= el.x` prints nothing into <head>
+      HEADER_METHODS ||= %i[
+        meta title description url site_name type image locale revised
+        icon link canonical preload rss sitemap noindex nofollow
+      ]
 
-      # page title, same as Lux.ctx.header.title; overrides one set by the page template
-      def title text
-        header.title text
-        nil
-      end
-
-      # any <meta>, same as Lux.ctx.header.meta
-      def meta name, value
-        header.meta name, value
-        nil
+      HEADER_METHODS.each do |name|
+        define_method(name) do |*args|
+          header.public_send(name, *args)
+          nil
+        end
       end
 
       def asset name, opts = {}

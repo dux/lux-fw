@@ -89,7 +89,7 @@ answered with the region alone.
 ```haml
 = Lux.ctx.render_html do |el|                # lang from Lux.ctx.locale, or lang: 'hr'
   - el.title 'Preview'                    # = Lux.ctx.header.title, overrides the page's
-  - el.meta :referrer, 'no-referrer'      # any <meta>, = Lux.ctx.header.meta
+  - el.meta :referrer, 'no-referrer'      # any Header setter (meta, description, canonical, noindex, ...), returns nil
   = el.google_fonts_preconnect            # or el.preconnect 'https://x.com', crossorigin: ''
   = el.assets :app, :admin                # app.css, admin.css, app.js, admin.js; block output goes into <head>
   = el.asset 'planner.css'                # single file or remote url
@@ -100,6 +100,8 @@ answered with the region alone.
     ...
 ```
 
+* `el.<header setter>` forwards to `Lux.ctx.header` (list in `Html::HEADER_METHODS`) and
+  always returns `nil`, so `=` prints nothing; read values back from `Lux.ctx.header`.
 * Slots use `=` (Haml captures the block only then); no `!!!` / `%html` in the layout.
 * `<head>`: meta/links, icon links when the [`favicon`](../../../plugins/favicon/README.md)
   plugin is loaded, `<meta name="pjax-layout">`, `boot_script` (Lux cfg,
