@@ -78,6 +78,12 @@ module Lux
         nil
       end
 
+      # any <meta>, same as Lux.ctx.header.meta
+      def meta name, value
+        header.meta name, value
+        nil
+      end
+
       def asset name, opts = {}
         browser.pjax? ? '' : CdnAsset.url(name, opts)
       end

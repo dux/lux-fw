@@ -89,6 +89,7 @@ answered with the region alone.
 ```haml
 = Lux.ctx.render_html do |el|                # lang from Lux.ctx.locale, or lang: 'hr'
   - el.title 'Preview'                    # = Lux.ctx.header.title, overrides the page's
+  - el.meta :referrer, 'no-referrer'      # any <meta>, = Lux.ctx.header.meta
   = el.google_fonts_preconnect            # or el.preconnect 'https://x.com', crossorigin: ''
   = el.assets :app, :admin                # app.css, admin.css, app.js, admin.js; block output goes into <head>
   = el.asset 'planner.css'                # single file or remote url
